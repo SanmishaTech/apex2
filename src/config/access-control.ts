@@ -13,6 +13,30 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/projects/new', permissions: [PERMISSIONS.CREATE_PROJECT] },
   { prefix: '/projects/', permissions: [PERMISSIONS.READ_PROJECT] },           // details/edit pages /projects/:id
   { prefix: '/projects', permissions: [PERMISSIONS.READ_PROJECT] },            // project list
+  // Cities
+  { prefix: '/cities/new', permissions: [PERMISSIONS.EDIT_CITIES] },
+  { prefix: '/cities/', permissions: [PERMISSIONS.EDIT_CITIES] },
+  { prefix: '/cities', permissions: [PERMISSIONS.READ_CITIES] },
+  // States
+  { prefix: '/states/new', permissions: [PERMISSIONS.EDIT_STATES] },
+  { prefix: '/states/', permissions: [PERMISSIONS.EDIT_STATES] },
+  { prefix: '/states', permissions: [PERMISSIONS.READ_STATES] },
+  // Companies
+  { prefix: '/companies/new', permissions: [PERMISSIONS.EDIT_COMPANIES] },
+  { prefix: '/companies/', permissions: [PERMISSIONS.EDIT_COMPANIES] },
+  { prefix: '/companies', permissions: [PERMISSIONS.READ_COMPANIES] },
+  // Sites
+  { prefix: '/sites/new', permissions: [PERMISSIONS.EDIT_SITES] },
+  { prefix: '/sites/', permissions: [PERMISSIONS.EDIT_SITES] },
+  { prefix: '/sites', permissions: [PERMISSIONS.READ_SITES] },
+  // Departments
+  { prefix: '/departments/new', permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
+  { prefix: '/departments/', permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
+  { prefix: '/departments', permissions: [PERMISSIONS.READ_DEPARTMENTS] },
+  // Employees
+  { prefix: '/employees/new', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
+  { prefix: '/employees/', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
+  { prefix: '/employees', permissions: [PERMISSIONS.READ_EMPLOYEES] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -88,6 +112,60 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.WRITE_DESIGN_MAP],
       PATCH: [PERMISSIONS.WRITE_DESIGN_MAP],
       DELETE: [PERMISSIONS.WRITE_DESIGN_MAP],
+    },
+  },
+  {
+    prefix: '/api/cities',
+    methods: {
+      GET: [PERMISSIONS.READ_CITIES],
+      POST: [PERMISSIONS.EDIT_CITIES],
+      PATCH: [PERMISSIONS.EDIT_CITIES],
+      DELETE: [PERMISSIONS.DELETE_CITIES],
+    },
+  },
+  {
+    prefix: '/api/states',
+    methods: {
+      GET: [PERMISSIONS.READ_STATES],
+      POST: [PERMISSIONS.EDIT_STATES],
+      PATCH: [PERMISSIONS.EDIT_STATES],
+      DELETE: [PERMISSIONS.DELETE_STATES],
+    },
+  },
+  {
+    prefix: '/api/companies',
+    methods: {
+      GET: [PERMISSIONS.READ_COMPANIES],
+      POST: [PERMISSIONS.EDIT_COMPANIES],
+      PATCH: [PERMISSIONS.EDIT_COMPANIES],
+      DELETE: [PERMISSIONS.DELETE_COMPANIES],
+    },
+  },
+  {
+    prefix: '/api/sites',
+    methods: {
+      GET: [PERMISSIONS.READ_SITES],
+      POST: [PERMISSIONS.EDIT_SITES],
+      PATCH: [PERMISSIONS.EDIT_SITES],
+      DELETE: [PERMISSIONS.DELETE_SITES],
+    },
+  },
+  {
+    prefix: '/api/departments',
+    methods: {
+      GET: [PERMISSIONS.READ_DEPARTMENTS],
+      POST: [PERMISSIONS.EDIT_DEPARTMENTS],
+      PATCH: [PERMISSIONS.EDIT_DEPARTMENTS],
+      DELETE: [PERMISSIONS.DELETE_DEPARTMENTS],
+    },
+  },
+  {
+    prefix: '/api/employees',
+    methods: {
+      GET: [PERMISSIONS.READ_EMPLOYEES],
+      POST: [PERMISSIONS.EDIT_EMPLOYEES],
+      PATCH: [PERMISSIONS.EDIT_EMPLOYEES],
+      DELETE: [PERMISSIONS.DELETE_EMPLOYEES],
     },
   },
   // add more API rules here

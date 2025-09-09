@@ -12,6 +12,8 @@ export interface TextInputProps {
 	control: unknown; // relaxed typing
 	name: string;
 	label: string;
+	max?: number;
+	maxLength?: number;
 	type?: string;
 	description?: string;
 	placeholder?: string;
@@ -32,6 +34,8 @@ export function TextInput({
 	control,
 	name,
 	label,
+	max,
+	maxLength,
 	type = 'text',
 	description,
 	placeholder,
@@ -78,6 +82,8 @@ export function TextInput({
 								placeholder={placeholder}
 								autoComplete={autoComplete}
 								disabled={disabled}
+								max={max}
+								maxLength={maxLength}
 								className={cn(prefixIcon && 'pl-9', className)}
 								required={required}
 								{...field}

@@ -158,3 +158,182 @@ model DesignMap {
 
   @@index([projectId])
 }
+
+// State master data for location management 
+model State {
+  id        Int      @id @default(autoincrement())
+  state     String   @unique
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  cities    City[]
+  companies Company[]
+  sites     Site[]
+
+  @@map("states")
+}
+
+model City {
+  id        Int      @id @default(autoincrement())
+  city      String   @unique
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  stateId   Int?
+  state     State?   @relation(fields: [stateId], references: [id])
+  companies Company[]
+  sites     Site[]
+
+  @@map("cities")
+  @@index([status])
+}
+
+// Company master data for business management
+model Company {
+  id          Int      @id @default(autoincrement())
+  companyName String
+  shortName   String?
+  
+  // Contact Person Details
+  contactPerson String?
+  contactNo     String?
+  
+  // Address Details
+  addressLine1  String?
+  addressLine2  String?
+  stateId       Int?
+  cityId        Int?
+  pinCode       String?
+  
+  // Logo
+  logoUrl       String?
+  
+  // Status
+  closed        Boolean  @default(false)
+  
+  // Other Details
+  panNo         String?
+  gstNo         String?
+  tanNo         String?
+  cinNo         String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  state         State?   @relation(fields: [stateId], references: [id])
+  city          City?    @relation(fields: [cityId], references: [id])
+  sites         Site[]
+
+  @@map("companies")
+  @@index([companyName])
+  @@index([shortName])
+  @@index([closed])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+// Site master data for location/branch management
+model Site {
+  id             Int      @id @default(autoincrement())
+  uinNo          String?
+  site           String
+  shortName      String?
+  
+  // Company Relation
+  companyId      Int?
+  company        Company? @relation(fields: [companyId], references: [id])
+  
+  // Status Flags
+  closed         Boolean  @default(false)
+  permanentClosed Boolean @default(false)
+  monitor        Boolean  @default(false)
+  
+  // File Upload
+  attachCopyUrl  String?
+  
+  // Contact Person Details
+  contactPerson  String?
+  contactNo      String?
+  
+  // Address Details
+  addressLine1   String?
+  addressLine2   String?
+  stateId        Int?
+  cityId         Int?
+  pinCode        String?
+  longitude      String?
+  latitude       String?
+  
+  // Other Details
+  panNo          String?
+  gstNo          String?
+  tanNo          String?
+  cinNo          String?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  state          State?     @relation(fields: [stateId], references: [id])
+  city           City?      @relation(fields: [cityId], references: [id])
+  employees      Employee[]
+
+  @@map("sites")
+  @@index([site])
+  @@index([shortName])
+  @@index([uinNo])
+  @@index([companyId])
+  @@index([closed])
+  @@index([permanentClosed])
+  @@index([monitor])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+// Department master data (single-field entity)
+model Department {
+  id          Int        @id @default(autoincrement())
+  department  String     @unique
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  employees   Employee[]
+
+  @@map("departments")
+  @@index([department])
+}
+
+// Employee master data for workforce management
+model Employee {
+  id           Int         @id @default(autoincrement())
+  name         String
+  
+  // Department Relation
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  
+  // Site Relation
+  siteId       Int?
+  site         Site?       @relation(fields: [siteId], references: [id])
+  
+  // Employment Details
+  resignDate   DateTime?
+  
+  // Timestamps
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("employees")
+  @@index([name])
+  @@index([departmentId])
+  @@index([siteId])
+  @@index([resignDate])
+}
