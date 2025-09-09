@@ -1,0 +1,75 @@
+// Application navigation tree definition. Items filtered at runtime based on user permissions.
+// Keeps UI structure & required permissions centralized (avoid scattering nav logic).
+import { PERMISSIONS } from '@/config/roles';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase } from 'lucide-react';
+import type { ComponentType } from 'react';
+
+export type NavLeafItem = {
+  type?: 'item';
+  title: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  permission: string; // permission required to view
+};
+
+export type NavGroupItem = {
+  type: 'group';
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  children: NavLeafItem[]; // children filtered by permission dynamically
+};
+
+export type NavItem = NavLeafItem | NavGroupItem;
+
+export const NAV_ITEMS: NavItem[] = [
+  {
+    title: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+    permission: PERMISSIONS.VIEW_DASHBOARD,
+  },
+ 
+  {
+    type: 'group',
+    title: 'Settings',
+    icon: Settings,
+    children: [
+      {
+        title: 'Users',
+        href: '/users',
+        icon: Users,
+        permission: PERMISSIONS.READ_USERS,
+      },
+      {
+        title: 'States',
+        href: '/states',
+        icon: Map,
+        permission: PERMISSIONS.READ_STATES,
+      },
+      {
+        title: 'Cities',
+        href: '/cities',
+        icon: MapPin,
+        permission: PERMISSIONS.READ_CITIES,
+      },
+      {
+        title: 'Companies',
+        href: '/companies',
+        icon: Building2,
+        permission: PERMISSIONS.READ_COMPANIES,
+      },
+      {
+        title: 'Sites',
+        href: '/sites',
+        icon: Warehouse,
+        permission: PERMISSIONS.READ_SITES,
+      },
+      {
+        title: 'Departments',
+        href: '/departments',
+        icon: Briefcase,
+        permission: PERMISSIONS.READ_DEPARTMENTS,
+      },
+    ],
+  },
+];
