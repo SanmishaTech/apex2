@@ -337,3 +337,14 @@ model Employee {
   @@index([siteId])
   @@index([resignDate])
 }
+
+// Category master data
+model Category {
+  id           Int      @id @default(autoincrement())
+  categoryName String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("categories")
+  @@index([categoryName])
+}

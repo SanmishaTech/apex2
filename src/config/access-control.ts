@@ -37,6 +37,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/employees/new', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
   { prefix: '/employees/', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
   { prefix: '/employees', permissions: [PERMISSIONS.READ_EMPLOYEES] },
+  // Categories
+  { prefix: '/categories/new', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
+  { prefix: '/categories/', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
+  { prefix: '/categories', permissions: [PERMISSIONS.READ_CATEGORIES] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -166,6 +170,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_EMPLOYEES],
       PATCH: [PERMISSIONS.EDIT_EMPLOYEES],
       DELETE: [PERMISSIONS.DELETE_EMPLOYEES],
+    },
+  },
+  {
+    prefix: '/api/categories',
+    methods: {
+      GET: [PERMISSIONS.READ_CATEGORIES],
+      POST: [PERMISSIONS.EDIT_CATEGORIES],
+      PATCH: [PERMISSIONS.EDIT_CATEGORIES],
+      DELETE: [PERMISSIONS.DELETE_CATEGORIES],
     },
   },
   // add more API rules here
