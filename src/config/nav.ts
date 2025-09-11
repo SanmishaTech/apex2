@@ -70,6 +70,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Briefcase,
         permission: PERMISSIONS.READ_DEPARTMENTS,
       },
+      {
+        title: 'Skill Sets',
+        href: '/skill-sets',
+        icon: Folder,
+        permission: PERMISSIONS.READ_SKILLSETS,
+      },
     ],
   },
 ];

@@ -41,6 +41,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/categories/new', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
   { prefix: '/categories/', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
   { prefix: '/categories', permissions: [PERMISSIONS.READ_CATEGORIES] },
+  // Skill Sets
+  { prefix: '/skill-sets/new', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
+  { prefix: '/skill-sets/', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
+  { prefix: '/skill-sets', permissions: [PERMISSIONS.READ_SKILLSETS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -179,6 +183,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_CATEGORIES],
       PATCH: [PERMISSIONS.EDIT_CATEGORIES],
       DELETE: [PERMISSIONS.DELETE_CATEGORIES],
+    },
+  },
+  {
+    prefix: '/api/skill-sets',
+    methods: {
+      GET: [PERMISSIONS.READ_SKILLSETS],
+      POST: [PERMISSIONS.EDIT_SKILLSETS],
+      PATCH: [PERMISSIONS.EDIT_SKILLSETS],
+      DELETE: [PERMISSIONS.DELETE_SKILLSETS],
     },
   },
   // add more API rules here

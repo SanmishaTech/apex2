@@ -287,6 +287,8 @@ model Site {
   state          State?     @relation(fields: [stateId], references: [id])
   city           City?      @relation(fields: [cityId], references: [id])
   employees      Employee[]
+  // Back-relation for Employee.reportingSite
+  reportingEmployees Employee[] @relation("ReportingSite")
 
   @@map("sites")
   @@index([site])
@@ -409,4 +411,15 @@ model Category {
 
   @@map("categories")
   @@index([categoryName])
+}
+
+// Skill Set master data
+model SkillSet {
+  id           Int      @id @default(autoincrement())
+  skillsetName String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("skill_sets")
+  @@index([skillsetName])
 }
