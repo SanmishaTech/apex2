@@ -45,6 +45,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/skill-sets/new', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
   { prefix: '/skill-sets/', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
   { prefix: '/skill-sets', permissions: [PERMISSIONS.READ_SKILLSETS] },
+  // Units
+  { prefix: '/units/new', permissions: [PERMISSIONS.EDIT_UNITS] },
+  { prefix: '/units/', permissions: [PERMISSIONS.EDIT_UNITS] },
+  { prefix: '/units', permissions: [PERMISSIONS.READ_UNITS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -192,6 +196,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_SKILLSETS],
       PATCH: [PERMISSIONS.EDIT_SKILLSETS],
       DELETE: [PERMISSIONS.DELETE_SKILLSETS],
+    },
+  },
+  {
+    prefix: '/api/units',
+    methods: {
+      GET: [PERMISSIONS.READ_UNITS],
+      POST: [PERMISSIONS.EDIT_UNITS],
+      PATCH: [PERMISSIONS.EDIT_UNITS],
+      DELETE: [PERMISSIONS.DELETE_UNITS],
     },
   },
   // add more API rules here

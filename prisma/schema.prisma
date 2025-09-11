@@ -423,3 +423,14 @@ model SkillSet {
   @@map("skill_sets")
   @@index([skillsetName])
 }
+
+// Unit master data
+model Unit {
+  id        Int      @id @default(autoincrement())
+  unitName  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("units")
+  @@index([unitName])
+}

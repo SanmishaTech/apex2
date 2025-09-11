@@ -59,6 +59,10 @@ export const PERMISSIONS = {
 	READ_SKILLSETS: 'READ:SKILLSETS',
 	EDIT_SKILLSETS: 'EDIT:SKILLSETS',
 	DELETE_SKILLSETS: 'DELETE:SKILLSETS',
+	// Unit permissions
+	READ_UNITS: 'READ:UNITS',
+	EDIT_UNITS: 'EDIT:UNITS',
+	DELETE_UNITS: 'DELETE:UNITS',
 } as const;
 
 export const ROLES = {
@@ -86,6 +90,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_EMPLOYEES,
 		PERMISSIONS.READ_CATEGORIES,
 		PERMISSIONS.READ_SKILLSETS,
+		PERMISSIONS.READ_UNITS,
 	],
 	// Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
 	[ROLES.PROJECT_USER]: [
@@ -102,6 +107,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_EMPLOYEES,
 		PERMISSIONS.READ_CATEGORIES,
 		PERMISSIONS.READ_SKILLSETS,
+		PERMISSIONS.READ_UNITS,
 	],
 } as const;
 

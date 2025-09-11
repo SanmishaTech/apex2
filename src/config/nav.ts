@@ -31,6 +31,40 @@ export const NAV_ITEMS: NavItem[] = [
  
   {
     type: 'group',
+    title: 'H.R',
+    icon: UserCheck,
+    children: [
+      {
+        title: 'Categories',
+        href: '/categories',
+        icon: Folder,
+        permission: PERMISSIONS.READ_CATEGORIES,
+      },
+      {
+        title: 'Skill Sets',
+        href: '/skill-sets',
+        icon: Folder,
+        permission: PERMISSIONS.READ_SKILLSETS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
+    title: 'Purchased',
+    icon: Briefcase,
+    children: [
+      {
+        title: 'Units',
+        href: '/units',
+        icon: Folder,
+        permission: PERMISSIONS.READ_UNITS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
     title: 'Settings',
     icon: Settings,
     children: [
@@ -69,12 +103,6 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/departments',
         icon: Briefcase,
         permission: PERMISSIONS.READ_DEPARTMENTS,
-      },
-      {
-        title: 'Skill Sets',
-        href: '/skill-sets',
-        icon: Folder,
-        permission: PERMISSIONS.READ_SKILLSETS,
       },
     ],
   },
