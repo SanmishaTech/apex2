@@ -8,6 +8,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { validatePAN, validateTAN, validateCIN, validateGST } from "@/lib/tax-validation";
+import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -209,9 +210,17 @@ export async function POST(req: NextRequest) {
       ...companyData,
       logoUrl,
     });
-    
-    const created = await prisma.companies.create({
-      data: validatedData,
+
+    // Map foreign key ids to relation connects to satisfy Prisma typed input
+    const { stateId, cityId, ...rest } = validatedData as any;
+    const createData: Prisma.CompanyCreateInput = {
+      ...rest,
+      ...(stateId ? { state: { connect: { id: stateId as number } } } : {}),
+      ...(cityId ? { city: { connect: { id: cityId as number } } } : {}),
+    };
+
+    const created = await prisma.company.create({
+      data: createData,
       select: { 
         id: true, 
         companyName: true, 

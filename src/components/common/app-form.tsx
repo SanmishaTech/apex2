@@ -19,12 +19,19 @@ export const FormSection = React.forwardRef<HTMLElement, FormSectionProps>(funct
   return (
     <Comp ref={ref as unknown as React.RefObject<HTMLElement>} className={cn('space-y-4', className)} {...rest}>
       {(legend || description) && (
-        <div className={cn('space-y-1', inlineLegend && 'flex items-center gap-2 space-y-0')}>        
-          {legend && <div className='text-sm font-medium'>{legend}</div>}
+        <div className={cn('space-y-2')}>
+          {legend && (
+            <div className='flex items-center gap-3'>
+              <div className='text-base font-semibold shrink-0 px-0'>{legend}</div>
+              <div className='h-px bg-border flex-1' />
+            </div>
+          )}
           {description && <div className='text-xs text-muted-foreground'>{description}</div>}
         </div>
       )}
-      {children}
+      <div className={cn('space-y-4', (legend || description) && 'pt-6')}>
+        {children}
+      </div>
     </Comp>
   );
 });

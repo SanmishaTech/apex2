@@ -289,6 +289,8 @@ model Site {
   employees      Employee[]
   // Back-relation for Employee.reportingSite
   reportingEmployees Employee[] @relation("ReportingSite")
+  // Back-relation for Boq.site
+  boqs           Boq[]
 
   @@map("sites")
   @@index([site])
@@ -430,7 +432,69 @@ model Unit {
   unitName  String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Back-relation for BoqItem.unit
+  boqItems  BoqItem[]
 
   @@map("units")
   @@index([unitName])
+}
+
+// Bill of Quantity (BOQ)
+model Boq {
+  id                              Int       @id @default(autoincrement())
+  boqNo                           String?   @unique // auto-generated like BOQ-00001
+  siteId                          Int?
+  site                            Site?     @relation(fields: [siteId], references: [id])
+  workName                        String?
+  workOrderNo                     String?
+  workOrderDate                   DateTime?
+  startDate                       DateTime?
+  endDate                         DateTime?
+  totalWorkValue                  Decimal?  @db.Decimal(12, 2)
+  gstRate                         Decimal?  @db.Decimal(5, 2)
+  agreementNo                     String?
+  agreementStatus                 String?
+  completionPeriod                String?
+  completionDate                  DateTime?
+  dateOfExpiry                    DateTime?
+  commencementDate                DateTime?
+  timeExtensionDate               DateTime?
+  defectLiabilityPeriod           String?
+  performanceSecurityMode         String?
+  performanceSecurityDocumentNo   String?
+  performanceSecurityPeriod       String?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  // Relations
+  items                           BoqItem[]
+
+  @@map("boqs")
+  @@index([siteId])
+  @@index([boqNo])
+}
+
+// BOQ line items
+model BoqItem {
+  id               Int      @id @default(autoincrement())
+  boqId            Int
+  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  activityId       String?
+  clientSrNo       String?
+  item             String?  // long description
+  unitId           Int?
+  unit             Unit?    @relation(fields: [unitId], references: [id])
+  qty              Decimal? @db.Decimal(12, 2)
+  rate             Decimal? @db.Decimal(12, 2)
+  amount           Decimal? @db.Decimal(14, 2)
+  openingQty       Decimal? @db.Decimal(12, 2)
+  openingValue     Decimal? @db.Decimal(12, 2)
+  closingQty       Decimal? @db.Decimal(12, 2)
+  closingValue     Decimal? @db.Decimal(12, 2)
+  isGroup          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("boq_items")
+  @@index([boqId])
+  @@index([unitId])
 }

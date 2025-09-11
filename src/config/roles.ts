@@ -63,6 +63,10 @@ export const PERMISSIONS = {
 	READ_UNITS: 'READ:UNITS',
 	EDIT_UNITS: 'EDIT:UNITS',
 	DELETE_UNITS: 'DELETE:UNITS',
+	// BOQ permissions
+	READ_BOQS: 'READ:BOQS',
+	EDIT_BOQS: 'EDIT:BOQS',
+	DELETE_BOQS: 'DELETE:BOQS',
 } as const;
 
 export const ROLES = {
@@ -91,6 +95,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_CATEGORIES,
 		PERMISSIONS.READ_SKILLSETS,
 		PERMISSIONS.READ_UNITS,
+		PERMISSIONS.READ_BOQS,
 	],
 	// Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
 	[ROLES.PROJECT_USER]: [
@@ -108,6 +113,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_CATEGORIES,
 		PERMISSIONS.READ_SKILLSETS,
 		PERMISSIONS.READ_UNITS,
+		PERMISSIONS.READ_BOQS,
 	],
 } as const;
 
