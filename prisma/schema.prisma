@@ -25,6 +25,7 @@ model User {
   refreshTokens           RefreshToken[]
   projectUsers            ProjectUser[]
   projectFilesUploaded    ProjectFile[]  @relation("UserProjectFiles")
+  employee                Employee?
 
   @@index([role])
 }
@@ -171,6 +172,7 @@ model State {
   cities    City[]
   companies Company[]
   sites     Site[]
+  employees Employee[]
 
   @@map("states")
 }
@@ -187,6 +189,7 @@ model City {
   state     State?   @relation(fields: [stateId], references: [id])
   companies Company[]
   sites     Site[]
+  employees Employee[]
 
   @@map("cities")
   @@index([status])
@@ -316,6 +319,10 @@ model Employee {
   id           Int         @id @default(autoincrement())
   name         String
   
+  // User Relation (each employee is linked to a user account)
+  userId       Int?        @unique
+  user         User?       @relation(fields: [userId], references: [id])
+  
   // Department Relation
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -323,9 +330,58 @@ model Employee {
   // Site Relation
   siteId       Int?
   site         Site?       @relation(fields: [siteId], references: [id])
+  // Reporting Site
+  reportingSiteId            Int?
+  reportingSite              Site?      @relation("ReportingSite", fields: [reportingSiteId], references: [id])
+  reportingSiteAssignedDate  DateTime?
   
   // Employment Details
   resignDate   DateTime?
+  
+  // Personal Details
+  dateOfBirth     DateTime?
+  anniversaryDate DateTime?
+  spouseName      String?
+  bloodGroup      String?
+  
+  // Address Details
+  addressLine1 String?
+  addressLine2 String?
+  stateId      Int?
+  state        State?      @relation(fields: [stateId], references: [id])
+  cityId       Int?
+  city         City?       @relation(fields: [cityId], references: [id])
+  pincode      String?
+  
+  // Contact Details
+  mobile1      String?
+  mobile2      String?
+  
+  // Other Details
+  esic         String?
+  pf           String?
+  panNo        String?
+  adharNo      String?
+  cinNo        String?
+  
+  // Travel/Reporting Details
+  airTravelClass      String?
+  railwayTravelClass  String?
+  busTravelClass      String?
+  reporting1Id        Int?
+  reporting2Id        Int?
+  reporting1          Employee?   @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
+  reporting2          Employee?   @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
+  subordinates1       Employee[]  @relation("EmployeeReporting1")
+  subordinates2       Employee[]  @relation("EmployeeReporting2")
+  
+  // Leave Details
+  sickLeavesPerYear    Int?
+  paidLeavesPerYear    Int?
+  casualLeavesPerYear  Int?
+  balanceSickLeaves    Int?
+  balancePaidLeaves    Int?
+  balanceCasualLeaves  Int?
   
   // Timestamps
   createdAt    DateTime    @default(now())
@@ -336,4 +392,10 @@ model Employee {
   @@index([departmentId])
   @@index([siteId])
   @@index([resignDate])
+  @@index([stateId])
+  @@index([cityId])
+  @@index([dateOfBirth])
+  @@index([reporting1Id])
+  @@index([reporting2Id])
+  @@index([reportingSiteId])
 }

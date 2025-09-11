@@ -87,6 +87,7 @@ export function TextInput({
 								className={cn(prefixIcon && 'pl-9', className)}
 								required={required}
 								{...field}
+								value={field.value ?? ''}
 							/>
 						</FormControl>
 					</div>

@@ -12,6 +12,50 @@ const updateSchema = z.object({
     if (!val) return undefined;
     return new Date(val);
   }),
+  // Personal Details
+  dateOfBirth: z.string().optional().transform((val) => {
+    if (!val) return undefined;
+    return new Date(val);
+  }),
+  anniversaryDate: z.string().optional().transform((val) => {
+    if (!val) return undefined;
+    return new Date(val);
+  }),
+  spouseName: z.string().optional(),
+  bloodGroup: z.string().optional(),
+  // Address Details
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  stateId: z.number().optional(),
+  cityId: z.number().optional(),
+  pincode: z.string().optional(),
+  // Contact Details
+  mobile1: z.string().optional(),
+  mobile2: z.string().optional(),
+  // Other Details
+  esic: z.string().optional(),
+  pf: z.string().optional(),
+  panNo: z.string().optional(),
+  adharNo: z.string().optional(),
+  cinNo: z.string().optional(),
+  // Travel/Reporting Details
+  airTravelClass: z.string().optional(),
+  railwayTravelClass: z.string().optional(),
+  busTravelClass: z.string().optional(),
+  reporting1Id: z.number().optional(),
+  reporting2Id: z.number().optional(),
+  reportingSiteId: z.number().optional(),
+  reportingSiteAssignedDate: z.string().optional().transform((val) => {
+    if (!val) return undefined;
+    return new Date(val);
+  }),
+  // Leave Details
+  sickLeavesPerYear: z.number().optional(),
+  paidLeavesPerYear: z.number().optional(),
+  casualLeavesPerYear: z.number().optional(),
+  balanceSickLeaves: z.number().optional(),
+  balancePaidLeaves: z.number().optional(),
+  balanceCasualLeaves: z.number().optional(),
 });
 
 // GET /api/employees/[id] - Get single employee
@@ -31,8 +75,39 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         departmentId: true,
         siteId: true,
         resignDate: true,
+        dateOfBirth: true,
+        anniversaryDate: true,
+        spouseName: true,
+        bloodGroup: true,
+        addressLine1: true,
+        addressLine2: true,
+        stateId: true,
+        cityId: true,
+        pincode: true,
+        mobile1: true,
+        mobile2: true,
+        esic: true,
+        pf: true,
+        panNo: true,
+        adharNo: true,
+        cinNo: true,
         createdAt: true,
         updatedAt: true,
+        // Travel/Reporting Details
+        airTravelClass: true,
+        railwayTravelClass: true,
+        busTravelClass: true,
+        reporting1Id: true,
+        reporting2Id: true,
+        reportingSiteId: true,
+        reportingSiteAssignedDate: true,
+        // Leave Details
+        sickLeavesPerYear: true,
+        paidLeavesPerYear: true,
+        casualLeavesPerYear: true,
+        balanceSickLeaves: true,
+        balancePaidLeaves: true,
+        balanceCasualLeaves: true,
         department: {
           select: {
             id: true,
@@ -43,6 +118,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           select: {
             id: true,
             site: true,
+          },
+        },
+        state: {
+          select: {
+            id: true,
+            state: true,
+          },
+        },
+        city: {
+          select: {
+            id: true,
+            city: true,
           },
         },
       },
@@ -75,7 +162,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // Handle null values for optional foreign keys
     const processedData: any = {};
     for (const [key, value] of Object.entries(updateData)) {
-      if (key === 'departmentId' || key === 'siteId') {
+      if (key === 'departmentId' || key === 'siteId' || key === 'stateId' || key === 'cityId' || key === 'reporting1Id' || key === 'reporting2Id' || key === 'reportingSiteId') {
         processedData[key] = value || null;
       } else {
         processedData[key] = value;
