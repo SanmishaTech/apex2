@@ -20,13 +20,33 @@ type AppButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & VariantPro
   hideIconWhenLoading?: boolean;
   /** Classes applied to rendered icon */
   iconClassName?: string;
+  /** When true, delegate rendering to a single child element (e.g., Next.js Link) using Radix Slot. */
+  asChild?: boolean;
 };
 
 const AppButton = React.forwardRef<HTMLButtonElement, AppButtonProps>(
-  ({ className, variant, size, children, isLoading, icon, iconName, iconPosition = 'left', hideIconWhenLoading = true, iconClassName = 'h-4 w-4', ...props }, ref) => {
-  const iconMap = Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
-  const ResolvedIcon = iconName ? iconMap[iconName] : null;
+  ({ className, variant, size, children, isLoading, icon, iconName, iconPosition = 'left', hideIconWhenLoading = true, iconClassName = 'h-4 w-4', asChild, ...props }, ref) => {
+    const iconMap = Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
+    const ResolvedIcon = iconName ? iconMap[iconName] : null;
     const finalIcon = ResolvedIcon ? <ResolvedIcon className={iconClassName} /> : icon;
+
+    // If asChild is true, Radix Slot requires a single React element as child.
+    // We therefore avoid injecting icons/spinners and just forward the child element.
+    if (asChild) {
+      return (
+        <Button
+          asChild
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          disabled={isLoading}
+          {...props}
+        >
+          {children as React.ReactElement}
+        </Button>
+      );
+    }
+
+    // Default rendering with optional icons/spinner
     return (
       <Button
         className={cn(buttonVariants({ variant, size, className }))}

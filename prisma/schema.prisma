@@ -498,3 +498,17 @@ model BoqItem {
   @@index([boqId])
   @@index([unitId])
 }
+
+// Notice announcements with optional document upload
+model Notice {
+  id                Int      @id @default(autoincrement())
+  noticeHead        String
+  noticeHeading     String
+  noticeDescription String?
+  documentUrl       String?   // path under /uploads/notices
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("notices")
+  @@index([createdAt])
+}

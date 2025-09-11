@@ -53,6 +53,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/boqs/new', permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: '/boqs/', permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: '/boqs', permissions: [PERMISSIONS.READ_BOQS] },
+  // Notices
+  { prefix: '/notices/new', permissions: [PERMISSIONS.EDIT_BOQS] },
+  { prefix: '/notices/', permissions: [PERMISSIONS.EDIT_BOQS] },
+  { prefix: '/notices', permissions: [PERMISSIONS.READ_BOQS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -213,6 +217,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   },
   {
     prefix: '/api/boqs',
+    methods: {
+      GET: [PERMISSIONS.READ_BOQS],
+      POST: [PERMISSIONS.EDIT_BOQS],
+      PATCH: [PERMISSIONS.EDIT_BOQS],
+      DELETE: [PERMISSIONS.DELETE_BOQS],
+    },
+  },
+  {
+    prefix: '/api/notices',
     methods: {
       GET: [PERMISSIONS.READ_BOQS],
       POST: [PERMISSIONS.EDIT_BOQS],
