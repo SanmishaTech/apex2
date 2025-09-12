@@ -58,6 +58,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_SKILLSETS,
       },
+      {
+        title: 'Minimum Wages',
+        href: '/minimum-wages',
+        icon: Folder,
+        permission: PERMISSIONS.READ_MIN_WAGES,
+      },
     ],
   },
 

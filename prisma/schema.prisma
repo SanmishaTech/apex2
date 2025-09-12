@@ -292,6 +292,9 @@ model Site {
   // Back-relation for Boq.site
   boqs           Boq[]
 
+  // Back-relation for MinimumWage.site
+  minimumWages   MinimumWage[]
+
   @@map("sites")
   @@index([site])
   @@index([shortName])
@@ -411,6 +414,9 @@ model Category {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Back-relation for MinimumWage.category
+  minimumWages MinimumWage[]
+
   @@map("categories")
   @@index([categoryName])
 }
@@ -421,6 +427,9 @@ model SkillSet {
   skillsetName String   @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Back-relation for MinimumWage.skillSet
+  minimumWages MinimumWage[]
 
   @@map("skill_sets")
   @@index([skillsetName])
@@ -594,4 +603,25 @@ model Manpower {
   @@map("manpower")
   @@index([supplierId])
   @@index([firstName, lastName])
+}
+
+// Minimum wage mapping per Site + Category + SkillSet
+model MinimumWage {
+  id          Int      @id @default(autoincrement())
+  siteId      Int
+  categoryId  Int
+  skillSetId  Int
+  minWage     Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  site        Site     @relation(fields: [siteId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  skillSet    SkillSet @relation(fields: [skillSetId], references: [id])
+
+  @@unique([siteId, categoryId, skillSetId])
+  @@map("minimum_wages")
+  @@index([siteId])
+  @@index([categoryId])
+  @@index([skillSetId])
 }
