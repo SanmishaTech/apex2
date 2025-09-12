@@ -1,0 +1,151 @@
+'use client';
+
+import useSWR from 'swr';
+import Link from 'next/link';
+import { useMemo, useState, useEffect } from 'react';
+import { apiGet, apiDelete } from '@/lib/api-client';
+import { toast } from '@/lib/toast';
+import { AppCard } from '@/components/common/app-card';
+import { AppButton } from '@/components/common/app-button';
+import { FilterBar } from '@/components/common';
+import { NonFormTextInput } from '@/components/common/non-form-text-input';
+import { DataTable, Column, SortState } from '@/components/common/data-table';
+import { DeleteButton } from '@/components/common/delete-button';
+import { EditButton } from '@/components/common/icon-button';
+import { Pagination } from '@/components/common/pagination';
+import { usePermissions } from '@/hooks/use-permissions';
+import { PERMISSIONS } from '@/config/roles';
+import { useQueryParamsState } from '@/hooks/use-query-params-state';
+
+export type ManpowerListItem = {
+  id: number;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  supplierId: number;
+  manpowerSupplier: { id: number; supplierName: string } | null;
+  mobileNumber: string | null;
+  wage: string | null; // Prisma Decimal serialized
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ManpowerResponse = {
+  data: ManpowerListItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export default function ManpowerPage() {
+  const [qp, setQp] = useQueryParamsState({ page: 1, perPage: 10, search: '', sort: 'firstName', order: 'asc' });
+  const { page, perPage, search, sort, order } = qp as unknown as { page: number; perPage: number; search: string; sort: string; order: 'asc' | 'desc' };
+
+  const [searchDraft, setSearchDraft] = useState(search);
+  useEffect(() => { setSearchDraft(search); }, [search]);
+  const filtersDirty = searchDraft !== search;
+
+  const query = useMemo(() => {
+    const sp = new URLSearchParams();
+    sp.set('page', String(page));
+    sp.set('perPage', String(perPage));
+    if (search) sp.set('search', search);
+    if (sort) sp.set('sort', sort);
+    if (order) sp.set('order', order);
+    return `/api/manpower?${sp.toString()}`;
+  }, [page, perPage, search, sort, order]);
+
+  const { data, error, isLoading, mutate } = useSWR<ManpowerResponse>(query, apiGet);
+  const { can } = usePermissions();
+
+  if (error) toast.error((error as Error).message || 'Failed to load manpower');
+
+  function applyFilters() { setQp({ page: 1, search: searchDraft.trim() }); }
+  function resetFilters() { setSearchDraft(''); setQp({ page: 1, search: '' }); }
+  function toggleSort(field: string) { setQp(sort === field ? { order: order === 'asc' ? 'desc' : 'asc' } : { sort: field, order: 'asc' }); }
+
+  const columns: Column<ManpowerListItem>[] = [
+    {
+      key: 'firstName', header: 'Name', sortable: true, accessor: (r) => `${r.firstName}${r.middleName ? ' ' + r.middleName : ''} ${r.lastName}`,
+      className: 'whitespace-nowrap', cellClassName: 'font-medium whitespace-nowrap',
+    },
+    { key: 'manpowerSupplier', header: 'Supplier', sortable: false, accessor: (r) => r.manpowerSupplier?.supplierName || '-', className: 'whitespace-nowrap' },
+    { key: 'mobileNumber', header: 'Mobile', sortable: false, className: 'whitespace-nowrap' },
+    { key: 'wage', header: 'Wage', sortable: true, className: 'text-right whitespace-nowrap', cellClassName: 'text-right tabular-nums whitespace-nowrap' },
+    { key: 'createdAt', header: 'Created', sortable: true, className: 'whitespace-nowrap' },
+  ];
+
+  const sortState: SortState = { field: sort, order };
+
+  async function handleDelete(id: number) {
+    try {
+      await apiDelete(`/api/manpower/${id}`);
+      toast.success('Deleted');
+      await mutate();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  return (
+    <AppCard>
+      <AppCard.Header>
+        <AppCard.Title>Manpower</AppCard.Title>
+        <AppCard.Description>Manage manpower workers.</AppCard.Description>
+        {can(PERMISSIONS.EDIT_MANPOWER) && (
+          <AppCard.Action>
+            <Link href='/manpower/new'>
+              <AppButton size='sm' iconName='Plus' type='button'>Add</AppButton>
+            </Link>
+          </AppCard.Action>
+        )}
+      </AppCard.Header>
+      <AppCard.Content>
+        <FilterBar title='Search'>
+          <NonFormTextInput aria-label='Search' placeholder='Search by name, mobile, supplier...' value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} containerClassName='w-full' />
+          <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !searchDraft} className='min-w-[84px]'>Filter</AppButton>
+          {search && (
+            <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-[84px]'>Reset</AppButton>
+          )}
+        </FilterBar>
+        <DataTable
+          columns={columns}
+          data={data?.data || []}
+          loading={isLoading}
+          sort={sortState}
+          onSortChange={(s) => toggleSort(s.field)}
+          stickyColumns={1}
+          renderRowActions={(row) => {
+            if (!can(PERMISSIONS.EDIT_MANPOWER) && !can(PERMISSIONS.DELETE_MANPOWER)) return null;
+            return (
+              <div className='flex'>
+                {can(PERMISSIONS.EDIT_MANPOWER) && (
+                  <Link href={`/manpower/${row.id}/edit`}>
+                    <EditButton tooltip='Edit' aria-label='Edit' />
+                  </Link>
+                )}
+                {can(PERMISSIONS.DELETE_MANPOWER) && (
+                  <DeleteButton onDelete={() => handleDelete(row.id)} itemLabel='manpower' title='Delete manpower?' description={`This will permanently remove ${row.firstName} ${row.lastName}.`} />
+                )}
+              </div>
+            );
+          }}
+        />
+      </AppCard.Content>
+      <AppCard.Footer className='justify-end'>
+        <Pagination
+          page={data?.page || page}
+          totalPages={data?.totalPages || 1}
+          total={data?.total}
+          perPage={perPage}
+          onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
+          onPageChange={(p) => setQp({ page: p })}
+          showPageNumbers
+          maxButtons={5}
+          disabled={isLoading}
+        />
+      </AppCard.Footer>
+    </AppCard>
+  );
+}

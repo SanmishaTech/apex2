@@ -37,6 +37,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/employees/new', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
   { prefix: '/employees/', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
   { prefix: '/employees', permissions: [PERMISSIONS.READ_EMPLOYEES] },
+  // Manpower (workers)
+  { prefix: '/manpower/new', permissions: [PERMISSIONS.EDIT_MANPOWER] },
+  { prefix: '/manpower/', permissions: [PERMISSIONS.EDIT_MANPOWER] },
+  { prefix: '/manpower', permissions: [PERMISSIONS.READ_MANPOWER] },
   // Manpower Suppliers
   { prefix: '/manpower-suppliers/new', permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS] },
   { prefix: '/manpower-suppliers/', permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS] },
@@ -190,6 +194,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_EMPLOYEES],
       PATCH: [PERMISSIONS.EDIT_EMPLOYEES],
       DELETE: [PERMISSIONS.DELETE_EMPLOYEES],
+    },
+  },
+  {
+    prefix: '/api/manpower',
+    methods: {
+      GET: [PERMISSIONS.READ_MANPOWER],
+      POST: [PERMISSIONS.EDIT_MANPOWER],
+      PATCH: [PERMISSIONS.EDIT_MANPOWER],
+      DELETE: [PERMISSIONS.DELETE_MANPOWER],
     },
   },
   {

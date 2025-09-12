@@ -542,7 +542,56 @@ model ManpowerSupplier {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  // Back-relation: all manpower workers for this supplier
+  manpower             Manpower[]
+
   @@map("manpower_suppliers")
   @@index([supplierName])
   @@index([city])
+}
+
+// Manpower (individual worker) linked to a ManpowerSupplier
+model Manpower {
+  id                      Int       @id @default(autoincrement())
+  firstName               String
+  middleName              String?
+  lastName                String
+  supplierId              Int
+  manpowerSupplier        ManpowerSupplier @relation(fields: [supplierId], references: [id])
+  dateOfBirth             DateTime?
+
+  // Contact details
+  address                 String?   @db.Text
+  location                String?
+  mobileNumber            String?
+  wage                    Decimal?  @db.Decimal(12, 2)
+
+  // Bank details
+  bank                    String?
+  branch                  String?
+  accountNumber           String?
+  ifscCode                String?
+  pfNo                    String?
+  esicNo                  String?
+  unaNo                   String?
+
+  // Other details with document URLs stored in /uploads/manpower
+  panNumber               String?
+  panDocumentUrl          String?
+  aadharNo                String?
+  aadharDocumentUrl       String?
+  voterIdNo               String?
+  voterIdDocumentUrl      String?
+  drivingLicenceNo        String?
+  drivingLicenceDocumentUrl String?
+  bankDetailsDocumentUrl  String?
+  bankDetails             String?
+  watch                   Boolean   @default(false)
+
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@map("manpower")
+  @@index([supplierId])
+  @@index([firstName, lastName])
 }

@@ -42,5 +42,8 @@ next-env.d.ts
 
 # uploaded project assets
 /public/projects
-/public/updloads
+# Ignore all contents under public/uploads recursively, but keep .gitkeep files
+/public/uploads/**
+!/public/uploads/.gitkeep
+!/public/uploads/**/.gitkeep
 /uploads

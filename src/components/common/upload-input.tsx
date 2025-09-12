@@ -17,16 +17,28 @@ export interface UploadInputProps {
   onFileChange?: (file: File | null) => void;
   /** If true, show a tiny remove button when a file is selected */
   allowClear?: boolean;
+  /** If true, show image preview when selected file is an image/*
+   *  Also shows an existing URL label when provided (like Notice module)
+   */
+  showPreview?: boolean;
+  /** Previously uploaded file URL to show when no new file is selected */
+  existingUrl?: string | null;
+  /** Optional preview size (defaults to 200x120 like Notice)
+   *  Only applies when showPreview is true and selected file is image/*
+   */
+  previewWidth?: number;
+  previewHeight?: number;
 }
 
 /**
  * UploadInput - a controlled file picker integrated with RHF similar to TextInput styling.
  * Stores the selected File object in form state (single file). Provides basic size validation and file name display.
  */
-export function UploadInput({ control, name, label, description, accept, disabled, required, className, itemClassName, maxSizeBytes, onFileChange, allowClear = true }: UploadInputProps) {
+export function UploadInput({ control, name, label, description, accept, disabled, required, className, itemClassName, maxSizeBytes, onFileChange, allowClear = true, showPreview = false, existingUrl = null, previewWidth = 200, previewHeight = 120 }: UploadInputProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   function pickFile() {
     if (disabled) return;
@@ -38,6 +50,10 @@ export function UploadInput({ control, name, label, description, accept, disable
     if (inputRef.current) inputRef.current.value = '';
     setFileName('');
     setError(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     onChange(null);
     onFileChange?.(null);
   }
@@ -56,7 +72,7 @@ export function UploadInput({ control, name, label, description, accept, disable
       // @ts-expect-error relaxed typing like TextInput
       control={control}
       name={name}
-  render={({ field: { onChange } }) => (
+      render={({ field: { onChange } }) => (
         <FormItem className={itemClassName}>
           <FormLabel>
             {label}{required ? <span className='ml-0.5 text-destructive'>*</span> : null}
@@ -82,6 +98,16 @@ export function UploadInput({ control, name, label, description, accept, disable
                 setFileName(f.name);
                 onChange(f);
                 onFileChange?.(f);
+                if (showPreview) {
+                  // Only preview images
+                  if (f.type && f.type.startsWith('image/')) {
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(URL.createObjectURL(f));
+                  } else {
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                  }
+                }
               }}
             />
             <AppButton type='button' size='sm' onClick={pickFile} disabled={disabled}>{fileName ? 'Change' : 'Choose File'}</AppButton>
@@ -91,6 +117,25 @@ export function UploadInput({ control, name, label, description, accept, disable
             )}
           </div>
           {description ? <p className='text-xs text-muted-foreground mt-1'>{description}</p> : null}
+          {showPreview ? (
+            <div className='mt-2'>
+              {previewUrl ? (
+                // New selection preview
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt='Preview' width={previewWidth} height={previewHeight} className='rounded border inline-block' />
+              ) : existingUrl ? (
+                // Existing file preview/link
+                /\.(png|jpe?g|webp|gif|svg)$/i.test(existingUrl) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={existingUrl} alt='Existing' width={previewWidth} height={previewHeight} className='rounded border inline-block' />
+                ) : (
+                  <a href={existingUrl} target='_blank' rel='noreferrer' className='text-xs text-muted-foreground underline'>
+                    View existing file
+                  </a>
+                )
+              ) : null}
+            </div>
+          ) : null}
           {error ? <p className='text-xs text-destructive mt-1'>{error}</p> : null}
           <FormMessage />
         </FormItem>

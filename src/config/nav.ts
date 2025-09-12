@@ -41,6 +41,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
       },
       {
+        title: 'Manpower',
+        href: '/manpower',
+        icon: Folder,
+        permission: PERMISSIONS.READ_MANPOWER,
+      },
+      {
         title: 'Categories',
         href: '/categories',
         icon: Folder,
