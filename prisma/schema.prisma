@@ -512,3 +512,37 @@ model Notice {
   @@map("notices")
   @@index([createdAt])
 }
+
+// Manpower Supplier master data
+model ManpowerSupplier {
+  id                  Int      @id @default(autoincrement())
+  vendorCode          String?
+  supplierName        String   // "Manpower Supplier"
+  contactPerson       String?
+  representativeName  String?
+  localContactNo      String?
+  permanentContactNo  String?
+  address             String?  @db.Text
+  state               String?
+  permanentAddress    String?  @db.Text
+  city                String?
+  pincode             String?
+  bankName            String?
+  accountNo           String?
+  ifscNo              String?
+  rtgsNo              String?
+  panNo               String?
+  adharNo             String?
+  pfNo                String?
+  esicNo              String?
+  gstNo               String?
+  numberOfWorkers     Int?
+  typeOfWork          String?  @db.Text
+  workDone            String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("manpower_suppliers")
+  @@index([supplierName])
+  @@index([city])
+}

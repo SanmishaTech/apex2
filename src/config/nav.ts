@@ -35,6 +35,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: UserCheck,
     children: [
       {
+        title: 'Manpower Suppliers',
+        href: '/manpower-suppliers',
+        icon: Folder,
+        permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
+      },
+      {
         title: 'Categories',
         href: '/categories',
         icon: Folder,
