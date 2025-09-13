@@ -1,0 +1,112 @@
+node_modules
+
+## Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+## Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+## Next.js
+.next/
+out/
+.vercel/
+
+## TypeScript
+*.tsbuildinfo
+
+## Coverage
+coverage/
+.nyc_output/
+
+## Node modules
+node_modules/
+
+## Environment variables
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+## IDE/editor
+.vscode/
+.idea/
+.history/
+
+## OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Tooling caches
+.eslintcache
+.turbo/
+
+## Package manager (Yarn PnP)
+.pnp
+.pnp.js
+
+## Optional: user uploads (ignored; keep .gitkeep to preserve folder structure)
+public/uploads/**
+!public/uploads/.gitkeep
+!public/uploads/**/.gitkeep
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# uploaded project assets
+/public/projects
+# Ignore all contents under public/uploads recursively, but keep .gitkeep files
+/public/uploads/**
+!/public/uploads/.gitkeep
+!/public/uploads/**/.gitkeep
+/uploads
