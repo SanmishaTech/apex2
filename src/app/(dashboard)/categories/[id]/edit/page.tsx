@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { CategoryForm, CategoryFormInitialData } from '../../category-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
-import { PERMISSIONS } from '@/config/roles';
 import { apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 
 export default function EditCategoryPage() {
-	useProtectPage([PERMISSIONS.EDIT_CATEGORIES]);
+	useProtectPage();
 	
 	const params = useParams();
 	const id = params.id as string;

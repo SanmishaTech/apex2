@@ -9,12 +9,12 @@ const updateSchema = z.object({
 });
 
 // GET /api/departments/[id] - Get single department
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid department ID");
 
     const dept = await prisma.department.findUnique({
@@ -36,12 +36,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/departments/[id] - Update department
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid department ID");
 
     const body = await req.json();
@@ -77,12 +77,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/departments/[id] - Delete department
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid department ID");
 
     await prisma.department.delete({ where: { id } });

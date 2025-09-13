@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest, NotFound } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 
@@ -59,12 +59,12 @@ const updateSchema = z.object({
 });
 
 // GET /api/employees/[id] - Get single employee
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid employee ID");
 
     const employee = await prisma.employee.findUnique({
@@ -139,17 +139,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return Success(employee);
   } catch (error) {
     console.error("Get employee error:", error);
-    return Error("Failed to fetch employee");
+    return ApiError("Failed to fetch employee");
   }
 }
 
 // PATCH /api/employees/[id] - Update employee
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid employee ID");
 
     const body = await req.json();
@@ -202,17 +202,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (error.code === "P2025") return NotFound("Employee not found");
     console.error("Update employee error:", error);
-    return Error("Failed to update employee");
+    return ApiError("Failed to update employee");
   }
 }
 
 // DELETE /api/employees/[id] - Delete employee
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid employee ID");
 
     await prisma.employee.delete({ where: { id } });
@@ -221,6 +221,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   } catch (error: any) {
     if (error.code === "P2025") return NotFound("Employee not found");
     console.error("Delete employee error:", error);
-    return Error("Failed to delete employee");
+    return ApiError("Failed to delete employee");
   }
 }

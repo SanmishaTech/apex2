@@ -47,12 +47,12 @@ const updateSchema = z.object({
 });
 
 // GET /api/companies/[id] - Get single company
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid company ID");
 
     const company = await prisma.company.findUnique({
@@ -100,12 +100,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/companies/[id] - Update company
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid company ID");
 
     const contentType = req.headers.get('content-type') || '';
@@ -241,12 +241,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/companies/[id] - Delete company
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid company ID");
 
     // Get company to potentially delete logo file

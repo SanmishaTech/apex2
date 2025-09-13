@@ -11,12 +11,12 @@ const updateSchema = z.object({
 });
 
 // GET /api/cities/[id] - Get single city
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid city ID");
 
     const city = await prisma.city.findUnique({
@@ -46,12 +46,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/cities/[id] - Update city
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid city ID");
 
     const body = await req.json();
@@ -88,12 +88,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/cities/[id] - Delete city
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid city ID");
 
     await prisma.city.delete({

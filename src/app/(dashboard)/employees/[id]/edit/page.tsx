@@ -41,7 +41,7 @@ export default function EditEmployeePage() {
 				name: employee.name,
 				departmentId: employee.departmentId,
 				siteId: employee.siteId,
-				resignDate: employee.resignDate,
+				resignDate: employee.resignDate ? new Date(employee.resignDate as unknown as string).toISOString() : null,
 			}}
 		/>
 	);
