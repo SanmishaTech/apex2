@@ -1,0 +1,627 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      Int            @id @default(autoincrement())
+  name                    String?
+  email                   String         @unique
+  passwordHash            String // was: password
+  role                    String
+  profilePhoto            String?
+  emailVerified           DateTime?
+  verificationToken       String?        @unique
+  verificationTokenExpiry DateTime?
+  status                  Boolean        @default(true)
+  lastLogin               DateTime?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  refreshTokens           RefreshToken[]
+  projectUsers            ProjectUser[]
+  projectFilesUploaded    ProjectFile[]  @relation("UserProjectFiles")
+  employee                Employee?
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         Int       @id @default(autoincrement())
+  token      String    @unique
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  replacedBy String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Represents a project. Each project can have many client users (via ProjectClient)
+model Project {
+  id          Int                   @id @default(autoincrement())
+  name        String
+  clientName  String // Top-level client / organization name
+  location    String? // Optional location string (city / region / address)
+  description String?               @db.Text
+  designImage String? // stored filename or URL of the project design image
+  users       ProjectUser[]
+  files       ProjectFile[]
+  blocks      Block[]
+  cracks      CrackIdentification[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  DesignMap   DesignMap[]
+
+  @@index([name])
+  @@index([clientName])
+}
+
+// Join table linking Users (with a global role of e.g. "CLIENT") to Projects.
+// Keeping a separate join model lets you later add per-project roles or metadata.
+model ProjectUser {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  userId    Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+// Files (documents, spreadsheets, PDFs, etc.) attached to a Project.
+// Store both an internal filename/key and the original upload name.
+model ProjectFile {
+  id           Int      @id @default(autoincrement())
+  projectId    Int
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedById Int? // optional: which user uploaded
+  uploadedBy   User?    @relation("UserProjectFiles", fields: [uploadedById], references: [id], onDelete: SetNull)
+  // Storage metadata
+  filename     String // internal stored filename or generated UUID name
+  originalName String // original filename from user
+  title        String // display title (required)
+  mimeType     String // e.g. application/pdf
+  size         Int // bytes
+  storageKey   String? // e.g. S3 object key, if different from filename
+  url          String? // cached/public URL if applicable
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+  @@index([uploadedById])
+  @@index([mimeType])
+}
+
+// Physical / logical block within a project that contains crack identifications
+model Block {
+  id        Int                   @id @default(autoincrement())
+  projectId Int
+  name      String // e.g. Block A / Segment 1
+  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cracks    CrackIdentification[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([projectId, name]) // block names unique within project
+  @@index([projectId])
+}
+
+// Individual crack record captured under a block
+model CrackIdentification {
+  id            Int        @id @default(autoincrement())
+  projectId     Int // duplicated for easier querying/filtering
+  blockId       Int
+  chainageFrom  String?
+  chainageTo    String?
+  rl            Float?
+  lengthMm      Float?
+  widthMm       Float?
+  heightMm      Float?
+  defectType    String?
+  videoFileName String?
+  // Video timeline position (HH:MM:SS). Stored as fixed-length CHAR(8) string (e.g. 03:30:00).
+  startTime     String?    @db.Char(8)
+  endTime       String?    @db.Char(8)
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  block         Block      @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  DesignMap     DesignMap?
+
+  @@index([projectId])
+  @@index([blockId])
+}
+
+model DesignMap {
+  id                    Int                 @id @default(autoincrement())
+  projectId             Int
+  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crackIdentificationId Int                 @unique // Each map is unique to one crack identification
+  crackIdentification   CrackIdentification @relation(fields: [crackIdentificationId], references: [id], onDelete: Cascade)
+
+  // Rectangle coordinates for the map area
+  x      Float
+  y      Float
+  width  Float
+  height Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// State master data for location management 
+model State {
+  id        Int      @id @default(autoincrement())
+  state     String   @unique
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  cities    City[]
+  companies Company[]
+  sites     Site[]
+  employees Employee[]
+
+  @@map("states")
+}
+
+model City {
+  id        Int      @id @default(autoincrement())
+  city      String   @unique
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  stateId   Int?
+  state     State?   @relation(fields: [stateId], references: [id])
+  companies Company[]
+  sites     Site[]
+  employees Employee[]
+
+  @@map("cities")
+  @@index([status])
+}
+
+// Company master data for business management
+model Company {
+  id          Int      @id @default(autoincrement())
+  companyName String
+  shortName   String?
+  
+  // Contact Person Details
+  contactPerson String?
+  contactNo     String?
+  
+  // Address Details
+  addressLine1  String?
+  addressLine2  String?
+  stateId       Int?
+  cityId        Int?
+  pinCode       String?
+  
+  // Logo
+  logoUrl       String?
+  
+  // Status
+  closed        Boolean  @default(false)
+  
+  // Other Details
+  panNo         String?
+  gstNo         String?
+  tanNo         String?
+  cinNo         String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  state         State?   @relation(fields: [stateId], references: [id])
+  city          City?    @relation(fields: [cityId], references: [id])
+  sites         Site[]
+
+  @@map("companies")
+  @@index([companyName])
+  @@index([shortName])
+  @@index([closed])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+// Site master data for location/branch management
+model Site {
+  id             Int      @id @default(autoincrement())
+  uinNo          String?
+  site           String
+  shortName      String?
+  
+  // Company Relation
+  companyId      Int?
+  company        Company? @relation(fields: [companyId], references: [id])
+  
+  // Status Flags
+  closed         Boolean  @default(false)
+  permanentClosed Boolean @default(false)
+  monitor        Boolean  @default(false)
+  
+  // File Upload
+  attachCopyUrl  String?
+  
+  // Contact Person Details
+  contactPerson  String?
+  contactNo      String?
+  
+  // Address Details
+  addressLine1   String?
+  addressLine2   String?
+  stateId        Int?
+  cityId         Int?
+  pinCode        String?
+  longitude      String?
+  latitude       String?
+  
+  // Other Details
+  panNo          String?
+  gstNo          String?
+  tanNo          String?
+  cinNo          String?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  state          State?     @relation(fields: [stateId], references: [id])
+  city           City?      @relation(fields: [cityId], references: [id])
+  employees      Employee[]
+  // Back-relation for Employee.reportingSite
+  reportingEmployees Employee[] @relation("ReportingSite")
+  // Back-relation for Boq.site
+  boqs           Boq[]
+
+  // Back-relation for MinimumWage.site
+  minimumWages   MinimumWage[]
+
+  @@map("sites")
+  @@index([site])
+  @@index([shortName])
+  @@index([uinNo])
+  @@index([companyId])
+  @@index([closed])
+  @@index([permanentClosed])
+  @@index([monitor])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+// Department master data (single-field entity)
+model Department {
+  id          Int        @id @default(autoincrement())
+  department  String     @unique
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  employees   Employee[]
+
+  @@map("departments")
+  @@index([department])
+}
+
+// Employee master data for workforce management
+model Employee {
+  id           Int         @id @default(autoincrement())
+  name         String
+  
+  // User Relation (each employee is linked to a user account)
+  userId       Int?        @unique
+  user         User?       @relation(fields: [userId], references: [id])
+  
+  // Department Relation
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  
+  // Site Relation
+  siteId       Int?
+  site         Site?       @relation(fields: [siteId], references: [id])
+  // Reporting Site
+  reportingSiteId            Int?
+  reportingSite              Site?      @relation("ReportingSite", fields: [reportingSiteId], references: [id])
+  reportingSiteAssignedDate  DateTime?
+  
+  // Employment Details
+  resignDate   DateTime?
+  
+  // Personal Details
+  dateOfBirth     DateTime?
+  anniversaryDate DateTime?
+  spouseName      String?
+  bloodGroup      String?
+  
+  // Address Details
+  addressLine1 String?
+  addressLine2 String?
+  stateId      Int?
+  state        State?      @relation(fields: [stateId], references: [id])
+  cityId       Int?
+  city         City?       @relation(fields: [cityId], references: [id])
+  pincode      String?
+  
+  // Contact Details
+  mobile1      String?
+  mobile2      String?
+  
+  // Other Details
+  esic         String?
+  pf           String?
+  panNo        String?
+  adharNo      String?
+  cinNo        String?
+  
+  // Travel/Reporting Details
+  airTravelClass      String?
+  railwayTravelClass  String?
+  busTravelClass      String?
+  reporting1Id        Int?
+  reporting2Id        Int?
+  reporting1          Employee?   @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
+  reporting2          Employee?   @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
+  subordinates1       Employee[]  @relation("EmployeeReporting1")
+  subordinates2       Employee[]  @relation("EmployeeReporting2")
+  
+  // Leave Details
+  sickLeavesPerYear    Int?
+  paidLeavesPerYear    Int?
+  casualLeavesPerYear  Int?
+  balanceSickLeaves    Int?
+  balancePaidLeaves    Int?
+  balanceCasualLeaves  Int?
+  
+  // Timestamps
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("employees")
+  @@index([name])
+  @@index([departmentId])
+  @@index([siteId])
+  @@index([resignDate])
+  @@index([stateId])
+  @@index([cityId])
+  @@index([dateOfBirth])
+  @@index([reporting1Id])
+  @@index([reporting2Id])
+  @@index([reportingSiteId])
+}
+
+// Category master data
+model Category {
+  id           Int      @id @default(autoincrement())
+  categoryName String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Back-relation for MinimumWage.category
+  minimumWages MinimumWage[]
+
+  @@map("categories")
+  @@index([categoryName])
+}
+
+// Skill Set master data
+model SkillSet {
+  id           Int      @id @default(autoincrement())
+  skillsetName String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Back-relation for MinimumWage.skillSet
+  minimumWages MinimumWage[]
+
+  @@map("skill_sets")
+  @@index([skillsetName])
+}
+
+// Unit master data
+model Unit {
+  id        Int      @id @default(autoincrement())
+  unitName  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Back-relation for BoqItem.unit
+  boqItems  BoqItem[]
+
+  @@map("units")
+  @@index([unitName])
+}
+
+// Bill of Quantity (BOQ)
+model Boq {
+  id                              Int       @id @default(autoincrement())
+  boqNo                           String?   @unique // auto-generated like BOQ-00001
+  siteId                          Int?
+  site                            Site?     @relation(fields: [siteId], references: [id])
+  workName                        String?
+  workOrderNo                     String?
+  workOrderDate                   DateTime?
+  startDate                       DateTime?
+  endDate                         DateTime?
+  totalWorkValue                  Decimal?  @db.Decimal(12, 2)
+  gstRate                         Decimal?  @db.Decimal(5, 2)
+  agreementNo                     String?
+  agreementStatus                 String?
+  completionPeriod                String?
+  completionDate                  DateTime?
+  dateOfExpiry                    DateTime?
+  commencementDate                DateTime?
+  timeExtensionDate               DateTime?
+  defectLiabilityPeriod           String?
+  performanceSecurityMode         String?
+  performanceSecurityDocumentNo   String?
+  performanceSecurityPeriod       String?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  // Relations
+  items                           BoqItem[]
+
+  @@map("boqs")
+  @@index([siteId])
+  @@index([boqNo])
+}
+
+// BOQ line items
+model BoqItem {
+  id               Int      @id @default(autoincrement())
+  boqId            Int
+  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  activityId       String?
+  clientSrNo       String?
+  item             String?  // long description
+  unitId           Int?
+  unit             Unit?    @relation(fields: [unitId], references: [id])
+  qty              Decimal? @db.Decimal(12, 2)
+  rate             Decimal? @db.Decimal(12, 2)
+  amount           Decimal? @db.Decimal(14, 2)
+  openingQty       Decimal? @db.Decimal(12, 2)
+  openingValue     Decimal? @db.Decimal(12, 2)
+  closingQty       Decimal? @db.Decimal(12, 2)
+  closingValue     Decimal? @db.Decimal(12, 2)
+  isGroup          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("boq_items")
+  @@index([boqId])
+  @@index([unitId])
+}
+
+// Notice announcements with optional document upload
+model Notice {
+  id                Int      @id @default(autoincrement())
+  noticeHead        String
+  noticeHeading     String
+  noticeDescription String?
+  documentUrl       String?   // path under /uploads/notices
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("notices")
+  @@index([createdAt])
+}
+
+// Manpower Supplier master data
+model ManpowerSupplier {
+  id                  Int      @id @default(autoincrement())
+  vendorCode          String?
+  supplierName        String   // "Manpower Supplier"
+  contactPerson       String?
+  representativeName  String?
+  localContactNo      String?
+  permanentContactNo  String?
+  address             String?  @db.Text
+  state               String?
+  permanentAddress    String?  @db.Text
+  city                String?
+  pincode             String?
+  bankName            String?
+  accountNo           String?
+  ifscNo              String?
+  rtgsNo              String?
+  panNo               String?
+  adharNo             String?
+  pfNo                String?
+  esicNo              String?
+  gstNo               String?
+  numberOfWorkers     Int?
+  typeOfWork          String?  @db.Text
+  workDone            String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Back-relation: all manpower workers for this supplier
+  manpower             Manpower[]
+
+  @@map("manpower_suppliers")
+  @@index([supplierName])
+  @@index([city])
+}
+
+// Manpower (individual worker) linked to a ManpowerSupplier
+model Manpower {
+  id                      Int       @id @default(autoincrement())
+  firstName               String
+  middleName              String?
+  lastName                String
+  supplierId              Int
+  manpowerSupplier        ManpowerSupplier @relation(fields: [supplierId], references: [id])
+  dateOfBirth             DateTime?
+
+  // Contact details
+  address                 String?   @db.Text
+  location                String?
+  mobileNumber            String?
+  wage                    Decimal?  @db.Decimal(12, 2)
+
+  // Bank details
+  bank                    String?
+  branch                  String?
+  accountNumber           String?
+  ifscCode                String?
+  pfNo                    String?
+  esicNo                  String?
+  unaNo                   String?
+
+  // Other details with document URLs stored in /uploads/manpower
+  panNumber               String?
+  panDocumentUrl          String?
+  aadharNo                String?
+  aadharDocumentUrl       String?
+  voterIdNo               String?
+  voterIdDocumentUrl      String?
+  drivingLicenceNo        String?
+  drivingLicenceDocumentUrl String?
+  bankDetailsDocumentUrl  String?
+  bankDetails             String?
+  watch                   Boolean   @default(false)
+
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@map("manpower")
+  @@index([supplierId])
+  @@index([firstName, lastName])
+}
+
+// Minimum wage mapping per Site + Category + SkillSet
+model MinimumWage {
+  id          Int      @id @default(autoincrement())
+  siteId      Int
+  categoryId  Int
+  skillSetId  Int
+  minWage     Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  site        Site     @relation(fields: [siteId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  skillSet    SkillSet @relation(fields: [skillSetId], references: [id])
+
+  @@unique([siteId, categoryId, skillSetId])
+  @@map("minimum_wages")
+  @@index([siteId])
+  @@index([categoryId])
+  @@index([skillSetId])
+}
