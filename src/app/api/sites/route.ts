@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
     return Success(result);
   } catch (error) {
     console.error("Get sites error:", error);
-    return Error("Failed to fetch sites");
+    return ApiError("Failed to fetch sites");
   }
 }
 
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     if (attachCopyFile && attachCopyFile.size > 0) {
       // Validate file size
       if (attachCopyFile.size > 20 * 1024 * 1024) {
-        return Error('Attach copy file too large (max 20MB)', 413);
+        return ApiError('Attach copy file too large (max 20MB)', 413);
       }
       
       // Generate unique filename and save
@@ -251,7 +251,29 @@ export async function POST(req: NextRequest) {
     });
     
     const created = await prisma.site.create({
-      data: validatedData,
+      data: {
+        uinNo: validatedData.uinNo,
+        site: validatedData.site,
+        shortName: validatedData.shortName,
+        companyId: validatedData.companyId,
+        closed: validatedData.closed,
+        permanentClosed: validatedData.permanentClosed,
+        monitor: validatedData.monitor,
+        attachCopyUrl: validatedData.attachCopyUrl,
+        contactPerson: validatedData.contactPerson,
+        contactNo: validatedData.contactNo,
+        addressLine1: validatedData.addressLine1,
+        addressLine2: validatedData.addressLine2,
+        stateId: validatedData.stateId,
+        cityId: validatedData.cityId,
+        pinCode: validatedData.pinCode,
+        longitude: validatedData.longitude,
+        latitude: validatedData.latitude,
+        panNo: validatedData.panNo,
+        gstNo: validatedData.gstNo,
+        tanNo: validatedData.tanNo,
+        cinNo: validatedData.cinNo,
+      },
       select: { 
         id: true, 
         uinNo: true,
@@ -304,9 +326,9 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     if (error.code === 'P2002') {
-      return Error('Site already exists', 409);
+      return ApiError('Site already exists', 409);
     }
     console.error("Create site error:", error);
-    return Error("Failed to create site");
+    return ApiError("Failed to create site");
   }
 }

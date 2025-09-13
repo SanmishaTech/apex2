@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Success, Error, BadRequest } from '@/lib/api-response';
+import { Success, Error as ApiError, BadRequest } from '@/lib/api-response';
 import { guardApiAccess } from '@/lib/access-guard';
 import { paginate } from '@/lib/paginate';
 import { z } from 'zod';
@@ -11,8 +11,8 @@ import crypto from 'crypto';
 const createSchema = z.object({
   noticeHead: z.string().min(1),
   noticeHeading: z.string().min(1),
-  noticeDescription: z.string().optional().nullable(),
-  documentUrl: z.string().optional().nullable(),
+  noticeDescription: z.string().nullable().optional(),
+  documentUrl: z.string().nullable().optional(),
 });
 
 // GET /api/notices?search=&page=1&perPage=10
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     return Success(result);
   } catch (e) {
-    return Error('Failed to fetch notices');
+    return ApiError('Failed to fetch notices');
   }
 }
 
@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
       const form = await req.formData();
       docFile = form.get('document') as File; // 'document' field name
       data = {
-        noticeHead: form.get('noticeHead'),
-        noticeHeading: form.get('noticeHeading'),
-        noticeDescription: form.get('noticeDescription') || null,
-      } as Record<string, unknown>;
+        noticeHead: String(form.get('noticeHead') || ''),
+        noticeHeading: String(form.get('noticeHeading') || ''),
+        noticeDescription: form.get('noticeDescription') ? String(form.get('noticeDescription')) : null,
+      };
     } else {
       data = await req.json();
     }
@@ -92,10 +92,10 @@ export async function POST(req: NextRequest) {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ];
       if (!allowed.includes(docFile.type || '')) {
-        return Error('Unsupported file type', 415);
+        return ApiError('Unsupported file type', 415);
       }
       if (docFile.size > 20 * 1024 * 1024) {
-        return Error('File too large (max 20MB)', 413);
+        return ApiError('File too large (max 20MB)', 413);
       }
       const ext = path.extname(docFile.name) || '.bin';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
@@ -105,14 +105,22 @@ export async function POST(req: NextRequest) {
       documentUrl = `/uploads/notices/${filename}`;
     }
 
-    const input = createSchema.parse({ ...data, documentUrl });
-    const created = await prisma.notice.create({ data: input, select: { id: true } });
+    const parsedInput = createSchema.parse({ ...data, documentUrl });
+    const created = await prisma.notice.create({ 
+      data: {
+        noticeHead: parsedInput.noticeHead,
+        noticeHeading: parsedInput.noticeHeading,
+        noticeDescription: parsedInput.noticeDescription,
+        documentUrl: parsedInput.documentUrl,
+      }, 
+      select: { id: true } 
+    });
     return Success(created, 201);
   } catch (e) {
     if (e instanceof z.ZodError) {
       return BadRequest(e.errors);
     }
-    return Error('Failed to create notice');
+    return ApiError('Failed to create notice');
   }
 }
 

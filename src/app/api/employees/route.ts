@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
     return Success(result);
   } catch (error) {
     console.error("Get employees error:", error);
-    return Error("Failed to fetch employees");
+    return ApiError("Failed to fetch employees");
   }
 }
 
@@ -343,6 +343,6 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     console.error("Create employee error:", error);
-    return Error("Failed to create employee");
+    return ApiError("Failed to create employee");
   }
 }

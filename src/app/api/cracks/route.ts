@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
 		const where: Parameters<typeof prisma.crackIdentification.findMany>[0]['where'] = { projectId };
 	if (blockId) where.blockId = blockId;
 	if (defectType) where.defectType = defectType;
-			if (excludeMapped) where.designMap = null;
+			if (excludeMapped) where.DesignMap = null;
 
 	const [items, total] = await Promise.all([
 		prisma.crackIdentification.findMany({

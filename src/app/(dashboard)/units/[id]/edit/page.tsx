@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { UnitForm, UnitFormInitialData } from '../../unit-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
-import { PERMISSIONS } from '@/config/roles';
 import { apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 
 export default function EditUnitPage() {
-  useProtectPage([PERMISSIONS.EDIT_UNITS]);
+  useProtectPage();
 
   const params = useParams();
   const id = params.id as string;
