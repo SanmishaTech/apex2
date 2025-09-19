@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
     return Success(result);
   } catch (error) {
     console.error("Get companies error:", error);
-    return Error("Failed to fetch companies");
+    return ApiError("Failed to fetch companies");
   }
 }
 
@@ -191,16 +191,16 @@ export async function POST(req: NextRequest) {
     if (logoFile && logoFile.size > 0) {
       // Validate file type and size
       if (!logoFile.type?.startsWith('image/')) {
-        return Error('Logo must be an image file', 415);
+        return ApiError('Logo must be an image file', 415);
       }
       if (logoFile.size > 20 * 1024 * 1024) {
-        return Error('Logo file too large (max 20MB)', 413);
+        return ApiError('Logo file too large (max 20MB)', 413);
       }
       
       // Generate unique filename and save
       const ext = path.extname(logoFile.name) || '.png';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'companies');
+      const dir = path.join(process.cwd(), 'uploads', 'companies');
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, filename), Buffer.from(await logoFile.arrayBuffer()));
       logoUrl = `/uploads/companies/${filename}`;
@@ -260,9 +260,9 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-      return Error('Company already exists', 409);
+      return ApiError('Company already exists', 409);
     }
     console.error("Create company error:", error);
-    return Error("Failed to create company");
+    return ApiError("Failed to create company");
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest, NotFound } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 import fs from "fs/promises";
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return Success(company);
   } catch (error) {
     console.error("Get company error:", error);
-    return Error("Failed to fetch company");
+    return ApiError("Failed to fetch company");
   }
 }
 
@@ -150,10 +150,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (logoFile && logoFile.size > 0) {
       // Validate file type and size
       if (!logoFile.type?.startsWith('image/')) {
-        return Error('Logo must be an image file', 415);
+        return ApiError('Logo must be an image file', 415);
       }
       if (logoFile.size > 20 * 1024 * 1024) {
-        return Error('Logo file too large (max 20MB)', 413);
+        return ApiError('Logo file too large (max 20MB)', 413);
       }
       
       // Get current company to potentially delete old logo
@@ -165,14 +165,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       // Generate unique filename and save
       const ext = path.extname(logoFile.name) || '.png';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'companies');
+      const dir = path.join(process.cwd(), 'uploads', 'companies');
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, filename), Buffer.from(await logoFile.arrayBuffer()));
       companyData.logoUrl = `/uploads/companies/${filename}`;
       
       // Delete old logo file if it exists
       if (currentCompany?.logoUrl && currentCompany.logoUrl.startsWith('/uploads/companies/')) {
-        const oldPath = path.join(process.cwd(), 'public', currentCompany.logoUrl);
+        const oldPath = path.join(process.cwd(), currentCompany.logoUrl);
         try {
           await fs.unlink(oldPath);
         } catch (error) {
@@ -232,11 +232,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') return NotFound('Company not found');
       if (error.code === 'P2002') {
-        return Error('Company with this name already exists', 409);
+        return ApiError('Company with this name already exists', 409);
       }
     }
     console.error("Update company error:", error);
-    return Error("Failed to update company");
+    return ApiError("Failed to update company");
   }
 }
 
@@ -263,7 +263,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     // Delete logo file if it exists
     if (company.logoUrl && company.logoUrl.startsWith('/uploads/companies/')) {
-      const logoPath = path.join(process.cwd(), 'public', company.logoUrl);
+      const logoPath = path.join(process.cwd(), company.logoUrl);
       try {
         await fs.unlink(logoPath);
       } catch (error) {
@@ -275,6 +275,6 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') return NotFound('Company not found');
     console.error("Delete company error:", error);
-    return Error("Failed to delete company");
+    return ApiError("Failed to delete company");
   }
 }

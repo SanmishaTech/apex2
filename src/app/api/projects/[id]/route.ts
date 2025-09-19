@@ -90,7 +90,7 @@ export async function PATCH(
 				if (file.size > 20 * 1024 * 1024) return Error('Design image too large (max 20MB)', 413);
 				const ext = path.extname(file.name) || '.png';
 				newDesignImageFilename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-				const dir = path.join(process.cwd(), 'public', 'uploads', 'projects', String(pid), 'designs');
+				const dir = path.join(process.cwd(), 'uploads', 'projects', String(pid), 'designs');
 				await fs.mkdir(dir, { recursive: true });
 				try { await fs.writeFile(path.join(dir, newDesignImageFilename), Buffer.from(await file.arrayBuffer())); }
 				catch { return Error('Failed to store design image', 500); }
@@ -125,7 +125,7 @@ export async function PATCH(
 		try {
 			await prisma.project.update({ where: { id: pid }, data });
 			if (oldDesignImage && newDesignImageFilename && oldDesignImage !== newDesignImageFilename) {
-				const oldPath = path.join(process.cwd(), 'public', 'uploads', 'projects', String(pid), 'designs', oldDesignImage);
+				const oldPath = path.join(process.cwd(), 'uploads', 'projects', String(pid), 'designs', oldDesignImage);
 				fs.unlink(oldPath).catch(() => {});
 			}
 		const fresh = await prisma.project.findUnique({

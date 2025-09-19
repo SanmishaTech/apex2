@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Success, Error } from '@/lib/api-response';
+import { Success, Error as ApiError } from '@/lib/api-response';
 import { guardApiAccess } from '@/lib/access-guard';
 import fs from 'fs/promises';
 import path from 'path';
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return ApiError('Invalid id', 400);
   try {
     const rec = await prisma.manpower.findUnique({
       where: { id: idNum },
@@ -48,10 +48,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         updatedAt: true,
       }
     });
-    if (!rec) return Error('Not found', 404);
+    if (!rec) return ApiError('Not found', 404);
     return Success(rec);
   } catch {
-    return Error('Failed to fetch manpower');
+    return ApiError('Failed to fetch manpower');
   }
 }
 
@@ -61,7 +61,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return ApiError('Invalid id', 400);
   try {
     // Fetch URLs before delete so we can remove files from disk
     const rec = await prisma.manpower.findUnique({
@@ -91,8 +91,8 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
         // Only allow deletion under /uploads/manpower
         if (!url.startsWith('/uploads/manpower/')) continue;
         const rel = url.replace(/^\//, ''); // remove leading slash
-        const abs = path.join(process.cwd(), 'public', rel);
-        const safeBase = path.join(process.cwd(), 'public', 'uploads', 'manpower');
+        const abs = path.join(process.cwd(), rel);
+        const safeBase = path.join(process.cwd(), 'uploads', 'manpower');
         const normalized = path.normalize(abs);
         if (!normalized.startsWith(safeBase)) continue; // safety check
         await fs.unlink(normalized).catch(() => {});
@@ -103,7 +103,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     return Success({ id: idNum });
   } catch (e: any) {
-    if (e?.code === 'P2025') return Error('Not found', 404);
-    return Error('Failed to delete manpower');
+    if (e?.code === 'P2025') return ApiError('Not found', 404);
+    return ApiError('Failed to delete manpower');
   }
 }

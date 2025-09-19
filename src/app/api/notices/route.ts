@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
       const ext = path.extname(docFile.name) || '.bin';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'notices');
+      const dir = path.join(process.cwd(), 'uploads', 'notices');
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, filename), Buffer.from(await docFile.arrayBuffer()));
       documentUrl = `/uploads/notices/${filename}`;

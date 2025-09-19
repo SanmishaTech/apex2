@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
       }
       const ext = path.extname(file.name) || '.png';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'employees', folder);
+      const dir = path.join(process.cwd(), 'uploads', 'employees', folder);
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
       return `/uploads/employees/${folder}/${filename}`;
