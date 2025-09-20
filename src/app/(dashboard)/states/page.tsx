@@ -7,8 +7,6 @@ import { DataTable, Column } from '@/components/common/data-table';
 import { Pagination } from '@/components/common/pagination';
 import { FilterBar } from '@/components/common/filter-bar';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { AppSelect } from '@/components/common/app-select';
-import { StatusBadge } from '@/components/common/status-badge';
 import { DeleteButton } from '@/components/common/delete-button';
 import { SortState } from '@/components/common/data-table';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
@@ -26,47 +24,38 @@ export default function StatesPage() {
     page: 1,
     perPage: 10,
     search: '',
-    status: '',
     sort: 'state',
     order: 'asc',
   });
-  const { page, perPage, search, status, sort, order } =
+  const { page, perPage, search, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
-      status: string;
       sort: string;
       order: 'asc' | 'desc';
     };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
-  const [statusDraft, setStatusDraft] = useState(status);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
   }, [search]);
-  useEffect(() => {
-    setStatusDraft(status);
-  }, [status]);
 
-  const filtersDirty =
-    searchDraft !== search || statusDraft !== status;
+  const filtersDirty = searchDraft !== search;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
-      status: statusDraft,
     });
   }
 
   function resetFilters() {
     setSearchDraft('');
-    setStatusDraft('');
-    setQp({ page: 1, search: '', status: '' });
+    setQp({ page: 1, search: '' });
   }
 
   const query = useMemo(() => {
@@ -74,11 +63,10 @@ export default function StatesPage() {
     sp.set('page', String(page));
     sp.set('perPage', String(perPage));
     if (search) sp.set('search', search);
-    if (status) sp.set('status', status);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
     return `/api/states?${sp.toString()}`;
-  }, [page, perPage, search, status, sort, order]);
+  }, [page, perPage, search, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<StatesResponse>(
     query,
@@ -105,13 +93,6 @@ export default function StatesPage() {
       header: 'State Name',
       sortable: true,
       cellClassName: 'font-medium whitespace-nowrap',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      accessor: (r) => <StatusBadge active={r.status} />,
-      cellClassName: 'whitespace-nowrap',
     },
     {
       key: 'createdAt',
@@ -159,26 +140,15 @@ export default function StatesPage() {
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'
           />
-          <AppSelect
-            value={statusDraft || '__all'}
-            onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}
-            placeholder='Status'
-          >
-            <AppSelect.Item value='__all'>All Statuses</AppSelect.Item>
-            <AppSelect.Item value='true'>Active</AppSelect.Item>
-            <AppSelect.Item value='false'>Inactive</AppSelect.Item>
-          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
-            disabled={
-              !filtersDirty && !searchDraft && !statusDraft
-            }
+            disabled={!filtersDirty && !searchDraft}
             className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {(search || status) && (
+          {search && (
             <AppButton
               variant='secondary'
               size='sm'

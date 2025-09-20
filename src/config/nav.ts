@@ -134,6 +134,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_ITEMS,
       },
+      {
+        title: 'Billing Addresses',
+        href: '/billing-addresses',
+        icon: Folder,
+        permission: PERMISSIONS.READ_BILLING_ADDRESSES,
+      },
     ],
   },
 

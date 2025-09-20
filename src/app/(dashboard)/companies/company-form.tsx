@@ -121,12 +121,12 @@ export function CompanyForm({
   const isCreate = mode === 'create';
 
   // Fetch states for dropdown
-  const { data: statesData } = useSWR<{ data: State[] }>('/api/states?perPage=100&status=true', apiGet);
+  const { data: statesData } = useSWR<{ data: State[] }>('/api/states?perPage=100', apiGet);
   const states = statesData?.data || [];
 
   // Fetch cities for dropdown based on selected state
   const { data: citiesData } = useSWR<{ data: City[] }>(
-    selectedStateId ? `/api/cities?perPage=100&status=true&stateId=${selectedStateId}` : null,
+    selectedStateId ? `/api/cities?perPage=100&stateId=${selectedStateId}` : null,
     apiGet
   );
   const cities = citiesData?.data || [];

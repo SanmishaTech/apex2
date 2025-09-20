@@ -7,11 +7,10 @@ import { z } from "zod";
 
 const createSchema = z.object({
   city: z.string().min(1, "City name is required"),
-  status: z.boolean().default(true),
   stateId: z.number().optional().nullable(),
 });
 
-// GET /api/cities?search=&status=true|false&page=1&perPage=10&sort=city&order=asc
+// GET /api/cities?search=&page=1&perPage=10&sort=city&order=asc
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -21,23 +20,18 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
-    const statusParam = searchParams.get("status");
     const sort = (searchParams.get("sort") || "city") as string;
     const order = (searchParams.get("order") === "desc" ? "desc" : "asc") as "asc" | "desc";
 
     // Build dynamic filter
     type CityWhere = {
       city?: { contains: string };
-      status?: boolean;
       stateId?: number;
     };
     const where: CityWhere = {};
     
     if (search) {
       where.city = { contains: search };
-    }
-    if (statusParam === "true" || statusParam === "false") {
-      where.status = statusParam === "true";
     }
     
     const stateIdParam = searchParams.get("stateId");
@@ -46,7 +40,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Allow listed sortable fields only
-    const sortableFields = new Set(["city", "status", "createdAt"]);
+    const sortableFields = new Set(["city", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) 
       ? { [sort]: order } 
       : { city: "asc" };
@@ -60,7 +54,6 @@ export async function GET(req: NextRequest) {
       select: { 
         id: true, 
         city: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true,
         stateId: true,
@@ -87,18 +80,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { city, status, stateId } = createSchema.parse(body);
+    const { city, stateId } = createSchema.parse(body);
     
     const created = await prisma.city.create({
       data: { 
-        city, 
-        status,
+        city,
         stateId 
       },
       select: { 
         id: true, 
         city: true, 
-        status: true, 
         createdAt: true,
         stateId: true,
         state: {

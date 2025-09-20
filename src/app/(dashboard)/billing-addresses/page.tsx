@@ -2,11 +2,10 @@
 
 import useSWR from 'swr';
 import { useMemo, useState, useEffect } from 'react';
-import { apiGet } from '@/lib/api-client';
+import { apiGet, apiDelete } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { AppSelect } from '@/components/common/app-select';
 import { FilterBar } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -14,60 +13,84 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatDate } from '@/lib/locales';
+import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
-import { apiDelete } from '@/lib/api-client';
-import { CitiesResponse, City } from '@/types/cities';
-import { State } from '@/types/states';
 
-export default function CitiesPage() {
+// Types
+
+type BillingAddressListItem = {
+  id: number;
+  companyName: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  state?: {
+    state: string;
+  } | null;
+  city?: {
+    city: string;
+  } | null;
+  pincode: string | null;
+  landline1: string | null;
+  landline2: string | null;
+  fax: string | null;
+  email: string | null;
+  panNumber: string | null;
+  vatTinNumber: string | null;
+  gstNumber: string | null;
+  cstTinNumber: string | null;
+  cinNumber: string | null;
+  stateCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type BillingAddressesResponse = {
+  data: BillingAddressListItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export default function BillingAddressesPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
     search: '',
-    stateId: '',
-    sort: 'city',
+    sort: 'companyName',
     order: 'asc',
   });
-  const { page, perPage, search, stateId, sort, order } =
+  const { page, perPage, search, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
-      stateId: string;
       sort: string;
       order: 'asc' | 'desc';
     };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
-  const [stateIdDraft, setStateIdDraft] = useState(stateId);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
   }, [search]);
-  useEffect(() => {
-    setStateIdDraft(stateId);
-  }, [stateId]);
 
-  const filtersDirty =
-    searchDraft !== search || stateIdDraft !== stateId;
+  const filtersDirty = searchDraft !== search;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
-      stateId: stateIdDraft,
     });
   }
 
   function resetFilters() {
     setSearchDraft('');
-    setStateIdDraft('');
-    setQp({ page: 1, search: '', stateId: '' });
+    setQp({ page: 1, search: '' });
   }
 
   const query = useMemo(() => {
@@ -75,24 +98,17 @@ export default function CitiesPage() {
     sp.set('page', String(page));
     sp.set('perPage', String(perPage));
     if (search) sp.set('search', search);
-    if (stateId) sp.set('stateId', stateId);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
-    return `/api/cities?${sp.toString()}`;
-  }, [page, perPage, search, stateId, sort, order]);
+    return `/api/billing-addresses?${sp.toString()}`;
+  }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<CitiesResponse>(
-    query,
-    apiGet
-  );
+  const { data, error, isLoading, mutate } = useSWR<BillingAddressesResponse>(query, apiGet);
 
   const { can } = usePermissions();
 
-  // Fetch states for filter dropdown
-  const { data: statesData } = useSWR<{data: State[]}>('/api/states?perPage=100', apiGet);
-
   if (error) {
-    toast.error((error as Error).message || 'Failed to load cities');
+    toast.error((error as Error).message || 'Failed to load billing addresses');
   }
 
   function toggleSort(field: string) {
@@ -103,19 +119,57 @@ export default function CitiesPage() {
     }
   }
 
-  const columns: Column<City>[] = [
+  const columns: Column<BillingAddressListItem>[] = [
     {
-      key: 'city',
-      header: 'City Name',
+      key: 'companyName',
+      header: 'Company Name',
       sortable: true,
       cellClassName: 'font-medium whitespace-nowrap',
+    },
+    {
+      key: 'addressLine1',
+      header: 'Address',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => {
+        const parts = [r.addressLine1, r.addressLine2].filter(Boolean);
+        return parts.join(', ');
+      },
     },
     {
       key: 'state',
       header: 'State',
       sortable: false,
-      accessor: (r) => r.state?.state || '-',
       cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.state?.state || '-',
+    },
+    {
+      key: 'city',
+      header: 'City',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.city?.city || '-',
+    },
+    {
+      key: 'pincode',
+      header: 'Pincode',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.pincode || '-',
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.email || '-',
+    },
+    {
+      key: 'gstNumber',
+      header: 'GST Number',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.gstNumber || '-',
     },
     {
       key: 'createdAt',
@@ -125,14 +179,22 @@ export default function CitiesPage() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
       accessor: (r) => formatDate(r.createdAt),
     },
+    {
+      key: 'updatedAt',
+      header: 'Updated',
+      sortable: false,
+      className: 'whitespace-nowrap',
+      cellClassName: 'text-muted-foreground whitespace-nowrap',
+      accessor: (r) => formatRelativeTime(r.updatedAt),
+    },
   ];
 
   const sortState: SortState = { field: sort, order };
 
   async function handleDelete(id: number) {
     try {
-      await apiDelete(`/api/cities/${id}`);
-      toast.success('City deleted');
+      await apiDelete(`/api/billing-addresses/${id}`);
+      toast.success('Billing Address deleted');
       await mutate();
     } catch (e) {
       toast.error((e as Error).message);
@@ -142,11 +204,11 @@ export default function CitiesPage() {
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>Cities</AppCard.Title>
-        <AppCard.Description>Manage application cities.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_CITIES) && (
+        <AppCard.Title>Billing Addresses</AppCard.Title>
+        <AppCard.Description>Manage billing addresses.</AppCard.Description>
+        {can(PERMISSIONS.CREATE_BILLING_ADDRESSES) && (
           <AppCard.Action>
-            <Link href='/cities/new'>
+            <Link href='/billing-addresses/new'>
               <AppButton size='sm' iconName='Plus' type='button'>
                 Add
               </AppButton>
@@ -157,35 +219,21 @@ export default function CitiesPage() {
       <AppCard.Content>
         <FilterBar title='Search & Filter'>
           <NonFormTextInput
-            aria-label='Search cities'
-            placeholder='Search cities...'
+            aria-label='Search billing addresses'
+            placeholder='Search billing addresses...'
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'
           />
-          <AppSelect
-            value={stateIdDraft || '__all'}
-            onValueChange={(v) => setStateIdDraft(v === '__all' ? '' : v)}
-            placeholder='State'
-          >
-            <AppSelect.Item value='__all'>All States</AppSelect.Item>
-            {statesData?.data?.map((state: State) => (
-              <AppSelect.Item key={state.id} value={String(state.id)}>
-                {state.state}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
-            disabled={
-              !filtersDirty && !searchDraft && !stateIdDraft
-            }
+            disabled={!filtersDirty && !searchDraft}
             className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {(search || stateId) && (
+          {search && (
             <AppButton
               variant='secondary'
               size='sm'
@@ -203,22 +251,21 @@ export default function CitiesPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
-          renderRowActions={(city) => {
-            if (!can(PERMISSIONS.EDIT_CITIES) && !can(PERMISSIONS.DELETE_CITIES))
-              return null;
+          renderRowActions={(row) => {
+            if (!can(PERMISSIONS.EDIT_BILLING_ADDRESSES) && !can(PERMISSIONS.DELETE_BILLING_ADDRESSES)) return null;
             return (
               <div className='flex'>
-                {can(PERMISSIONS.EDIT_CITIES) && (
-                  <Link href={`/cities/${city.id}/edit`}>
-                    <EditButton tooltip='Edit City' aria-label='Edit City' />
+                {can(PERMISSIONS.EDIT_BILLING_ADDRESSES) && (
+                  <Link href={`/billing-addresses/${row.id}/edit`}>
+                    <EditButton tooltip='Edit Billing Address' aria-label='Edit Billing Address' />
                   </Link>
                 )}
-                {can(PERMISSIONS.DELETE_CITIES) && (
+                {can(PERMISSIONS.DELETE_BILLING_ADDRESSES) && (
                   <DeleteButton
-                    onDelete={() => handleDelete(city.id)}
-                    itemLabel='city'
-                    title='Delete city?'
-                    description={`This will permanently remove ${city.city}. This action cannot be undone.`}
+                    onDelete={() => handleDelete(row.id)}
+                    itemLabel='billing address'
+                    title='Delete billing address?'
+                    description={`This will permanently remove billing address for "${row.companyName}". This action cannot be undone.`}
                   />
                 )}
               </div>
