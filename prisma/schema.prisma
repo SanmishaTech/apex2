@@ -443,11 +443,22 @@ model Unit {
   unitName  String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  // Back-relation for BoqItem.unit
+
+  // Relations
   boqItems  BoqItem[]
 
   @@map("units")
-  @@index([unitName])
+}
+
+// Item Category master data
+model ItemCategory {
+  id               Int      @id @default(autoincrement())
+  itemCategoryCode String   @unique
+  itemCategory     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("item_categories")
 }
 
 // Bill of Quantity (BOQ)

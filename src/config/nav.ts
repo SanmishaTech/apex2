@@ -122,6 +122,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_UNITS,
       },
+      {
+        title: 'Item Categories',
+        href: '/item-categories',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ITEM_CATEGORIES,
+      },
     ],
   },
 
