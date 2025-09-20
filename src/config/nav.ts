@@ -1,7 +1,7 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -27,6 +27,50 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/dashboard',
     icon: LayoutDashboard,
     permission: PERMISSIONS.VIEW_DASHBOARD,
+  },
+
+  {
+    type: 'group',
+    title: 'Basic',
+    icon: Database,
+    children: [
+      {
+        title: 'States',
+        href: '/states',
+        icon: Map,
+        permission: PERMISSIONS.READ_STATES,
+      },
+      {
+        title: 'Cities',
+        href: '/cities',
+        icon: MapPin,
+        permission: PERMISSIONS.READ_CITIES,
+      },
+      {
+        title: 'Companies',
+        href: '/companies',
+        icon: Building2,
+        permission: PERMISSIONS.READ_COMPANIES,
+      },
+      {
+        title: 'Sites',
+        href: '/sites',
+        icon: Warehouse,
+        permission: PERMISSIONS.READ_SITES,
+      },
+      {
+        title: 'Departments',
+        href: '/departments',
+        icon: Briefcase,
+        permission: PERMISSIONS.READ_DEPARTMENTS,
+      },
+      {
+        title: 'Notices',
+        href: '/notices',
+        icon: Megaphone,
+        permission: PERMISSIONS.READ_BOQS,
+      },
+    ],
   },
  
   {
@@ -92,13 +136,6 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
       },
-      {
-        title: 'Notices',
-        href: '/notices',
-        icon: Megaphone,
-        // Reuse READ_BOQS or create a new permission later; for now allow readers
-        permission: PERMISSIONS.READ_BOQS,
-      },
     ],
   },
 
@@ -112,36 +149,6 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/users',
         icon: Users,
         permission: PERMISSIONS.READ_USERS,
-      },
-      {
-        title: 'States',
-        href: '/states',
-        icon: Map,
-        permission: PERMISSIONS.READ_STATES,
-      },
-      {
-        title: 'Cities',
-        href: '/cities',
-        icon: MapPin,
-        permission: PERMISSIONS.READ_CITIES,
-      },
-      {
-        title: 'Companies',
-        href: '/companies',
-        icon: Building2,
-        permission: PERMISSIONS.READ_COMPANIES,
-      },
-      {
-        title: 'Sites',
-        href: '/sites',
-        icon: Warehouse,
-        permission: PERMISSIONS.READ_SITES,
-      },
-      {
-        title: 'Departments',
-        href: '/departments',
-        icon: Briefcase,
-        permission: PERMISSIONS.READ_DEPARTMENTS,
       },
     ],
   },
