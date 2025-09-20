@@ -220,7 +220,7 @@ export default function BillingAddressesPage() {
         <FilterBar title='Search & Filter'>
           <NonFormTextInput
             aria-label='Search billing addresses'
-            placeholder='Search billing addresses...'
+            placeholder='Search by company name...'
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'

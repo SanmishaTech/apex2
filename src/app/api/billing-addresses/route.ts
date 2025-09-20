@@ -17,21 +17,11 @@ export async function GET(req: NextRequest) {
   const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
   type BillingAddressWhere = {
-    OR?: { 
-      companyName?: { contains: string }; 
-      addressLine1?: { contains: string };
-      email?: { contains: string };
-      gstNumber?: { contains: string };
-    }[];
+    companyName?: { contains: string };
   };
   const where: BillingAddressWhere = {};
   if (search) {
-    where.OR = [
-      { companyName: { contains: search } },
-      { addressLine1: { contains: search } },
-      { email: { contains: search } },
-      { gstNumber: { contains: search } },
-    ];
+    where.companyName = { contains: search };
   }
 
   const sortableFields = new Set(["companyName", "createdAt"]);
