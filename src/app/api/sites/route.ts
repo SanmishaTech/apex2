@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
       // Generate unique filename and save
       const ext = path.extname(attachCopyFile.name) || '.pdf';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'sites');
+      const dir = path.join(process.cwd(), 'uploads', 'sites');
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, filename), Buffer.from(await attachCopyFile.arrayBuffer()));
       attachCopyUrl = `/uploads/sites/${filename}`;

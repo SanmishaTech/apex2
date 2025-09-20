@@ -10,7 +10,7 @@ import crypto from 'crypto';
 // Utility to coerce possibly-empty string to null
 function nil(v: any) { return v == null || v === '' ? null : v; }
 
-// Save uploaded file to /public/uploads/manpower and return URL
+// Save uploaded file to /uploads/manpower and return URL
 async function saveDoc(file: File | null, subname: string) {
   if (!file || file.size === 0) return null;
   const allowed = [
@@ -21,7 +21,7 @@ async function saveDoc(file: File | null, subname: string) {
   if (file.size > 20 * 1024 * 1024) throw new Error('File too large (max 20MB)');
   const ext = path.extname(file.name) || '.bin';
   const filename = `${Date.now()}-${subname}-${crypto.randomUUID()}${ext}`;
-  const dir = path.join(process.cwd(), 'public', 'uploads', 'manpower');
+  const dir = path.join(process.cwd(), 'uploads', 'manpower');
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
   return `/uploads/manpower/${filename}`;

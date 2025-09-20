@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     if (designImageFile) {
       const ext = path.extname(designImageFile.originalName) || '.png';
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads', 'projects', String(created.id), 'designs');
+      const dir = path.join(process.cwd(), 'uploads', 'projects');
       await fs.mkdir(dir, { recursive: true });
       try { await fs.writeFile(path.join(dir, filename), designImageFile.buffer); } catch { return Error('Failed to store design image', 500); }
       await prisma.project.update({ where: { id: created.id }, data: { designImage: filename } });

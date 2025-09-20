@@ -6,6 +6,7 @@ export * from './confirm-dialog';
 export * from './data-table';
 export * from './email-input';
 export * from './filter-bar';
+export * from './improved-upload-input';
 export * from './pagination';
 export * from './password-input';
 export * from './status-badge';

@@ -64,10 +64,10 @@ export interface BoqFormProps {
 }
 
 const inputSchema = z.object({
-  siteId: z.string().optional(),
-  workName: z.string().optional(),
-  workOrderNo: z.string().optional(),
-  workOrderDate: z.string().optional(),
+  siteId: z.string().min(1, 'Site is required'),
+  workName: z.string().min(1, 'Work name is required'),
+  workOrderNo: z.string().min(1, 'Work order number is required'),
+  workOrderDate: z.string().min(1, 'Work order date is required'),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   totalWorkValue: z.string().optional(),
@@ -146,6 +146,26 @@ function toSubmitPayload(data: RawFormValues) {
 export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' }: BoqFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+
+  // Add effect to style asterisks red after component mounts
+  useEffect(() => {
+    const styleAsterisks = () => {
+      const labels = document.querySelectorAll('label');
+      labels.forEach(label => {
+        const text = label.textContent || '';
+        if (text.includes('*')) {
+          const parts = text.split('*');
+          if (parts.length === 2) {
+            label.innerHTML = `${parts[0]}<span style="color: #ef4444; font-weight: bold;">*</span>${parts[1]}`;
+          }
+        }
+      });
+    };
+
+    // Run after a short delay to ensure DOM is ready
+    const timer = setTimeout(styleAsterisks, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch sites for dropdown
   const { data: sitesData } = useSWR<SitesResponse>('/api/sites?perPage=100', apiGet);
@@ -226,8 +246,15 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
   }
 
   return (
-    <Form {...form}>
-      <AppCard>
+    <>
+      <style jsx global>{`
+        /* Ensure labels maintain their original color while asterisks are styled by JavaScript */
+        label {
+          color: inherit;
+        }
+      `}</style>
+      <Form {...form}>
+        <AppCard>
         <AppCard.Header>
           <AppCard.Title>{isCreate ? 'Create BOQ' : 'Edit BOQ'}</AppCard.Title>
           <AppCard.Description>
@@ -245,11 +272,11 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
               </div>
             ) : null}
             <FormSection legend={<span className='text-base font-semibold'>General</span>}>
-              <FormRow cols={2} from='md'>
+              <FormRow cols={1} from='md'>
                 <AppSelect
                   control={control}
                   name='siteId'
-                  label='Site'
+                  label='Site *'
                   placeholder='Select site'
                   triggerClassName='h-9 w-full'
                 >
@@ -262,9 +289,9 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
 
             <FormSection legend={<span className='text-base font-semibold'>Work Order</span>}>
               <FormRow cols={3} from='md'>
-                <TextInput control={control} name='workOrderNo' label='Work Order No' placeholder='' span={1} spanFrom='md' />
-                <TextInput control={control} name='workName' label='Work Name' placeholder='Enter work name' span={1} spanFrom='md' />
-                <TextInput control={control} name='workOrderDate' label='Work Order Date' type='date' span={1} spanFrom='md' />
+                <TextInput control={control} name='workOrderNo' label='Work Order No *' placeholder='Enter work order number' span={1} spanFrom='md' />
+                <TextInput control={control} name='workName' label='Work Name *' placeholder='Enter work name' span={1} spanFrom='md' />
+                <TextInput control={control} name='workOrderDate' label='Work Order Date *' type='date' span={1} spanFrom='md' />
               </FormRow>
               <FormRow cols={2} from='md'>
                 <TextInput control={control} name='startDate' label='Start Date' type='date' span={1} spanFrom='md' />
@@ -281,11 +308,11 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
 
             <FormSection legend={<span className='text-base font-semibold'>Agreement</span>}>
               <FormRow cols={2} from='md'>
-                <TextInput control={control} name='agreementNo' label='Agreement No' span={1} spanFrom='md' />
-                <TextInput control={control} name='agreementStatus' label='Agreement Status' span={1} spanFrom='md' />
+                <TextInput control={control} name='agreementNo' label='Agreement No' placeholder='Enter agreement number' span={1} spanFrom='md' />
+                <TextInput control={control} name='agreementStatus' label='Agreement Status' placeholder='Enter agreement status' span={1} spanFrom='md' />
               </FormRow>
               <FormRow cols={2} from='md'>
-                <TextInput control={control} name='completionPeriod' label='Completion Period' span={1} spanFrom='md' />
+                <TextInput control={control} name='completionPeriod' label='Completion Period' placeholder='Enter completion period' span={1} spanFrom='md' />
                 <TextInput control={control} name='completionDate' label='Completion Date' type='date' span={1} spanFrom='md' />
               </FormRow>
               <FormRow cols={3} from='md'>
@@ -297,10 +324,10 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
 
             <FormSection legend={<span className='text-base font-semibold'>Performance Security</span>}>
               <FormRow cols={2} from='md'>
-                <TextInput control={control} name='defectLiabilityPeriod' label='Defect Liability Period' span={1} spanFrom='md' />
-                <TextInput control={control} name='performanceSecurityMode' label='Performance Security Mode' span={1} spanFrom='md' />
-                <TextInput control={control} name='performanceSecurityDocumentNo' label='Performance Security Document No' span={1} spanFrom='md' />
-                <TextInput control={control} name='performanceSecurityPeriod' label='Performance Security Period' span={1} spanFrom='md' />
+                <TextInput control={control} name='defectLiabilityPeriod' label='Defect Liability Period' placeholder='Enter defect liability period' span={1} spanFrom='md' />
+                <TextInput control={control} name='performanceSecurityMode' label='Performance Security Mode' placeholder='Enter security mode' span={1} spanFrom='md' />
+                <TextInput control={control} name='performanceSecurityDocumentNo' label='Performance Security Document No' placeholder='Enter document number' span={1} spanFrom='md' />
+                <TextInput control={control} name='performanceSecurityPeriod' label='Performance Security Period' placeholder='Enter security period' span={1} spanFrom='md' />
               </FormRow>
             </FormSection>
 
@@ -312,8 +339,8 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
                   return (
                     <div key={field.id} className='border rounded-md p-4 bg-card'>
                       <div className='grid grid-cols-12 gap-6'>
-                        <TextInput control={control} name={`items.${index}.activityId`} label='Activity ID' span={4} spanFrom='md' />
-                        <TextInput control={control} name={`items.${index}.clientSrNo`} label='Client Sr No.' span={4} spanFrom='md' />
+                        <TextInput control={control} name={`items.${index}.activityId`} label='Activity ID' placeholder='Enter activity ID' span={4} spanFrom='md' />
+                        <TextInput control={control} name={`items.${index}.clientSrNo`} label='Client Sr No.' placeholder='Enter client serial number' span={4} spanFrom='md' />
                         <AppSelect
                           control={control}
                           name={`items.${index}.unitId`}
@@ -328,8 +355,8 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
                         </AppSelect>
                       </div>
                       <div className='grid grid-cols-12 gap-6 mt-3'>
-                        <TextInput control={control} name={`items.${index}.qty`} label='Qty' type='number' span={4} spanFrom='md' />
-                        <TextInput control={control} name={`items.${index}.rate`} label='Rate' type='number' span={4} spanFrom='md'  />
+                        <TextInput control={control} name={`items.${index}.qty`} label='Qty' type='number' placeholder='0' span={4} spanFrom='md' />
+                        <TextInput control={control} name={`items.${index}.rate`} label='Rate' type='number' placeholder='0.00' span={4} spanFrom='md'  />
                         <div className='col-span-12 md:col-span-4 lg:col-span-4'>
                           <FormLabel>Amount</FormLabel>
                           <div className='h-9 px-3 flex items-center rounded-md border bg-muted/30 text-right tabular-nums'>
@@ -355,19 +382,19 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
                       <div className='grid grid-cols-12 gap-6 mt-3'>
                         <div className='col-span-12 md:col-span-6 lg:col-span-6'>
                           <FormLabel className='text-xs text-muted-foreground'>Opening Qty</FormLabel>
-                          <TextInput control={control} name={`items.${index}.openingQty`} label='' type='number' />
+                          <TextInput control={control} name={`items.${index}.openingQty`} label='' type='number' placeholder='0' />
                         </div>
                         <div className='col-span-12 md:col-span-6 lg:col-span-6'>
                           <FormLabel className='text-xs text-muted-foreground'>Value</FormLabel>
-                          <TextInput control={control} name={`items.${index}.openingValue`} label='' type='number' disabled  />
+                          <TextInput control={control} name={`items.${index}.openingValue`} label='' type='number' placeholder='0.00' disabled  />
                         </div>
                         <div className='col-span-12 md:col-span-6 lg:col-span-6'>
                           <FormLabel className='text-xs text-muted-foreground'>Closing Qty</FormLabel>
-                          <TextInput control={control} name={`items.${index}.closingQty`} label='' type='number' />
+                          <TextInput control={control} name={`items.${index}.closingQty`} label='' type='number' placeholder='0' />
                         </div>
                         <div className='col-span-12 md:col-span-6 lg:col-span-6'>
                           <FormLabel className='text-xs text-muted-foreground'>Value</FormLabel>
-                          <TextInput control={control} name={`items.${index}.closingValue`} label='' type='number' disabled  />
+                          <TextInput control={control} name={`items.${index}.closingValue`} label='' type='number' placeholder='0.00' disabled  />
                         </div>
                       </div>
                       <div className='mt-3 flex justify-end'>
@@ -414,6 +441,7 @@ export function BoqForm({ mode, initial, onSuccess, redirectOnSuccess = '/boqs' 
         </form>
       </AppCard>
     </Form>
+    </>
   );
 }
 
