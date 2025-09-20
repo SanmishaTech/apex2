@@ -17,6 +17,7 @@ import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
+import * as XLSX from 'xlsx';
 
 // Types
 
@@ -191,6 +192,69 @@ export default function ItemsPage() {
     }
   }
 
+  async function handleExport() {
+    try {
+      toast.loading('Preparing export...');
+      
+      // Fetch all items without pagination
+      const exportQuery = `/api/items?perPage=10000${search ? `&search=${search}` : ''}`;
+      const exportData = await apiGet(exportQuery) as ItemsResponse;
+      
+      // Prepare data for Excel export
+      const excelData = exportData.data.map((item) => ({
+        'Item Code': item.itemCode,
+        'HSN Code': item.hsnCode || '',
+        'Item Name': item.item,
+        'Category Code': item.itemCategory?.itemCategoryCode || '',
+        'Category Name': item.itemCategory?.itemCategory || '',
+        'Unit': item.unit?.unitName || '',
+        'GST Rate (%)': item.gstRate || '',
+        'Asset': item.asset ? 'Yes' : 'No',
+        'Discontinue': item.discontinue ? 'Yes' : 'No',
+        'Description': item.description || '',
+        'Created Date': formatDate(item.createdAt),
+        'Updated Date': formatDate(item.updatedAt),
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      // Set column widths for better readability
+      const colWidths = [
+        { wch: 15 }, // Item Code
+        { wch: 12 }, // HSN Code
+        { wch: 30 }, // Item Name
+        { wch: 15 }, // Category Code
+        { wch: 25 }, // Category Name
+        { wch: 10 }, // Unit
+        { wch: 12 }, // GST Rate
+        { wch: 8 },  // Asset
+        { wch: 12 }, // Discontinue
+        { wch: 40 }, // Description
+        { wch: 15 }, // Created Date
+        { wch: 15 }, // Updated Date
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Items');
+
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `items_export_${dateStr}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`Exported ${exportData.data.length} items to ${filename}`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export items');
+    }
+  }
+
   return (
     <AppCard>
       <AppCard.Header>
@@ -222,6 +286,15 @@ export default function ItemsPage() {
             className='min-w-[84px]'
           >
             Filter
+          </AppButton>
+          <AppButton
+            variant='outline'
+            size='sm'
+            onClick={handleExport}
+            iconName='Download'
+            className='min-w-[84px]'
+          >
+            Export
           </AppButton>
           {search && (
             <AppButton
