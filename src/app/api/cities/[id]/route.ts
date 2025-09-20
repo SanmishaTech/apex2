@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   city: z.string().min(1, "City name is required").optional(),
-  status: z.boolean().optional(),
   stateId: z.number().optional().nullable(),
 });
 
@@ -24,7 +23,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       select: { 
         id: true, 
         city: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true,
         stateId: true,
@@ -67,7 +65,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       select: { 
         id: true, 
         city: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true
       }

@@ -160,39 +160,23 @@ model DesignMap {
   @@index([projectId])
 }
 
-// State master data for location management 
-model State {
-  id        Int      @id @default(autoincrement())
-  state     String   @unique
-  status    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  cities    City[]
-  companies Company[]
-  sites     Site[]
-  employees Employee[]
-
-  @@map("states")
-}
 
 model City {
   id        Int      @id @default(autoincrement())
   city      String   @unique
-  status    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relations
-  stateId   Int?
-  state     State?   @relation(fields: [stateId], references: [id])
-  companies Company[]
-  sites     Site[]
-  employees Employee[]
+  stateId          Int?
+  state            State?   @relation(fields: [stateId], references: [id])
+  companies        Company[]
+  sites            Site[]
+  employees        Employee[]
+  billingAddresses BillingAddress[]
+  vendors          Vendor[]
 
   @@map("cities")
-  @@index([status])
 }
 
 // Company master data for business management
@@ -437,17 +421,162 @@ model SkillSet {
   @@index([skillsetName])
 }
 
+// State master data
+model State {
+  id        Int      @id @default(autoincrement())
+  state     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  cities           City[]
+  companies        Company[]
+  sites            Site[]
+  employees        Employee[]
+  billingAddresses BillingAddress[]
+  vendors          Vendor[]
+
+  @@map("states")
+}
+
 // Unit master data
 model Unit {
   id        Int      @id @default(autoincrement())
   unitName  String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  // Back-relation for BoqItem.unit
+
+  // Relations
   boqItems  BoqItem[]
+  items     Item[]
 
   @@map("units")
-  @@index([unitName])
+}
+
+// Item Category master data
+model ItemCategory {
+  id               Int      @id @default(autoincrement())
+  itemCategoryCode String   @unique
+  itemCategory     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  items            Item[]
+  vendorCategories VendorItemCategory[]
+
+  @@map("item_categories")
+}
+
+// Items master data
+model Item {
+  id             Int      @id @default(autoincrement())
+  itemCode       String   @unique // auto-generated
+  hsnCode        String?
+  item           String
+  itemCategoryId Int?
+  itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
+  unitId         Int?
+  unit           Unit?    @relation(fields: [unitId], references: [id])
+  gstRate        Decimal? @db.Decimal(5, 2)
+  asset          Boolean  @default(false)
+  discontinue    Boolean  @default(false)
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("items")
+  @@index([itemCode])
+  @@index([itemCategoryId])
+  @@index([unitId])
+}
+
+// Billing Address master data
+model BillingAddress {
+  id            Int      @id @default(autoincrement())
+  companyName   String
+  addressLine1  String
+  addressLine2  String?
+  stateId       Int?
+  state         State?   @relation(fields: [stateId], references: [id])
+  cityId        Int?
+  city          City?    @relation(fields: [cityId], references: [id])
+  pincode       String?
+  landline1     String?
+  landline2     String?
+  fax           String?
+  email         String?
+  panNumber     String?
+  vatTinNumber  String?
+  gstNumber     String?
+  cstTinNumber  String?
+  cinNumber     String?
+  stateCode     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("billing_addresses")
+  @@index([companyName])
+}
+
+// Vendor master data
+model Vendor {
+  id                Int      @id @default(autoincrement())
+  vendorName        String
+  contactPerson     String?
+  addressLine1      String
+  addressLine2      String?
+  stateId           Int?
+  state             State?   @relation(fields: [stateId], references: [id])
+  cityId            Int?
+  city              City?    @relation(fields: [cityId], references: [id])
+  pincode           String?
+  mobile1           String?
+  mobile2           String?
+  email             String?
+  alternateEmail1   String?
+  alternateEmail2   String?
+  alternateEmail3   String?
+  alternateEmail4   String?
+  landline1         String?
+  landline2         String?
+  bank              String?
+  branch            String?
+  branchCode        String?
+  accountNumber     String?
+  ifscCode          String?
+  panNumber         String?
+  vatTinNumber      String?
+  cstTinNumber      String?
+  gstNumber         String?
+  cinNumber         String?
+  serviceTaxNumber  String?
+  stateCode         String?
+  itemCategories    VendorItemCategory[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("vendors")
+  @@index([vendorName])
+  @@index([email])
+  @@index([gstNumber])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+// Junction table for Vendor-ItemCategory many-to-many relationship
+model VendorItemCategory {
+  id             Int          @id @default(autoincrement())
+  vendorId       Int
+  itemCategoryId Int
+  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  itemCategory   ItemCategory @relation(fields: [itemCategoryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([vendorId, itemCategoryId])
+  @@map("vendor_item_categories")
+  @@index([vendorId])
+  @@index([itemCategoryId])
 }
 
 // Bill of Quantity (BOQ)
@@ -651,4 +780,16 @@ model MinimumWage {
   @@index([siteId])
   @@index([categoryId])
   @@index([skillSetId])
+}
+
+// Payment Terms master data
+model PaymentTerm {
+  id          Int      @id @default(autoincrement())
+  paymentTerm String   @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payment_terms")
+  @@index([paymentTerm])
 }

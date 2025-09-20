@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   state: z.string().min(1, "State name is required").optional(),
-  status: z.boolean().optional(),
 });
 
 // GET /api/states/[id] - Get single state
@@ -23,7 +22,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       select: { 
         id: true, 
         state: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true
       }
@@ -59,7 +57,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       select: { 
         id: true, 
         state: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true
       }

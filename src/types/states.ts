@@ -18,10 +18,8 @@ export interface StatesResponse {
 
 export interface CreateStateData {
   state: string;
-  status: boolean;
 }
 
 export interface UpdateStateData {
   state?: string;
-  status?: boolean;
 }

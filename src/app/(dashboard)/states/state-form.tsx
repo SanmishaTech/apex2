@@ -6,7 +6,6 @@ import { Form } from '@/components/ui/form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AppButton } from '@/components/common';
-import { AppCheckbox } from '@/components/common/app-checkbox';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
@@ -18,7 +17,6 @@ import { CreateStateData, UpdateStateData } from '@/types/states';
 export interface StateFormInitialData {
   id?: number;
   state?: string;
-  status?: boolean;
 }
 
 export interface StateFormProps {
@@ -39,7 +37,6 @@ export function StateForm({
 
   const schema = z.object({
     state: z.string().min(1, 'State name is required'),
-    status: z.boolean(),
   });
 
   type FormValues = z.infer<typeof schema>;
@@ -50,12 +47,10 @@ export function StateForm({
     reValidateMode: 'onChange',
     defaultValues: {
       state: initial?.state ?? '',
-      status: initial?.status ?? true,
     },
   });
 
   const { control, handleSubmit } = form;
-  const statusValue = form.watch('status');
   const isCreate = mode === 'create';
 
   async function onSubmit(formData: FormValues) {
@@ -64,7 +59,6 @@ export function StateForm({
       if (mode === 'create') {
         const payload: CreateStateData = {
           state: formData.state,
-          status: formData.status,
         };
         const res = await apiPost('/api/states', payload);
         toast.success('State created successfully');
@@ -72,7 +66,6 @@ export function StateForm({
       } else if (mode === 'edit' && initial?.id) {
         const payload: UpdateStateData = {
           state: formData.state,
-          status: formData.status,
         };
         const res = await apiPatch(`/api/states/${initial.id}`, payload);
         toast.success('State updated successfully');
@@ -98,18 +91,13 @@ export function StateForm({
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <AppCard.Content>
             <FormSection legend='State Information'>
-              <FormRow cols={2}>
+              <FormRow cols={1}>
                 <TextInput 
                   control={control} 
                   name='state' 
                   label='State Name' 
                   placeholder='Enter state name'
                   required
-                />
-                <AppCheckbox
-                  label='Active Status'
-                  checked={statusValue}
-                  onCheckedChange={(v) => form.setValue('status', v)}
                 />
               </FormRow>
             </FormSection>

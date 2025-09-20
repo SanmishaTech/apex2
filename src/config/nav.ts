@@ -122,6 +122,36 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_UNITS,
       },
+      {
+        title: 'Item Categories',
+        href: '/item-categories',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ITEM_CATEGORIES,
+      },
+      {
+        title: 'Items',
+        href: '/items',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ITEMS,
+      },
+      {
+        title: 'Billing Addresses',
+        href: '/billing-addresses',
+        icon: Folder,
+        permission: PERMISSIONS.READ_BILLING_ADDRESSES,
+      },
+      {
+        title: 'Vendors',
+        href: '/vendors',
+        icon: Folder,
+        permission: PERMISSIONS.READ_VENDORS,
+      },
+      {
+        title: 'Payment Terms',
+        href: '/payment-terms',
+        icon: Folder,
+        permission: PERMISSIONS.READ_PAYMENT_TERMS,
+      },
     ],
   },
 

@@ -14,7 +14,6 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { StatusBadge } from '@/components/common/status-badge';
 import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
@@ -29,17 +28,15 @@ export default function CitiesPage() {
     perPage: 10,
     search: '',
     stateId: '',
-    status: '',
     sort: 'city',
     order: 'asc',
   });
-  const { page, perPage, search, stateId, status, sort, order } =
+  const { page, perPage, search, stateId, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
       stateId: string;
-      status: string;
       sort: string;
       order: 'asc' | 'desc';
     };
@@ -47,7 +44,6 @@ export default function CitiesPage() {
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
   const [stateIdDraft, setStateIdDraft] = useState(stateId);
-  const [statusDraft, setStatusDraft] = useState(status);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
@@ -56,27 +52,22 @@ export default function CitiesPage() {
   useEffect(() => {
     setStateIdDraft(stateId);
   }, [stateId]);
-  useEffect(() => {
-    setStatusDraft(status);
-  }, [status]);
 
   const filtersDirty =
-    searchDraft !== search || stateIdDraft !== stateId || statusDraft !== status;
+    searchDraft !== search || stateIdDraft !== stateId;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
       stateId: stateIdDraft,
-      status: statusDraft,
     });
   }
 
   function resetFilters() {
     setSearchDraft('');
     setStateIdDraft('');
-    setStatusDraft('');
-    setQp({ page: 1, search: '', stateId: '', status: '' });
+    setQp({ page: 1, search: '', stateId: '' });
   }
 
   const query = useMemo(() => {
@@ -85,11 +76,10 @@ export default function CitiesPage() {
     sp.set('perPage', String(perPage));
     if (search) sp.set('search', search);
     if (stateId) sp.set('stateId', stateId);
-    if (status) sp.set('status', status);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
     return `/api/cities?${sp.toString()}`;
-  }, [page, perPage, search, stateId, status, sort, order]);
+  }, [page, perPage, search, stateId, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<CitiesResponse>(
     query,
@@ -125,13 +115,6 @@ export default function CitiesPage() {
       header: 'State',
       sortable: false,
       accessor: (r) => r.state?.state || '-',
-      cellClassName: 'whitespace-nowrap',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      accessor: (r) => <StatusBadge active={r.status} />,
       cellClassName: 'whitespace-nowrap',
     },
     {
@@ -192,26 +175,17 @@ export default function CitiesPage() {
               </AppSelect.Item>
             ))}
           </AppSelect>
-          <AppSelect
-            value={statusDraft || '__all'}
-            onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}
-            placeholder='Status'
-          >
-            <AppSelect.Item value='__all'>All Statuses</AppSelect.Item>
-            <AppSelect.Item value='true'>Active</AppSelect.Item>
-            <AppSelect.Item value='false'>Inactive</AppSelect.Item>
-          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
             disabled={
-              !filtersDirty && !searchDraft && !stateIdDraft && !statusDraft
+              !filtersDirty && !searchDraft && !stateIdDraft
             }
             className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {(search || stateId || status) && (
+          {(search || stateId) && (
             <AppButton
               variant='secondary'
               size='sm'

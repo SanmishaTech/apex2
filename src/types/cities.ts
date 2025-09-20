@@ -21,12 +21,10 @@ export interface CitiesResponse {
 
 export interface CreateCityData {
   city: string;
-  status: boolean;
   stateId?: number | null;
 }
 
 export interface UpdateCityData {
   city?: string;
-  status?: boolean;
   stateId?: number | null;
 }

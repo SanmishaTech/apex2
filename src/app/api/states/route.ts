@@ -7,7 +7,6 @@ import { z } from "zod";
 
 const createSchema = z.object({
   state: z.string().min(1, "State name is required"),
-  status: z.boolean().default(true),
 });
 
 // GET /api/states - List states with pagination & search
@@ -20,14 +19,12 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
-    const statusParam = searchParams.get("status");
     const sort = (searchParams.get("sort") || "state") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
     // Build dynamic filter
     type StateWhere = {
       OR?: { state?: { contains: string } }[];
-      status?: boolean;
     };
     const where: StateWhere = {};
     if (search) {
@@ -35,10 +32,9 @@ export async function GET(req: NextRequest) {
         { state: { contains: search } },
       ];
     }
-    if (statusParam === "true" || statusParam === "false") where.status = statusParam === "true";
 
     // Allow listed sortable fields only
-    const sortableFields = new Set(["state", "status", "createdAt"]);
+    const sortableFields = new Set(["state", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { state: "asc" };
 
     const result = await paginate({
@@ -50,7 +46,6 @@ export async function GET(req: NextRequest) {
       select: { 
         id: true, 
         state: true, 
-        status: true, 
         createdAt: true,
         updatedAt: true
       },
@@ -81,17 +76,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { state, status } = createSchema.parse(body);
+    const { state } = createSchema.parse(body);
     
     const created = await prisma.state.create({
       data: { 
-        state, 
-        status 
+        state
       },
       select: { 
         id: true, 
         state: true, 
-        status: true, 
         createdAt: true 
       }
     });
