@@ -140,6 +140,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_BILLING_ADDRESSES,
       },
+      {
+        title: 'Vendors',
+        href: '/vendors',
+        icon: Folder,
+        permission: PERMISSIONS.READ_VENDORS,
+      },
     ],
   },
 

@@ -6,7 +6,6 @@ import { Form } from '@/components/ui/form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AppButton } from '@/components/common';
-import { AppCheckbox } from '@/components/common/app-checkbox';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
@@ -22,7 +21,6 @@ import useSWR from 'swr';
 export interface CityFormInitialData {
   id?: number;
   city?: string;
-  status?: boolean;
   stateId?: number | null;
 }
 
@@ -44,7 +42,6 @@ export function CityForm({
 
   const schema = z.object({
     city: z.string().min(1, 'City name is required'),
-    status: z.boolean(),
     stateId: z.number().optional().nullable(),
   });
 
@@ -56,13 +53,11 @@ export function CityForm({
     reValidateMode: 'onChange',
     defaultValues: {
       city: initial?.city ?? '',
-      status: initial?.status ?? true,
       stateId: initial?.stateId ?? null,
     },
   });
 
   const { control, handleSubmit } = form;
-  const statusValue = form.watch('status');
   const stateIdValue = form.watch('stateId');
   const isCreate = mode === 'create';
 
@@ -75,7 +70,6 @@ export function CityForm({
       if (mode === 'create') {
         const payload: CreateCityData = {
           city: formData.city,
-          status: formData.status,
           stateId: formData.stateId,
         };
         const res = await apiPost('/api/cities', payload);
@@ -84,7 +78,6 @@ export function CityForm({
       } else if (mode === 'edit' && initial?.id) {
         const payload: UpdateCityData = {
           city: formData.city,
-          status: formData.status,
           stateId: formData.stateId,
         };
         const res = await apiPatch(`/api/cities/${initial.id}`, payload);
@@ -137,13 +130,6 @@ export function CityForm({
                     ))}
                   </AppSelect>
                 </div>
-              </FormRow>
-              <FormRow cols={1}>
-                <AppCheckbox
-                  label='Active Status'
-                  checked={statusValue}
-                  onCheckedChange={(v) => form.setValue('status', v)}
-                />
               </FormRow>
             </FormSection>
           </AppCard.Content>
