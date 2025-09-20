@@ -146,6 +146,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_VENDORS,
       },
+      {
+        title: 'Payment Terms',
+        href: '/payment-terms',
+        icon: Folder,
+        permission: PERMISSIONS.READ_PAYMENT_TERMS,
+      },
     ],
   },
 

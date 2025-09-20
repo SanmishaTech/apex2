@@ -781,3 +781,15 @@ model MinimumWage {
   @@index([categoryId])
   @@index([skillSetId])
 }
+
+// Payment Terms master data
+model PaymentTerm {
+  id          Int      @id @default(autoincrement())
+  paymentTerm String   @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payment_terms")
+  @@index([paymentTerm])
+}
