@@ -446,6 +446,7 @@ model Unit {
 
   // Relations
   boqItems  BoqItem[]
+  items     Item[]
 
   @@map("units")
 }
@@ -458,7 +459,33 @@ model ItemCategory {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // Relations
+  items            Item[]
+
   @@map("item_categories")
+}
+
+// Items master data
+model Item {
+  id             Int      @id @default(autoincrement())
+  itemCode       String   @unique // auto-generated
+  hsnCode        String?
+  item           String
+  itemCategoryId Int?
+  itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
+  unitId         Int?
+  unit           Unit?    @relation(fields: [unitId], references: [id])
+  gstRate        Decimal? @db.Decimal(5, 2)
+  asset          Boolean  @default(false)
+  discontinue    Boolean  @default(false)
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("items")
+  @@index([itemCode])
+  @@index([itemCategoryId])
+  @@index([unitId])
 }
 
 // Bill of Quantity (BOQ)
