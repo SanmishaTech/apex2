@@ -31,7 +31,6 @@ export default function EditStatePage() {
   const initialData: StateFormInitialData = {
     id: state.id,
     state: state.state,
-    status: state.status,
   };
 
   return (

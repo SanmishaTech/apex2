@@ -39,12 +39,12 @@ const updateSchema = z.object({
 // GET /api/vendors/[id] - Get single vendor
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {
@@ -106,12 +106,12 @@ export async function GET(
 // PATCH /api/vendors/[id] - Update vendor
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {
@@ -206,12 +206,12 @@ export async function PATCH(
 // DELETE /api/vendors/[id] - Delete vendor
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {

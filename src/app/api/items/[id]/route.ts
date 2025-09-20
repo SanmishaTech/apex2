@@ -6,12 +6,12 @@ import { guardApiAccess } from "@/lib/access-guard";
 // GET /api/items/[id] - Get single Item
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {
@@ -44,12 +44,12 @@ export async function GET(
 // DELETE /api/items/[id] - Delete Item
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {

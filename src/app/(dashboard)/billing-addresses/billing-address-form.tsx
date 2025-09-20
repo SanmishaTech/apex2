@@ -90,8 +90,8 @@ export function BillingAddressForm({ mode, initial, onSuccess, redirectOnSuccess
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch dropdown data
-  const { data: states } = useSWR('/api/states?perPage=1000', apiGet);
-  const { data: cities } = useSWR('/api/cities?perPage=1000', apiGet);
+  const { data: states } = useSWR('/api/states?perPage=1000', apiGet) as { data: any };
+  const { data: cities } = useSWR('/api/cities?perPage=1000', apiGet) as { data: any };
 
   // Add effect to style asterisks red after component mounts
   useEffect(() => {

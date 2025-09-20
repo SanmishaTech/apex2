@@ -29,10 +29,9 @@ export default function EditCityPage() {
     return <div className='p-6'>City not found</div>;
   }
 
-  const initialData: CityFormInitialData = {
+  const initialData = {
     id: city.id,
     city: city.city,
-    status: city.status,
     stateId: city.stateId,
   };
 

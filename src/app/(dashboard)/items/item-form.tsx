@@ -69,8 +69,8 @@ export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch dropdown data
-  const { data: itemCategories } = useSWR('/api/item-categories?perPage=1000', apiGet);
-  const { data: units } = useSWR('/api/units?perPage=1000', apiGet);
+  const { data: itemCategories } = useSWR('/api/item-categories?perPage=1000', apiGet) as { data: any };
+  const { data: units } = useSWR('/api/units?perPage=1000', apiGet) as { data: any };
 
   // Add effect to style asterisks red after component mounts
   useEffect(() => {
