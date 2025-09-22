@@ -21,16 +21,20 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
   const { user } = useCurrentUser();
 
   const items = useMemo(() => {
-    const rolePermissions = user ? ROLES_PERMISSIONS[user.role] || [] : [];
+    if (!user) return [];
+
+    const rolePermissions = ROLES_PERMISSIONS[user.role] || [];
+    const permissionSet = new Set(rolePermissions); // O(1) lookup instead of O(n)
+
     return NAV_ITEMS.map(item => {
       if (isGroup(item)) {
-        const filteredChildren = item.children.filter(c => rolePermissions.includes(c.permission));
+        const filteredChildren = item.children.filter(c => permissionSet.has(c.permission));
         if (filteredChildren.length === 0) return null;
         return { ...item, children: filteredChildren } as NavGroupItem;
       }
-      return rolePermissions.includes(item.permission) ? item : null;
+      return permissionSet.has(item.permission) ? item : null;
     }).filter(Boolean) as NavItem[];
-  }, [user]);
+  }, [user?.role]); // Only re-run when role changes, not entire user object
 
   function isGroup(item: NavItem): item is NavGroupItem {
     return (item as NavGroupItem).children !== undefined;

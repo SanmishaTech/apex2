@@ -69,6 +69,14 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/notices/new', permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: '/notices/', permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: '/notices', permissions: [PERMISSIONS.READ_BOQS] },
+  // Cashbook Heads
+  { prefix: '/cashbook-heads/new', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
+  { prefix: '/cashbook-heads/', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
+  { prefix: '/cashbook-heads', permissions: [PERMISSIONS.READ_CASHBOOK_HEADS] },
+  // Cashbook Budgets
+  { prefix: '/cashbook-budgets/new', permissions: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS] },
+  { prefix: '/cashbook-budgets/', permissions: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS] },
+  { prefix: '/cashbook-budgets', permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -272,6 +280,24 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_BOQS],
     },
   },
+  {
+    prefix: '/api/cashbook-heads',
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOK_HEADS],
+      POST: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+      PATCH: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+      DELETE: [PERMISSIONS.DELETE_CASHBOOK_HEADS],
+    },
+  },
+  {
+    prefix: '/api/cashbook-budgets',
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+      POST: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS],
+      PATCH: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS],
+      DELETE: [PERMISSIONS.DELETE_CASHBOOK_BUDGETS],
+    },
+  },
   // add more API rules here
 ];
 
@@ -280,8 +306,18 @@ export type AccessRuleMatch = {
   type: 'page' | 'api';
 };
 
+// Cache for access rule lookups to avoid repeated computation
+const accessRuleCache = new Map<string, AccessRuleMatch | null>();
+
 // Longest-prefix matcher so that more specific rules override broader ones automatically.
 export function findAccessRule(pathname: string): AccessRuleMatch | null {
+  // Check cache first
+  if (accessRuleCache.has(pathname)) {
+    return accessRuleCache.get(pathname) || null;
+  }
+
+  let result: AccessRuleMatch | null = null;
+
   if (pathname.startsWith('/api/')) {
     let match: ApiAccessRule | undefined;
     for (const r of API_ACCESS_RULES) {
@@ -291,7 +327,7 @@ export function findAccessRule(pathname: string): AccessRuleMatch | null {
     }
     if (match) {
       const perms = match.methods?.['GET'] || match.permissions || [];
-      return { permissions: perms, type: 'api' };
+      result = { permissions: perms, type: 'api' };
     }
   } else {
     let match: { prefix: string; permissions: string[] } | undefined;
@@ -300,9 +336,12 @@ export function findAccessRule(pathname: string): AccessRuleMatch | null {
         if (!match || r.prefix.length > match.prefix.length) match = r;
       }
     }
-    if (match) return { permissions: match.permissions as Permission[], type: 'page' };
+    if (match) result = { permissions: match.permissions as Permission[], type: 'page' };
   }
-  return null;
+
+  // Cache the result
+  accessRuleCache.set(pathname, result);
+  return result;
 }
 
 // Guard functions live in lib/access-guard.ts – this file is purely declarative configuration + rule lookup.

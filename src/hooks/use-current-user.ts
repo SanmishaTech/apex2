@@ -9,7 +9,17 @@ import { apiGet } from "@/lib/api-client";
 const fetcher = () => apiGet<CurrentUser>("/api/users/me");
 
 export function useCurrentUser() {
-  const { data, error, isLoading, mutate } = useSWR<CurrentUser>("/api/users/me", fetcher, { shouldRetryOnError: false });
+  const { data, error, isLoading, mutate } = useSWR<CurrentUser>(
+    "/api/users/me",
+    fetcher,
+    {
+      shouldRetryOnError: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000, // 1 minute cache
+      focusThrottleInterval: 30000 // 30 seconds
+    }
+  );
   return {
     user: data ?? null,
     error,
