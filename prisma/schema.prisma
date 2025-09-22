@@ -280,6 +280,8 @@ model Site {
 
   // Back-relation for MinimumWage.site
   minimumWages   MinimumWage[]
+  // Back-relation for SiteBudget.site
+  siteBudgets    SiteBudget[]
 
   @@map("sites")
   @@index([site])
@@ -484,6 +486,9 @@ model Item {
   description    String?  @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // Back-relation for SiteBudget.item
+  siteBudgets    SiteBudget[]
 
   @@map("items")
   @@index([itemCode])
@@ -792,4 +797,36 @@ model PaymentTerm {
 
   @@map("payment_terms")
   @@index([paymentTerm])
+}
+
+// Site Budget - manages budget items for each site
+model SiteBudget {
+  id            Int      @id @default(autoincrement())
+  siteId        Int
+  itemId        Int
+  budgetQty     Decimal  @db.Decimal(12, 2)
+  budgetRate    Decimal  @db.Decimal(12, 2)
+  purchaseRate  Decimal  @db.Decimal(12, 2)
+  budgetValue   Decimal  @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
+  orderedQty    Decimal  @db.Decimal(12, 2) @default(0)
+  avgRate       Decimal  @db.Decimal(12, 2) @default(0)
+  orderedValue  Decimal  @db.Decimal(12, 2) @default(0) // Calculated: orderedQty * avgRate
+  
+  // Alert checkboxes
+  qty50Alert    Boolean  @default(false)
+  value50Alert  Boolean  @default(false)
+  qty75Alert    Boolean  @default(false)
+  value75Alert  Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  site          Site     @relation(fields: [siteId], references: [id])
+  item          Item     @relation(fields: [itemId], references: [id])
+
+  @@unique([siteId, itemId]) // One budget entry per site-item combination
+  @@map("site_budgets")
+  @@index([siteId])
+  @@index([itemId])
 }
