@@ -280,8 +280,13 @@ model Site {
 
   // Back-relation for MinimumWage.site
   minimumWages   MinimumWage[]
-  // Back-relation for SiteBudget.site
+
+  cashbookBudgets CashbookBudget[]
+  // Back-relation for Indent.site
+  indents         Indent[]
+
   siteBudgets    SiteBudget[]
+
 
   @@map("sites")
   @@index([site])
@@ -451,6 +456,7 @@ model Unit {
   // Relations
   boqItems  BoqItem[]
   items     Item[]
+  indentItems IndentItem[]
 
   @@map("units")
 }
@@ -487,7 +493,9 @@ model Item {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Back-relation for SiteBudget.item
+  // Relations
+  indentItems    IndentItem[]
+
   siteBudgets    SiteBudget[]
 
   @@map("items")
@@ -799,6 +807,104 @@ model PaymentTerm {
   @@index([paymentTerm])
 }
 
+
+// Cashbook Heads master data
+model CashbookHead {
+  id               Int      @id @default(autoincrement())
+  cashbookHeadName String   @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  cashbookBudgetItems CashbookBudgetItem[]
+
+  @@map("cashbook_heads")
+  @@index([cashbookHeadName])
+}
+
+// Cashbook Budgets master data
+model CashbookBudget {
+  id                        Int                  @id @default(autoincrement())
+  name                      String
+  month                     String
+  siteId                    Int?
+  site                      Site?                @relation(fields: [siteId], references: [id])
+  boqName                   String?
+  attachCopyUrl             String?
+  approved1Remarks          String?              @db.Text
+  remarksForFinalApproval   String?              @db.Text
+  totalBudget               Decimal              @db.Decimal(12, 2)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  // Relations
+  budgetItems               CashbookBudgetItem[]
+
+  @@map("cashbook_budgets")
+  @@index([name])
+  @@index([month])
+  @@index([siteId])
+}
+
+// Cashbook Budget Items (line items for budgets)
+model CashbookBudgetItem {
+  id               Int          @id @default(autoincrement())
+  budgetId         Int
+  budget           CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  cashbookHeadId   Int
+  cashbookHead     CashbookHead @relation(fields: [cashbookHeadId], references: [id])
+  description      String?      @db.Text
+  amount           Decimal      @db.Decimal(12, 2)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@map("cashbook_budget_items")
+  @@index([budgetId])
+  @@index([cashbookHeadId])
+}
+
+// Indent master data for material requisitions
+model Indent {
+  id               Int         @id @default(autoincrement())
+  indentNo         String?     @unique // auto-generated like IND-00001
+  indentDate       DateTime
+  siteId           Int?
+  site             Site?       @relation(fields: [siteId], references: [id])
+  deliveryDate     DateTime
+  remarks          String?     @db.Text
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  indentItems      IndentItem[]
+
+  @@map("indents")
+  @@index([indentNo])
+  @@index([siteId])
+  @@index([indentDate])
+}
+
+// Indent line items for detailed material requirements
+model IndentItem {
+  id               Int         @id @default(autoincrement())
+  indentId         Int
+  indent           Indent      @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  itemId           Int
+  item             Item        @relation(fields: [itemId], references: [id])
+  closingStock     Decimal     @db.Decimal(12, 2)
+  unitId           Int
+  unit             Unit        @relation(fields: [unitId], references: [id])
+  remark           String?     @db.Text
+  indentQty        Decimal     @db.Decimal(12, 2)
+  deliveryDate     DateTime
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@map("indent_items")
+  @@index([indentId])
+  @@index([itemId])
+  @@index([unitId])
+
 // Site Budget - manages budget items for each site
 model SiteBudget {
   id            Int      @id @default(autoincrement())
@@ -829,4 +935,5 @@ model SiteBudget {
   @@map("site_budgets")
   @@index([siteId])
   @@index([itemId])
+
 }

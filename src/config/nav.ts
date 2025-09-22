@@ -1,7 +1,7 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -117,6 +117,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Briefcase,
     children: [
       {
+        title: 'Indents',
+        href: '/indents',
+        icon: FileText,
+        permission: PERMISSIONS.READ_INDENTS,
+      },
+      {
         title: 'Units',
         href: '/units',
         icon: Folder,
@@ -191,6 +197,26 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: 'group',
+    title: 'Cashbook',
+    icon: Calculator,
+    children: [
+      {
+        title: 'Cashbook Heads',
+        href: '/cashbook-heads',
+        icon: Folder,
+        permission: PERMISSIONS.READ_CASHBOOK_HEADS,
+      },
+      {
+        title: 'Cashbook Budgets',
+        href: '/cashbook-budgets',
+        icon: Folder,
+        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
     title: 'Settings',
     icon: Settings,
     children: [
@@ -199,6 +225,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/users',
         icon: Users,
         permission: PERMISSIONS.READ_USERS,
+      },
+      {
+        title: 'Employees',
+        href: '/employees',
+        icon: UserCheck,
+        permission: PERMISSIONS.READ_EMPLOYEES,
       },
     ],
   },

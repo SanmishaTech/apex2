@@ -53,6 +53,14 @@ export function formatDateTime(value: Date | string | null | undefined, opts?: I
   return formatDate(d, opts || { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// Format date for HTML input[type="date"] - returns YYYY-MM-DD format
+export function formatDateForInput(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = toDate(value);
+  if (isNaN(d.getTime())) return '';
+  return dfFormat(d, 'yyyy-MM-dd');
+}
+
 export function formatCurrency(amount: number, currencyCode?: string, minimumFractionDigits = 0) {
   const { locale, currency } = ENV;
   return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode || currency, minimumFractionDigits }).format(amount);
