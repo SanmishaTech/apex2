@@ -21,11 +21,40 @@ export default function DashboardLayout({
 	const { user, isLoading } = useCurrentUser();
 	const { loading, allowed } = useProtectPage();
 
-	if (isLoading || loading || !user || !allowed) {
-		// You can render a loading spinner here
+	// Show skeleton layout immediately while loading user data
+	if (isLoading || loading) {
+		return (
+			<div className='flex min-h-screen w-full relative z-0'>
+				<div className='hidden md:flex w-64 flex-col border-r bg-gradient-to-b from-background to-background/80 backdrop-blur-sm shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] relative'>
+					<div className="h-14 flex items-center px-4 font-semibold tracking-tight animate-pulse">
+						<div className="h-8 w-8 bg-muted rounded-md"></div>
+						<div className="ml-3 h-4 w-16 bg-muted rounded"></div>
+					</div>
+					<div className="flex-1 p-4 space-y-2">
+						{Array.from({ length: 8 }).map((_, i) => (
+							<div key={i} className="h-8 bg-muted rounded animate-pulse"></div>
+						))}
+					</div>
+				</div>
+				<div className='flex flex-1 flex-col min-w-0 md:ml-64'>
+					<header className='sticky top-0 z-30 flex h-14 items-center gap-2 bg-background/80 backdrop-blur shadow-sm px-4'>
+						<div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
+					</header>
+					<main className='flex-1 px-3 py-4'>
+						<div className='mx-auto w-full space-y-4'>
+							<div className="h-8 w-48 bg-muted rounded animate-pulse"></div>
+							<div className="h-64 bg-muted rounded animate-pulse"></div>
+						</div>
+					</main>
+				</div>
+			</div>
+		);
+	}
+
+	if (!user || !allowed) {
 		return (
 			<div className='flex items-center justify-center h-screen'>
-				Loading...
+				<div className='text-muted-foreground'>Access denied</div>
 			</div>
 		);
 	}

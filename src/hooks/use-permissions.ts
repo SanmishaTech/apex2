@@ -19,22 +19,26 @@ export interface UsePermissionsResult {
 
 export function usePermissions(): UsePermissionsResult {
   const { user } = useCurrentUser();
-  const perms: Permission[] = useMemo(() => {
-    if (!user) return [];
+  const { perms, permSet } = useMemo(() => {
+    if (!user) return { perms: [], permSet: new Set() };
     const map = ROLES_PERMISSIONS as unknown as RolePermissionsMap;
-    return map[user.role as RoleKey] || [];
-  }, [user]);
+    const permissions = map[user.role as RoleKey] || [];
+    return {
+      perms: permissions,
+      permSet: new Set(permissions) // O(1) lookups
+    };
+  }, [user?.role]); // Only depend on role, not entire user object
 
   function can(...required: Permission[]) {
     if (!required.length) return true;
-    return required.every(p => perms.includes(p));
+    return required.every(p => permSet.has(p)); // O(1) per check
   }
   function canAny(...required: Permission[]) {
     if (!required.length) return true;
-    return required.some(p => perms.includes(p));
+    return required.some(p => permSet.has(p)); // O(1) per check
   }
   function lacks(...required: Permission[]) {
-    return required.filter(p => !perms.includes(p));
+    return required.filter(p => !permSet.has(p)); // O(1) per check
   }
   return { role: user?.role || null, permissions: perms, can, canAny, lacks };
 }

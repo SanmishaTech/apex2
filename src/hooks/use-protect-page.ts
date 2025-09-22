@@ -50,8 +50,9 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
   const isPageRule = rule?.type === 'page';
 
   const userPerms = user ? (ROLES_PERMISSIONS[user.role] || []) : [];
+  const userPermSet = new Set(userPerms); // O(1) lookups instead of O(n)
   const required = isPageRule ? (rule?.permissions || []) : [];
-  const missing = required.filter(p => !userPerms.includes(p));
+  const missing = required.filter(p => !userPermSet.has(p));
   const allowed = !isPageRule || (!!user && missing.length === 0);
   const requiresAuth = Boolean(isPageRule);
 
