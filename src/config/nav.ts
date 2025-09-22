@@ -1,7 +1,7 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -163,6 +163,26 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/site-budgets',
         icon: Folder,
         permission: PERMISSIONS.READ_SITE_BUDGETS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
+    title: 'Asset',
+    icon: Package,
+    children: [
+      {
+        title: 'Asset Group',
+        href: '/asset-groups',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ASSET_GROUPS,
+      },
+      {
+        title: 'Asset Category',
+        href: '/asset-categories',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
       },
     ],
   },
