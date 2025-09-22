@@ -904,6 +904,7 @@ model IndentItem {
   @@index([indentId])
   @@index([itemId])
   @@index([unitId])
+}
 
 // Site Budget - manages budget items for each site
 model SiteBudget {
