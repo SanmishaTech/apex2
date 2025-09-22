@@ -71,7 +71,11 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
     }
     if (!allowed) {
       if (notifiedRef.current !== pathname) {
-        const missingList = missing.map(m => m.split(':').pop()).join(', ');
+        const missingList = missing
+          .filter((m): m is Permission => m != null && typeof m === 'string')
+          .map(m => m.split(':').pop())
+          .filter((part): part is string => typeof part === 'string')
+          .join(', ');
         toast.error('You do not have permission to access that page', {
           description: missing.length ? `Missing: ${missingList}` : undefined,
         });
