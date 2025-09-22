@@ -77,6 +77,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/cashbook-budgets/new', permissions: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS] },
   { prefix: '/cashbook-budgets/', permissions: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS] },
   { prefix: '/cashbook-budgets', permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS] },
+  // Indents
+  { prefix: '/indents/new', permissions: [PERMISSIONS.CREATE_INDENTS] },
+  { prefix: '/indents/', permissions: [PERMISSIONS.EDIT_INDENTS] },
+  { prefix: '/indents', permissions: [PERMISSIONS.READ_INDENTS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -296,6 +300,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS],
       PATCH: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS],
       DELETE: [PERMISSIONS.DELETE_CASHBOOK_BUDGETS],
+    },
+  },
+  {
+    prefix: '/api/indents',
+    methods: {
+      GET: [PERMISSIONS.READ_INDENTS],
+      POST: [PERMISSIONS.CREATE_INDENTS],
+      PATCH: [PERMISSIONS.EDIT_INDENTS],
+      DELETE: [PERMISSIONS.DELETE_INDENTS],
     },
   },
   // add more API rules here
