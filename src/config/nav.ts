@@ -158,6 +158,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_PAYMENT_TERMS,
       },
+      {
+        title: 'Add Budget',
+        href: '/site-budgets',
+        icon: Folder,
+        permission: PERMISSIONS.READ_SITE_BUDGETS,
+      },
     ],
   },
 
