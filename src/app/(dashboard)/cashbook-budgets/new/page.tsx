@@ -9,8 +9,7 @@ export default function NewCashbookBudgetPage() {
 	const { can } = usePermissions();
 
 	useProtectPage({
-		requiredPermission: PERMISSIONS.CREATE_CASHBOOK_BUDGETS,
-		redirectTo: '/cashbook-budgets'
+		redirectForbidden: '/cashbook-budgets'
 	});
 
 	if (!can(PERMISSIONS.CREATE_CASHBOOK_BUDGETS)) {

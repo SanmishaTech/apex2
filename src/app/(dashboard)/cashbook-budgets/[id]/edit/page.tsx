@@ -37,8 +37,7 @@ export default function EditCashbookBudgetPage() {
 	const id = params.id as string;
 
 	useProtectPage({
-		requiredPermission: PERMISSIONS.EDIT_CASHBOOK_BUDGETS,
-		redirectTo: '/cashbook-budgets'
+		redirectForbidden: '/cashbook-budgets'
 	});
 
 	const { data, error, isLoading } = useSWR<CashbookBudgetResponse>(

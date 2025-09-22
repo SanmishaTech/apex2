@@ -120,7 +120,17 @@ export async function POST(req: NextRequest) {
     
     const created = await prisma.siteBudget.create({
       data: {
-        ...validatedData,
+        siteId: validatedData.siteId,
+        itemId: validatedData.itemId,
+        budgetQty: validatedData.budgetQty,
+        budgetRate: validatedData.budgetRate,
+        purchaseRate: validatedData.purchaseRate,
+        orderedQty: validatedData.orderedQty,
+        avgRate: validatedData.avgRate,
+        qty50Alert: validatedData.qty50Alert,
+        value50Alert: validatedData.value50Alert,
+        qty75Alert: validatedData.qty75Alert,
+        value75Alert: validatedData.value75Alert,
         budgetValue,
         orderedValue,
       },
