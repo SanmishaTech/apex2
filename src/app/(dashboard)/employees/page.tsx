@@ -16,6 +16,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import type { Employee, EmployeesResponse } from '@/types/employees';
@@ -108,6 +109,7 @@ export default function EmployeesPage() {
 	);
 
 	const { can } = usePermissions();
+	const { pushWithScrollSave } = useScrollRestoration('employees-list');
 
 	if (error) {
 		toast.error((error as Error).message || 'Failed to load employees');
@@ -180,11 +182,14 @@ export default function EmployeesPage() {
 				<AppCard.Description>Manage application employees.</AppCard.Description>
 				{can(PERMISSIONS.EDIT_EMPLOYEES) && (
 					<AppCard.Action>
-						<Link href='/employees/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
-							</AppButton>
-						</Link>
+						<AppButton 
+							size='sm' 
+							iconName='Plus' 
+							type='button'
+							onClick={() => pushWithScrollSave('/employees/new')}
+						>
+							Add
+						</AppButton>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -256,9 +261,11 @@ export default function EmployeesPage() {
 						return (
 							<div className='flex'>
 								{can(PERMISSIONS.EDIT_EMPLOYEES) && (
-									<Link href={`/employees/${employee.id}/edit`}>
-										<EditButton tooltip='Edit Employee' aria-label='Edit Employee' />
-									</Link>
+									<EditButton 
+										tooltip='Edit Employee' 
+										aria-label='Edit Employee'
+										onClick={() => pushWithScrollSave(`/employees/${employee.id}/edit`)}
+									/>
 								)}
 								{can(PERMISSIONS.DELETE_EMPLOYEES) && (
 									<DeleteButton

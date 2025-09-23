@@ -13,6 +13,7 @@ import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
 import { CreateStateData, UpdateStateData } from '@/types/states';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 export interface StateFormInitialData {
   id?: number;
@@ -34,6 +35,7 @@ export function StateForm({
 }: StateFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('states-list');
 
   const schema = z.object({
     state: z.string().min(1, 'State name is required'),
@@ -106,7 +108,7 @@ export function StateForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={() => backWithScrollRestore()}
               disabled={submitting}
               iconName='X'
             >

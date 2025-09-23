@@ -43,9 +43,15 @@ export interface IndentFormProps {
 }
 
 const indentItemSchema = z.object({
-  itemId: z.string().refine(val => val !== '__none', 'Item is required').transform(val => parseInt(val)),
+  itemId: z.union([z.string(), z.number()])
+    .transform(val => String(val))
+    .refine(val => val !== '__none' && val !== '0' && val !== '', 'Item is required')
+    .transform(val => parseInt(val)),
   closingStock: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val).pipe(z.number().min(0, 'Closing stock must be non-negative')),
-  unitId: z.string().refine(val => val !== '__none', 'Unit is required').transform(val => parseInt(val)),
+  unitId: z.union([z.string(), z.number()])
+    .transform(val => String(val))
+    .refine(val => val !== '__none' && val !== '0' && val !== '', 'Unit is required')
+    .transform(val => parseInt(val)),
   remark: z.string().optional(),
   indentQty: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) || 0 : val).pipe(z.number().min(0, 'Indent quantity must be non-negative')),
   deliveryDate: z.string().min(1, 'Delivery date is required'),
@@ -53,7 +59,12 @@ const indentItemSchema = z.object({
 
 const createInputSchema = z.object({
   indentDate: z.string().min(1, 'Indent date is required'),
-  siteId: z.string().optional().transform(val => val && val !== '__none' ? parseInt(val) : undefined),
+  siteId: z.union([z.string(), z.number(), z.undefined()])
+    .optional()
+    .transform(val => {
+      if (!val || val === '__none' || val === '') return undefined;
+      return typeof val === 'string' ? parseInt(val) : val;
+    }),
   deliveryDate: z.string().min(1, 'Delivery date is required'),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).min(1, 'At least one item is required'),
@@ -62,13 +73,13 @@ const createInputSchema = z.object({
 // Use the raw input type before Zod transformation for the form
 type FormData = {
   indentDate: string;
-  siteId?: string;
+  siteId?: string | number;
   deliveryDate: string;
   remarks?: string;
   indentItems: {
-    itemId: string;
+    itemId: string | number;
     closingStock: string | number; // HTML number inputs return strings
-    unitId: string;
+    unitId: string | number;
     remark?: string;
     indentQty: string | number; // HTML number inputs return strings
     deliveryDate: string;
@@ -88,9 +99,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
       deliveryDate: initial?.deliveryDate ? formatDateForInput(initial.deliveryDate) : '',
       remarks: initial?.remarks || '',
       indentItems: initial?.indentItems?.map(item => ({
-        itemId: item.itemId ? String(item.itemId) : '__none',
+        itemId: item.itemId ? String(item.itemId) : (item.item?.id ? String(item.item.id) : '__none'),
         closingStock: item.closingStock,
-        unitId: item.unitId ? String(item.unitId) : '__none',
+        unitId: item.unitId ? String(item.unitId) : (item.unit?.id ? String(item.unit.id) : '__none'),
         remark: item.remark || '',
         indentQty: item.indentQty,
         deliveryDate: formatDateForInput(item.deliveryDate),
@@ -124,9 +135,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
         deliveryDate: initial.deliveryDate ? formatDateForInput(initial.deliveryDate) : '',
         remarks: initial.remarks || '',
         indentItems: initial.indentItems?.map(item => ({
-          itemId: item.itemId ? String(item.itemId) : '__none',
+          itemId: item.itemId ? String(item.itemId) : (item.item?.id ? String(item.item.id) : '__none'),
           closingStock: item.closingStock,
-          unitId: item.unitId ? String(item.unitId) : '__none',
+          unitId: item.unitId ? String(item.unitId) : (item.unit?.id ? String(item.unit.id) : '__none'),
           remark: item.remark || '',
           indentQty: item.indentQty,
           deliveryDate: formatDateForInput(item.deliveryDate),
@@ -224,9 +235,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.itemId`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
-                        <AppSelect value={field.value || '__none'} onValueChange={field.onChange}>
+                        <AppSelect value={String(field.value || '__none')} onValueChange={field.onChange}>
                           <AppSelect.Item value="__none">Select Item</AppSelect.Item>
                           {itemsData?.data?.filter(item => item.id && item.item && item.itemCode).map((item) => (
                             <AppSelect.Item key={item.id} value={item.id.toString()}>
@@ -235,7 +246,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                           ))}
                         </AppSelect>
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -245,7 +258,7 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.closingStock`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
                         <Input
                           {...field}
@@ -255,7 +268,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -265,9 +280,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.unitId`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
-                        <AppSelect value={field.value || '__none'} onValueChange={field.onChange}>
+                        <AppSelect value={String(field.value || '__none')} onValueChange={field.onChange}>
                           <AppSelect.Item value="__none">Select Unit</AppSelect.Item>
                           {unitsData?.data?.filter(unit => unit.id && unit.unitName).map((unit) => (
                             <AppSelect.Item key={unit.id} value={unit.id.toString()}>
@@ -276,7 +291,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                           ))}
                         </AppSelect>
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -286,11 +303,13 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.remark`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
                         <Input {...field} placeholder="Remark" />
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -300,7 +319,7 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.indentQty`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
                         <Input
                           {...field}
@@ -310,7 +329,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -320,11 +341,13 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   control={form.control}
                   name={`indentItems.${index}.deliveryDate`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <FormControl>
                         <Input {...field} type="date" />
                       </FormControl>
-                      <FormMessage />
+                      <div className="min-h-[20px]">
+                        <FormMessage className="text-xs" />
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -389,7 +412,7 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                   <FormItem>
                     <FormLabel>Site</FormLabel>
                     <FormControl>
-                      <AppSelect value={field.value || '__none'} onValueChange={field.onChange}>
+                      <AppSelect value={String(field.value || '__none')} onValueChange={field.onChange}>
                         <AppSelect.Item value="__none">Select Site</AppSelect.Item>
                         {sitesData?.data?.filter(site => site.id && site.site).map((site) => (
                           <AppSelect.Item key={site.id} value={site.id.toString()}>
@@ -398,7 +421,9 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                         ))}
                       </AppSelect>
                     </FormControl>
-                    <FormMessage />
+                    <div className="min-h-[20px]">
+                      <FormMessage className="text-xs" />
+                    </div>
                   </FormItem>
                 )}
               />

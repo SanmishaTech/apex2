@@ -117,7 +117,15 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return Success(result);
+    return Success({
+      data: result.data,
+      meta: {
+        page: result.page,
+        perPage: result.perPage,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
   } catch (error) {
     console.error("Get indents error:", error);
     return ApiError("Failed to fetch indents");

@@ -1,7 +1,7 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Home, Building } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -113,6 +113,32 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: 'group',
+    title: 'Rental',
+    icon: Building,
+    children: [
+      {
+        title: 'Rental Categories',
+        href: '/rental-categories',
+        icon: Folder,
+        permission: PERMISSIONS.READ_RENTAL_CATEGORIES,
+      },
+      {
+        title: 'Rent Types',
+        href: '/rent-types',
+        icon: Folder,
+        permission: PERMISSIONS.READ_RENT_TYPES,
+      },
+      {
+        title: 'Rental Registrations',
+        href: '/rents',
+        icon: Home,
+        permission: PERMISSIONS.READ_RENTS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
     title: 'Purchased',
     icon: Briefcase,
     children: [
@@ -211,6 +237,32 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/cashbook-budgets',
         icon: Folder,
         permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+      },
+    ],
+  },
+
+  {
+    type: 'group',
+    title: 'Assets',
+    icon: Building,
+    children: [
+      {
+        title: 'Assets',
+        href: '/assets',
+        icon: Building2,
+        permission: PERMISSIONS.READ_ASSETS,
+      },
+      {
+        title: 'Asset Groups',
+        href: '/asset-groups',
+        icon: Folder,
+        permission: PERMISSIONS.READ_ASSET_GROUPS,
+      },
+      {
+        title: 'Asset Categories',
+        href: '/asset-categories',
+        icon: Database,
+        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
       },
     ],
   },

@@ -12,6 +12,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { CreateDepartmentData, UpdateDepartmentData } from '@/types/departments';
 
 export interface DepartmentFormInitialData {
@@ -34,6 +35,7 @@ export function DepartmentForm({
 }: DepartmentFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('departments-list');
 
   const schema = z.object({
     department: z.string().min(1, 'Department is required'),
@@ -106,7 +108,7 @@ export function DepartmentForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >
