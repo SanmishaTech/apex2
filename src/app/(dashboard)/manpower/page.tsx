@@ -16,6 +16,7 @@ import { Pagination } from '@/components/common/pagination';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 export type ManpowerListItem = {
   id: number;
@@ -39,6 +40,8 @@ export type ManpowerResponse = {
 };
 
 export default function ManpowerPage() {
+  const { pushWithScrollSave } = useScrollRestoration('manpower-list');
+  
   const [qp, setQp] = useQueryParamsState({ page: 1, perPage: 10, search: '', sort: 'firstName', order: 'asc' });
   const { page, perPage, search, sort, order } = qp as unknown as { page: number; perPage: number; search: string; sort: string; order: 'asc' | 'desc' };
 
@@ -95,9 +98,14 @@ export default function ManpowerPage() {
         <AppCard.Description>Manage manpower workers.</AppCard.Description>
         {can(PERMISSIONS.EDIT_MANPOWER) && (
           <AppCard.Action>
-            <Link href='/manpower/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>Add</AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/manpower/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -121,9 +129,11 @@ export default function ManpowerPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_MANPOWER) && (
-                  <Link href={`/manpower/${row.id}/edit`}>
-                    <EditButton tooltip='Edit' aria-label='Edit' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit' 
+                    aria-label='Edit' 
+                    onClick={() => pushWithScrollSave(`/manpower/${row.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_MANPOWER) && (
                   <DeleteButton onDelete={() => handleDelete(row.id)} itemLabel='manpower' title='Delete manpower?' description={`This will permanently remove ${row.firstName} ${row.lastName}.`} />

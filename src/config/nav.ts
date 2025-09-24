@@ -242,7 +242,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group',
+    type: 'group', 
     title: 'Assets',
     icon: Building,
     children: [

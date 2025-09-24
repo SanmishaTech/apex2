@@ -14,6 +14,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch, apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { CreateCompanyData, UpdateCompanyData } from '@/types/companies';
 import { State } from '@/types/states';
 import { City } from '@/types/cities';
@@ -55,6 +56,7 @@ export function CompanyForm({
 }: CompanyFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('companies-list');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initial?.logoUrl || null);
 
@@ -436,7 +438,7 @@ export function CompanyForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >

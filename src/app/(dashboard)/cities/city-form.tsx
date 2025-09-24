@@ -12,6 +12,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { CreateCityData, UpdateCityData } from '@/types/cities';
 import { State } from '@/types/states';
 import { AppSelect } from '@/components/common/app-select';
@@ -39,6 +40,7 @@ export function CityForm({
 }: CityFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('cities-list');
 
   const schema = z.object({
     city: z.string().min(1, 'City name is required'),
@@ -137,7 +139,7 @@ export function CityForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >

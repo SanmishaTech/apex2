@@ -13,6 +13,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 export interface ManpowerSupplierInitialData {
   id?: number;
@@ -88,6 +89,7 @@ export function ManpowerSupplierForm({
 }: ManpowerSupplierFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('manpower-suppliers-list');
 
   type FormValues = z.infer<typeof schema>;
   const form = useForm<FormValues>({
@@ -251,7 +253,7 @@ export function ManpowerSupplierForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >
