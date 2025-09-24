@@ -1,39 +1,72 @@
 'use client';
 
-import { use } from 'react';
-import useSWR from 'swr';
-import { useProtectPage } from '@/hooks/use-protect-page';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { apiGet } from '@/lib/api-client';
-import AssetCategoryForm from '../../asset-category-form';
-import { AssetCategory } from '@/types/asset-categories';
+import { toast } from '@/lib/toast';
+import { AssetCategoryForm, type AssetCategoryFormInitialData } from '../../asset-category-form';
+import { useProtectPage } from '@/hooks/use-protect-page';
+import { AppCard } from '@/components/common/app-card';
 
-interface EditAssetCategoryPageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function EditAssetCategoryPage({ params }: EditAssetCategoryPageProps) {
+export default function EditAssetCategoryPage() {
   useProtectPage();
   
-  const { id } = use(params);
-  const assetCategoryId = parseInt(id);
-  const { data: assetCategory, error, isLoading } = useSWR<AssetCategory>(
-    !isNaN(assetCategoryId) ? `/api/asset-categories/${assetCategoryId}` : null,
-    apiGet
-  );
+  const params = useParams();
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const [initial, setInitial] = useState<AssetCategoryFormInitialData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (isLoading) return <div className='p-6'>Loading...</div>;
-  if (isNaN(assetCategoryId)) return <div className='p-6'>Invalid asset category ID</div>;
-  if (error) return <div className='p-6'>Failed to load asset category</div>;
-  if (!assetCategory) return <div className='p-6'>Asset category not found</div>;
+  useEffect(() => {
+    if (!id) return;
+    
+    async function fetchAssetCategory() {
+      try {
+        const data = await apiGet(`/api/asset-categories/${id}`);
+        setInitial({
+          id: data.id,
+          category: data.category,
+          assetGroupId: data.assetGroupId,
+        });
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to load asset category');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAssetCategory();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <AppCard>
+        <AppCard.Content>
+          <div className="flex justify-center items-center p-8">
+            Loading...
+          </div>
+        </AppCard.Content>
+      </AppCard>
+    );
+  }
+
+  if (!initial) {
+    return (
+      <AppCard>
+        <AppCard.Content>
+          <div className="flex justify-center items-center p-8">
+            Asset category not found
+          </div>
+        </AppCard.Content>
+      </AppCard>
+    );
+  }
 
   return (
-    <AssetCategoryForm 
-      mode='edit' 
-      initial={{
-        id: assetCategory.id,
-        assetGroupId: assetCategory.assetGroupId,
-        category: assetCategory.category,
-      }}
+    <AssetCategoryForm
+      mode='edit'
+      initial={initial}
+      redirectOnSuccess='/asset-categories'
     />
   );
 }
+

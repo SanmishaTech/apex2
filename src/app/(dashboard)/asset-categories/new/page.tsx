@@ -1,10 +1,17 @@
 'use client';
 
+ 
+import { AssetCategoryForm } from '../asset-category-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
-import AssetCategoryForm from '../asset-category-form';
 
-export default function CreateAssetCategoryPage() {
+export default function NewAssetCategoryPage() {
   useProtectPage();
-  
-  return <AssetCategoryForm mode='create' />;
+
+  return (
+    <AssetCategoryForm
+      mode='create'
+      redirectOnSuccess='/asset-categories'
+    />
+  );
 }
+ 

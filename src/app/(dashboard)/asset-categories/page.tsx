@@ -6,19 +6,45 @@ import { apiGet, apiDelete } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { FilterBar } from '@/components/common';
+
+import { FilterBar, AppSelect } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatDate } from '@/lib/locales';
+
+import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
-import { AssetCategoriesResponse, AssetCategory } from '@/types/asset-categories';
+
+// Types
+
+type AssetCategoryListItem = {
+  id: number;
+  category: string;
+  assetGroupId: number;
+  assetGroup: {
+    assetGroupName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AssetCategoriesResponse = {
+  data: AssetCategoryListItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+type AssetGroup = {
+  id: number;
+  assetGroupName: string;
+};
 
 export default function AssetCategoriesPage() {
   const [qp, setQp] = useQueryParamsState({
@@ -27,33 +53,47 @@ export default function AssetCategoriesPage() {
     search: '',
     sort: 'category',
     order: 'asc',
+
+    assetGroupId: '',
   });
-  const { page, perPage, search, sort, order } =
+  const { page, perPage, search, sort, order, assetGroupId } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
       sort: string;
       order: 'asc' | 'desc';
+
+      assetGroupId: string;
     };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
 
+  const [assetGroupIdDraft, setAssetGroupIdDraft] = useState(assetGroupId);
+
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
-  }, [search]);
 
-  const filtersDirty = searchDraft !== search;
+    setAssetGroupIdDraft(assetGroupId);
+  }, [search, assetGroupId]);
+
+  const filtersDirty = searchDraft !== search || assetGroupIdDraft !== assetGroupId;
 
   function applyFilters() {
-    setQp({ page: 1, search: searchDraft.trim() });
+    setQp({
+      page: 1,
+      search: searchDraft.trim(),
+      assetGroupId: assetGroupIdDraft,
+    });
   }
 
   function resetFilters() {
     setSearchDraft('');
-    setQp({ page: 1, search: '' });
+
+    setAssetGroupIdDraft('');
+    setQp({ page: 1, search: '', assetGroupId: '' });
   }
 
   const query = useMemo(() => {
@@ -63,16 +103,17 @@ export default function AssetCategoriesPage() {
     if (search) sp.set('search', search);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
-    return `/api/asset-categories?${sp.toString()}`;
-  }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<AssetCategoriesResponse>(
-    query,
-    apiGet
-  );
+    if (assetGroupId) sp.set('assetGroupId', assetGroupId);
+    return `/api/asset-categories?${sp.toString()}`;
+  }, [page, perPage, search, sort, order, assetGroupId]);
+
+  const { data, error, isLoading, mutate } = useSWR<AssetCategoriesResponse>(query, apiGet);
+
+  // Fetch asset groups for the dropdown
+  const { data: assetGroups } = useSWR<{ data: AssetGroup[] }>('/api/asset-groups?perPage=100', apiGet);
 
   const { can } = usePermissions();
-  const { pushWithScrollSave } = useScrollRestoration('asset-categories-list');
 
   if (error) {
     toast.error((error as Error).message || 'Failed to load asset categories');
@@ -86,7 +127,8 @@ export default function AssetCategoriesPage() {
     }
   }
 
-  const columns: Column<AssetCategory>[] = [
+
+  const columns: Column<AssetCategoryListItem>[] = [
     {
       key: 'category',
       header: 'Category',
@@ -98,7 +140,8 @@ export default function AssetCategoriesPage() {
       header: 'Asset Group',
       sortable: false,
       cellClassName: 'text-muted-foreground whitespace-nowrap',
-      accessor: (r) => r.assetGroup.assetGroup,
+
+      accessor: (r) => r.assetGroup.assetGroupName,
     },
     {
       key: 'createdAt',
@@ -107,6 +150,15 @@ export default function AssetCategoriesPage() {
       className: 'whitespace-nowrap',
       cellClassName: 'text-muted-foreground whitespace-nowrap',
       accessor: (r) => formatDate(r.createdAt),
+    },
+
+    {
+      key: 'updatedAt',
+      header: 'Updated',
+      sortable: false,
+      className: 'whitespace-nowrap',
+      cellClassName: 'text-muted-foreground whitespace-nowrap',
+      accessor: (r) => formatRelativeTime(r.updatedAt),
     },
   ];
 
@@ -126,17 +178,15 @@ export default function AssetCategoriesPage() {
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Asset Categories</AppCard.Title>
-        <AppCard.Description>Manage asset categories organized by asset groups.</AppCard.Description>
+
+        <AppCard.Description>Manage asset categories.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
           <AppCard.Action>
-            <AppButton 
-              size='sm' 
-              iconName='Plus' 
-              type='button'
-              onClick={() => pushWithScrollSave('/asset-categories/new')}
-            >
-              Add
-            </AppButton>
+            <Link href='/asset-categories/new'>
+              <AppButton size='sm' iconName='Plus' type='button'>
+                Add
+              </AppButton>
+            </Link>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -144,20 +194,36 @@ export default function AssetCategoriesPage() {
         <FilterBar title='Search & Filter'>
           <NonFormTextInput
             aria-label='Search asset categories'
-            placeholder='Search categories or asset groups...'
+
+            placeholder='Search categories...'
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'
           />
+
+          <AppSelect
+            value={assetGroupIdDraft || 'all'}
+            onValueChange={(value) => setAssetGroupIdDraft(value === 'all' ? '' : value)}
+            placeholder="All Asset Groups"
+            className="min-w-[160px]"
+          >
+            <AppSelect.Item value="all">All Asset Groups</AppSelect.Item>
+            {assetGroups?.data?.map((group) => (
+              <AppSelect.Item key={group.id} value={String(group.id)}>
+                {group.assetGroupName}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft}
+            disabled={!filtersDirty && !searchDraft && !assetGroupIdDraft}
             className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {search && (
+
+          {(search || assetGroupId) && (
             <AppButton
               variant='secondary'
               size='sm'
@@ -175,24 +241,22 @@ export default function AssetCategoriesPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
-          renderRowActions={(assetCategory) => {
-            if (!can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && !can(PERMISSIONS.DELETE_ASSET_CATEGORIES))
-              return null;
+
+          renderRowActions={(row) => {
+            if (!can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && !can(PERMISSIONS.DELETE_ASSET_CATEGORIES)) return null;
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
-                  <EditButton 
-                    tooltip='Edit Asset Category' 
-                    aria-label='Edit Asset Category'
-                    onClick={() => pushWithScrollSave(`/asset-categories/${assetCategory.id}/edit`)}
-                  />
+                  <Link href={`/asset-categories/${row.id}/edit`}>
+                    <EditButton tooltip='Edit Asset Category' aria-label='Edit Asset Category' />
+                  </Link>
                 )}
                 {can(PERMISSIONS.DELETE_ASSET_CATEGORIES) && (
                   <DeleteButton
-                    onDelete={() => handleDelete(assetCategory.id)}
+                    onDelete={() => handleDelete(row.id)}
                     itemLabel='asset category'
                     title='Delete asset category?'
-                    description={`This will permanently remove ${assetCategory.category} from ${assetCategory.assetGroup.assetGroup}. This action cannot be undone.`}
+                    description={`This will permanently remove asset category "${row.category}". This action cannot be undone.`}
                   />
                 )}
               </div>
@@ -215,4 +279,5 @@ export default function AssetCategoriesPage() {
       </AppCard.Footer>
     </AppCard>
   );
+
 }

@@ -1,38 +1,70 @@
 'use client';
 
-import { use } from 'react';
-import useSWR from 'swr';
-import { useProtectPage } from '@/hooks/use-protect-page';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { apiGet } from '@/lib/api-client';
-import AssetGroupForm from '../../asset-group-form';
-import { AssetGroup } from '@/types/asset-groups';
+import { toast } from '@/lib/toast';
+import { AssetGroupForm, type AssetGroupFormInitialData } from '../../asset-group-form';
+import { useProtectPage } from '@/hooks/use-protect-page';
+import { AppCard } from '@/components/common/app-card';
 
-interface EditAssetGroupPageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function EditAssetGroupPage({ params }: EditAssetGroupPageProps) {
+export default function EditAssetGroupPage() {
   useProtectPage();
   
-  const { id } = use(params);
-  const assetGroupId = parseInt(id);
-  const { data: assetGroup, error, isLoading } = useSWR<AssetGroup>(
-    !isNaN(assetGroupId) ? `/api/asset-groups/${assetGroupId}` : null,
-    apiGet
-  );
+  const params = useParams();
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const [initial, setInitial] = useState<AssetGroupFormInitialData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (isLoading) return <div className='p-6'>Loading...</div>;
-  if (isNaN(assetGroupId)) return <div className='p-6'>Invalid asset group ID</div>;
-  if (error) return <div className='p-6'>Failed to load asset group</div>;
-  if (!assetGroup) return <div className='p-6'>Asset group not found</div>;
+  useEffect(() => {
+    if (!id) return;
+    
+    async function fetchAssetGroup() {
+      try {
+        const data = await apiGet(`/api/asset-groups/${id}`);
+        setInitial({
+          id: data.id,
+          assetGroupName: data.assetGroupName,
+        });
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to load asset group');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAssetGroup();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <AppCard>
+        <AppCard.Content>
+          <div className="flex justify-center items-center p-8">
+            Loading...
+          </div>
+        </AppCard.Content>
+      </AppCard>
+    );
+  }
+
+  if (!initial) {
+    return (
+      <AppCard>
+        <AppCard.Content>
+          <div className="flex justify-center items-center p-8">
+            Asset group not found
+          </div>
+        </AppCard.Content>
+      </AppCard>
+    );
+  }
 
   return (
-    <AssetGroupForm 
-      mode='edit' 
-      initial={{
-        id: assetGroup.id,
-        assetGroup: assetGroup.assetGroup,
-      }}
+    <AssetGroupForm
+      mode='edit'
+      initial={initial}
+      redirectOnSuccess='/asset-groups'
     />
   );
 }

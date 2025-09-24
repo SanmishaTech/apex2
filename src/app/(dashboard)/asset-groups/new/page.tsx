@@ -1,10 +1,16 @@
 'use client';
 
-import { useProtectPage } from '@/hooks/use-protect-page';
-import AssetGroupForm from '../asset-group-form';
 
-export default function CreateAssetGroupPage() {
+import { AssetGroupForm } from '../asset-group-form';
+import { useProtectPage } from '@/hooks/use-protect-page';
+
+export default function NewAssetGroupPage() {
   useProtectPage();
-  
-  return <AssetGroupForm mode='create' />;
+
+  return (
+    <AssetGroupForm
+      mode='create'
+      redirectOnSuccess='/asset-groups'
+    />
+  );
 }

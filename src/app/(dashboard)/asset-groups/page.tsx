@@ -13,20 +13,38 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatDate } from '@/lib/locales';
+ 
+import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
-import { AssetGroupsResponse, AssetGroup } from '@/types/asset-groups';
+
+// Types
+
+type AssetGroupListItem = {
+  id: number;
+  assetGroupName: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AssetGroupsResponse = {
+  data: AssetGroupListItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
 
 export default function AssetGroupsPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
     search: '',
-    sort: 'assetGroup',
-    order: 'asc',
+
+    sort: 'assetGroupName',
+     order: 'asc',
   });
   const { page, perPage, search, sort, order } =
     qp as unknown as {
@@ -48,8 +66,12 @@ export default function AssetGroupsPage() {
   const filtersDirty = searchDraft !== search;
 
   function applyFilters() {
-    setQp({ page: 1, search: searchDraft.trim() });
-  }
+ 
+    setQp({
+      page: 1,
+      search: searchDraft.trim(),
+    });
+   }
 
   function resetFilters() {
     setSearchDraft('');
@@ -66,13 +88,10 @@ export default function AssetGroupsPage() {
     return `/api/asset-groups?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<AssetGroupsResponse>(
-    query,
-    apiGet
-  );
+
+  const { data, error, isLoading, mutate } = useSWR<AssetGroupsResponse>(query, apiGet);
 
   const { can } = usePermissions();
-  const { pushWithScrollSave } = useScrollRestoration('asset-groups-list');
 
   if (error) {
     toast.error((error as Error).message || 'Failed to load asset groups');
@@ -86,10 +105,11 @@ export default function AssetGroupsPage() {
     }
   }
 
-  const columns: Column<AssetGroup>[] = [
+
+  const columns: Column<AssetGroupListItem>[] = [
     {
-      key: 'assetGroup',
-      header: 'Asset Group',
+      key: 'assetGroupName',
+      header: 'Asset Group Name',
       sortable: true,
       cellClassName: 'font-medium whitespace-nowrap',
     },
@@ -100,6 +120,15 @@ export default function AssetGroupsPage() {
       className: 'whitespace-nowrap',
       cellClassName: 'text-muted-foreground whitespace-nowrap',
       accessor: (r) => formatDate(r.createdAt),
+    },
+
+    {
+      key: 'updatedAt',
+      header: 'Updated',
+      sortable: false,
+      className: 'whitespace-nowrap',
+      cellClassName: 'text-muted-foreground whitespace-nowrap',
+      accessor: (r) => formatRelativeTime(r.updatedAt),
     },
   ];
 
@@ -119,17 +148,15 @@ export default function AssetGroupsPage() {
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Asset Groups</AppCard.Title>
-        <AppCard.Description>Manage application asset groups.</AppCard.Description>
+
+        <AppCard.Description>Manage asset groups.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
           <AppCard.Action>
-            <AppButton 
-              size='sm' 
-              iconName='Plus' 
-              type='button'
-              onClick={() => pushWithScrollSave('/asset-groups/new')}
-            >
-              Add
-            </AppButton>
+            <Link href='/asset-groups/new'>
+              <AppButton size='sm' iconName='Plus' type='button'>
+                Add
+              </AppButton>
+            </Link>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -168,24 +195,22 @@ export default function AssetGroupsPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
-          renderRowActions={(assetGroup) => {
-            if (!can(PERMISSIONS.EDIT_ASSET_GROUPS) && !can(PERMISSIONS.DELETE_ASSET_GROUPS))
-              return null;
+
+          renderRowActions={(row) => {
+            if (!can(PERMISSIONS.EDIT_ASSET_GROUPS) && !can(PERMISSIONS.DELETE_ASSET_GROUPS)) return null;
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
-                  <EditButton 
-                    tooltip='Edit Asset Group' 
-                    aria-label='Edit Asset Group'
-                    onClick={() => pushWithScrollSave(`/asset-groups/${assetGroup.id}/edit`)}
-                  />
+                  <Link href={`/asset-groups/${row.id}/edit`}>
+                    <EditButton tooltip='Edit Asset Group' aria-label='Edit Asset Group' />
+                  </Link>
                 )}
                 {can(PERMISSIONS.DELETE_ASSET_GROUPS) && (
                   <DeleteButton
-                    onDelete={() => handleDelete(assetGroup.id)}
+                    onDelete={() => handleDelete(row.id)}
                     itemLabel='asset group'
                     title='Delete asset group?'
-                    description={`This will permanently remove ${assetGroup.assetGroup}. This action cannot be undone.`}
+                    description={`This will permanently remove asset group "${row.assetGroupName}". This action cannot be undone.`}
                   />
                 )}
               </div>
@@ -208,4 +233,5 @@ export default function AssetGroupsPage() {
       </AppCard.Footer>
     </AppCard>
   );
+
 }

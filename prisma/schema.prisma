@@ -563,6 +563,35 @@ model Unit {
   @@map("units")
 }
 
+// Asset Group master data
+model AssetGroup {
+  id             Int             @id @default(autoincrement())
+  assetGroupName String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  assetCategories AssetCategory[]
+
+  @@map("asset_groups")
+}
+
+// Asset Category master data
+model AssetCategory {
+  id            Int        @id @default(autoincrement())
+  assetGroupId  Int
+  category      String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  assetGroup    AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([assetGroupId, category]) // Unique category per asset group
+  @@map("asset_categories")
+  @@index([assetGroupId])
+}
+
 // Item Category master data
 model ItemCategory {
   id               Int      @id @default(autoincrement())
