@@ -1,10 +1,17 @@
 export interface IndentItem {
   id: number;
   itemId?: number;
-  item: string; // Keep for display, but use itemId for relations
+  item?: {
+    id: number;
+    itemCode: string;
+    item: string;
+  };
   closingStock: number;
   unitId?: number;
-  unit: string; // Keep for display, but use unitId for relations
+  unit?: {
+    id: number;
+    unitName: string;
+  };
   remark?: string;
   indentQty: number;
   deliveryDate: string;

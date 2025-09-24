@@ -14,6 +14,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch, apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { CreateSiteData, UpdateSiteData } from '@/types/sites';
 import { State } from '@/types/states';
 import { City } from '@/types/cities';
@@ -62,6 +63,7 @@ export function SiteForm({
 }: SiteFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('sites-list');
   const [attachCopyFile, setAttachCopyFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initial?.attachCopyUrl || null);
 
@@ -558,7 +560,7 @@ export function SiteForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >

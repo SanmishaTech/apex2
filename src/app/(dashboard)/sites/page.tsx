@@ -18,12 +18,15 @@ import { PERMISSIONS } from '@/config/roles';
 import { StatusBadge } from '@/components/common/status-badge';
 import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { Site, SitesResponse } from '@/types/sites';
 import Link from 'next/link';
 
 type SiteListItem = Site;
 
 export default function SitesPage() {
+	const { pushWithScrollSave } = useScrollRestoration('sites-list');
+	
 	const [qp, setQp] = useQueryParamsState({
 		page: 1,
 		perPage: 10,
@@ -256,11 +259,14 @@ export default function SitesPage() {
 				<AppCard.Description>Manage application sites.</AppCard.Description>
 				{can(PERMISSIONS.EDIT_SITES) && (
 					<AppCard.Action>
-						<Link href='/sites/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
-							</AppButton>
-						</Link>
+						<AppButton 
+							size='sm' 
+							iconName='Plus' 
+							type='button'
+							onClick={() => pushWithScrollSave('/sites/new')}
+						>
+							Add
+						</AppButton>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -334,9 +340,11 @@ export default function SitesPage() {
 						return (
 							<div className='flex'>
 								{can(PERMISSIONS.EDIT_SITES) && (
-									<Link href={`/sites/${site.id}/edit`}>
-										<EditButton tooltip='Edit Site' aria-label='Edit Site' />
-									</Link>
+									<EditButton 
+										tooltip='Edit Site' 
+										aria-label='Edit Site' 
+										onClick={() => pushWithScrollSave(`/sites/${site.id}/edit`)}
+									/>
 								)}
 								{can(PERMISSIONS.DELETE_SITES) && (
 									<DeleteButton

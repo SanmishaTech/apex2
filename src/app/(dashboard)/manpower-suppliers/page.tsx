@@ -15,6 +15,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 
@@ -40,6 +41,8 @@ export type SuppliersResponse = {
 };
 
 export default function ManpowerSuppliersPage() {
+  const { pushWithScrollSave } = useScrollRestoration('manpower-suppliers-list');
+  
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -128,11 +131,14 @@ export default function ManpowerSuppliersPage() {
         <AppCard.Description>Manage manpower suppliers.</AppCard.Description>
         {can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && (
           <AppCard.Action>
-            <Link href='/manpower-suppliers/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/manpower-suppliers/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -176,9 +182,11 @@ export default function ManpowerSuppliersPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && (
-                  <Link href={`/manpower-suppliers/${row.id}/edit`}>
-                    <EditButton tooltip='Edit Supplier' aria-label='Edit Supplier' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit Supplier' 
+                    aria-label='Edit Supplier' 
+                    onClick={() => pushWithScrollSave(`/manpower-suppliers/${row.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_MANPOWER_SUPPLIERS) && (
                   <DeleteButton

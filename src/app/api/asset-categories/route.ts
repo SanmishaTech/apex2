@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+ 
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 
 // GET /api/asset-categories?search=&page=1&perPage=10&sort=category&order=asc&assetGroupId=
-export async function GET(req: NextRequest) {
+ export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
-
+ 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
@@ -122,3 +123,4 @@ export async function PATCH(req: NextRequest) {
     return Error('Failed to update asset category');
   }
 }
+ 

@@ -81,6 +81,30 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/indents/new', permissions: [PERMISSIONS.CREATE_INDENTS] },
   { prefix: '/indents/', permissions: [PERMISSIONS.EDIT_INDENTS] },
   { prefix: '/indents', permissions: [PERMISSIONS.READ_INDENTS] },
+  // Rental Categories
+  { prefix: '/rental-categories/new', permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES] },
+  { prefix: '/rental-categories/', permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES] },
+  { prefix: '/rental-categories', permissions: [PERMISSIONS.READ_RENTAL_CATEGORIES] },
+  // Rent Types
+  { prefix: '/rent-types/new', permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
+  { prefix: '/rent-types/', permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
+  { prefix: '/rent-types', permissions: [PERMISSIONS.READ_RENT_TYPES] },
+  // Rents
+  { prefix: '/rents/new', permissions: [PERMISSIONS.CREATE_RENTS] },
+  { prefix: '/rents/', permissions: [PERMISSIONS.EDIT_RENTS] },
+  { prefix: '/rents', permissions: [PERMISSIONS.READ_RENTS] },
+  // Asset Groups
+  { prefix: '/asset-groups/new', permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
+  { prefix: '/asset-groups/', permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
+  { prefix: '/asset-groups', permissions: [PERMISSIONS.READ_ASSET_GROUPS] },
+  // Asset Categories
+  { prefix: '/asset-categories/new', permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES] },
+  { prefix: '/asset-categories/', permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES] },
+  { prefix: '/asset-categories', permissions: [PERMISSIONS.READ_ASSET_CATEGORIES] },
+  // Assets
+  { prefix: '/assets/new', permissions: [PERMISSIONS.CREATE_ASSETS] },
+  { prefix: '/assets/', permissions: [PERMISSIONS.EDIT_ASSETS] },
+  { prefix: '/assets', permissions: [PERMISSIONS.READ_ASSETS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -309,6 +333,60 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_INDENTS],
       PATCH: [PERMISSIONS.EDIT_INDENTS],
       DELETE: [PERMISSIONS.DELETE_INDENTS],
+    },
+  },
+  {
+    prefix: '/api/rental-categories',
+    methods: {
+      GET: [PERMISSIONS.READ_RENTAL_CATEGORIES],
+      POST: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+      PATCH: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+      DELETE: [PERMISSIONS.DELETE_RENTAL_CATEGORIES],
+    },
+  },
+  {
+    prefix: '/api/rent-types',
+    methods: {
+      GET: [PERMISSIONS.READ_RENT_TYPES],
+      POST: [PERMISSIONS.EDIT_RENT_TYPES],
+      PATCH: [PERMISSIONS.EDIT_RENT_TYPES],
+      DELETE: [PERMISSIONS.DELETE_RENT_TYPES],
+    },
+  },
+  {
+    prefix: '/api/rents',
+    methods: {
+      GET: [PERMISSIONS.READ_RENTS],
+      POST: [PERMISSIONS.CREATE_RENTS],
+      PATCH: [PERMISSIONS.EDIT_RENTS],
+      DELETE: [PERMISSIONS.DELETE_RENTS],
+    },
+  },
+  {
+    prefix: '/api/asset-groups',
+    methods: {
+      GET: [PERMISSIONS.READ_ASSET_GROUPS],
+      POST: [PERMISSIONS.EDIT_ASSET_GROUPS],
+      PATCH: [PERMISSIONS.EDIT_ASSET_GROUPS],
+      DELETE: [PERMISSIONS.DELETE_ASSET_GROUPS],
+    },
+  },
+  {
+    prefix: '/api/asset-categories',
+    methods: {
+      GET: [PERMISSIONS.READ_ASSET_CATEGORIES],
+      POST: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+      PATCH: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+      DELETE: [PERMISSIONS.DELETE_ASSET_CATEGORIES],
+    },
+  },
+  {
+    prefix: '/api/assets',
+    methods: {
+      GET: [PERMISSIONS.READ_ASSETS],
+      POST: [PERMISSIONS.CREATE_ASSETS],
+      PATCH: [PERMISSIONS.EDIT_ASSETS],
+      DELETE: [PERMISSIONS.DELETE_ASSETS],
     },
   },
   // add more API rules here

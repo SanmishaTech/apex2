@@ -18,6 +18,7 @@ import { PERMISSIONS } from '@/config/roles';
 import { StatusBadge } from '@/components/common/status-badge';
 import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { Company, CompaniesResponse } from '@/types/companies';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,6 +26,8 @@ import Image from 'next/image';
 type CompanyListItem = Company;
 
 export default function CompaniesPage() {
+	const { pushWithScrollSave } = useScrollRestoration('companies-list');
+	
 	const [qp, setQp] = useQueryParamsState({
 		page: 1,
 		perPage: 10,
@@ -205,11 +208,14 @@ export default function CompaniesPage() {
 				<AppCard.Description>Manage application companies.</AppCard.Description>
 				{can(PERMISSIONS.EDIT_COMPANIES) && (
 					<AppCard.Action>
-						<Link href='/companies/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
-							</AppButton>
-						</Link>
+						<AppButton 
+							size='sm' 
+							iconName='Plus' 
+							type='button'
+							onClick={() => pushWithScrollSave('/companies/new')}
+						>
+							Add
+						</AppButton>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -265,9 +271,11 @@ export default function CompaniesPage() {
 						return (
 							<div className='flex'>
 								{can(PERMISSIONS.EDIT_COMPANIES) && (
-									<Link href={`/companies/${company.id}/edit`}>
-										<EditButton tooltip='Edit Company' aria-label='Edit Company' />
-									</Link>
+									<EditButton 
+										tooltip='Edit Company' 
+										aria-label='Edit Company' 
+										onClick={() => pushWithScrollSave(`/companies/${company.id}/edit`)}
+									/>
 								)}
 								{can(PERMISSIONS.DELETE_COMPANIES) && (
 									<DeleteButton

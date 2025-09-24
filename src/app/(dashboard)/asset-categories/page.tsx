@@ -6,6 +6,7 @@ import { apiGet, apiDelete } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
+
 import { FilterBar, AppSelect } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -13,6 +14,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
@@ -51,6 +53,7 @@ export default function AssetCategoriesPage() {
     search: '',
     sort: 'category',
     order: 'asc',
+
     assetGroupId: '',
   });
   const { page, perPage, search, sort, order, assetGroupId } =
@@ -60,16 +63,19 @@ export default function AssetCategoriesPage() {
       search: string;
       sort: string;
       order: 'asc' | 'desc';
+
       assetGroupId: string;
     };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
+
   const [assetGroupIdDraft, setAssetGroupIdDraft] = useState(assetGroupId);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
+
     setAssetGroupIdDraft(assetGroupId);
   }, [search, assetGroupId]);
 
@@ -85,6 +91,7 @@ export default function AssetCategoriesPage() {
 
   function resetFilters() {
     setSearchDraft('');
+
     setAssetGroupIdDraft('');
     setQp({ page: 1, search: '', assetGroupId: '' });
   }
@@ -96,6 +103,7 @@ export default function AssetCategoriesPage() {
     if (search) sp.set('search', search);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
+
     if (assetGroupId) sp.set('assetGroupId', assetGroupId);
     return `/api/asset-categories?${sp.toString()}`;
   }, [page, perPage, search, sort, order, assetGroupId]);
@@ -119,6 +127,7 @@ export default function AssetCategoriesPage() {
     }
   }
 
+
   const columns: Column<AssetCategoryListItem>[] = [
     {
       key: 'category',
@@ -131,6 +140,7 @@ export default function AssetCategoriesPage() {
       header: 'Asset Group',
       sortable: false,
       cellClassName: 'text-muted-foreground whitespace-nowrap',
+
       accessor: (r) => r.assetGroup.assetGroupName,
     },
     {
@@ -141,6 +151,7 @@ export default function AssetCategoriesPage() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
       accessor: (r) => formatDate(r.createdAt),
     },
+
     {
       key: 'updatedAt',
       header: 'Updated',
@@ -167,6 +178,7 @@ export default function AssetCategoriesPage() {
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Asset Categories</AppCard.Title>
+
         <AppCard.Description>Manage asset categories.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
           <AppCard.Action>
@@ -182,11 +194,13 @@ export default function AssetCategoriesPage() {
         <FilterBar title='Search & Filter'>
           <NonFormTextInput
             aria-label='Search asset categories'
+
             placeholder='Search categories...'
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'
           />
+
           <AppSelect
             value={assetGroupIdDraft || 'all'}
             onValueChange={(value) => setAssetGroupIdDraft(value === 'all' ? '' : value)}
@@ -208,6 +222,7 @@ export default function AssetCategoriesPage() {
           >
             Filter
           </AppButton>
+
           {(search || assetGroupId) && (
             <AppButton
               variant='secondary'
@@ -226,6 +241,7 @@ export default function AssetCategoriesPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
+
           renderRowActions={(row) => {
             if (!can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && !can(PERMISSIONS.DELETE_ASSET_CATEGORIES)) return null;
             return (
@@ -263,4 +279,5 @@ export default function AssetCategoriesPage() {
       </AppCard.Footer>
     </AppCard>
   );
+
 }

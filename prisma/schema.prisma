@@ -286,6 +286,8 @@ model Site {
   indents         Indent[]
 
   siteBudgets    SiteBudget[]
+  // Back-relation for Rent.site
+  rents          Rent[]
 
 
   @@map("sites")
@@ -312,6 +314,92 @@ model Department {
 
   @@map("departments")
   @@index([department])
+}
+
+// Rent Type master data (single-field entity)
+model RentType {
+  id        Int      @id @default(autoincrement())
+  rentType  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  rents     Rent[]
+
+  @@map("rent_types")
+  @@index([rentType])
+}
+
+// Asset Group master data (single-field entity)
+model AssetGroup {
+  id         Int      @id @default(autoincrement())
+  assetGroup String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  assetCategories AssetCategory[]
+  assets          Asset[]
+
+  @@map("asset_groups")
+  @@index([assetGroup])
+}
+
+// Asset Category master data with relation to Asset Group
+model AssetCategory {
+  id           Int        @id @default(autoincrement())
+  assetGroupId Int
+  category     String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  assetGroup   AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Cascade)
+  assets       Asset[]
+
+  @@map("asset_categories")
+  @@index([assetGroupId])
+  @@index([category])
+  @@unique([assetGroupId, category])
+}
+
+// Asset master data for asset management
+model Asset {
+  id               Int           @id @default(autoincrement())
+  assetNo          String        @unique // auto-generated like AST-00001
+  
+  // Asset Details
+  assetGroupId     Int
+  assetCategoryId  Int
+  assetName        String
+  make             String?
+  description      String?       @db.Text
+  
+  // Purchase Details
+  purchaseDate     DateTime?
+  invoiceNo        String?
+  supplier         String?
+  invoiceCopyUrl   String?       // Invoice copy file path
+  nextMaintenanceDate DateTime?
+  status           String        @default("Working") // Working, Under Repair, etc.
+  useStatus        String        @default("In Use")  // In Use, Available, etc.
+  
+  // Timestamps
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  assetGroup       AssetGroup    @relation(fields: [assetGroupId], references: [id])
+  assetCategory    AssetCategory @relation(fields: [assetCategoryId], references: [id])
+
+  @@map("assets")
+  @@index([assetNo])
+  @@index([assetGroupId])
+  @@index([assetCategoryId])
+  @@index([assetName])
+  @@index([status])
+  @@index([useStatus])
+  @@index([purchaseDate])
 }
 
 // Employee master data for workforce management
@@ -412,6 +500,20 @@ model Category {
 
   @@map("categories")
   @@index([categoryName])
+}
+
+// Rental Category master data
+model RentalCategory {
+  id              Int      @id @default(autoincrement())
+  rentalCategory  String   @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  rents           Rent[]
+
+  @@map("rental_categories")
+  @@index([rentalCategory])
 }
 
 // Skill Set master data
@@ -650,6 +752,8 @@ model Boq {
   // Relations
   items                           BoqItem[]
   targets                         BoqTarget[]
+  // Back-relation for Rent.boq
+  rents                           Rent[]
 
   @@map("boqs")
   @@index([siteId])
@@ -966,4 +1070,50 @@ model SiteBudget {
   @@index([siteId])
   @@index([itemId])
 
+}
+
+// Rent master data for rental agreement management
+model Rent {
+  id                 Int      @id @default(autoincrement())
+  
+  // Basic Details
+  siteId             Int?
+  site               Site?    @relation(fields: [siteId], references: [id])
+  boqId              Int?
+  boq                Boq?     @relation(fields: [boqId], references: [id])
+  rentalCategoryId   Int?
+  rentalCategory     RentalCategory? @relation(fields: [rentalCategoryId], references: [id])
+  rentTypeId         Int?
+  rentType           RentType? @relation(fields: [rentTypeId], references: [id])
+  owner              String?
+  pancardNo          String?
+  rentDay            String?   // Dropdown: 1st, 2nd, etc.
+  fromDate           DateTime?
+  toDate             DateTime?
+  description        String?
+  depositAmount      Decimal?  @db.Decimal(12, 2)
+  rentAmount         Decimal?  @db.Decimal(12, 2)
+  
+  // Bank Details
+  bank               String?
+  branch             String?
+  accountNo          String?
+  accountName        String?
+  ifscCode           String?
+  
+  // File Upload
+  momCopyUrl         String?   // MOM Copy file path
+  
+  // Timestamps
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("rents")
+  @@index([siteId])
+  @@index([boqId])
+  @@index([rentalCategoryId])
+  @@index([rentTypeId])
+  @@index([fromDate])
+  @@index([toDate])
+  @@index([owner])
 }

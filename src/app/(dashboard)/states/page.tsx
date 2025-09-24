@@ -15,9 +15,9 @@ import { PERMISSIONS } from '@/config/roles';
 import { apiGet, apiDelete } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { formatDate } from '@/lib/utils';
-import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import { StatesResponse, State } from '@/types/states';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 export default function StatesPage() {
   const [qp, setQp] = useQueryParamsState({
@@ -74,6 +74,8 @@ export default function StatesPage() {
   );
 
   const { can } = usePermissions();
+  // Initialize scroll restoration for the listing page and use pushWithScrollSave for navigations
+  const { pushWithScrollSave } = useScrollRestoration('states-list');
 
   if (error) {
     toast.error((error as Error).message || 'Failed to load states');
@@ -123,11 +125,14 @@ export default function StatesPage() {
         <AppCard.Description>Manage application states.</AppCard.Description>
         {can(PERMISSIONS.EDIT_STATES) && (
           <AppCard.Action>
-            <Link href='/states/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton
+              size='sm'
+              iconName='Plus'
+              type='button'
+              onClick={() => pushWithScrollSave('/states/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -171,9 +176,11 @@ export default function StatesPage() {
             return (
               <div className='flex items-center gap-2'>
                 {can(PERMISSIONS.EDIT_STATES) && (
-                  <Link href={`/states/${state.id}/edit`}>
-                    <EditButton tooltip='Edit State' aria-label='Edit State' />
-                  </Link>
+                  <EditButton
+                    tooltip='Edit State'
+                    aria-label='Edit State'
+                    onClick={() => pushWithScrollSave(`/states/${state.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_STATES) && (
                   <DeleteButton

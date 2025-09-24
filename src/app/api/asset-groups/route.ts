@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+ 
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 
 // GET /api/asset-groups?search=&page=1&perPage=10&sort=assetGroupName&order=asc
-export async function GET(req: NextRequest) {
+ export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
-
+ 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
@@ -39,10 +40,10 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/asset-groups  (create asset group)
-export async function POST(req: NextRequest) {
+ export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
-
+ 
   let body: unknown;
   try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
   const { assetGroupName } = (body as Partial<{ assetGroupName: string }> ) || {};
@@ -86,3 +87,4 @@ export async function PATCH(req: NextRequest) {
     return Error('Failed to update asset group');
   }
 }
+ 

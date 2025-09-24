@@ -13,6 +13,7 @@ import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
 
+
 export interface AssetGroupFormInitialData {
 	id?: number;
 	assetGroupName?: string;

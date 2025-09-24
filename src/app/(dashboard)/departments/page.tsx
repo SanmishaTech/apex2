@@ -15,6 +15,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import { DepartmentsResponse, Department } from '@/types/departments';
@@ -71,6 +72,7 @@ export default function DepartmentsPage() {
   );
 
   const { can } = usePermissions();
+  const { pushWithScrollSave } = useScrollRestoration('departments-list');
 
   if (error) {
     toast.error((error as Error).message || 'Failed to load departments');
@@ -120,11 +122,14 @@ export default function DepartmentsPage() {
         <AppCard.Description>Manage application departments.</AppCard.Description>
         {can(PERMISSIONS.EDIT_DEPARTMENTS) && (
           <AppCard.Action>
-            <Link href='/departments/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/departments/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -169,9 +174,11 @@ export default function DepartmentsPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_DEPARTMENTS) && (
-                  <Link href={`/departments/${dept.id}/edit`}>
-                    <EditButton tooltip='Edit Department' aria-label='Edit Department' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit Department' 
+                    aria-label='Edit Department'
+                    onClick={() => pushWithScrollSave(`/departments/${dept.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_DEPARTMENTS) && (
                   <DeleteButton

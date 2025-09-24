@@ -13,6 +13,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+ 
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
@@ -35,13 +36,15 @@ type AssetGroupsResponse = {
   totalPages: number;
 };
 
+
 export default function AssetGroupsPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
     search: '',
+
     sort: 'assetGroupName',
-    order: 'asc',
+     order: 'asc',
   });
   const { page, perPage, search, sort, order } =
     qp as unknown as {
@@ -63,11 +66,12 @@ export default function AssetGroupsPage() {
   const filtersDirty = searchDraft !== search;
 
   function applyFilters() {
+ 
     setQp({
       page: 1,
       search: searchDraft.trim(),
     });
-  }
+   }
 
   function resetFilters() {
     setSearchDraft('');
@@ -83,6 +87,7 @@ export default function AssetGroupsPage() {
     if (order) sp.set('order', order);
     return `/api/asset-groups?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
+
 
   const { data, error, isLoading, mutate } = useSWR<AssetGroupsResponse>(query, apiGet);
 
@@ -100,6 +105,7 @@ export default function AssetGroupsPage() {
     }
   }
 
+
   const columns: Column<AssetGroupListItem>[] = [
     {
       key: 'assetGroupName',
@@ -115,6 +121,7 @@ export default function AssetGroupsPage() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
       accessor: (r) => formatDate(r.createdAt),
     },
+
     {
       key: 'updatedAt',
       header: 'Updated',
@@ -141,6 +148,7 @@ export default function AssetGroupsPage() {
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Asset Groups</AppCard.Title>
+
         <AppCard.Description>Manage asset groups.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
           <AppCard.Action>
@@ -187,6 +195,7 @@ export default function AssetGroupsPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
+
           renderRowActions={(row) => {
             if (!can(PERMISSIONS.EDIT_ASSET_GROUPS) && !can(PERMISSIONS.DELETE_ASSET_GROUPS)) return null;
             return (
@@ -224,4 +233,5 @@ export default function AssetGroupsPage() {
       </AppCard.Footer>
     </AppCard>
   );
+
 }

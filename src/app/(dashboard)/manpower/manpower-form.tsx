@@ -16,6 +16,7 @@ import { AppCheckbox } from '@/components/common/app-checkbox';
 import { apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import useSWR from 'swr';
 
 export interface ManpowerInitialData {
@@ -94,6 +95,7 @@ const schema = z.object({
 export default function ManpowerForm({ mode, initial, onSuccess, redirectOnSuccess = '/manpower' }: ManpowerFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { backWithScrollRestore } = useScrollRestoration('manpower-list');
 
   type FormValues = z.infer<typeof schema>;
   const form = useForm<FormValues>({
@@ -325,7 +327,7 @@ export default function ManpowerForm({ mode, initial, onSuccess, redirectOnSucce
           </AppCard.Content>
 
           <AppCard.Footer className='justify-end'>
-            <AppButton type='button' variant='secondary' onClick={() => router.push(redirectOnSuccess)} disabled={submitting} iconName='X'>
+            <AppButton type='button' variant='secondary' onClick={backWithScrollRestore} disabled={submitting} iconName='X'>
               Cancel
             </AppButton>
             <AppButton type='submit' iconName={isCreate ? 'Plus' : 'Save'} isLoading={submitting} disabled={submitting || !form.formState.isValid}>

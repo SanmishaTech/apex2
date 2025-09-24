@@ -11,6 +11,7 @@ import { AppCard } from '@/components/common/app-card';
 import { apiPost, apiPatch, apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import type { DepartmentsResponse } from '@/types/departments';
@@ -229,6 +230,7 @@ export function EmployeeForm({
   const [activeTab, setActiveTab] = useState('details');
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const { backWithScrollRestore } = useScrollRestoration('employees-list');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(mode === 'create' ? createSchema : editSchema),
@@ -557,7 +559,7 @@ export function EmployeeForm({
             <AppButton
               type='button'
               variant='secondary'
-              onClick={() => router.push(redirectOnSuccess)}
+              onClick={backWithScrollRestore}
               disabled={submitting}
               iconName='X'
             >

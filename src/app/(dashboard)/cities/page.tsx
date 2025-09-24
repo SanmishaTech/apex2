@@ -16,6 +16,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import { apiDelete } from '@/lib/api-client';
@@ -23,6 +24,8 @@ import { CitiesResponse, City } from '@/types/cities';
 import { State } from '@/types/states';
 
 export default function CitiesPage() {
+  const { pushWithScrollSave } = useScrollRestoration('cities-list');
+  
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -146,11 +149,14 @@ export default function CitiesPage() {
         <AppCard.Description>Manage application cities.</AppCard.Description>
         {can(PERMISSIONS.EDIT_CITIES) && (
           <AppCard.Action>
-            <Link href='/cities/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/cities/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -209,9 +215,11 @@ export default function CitiesPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_CITIES) && (
-                  <Link href={`/cities/${city.id}/edit`}>
-                    <EditButton tooltip='Edit City' aria-label='Edit City' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit City' 
+                    aria-label='Edit City' 
+                    onClick={() => pushWithScrollSave(`/cities/${city.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_CITIES) && (
                   <DeleteButton

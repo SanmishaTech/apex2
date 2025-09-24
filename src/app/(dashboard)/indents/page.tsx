@@ -17,11 +17,15 @@ import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { EditButton } from '@/components/common/icon-button';
 import type { Indent, IndentsResponse } from '@/types/indents';
 import type { SitesResponse } from '@/types/sites';
 
 export default function IndentsPage() {
+	const searchParams = useSearchParams();
+	const { pushWithScrollSave } = useScrollRestoration('indents-list');
 	const [qp, setQp] = useQueryParamsState({
 		page: 1,
 		perPage: 10,
@@ -84,6 +88,20 @@ export default function IndentsPage() {
 		query,
 		apiGet
 	);
+
+	// Debug: Log when perPage or pagination data changes
+	useEffect(() => {
+		if (data?.meta) {
+			console.log('Indents Pagination Debug:', {
+				requestedPerPage: perPage,
+				responsePerPage: data.meta.perPage,
+				total: data.meta.total,
+				totalPages: data.meta.totalPages,
+				currentPage: data.meta.page,
+				query
+			});
+		}
+	}, [data?.meta, perPage, query]);
 
 	// Fetch sites for filter dropdown
 	const { data: sitesData } = useSWR<SitesResponse>(
@@ -173,11 +191,14 @@ export default function IndentsPage() {
 				<AppCard.Description>Manage application indents.</AppCard.Description>
 				{can(PERMISSIONS.CREATE_INDENTS) && (
 					<AppCard.Action>
-						<Link href='/indents/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
-							</AppButton>
-						</Link>
+						<AppButton
+							size='sm'
+							iconName='Plus'
+							type='button'
+							onClick={() => pushWithScrollSave('/indents/new')}
+						>
+							Add
+						</AppButton>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -237,9 +258,11 @@ export default function IndentsPage() {
 						return (
 							<div className='flex'>
 								{can(PERMISSIONS.EDIT_INDENTS) && (
-									<Link href={`/indents/${indent.id}/edit`}>
-										<EditButton tooltip='Edit Indent' aria-label='Edit Indent' />
-									</Link>
+									<EditButton
+										tooltip='Edit Indent'
+										aria-label='Edit Indent'
+										onClick={() => pushWithScrollSave(`/indents/${indent.id}/edit?${searchParams.toString()}`)}
+									/>
 								)}
 								{can(PERMISSIONS.DELETE_INDENTS) && (
 									<DeleteButton
@@ -259,9 +282,15 @@ export default function IndentsPage() {
 					page={data?.meta?.page || page}
 					totalPages={data?.meta?.totalPages || 1}
 					total={data?.meta?.total}
-					perPage={perPage}
-					onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
-					onPageChange={(p) => setQp({ page: p })}
+					perPage={data?.meta?.perPage || perPage}
+					onPerPageChange={(val) => {
+						console.log('Changing perPage from', perPage, 'to', val);
+						setQp({ page: 1, perPage: val });
+					}}
+					onPageChange={(p) => {
+						console.log('Changing page from', page, 'to', p);
+						setQp({ page: p });
+					}}
 					showPageNumbers
 					maxButtons={5}
 					disabled={isLoading}
