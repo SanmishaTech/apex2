@@ -8,6 +8,7 @@ import { ROLES_PERMISSIONS } from '@/config/roles';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { GlobalSearch } from '@/components/common/global-search';
 
 type SidebarProps = {
   fixed?: boolean;
@@ -66,9 +67,12 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
             <Building2 className="h-4 w-4" />
           </span>
           <span className="truncate text-sm font-semibold tracking-tight">
-            {process.env.NEXT_PUBLIC_APP_NAME || 'My App'}
+            Apex
           </span>
         </Link>
+        <div className="ml-auto">
+          <GlobalSearch />
+        </div>
       </div>
       <div className="px-3 mb-1">
         <div className="h-px bg-gradient-to-r from-transparent via-border/60 to-transparent" />
