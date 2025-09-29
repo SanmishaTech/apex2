@@ -66,6 +66,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_DEPARTMENTS,
       },
       {
+        title: 'Employees',
+        href: '/employees',
+        icon: UserCheck,
+        permission: PERMISSIONS.READ_EMPLOYEES,
+      },
+      {
         title: 'Notices',
         href: '/notices',
         icon: Megaphone,
@@ -80,18 +86,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: UserCheck,
     children: [
       {
-        title: 'Manpower Suppliers',
-        href: '/manpower-suppliers',
-        icon: Folder,
-        permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
-      },
-      {
-        title: 'Manpower',
-        href: '/manpower',
-        icon: Folder,
-        permission: PERMISSIONS.READ_MANPOWER,
-      },
-      {
         title: 'Categories',
         href: '/categories',
         icon: Folder,
@@ -103,6 +97,19 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_SKILLSETS,
       },
+      {
+        title: 'Manpower Suppliers',
+        href: '/manpower-suppliers',
+        icon: Folder,
+        permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
+      },
+      {
+        title: 'Manpower',
+        href: '/manpower',
+        icon: Folder,
+        permission: PERMISSIONS.READ_MANPOWER,
+      },
+    
       {
         title: 'Minimum Wages',
         href: '/minimum-wages',
@@ -316,12 +323,6 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/users',
         icon: Users,
         permission: PERMISSIONS.READ_USERS,
-      },
-      {
-        title: 'Employees',
-        href: '/employees',
-        icon: UserCheck,
-        permission: PERMISSIONS.READ_EMPLOYEES,
       },
     ],
   },

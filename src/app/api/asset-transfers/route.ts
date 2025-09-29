@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardApiAccess } from '@/lib/access-guard';
 import { prisma } from '@/lib/prisma';
-import { PERMISSIONS } from '@/config/roles';
 
 export async function GET(request: NextRequest) {
   try {

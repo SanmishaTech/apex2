@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { AssetTransferForm } from '@/components/forms/asset-transfer-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
-import { PERMISSIONS } from '@/config/roles';
 import { toast } from '@/lib/toast';
 import { apiPost } from '@/lib/api-client';
 import { AssetTransferFormData } from '@/types/asset-transfers';
