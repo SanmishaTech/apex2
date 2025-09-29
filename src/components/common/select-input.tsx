@@ -29,6 +29,7 @@ export interface SelectInputProps {
 	disabled?: boolean;
 	className?: string;
 	options: SelectOption[];
+	required?: boolean;
 	/** Optional class for the outer FormItem wrapper (useful for grid spans) */
 	itemClassName?: string;
 	/** Optional 1-12 column span at lg breakpoint (requires parent FormRow with cols>=span). */
@@ -46,6 +47,7 @@ export function SelectInput({
 	disabled,
 	className,
 	options,
+	required,
 	itemClassName,
 	span,
 	spanFrom = 'lg',
@@ -89,7 +91,12 @@ export function SelectInput({
 			name={name}
 			render={({ field }) => (
 				<FormItem className={cn('col-span-12', spanClass, itemClassName)}>
-					<FormLabel>{label}</FormLabel>
+					<FormLabel>
+						{label}
+						{required ? (
+							<span className='ml-0.5 text-destructive'>*</span>
+						) : null}
+					</FormLabel>
 					<Select
 						onValueChange={field.onChange}
 						defaultValue={field.value}
