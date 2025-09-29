@@ -13,6 +13,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
  
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
@@ -38,6 +39,8 @@ type AssetGroupsResponse = {
 
 
 export default function AssetGroupsPage() {
+  const { pushWithScrollSave } = useScrollRestoration('asset-groups-list');
+  
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -152,11 +155,14 @@ export default function AssetGroupsPage() {
         <AppCard.Description>Manage asset groups.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
           <AppCard.Action>
-            <Link href='/asset-groups/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/asset-groups/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -201,9 +207,11 @@ export default function AssetGroupsPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
-                  <Link href={`/asset-groups/${row.id}/edit`}>
-                    <EditButton tooltip='Edit Asset Group' aria-label='Edit Asset Group' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit Asset Group' 
+                    aria-label='Edit Asset Group'
+                    onClick={() => pushWithScrollSave(`/asset-groups/${row.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_ASSET_GROUPS) && (
                   <DeleteButton

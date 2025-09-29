@@ -6,6 +6,8 @@ import { PERMISSIONS } from '@/config/roles';
 // Page (app router) path prefix -> required permissions (ALL must pass)
 // Order no longer matters once longest-prefix logic below is applied, but keep specific before general for readability.
 export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
+  // Dashboard
+  { prefix: '/dashboard', permissions: [PERMISSIONS.VIEW_DASHBOARD] },
   { prefix: '/users/new', permissions: [PERMISSIONS.EDIT_USERS] },            // create user page
   { prefix: '/users/', permissions: [PERMISSIONS.EDIT_USERS] },                // edit user pages (/users/:id/...)
   { prefix: '/users', permissions: [PERMISSIONS.READ_USERS] },                 // users list (view only)
@@ -77,6 +79,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/cashbook-budgets/new', permissions: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS] },
   { prefix: '/cashbook-budgets/', permissions: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS] },
   { prefix: '/cashbook-budgets', permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS] },
+  // Cashbooks
+  { prefix: '/cashbooks/new', permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
+  { prefix: '/cashbooks/', permissions: [PERMISSIONS.EDIT_CASHBOOKS] },
+  { prefix: '/cashbooks', permissions: [PERMISSIONS.READ_CASHBOOKS] },
   // Indents
   { prefix: '/indents/new', permissions: [PERMISSIONS.CREATE_INDENTS] },
   { prefix: '/indents/', permissions: [PERMISSIONS.EDIT_INDENTS] },
@@ -105,6 +111,12 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/assets/new', permissions: [PERMISSIONS.CREATE_ASSETS] },
   { prefix: '/assets/', permissions: [PERMISSIONS.EDIT_ASSETS] },
   { prefix: '/assets', permissions: [PERMISSIONS.READ_ASSETS] },
+  // Asset Transfers
+  { prefix: '/asset-transfers/new', permissions: [PERMISSIONS.CREATE_ASSET_TRANSFERS] },
+  { prefix: '/asset-transfers/', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
+  { prefix: '/asset-transfers', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
+  // Manpower Assignments  
+  { prefix: '/assign-manpower', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -327,6 +339,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
+    prefix: '/api/cashbooks',
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOKS],
+      POST: [PERMISSIONS.CREATE_CASHBOOKS],
+      PATCH: [PERMISSIONS.EDIT_CASHBOOKS],
+      DELETE: [PERMISSIONS.DELETE_CASHBOOKS],
+    },
+  },
+  {
     prefix: '/api/indents',
     methods: {
       GET: [PERMISSIONS.READ_INDENTS],
@@ -387,6 +408,24 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_ASSETS],
       PATCH: [PERMISSIONS.EDIT_ASSETS],
       DELETE: [PERMISSIONS.DELETE_ASSETS],
+    },
+  },
+  {
+    prefix: '/api/asset-transfers',
+    methods: {
+      GET: [PERMISSIONS.READ_ASSET_TRANSFERS],
+      POST: [PERMISSIONS.CREATE_ASSET_TRANSFERS],
+      PATCH: [PERMISSIONS.EDIT_ASSET_TRANSFERS, PERMISSIONS.APPROVE_ASSET_TRANSFERS],
+      DELETE: [PERMISSIONS.DELETE_ASSET_TRANSFERS],
+    },
+  },
+  {
+    prefix: '/api/manpower-assignments',
+    methods: {
+      GET: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
+      POST: [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS],
+      PATCH: [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS],
+      DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
     },
   },
   // add more API rules here

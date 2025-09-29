@@ -2,7 +2,7 @@
 
 export interface AssetGroup {
   id: number;
-  assetGroup: string;
+  assetGroupName: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,22 +19,30 @@ export interface AssetCategory {
 export interface Asset {
   id: number;
   assetNo: string;
-  assetGroupId: number;
-  assetCategoryId: number;
   assetName: string;
-  make?: string;
-  description?: string;
-  purchaseDate?: string;
-  invoiceNo?: string;
-  supplier?: string;
-  invoiceCopyUrl?: string;
-  nextMaintenanceDate?: string;
+  make?: string | null;
+  description?: string | null;
   status: string;
   useStatus: string;
+  purchaseDate?: string | null;
+  nextMaintenanceDate?: string | null;
+  supplier?: string | null;
+  invoiceNo?: string | null;
+  invoiceCopyUrl?: string | null;
+  assetGroupId?: number | null;
+  assetCategoryId?: number | null;
+  transferStatus?: string;
+  currentSiteId?: number | null;
   createdAt: string;
   updatedAt: string;
-  assetGroup?: AssetGroup;
-  assetCategory?: AssetCategory;
+  assetGroup?: {
+    id: number;
+    assetGroupName: string;
+  } | null;
+  assetCategory?: {
+    id: number;
+    category: string;
+  } | null;
 }
 
 export interface AssetFormData {
@@ -93,7 +101,12 @@ export const ASSET_STATUS_OPTIONS = [
 // Asset use status options
 export const ASSET_USE_STATUS_OPTIONS = [
   { value: "In Use", label: "In Use" },
+  { value: "Spare", label: "Spare" },
+];
+
+// Asset transfer status options
+export const ASSET_TRANSFER_STATUS_OPTIONS = [
   { value: "Available", label: "Available" },
-  { value: "Under Maintenance", label: "Under Maintenance" },
-  { value: "Reserved", label: "Reserved" },
+  { value: "In Transit", label: "In Transit" },
+  { value: "Assigned", label: "Assigned" },
 ];

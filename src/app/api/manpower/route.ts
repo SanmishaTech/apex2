@@ -37,17 +37,38 @@ export async function GET(req: NextRequest) {
   const search = (searchParams.get('search') || '').trim();
   const sort = (searchParams.get('sort') || 'firstName');
   const order = (searchParams.get('order') === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
+  const supplierId = searchParams.get('supplierId');
+  const isAssigned = searchParams.get('isAssigned');
+  const currentSiteId = searchParams.get('currentSiteId');
 
-  const where = search ? {
-    OR: [
+  const where: any = {};
+  
+  // Text search
+  if (search) {
+    where.OR = [
       { firstName: { contains: search } },
       { lastName: { contains: search } },
       { mobileNumber: { contains: search } },
       { panNumber: { contains: search } },
       { aadharNo: { contains: search } },
       { manpowerSupplier: { supplierName: { contains: search } } },
-    ]
-  } : undefined as any;
+    ];
+  }
+  
+  // Filter by supplier
+  if (supplierId) {
+    where.supplierId = parseInt(supplierId);
+  }
+  
+  // Filter by assignment status
+  if (isAssigned !== null && isAssigned !== undefined) {
+    where.isAssigned = isAssigned === 'true';
+  }
+  
+  // Filter by current site
+  if (currentSiteId) {
+    where.currentSiteId = parseInt(currentSiteId);
+  }
 
   const sortable = new Set(['firstName','lastName','mobileNumber','wage','createdAt']);
   const orderBy: Record<string,'asc'|'desc'> = sortable.has(sort) ? { [sort]: order } : { firstName: 'asc' };

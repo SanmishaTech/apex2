@@ -131,7 +131,7 @@ export default function AssetsPage() {
       key: 'assetGroup',
       header: 'Asset Group',
       sortable: false,
-      accessor: (asset: Asset) => asset.assetGroup?.assetGroup || '-',
+      accessor: (asset: Asset) => asset.assetGroup?.assetGroupName || '-',
     },
     {
       key: 'assetCategory',
@@ -158,8 +158,12 @@ export default function AssetsPage() {
       sortable: true,
       accessor: (asset: Asset) => (
         <Badge 
-          variant={asset.useStatus === 'In Use' ? 'default' : 'outline'}
-          className={asset.useStatus === 'In Use' ? 'bg-blue-100 text-blue-800' : ''}
+          variant={asset.useStatus === 'In Use' ? 'default' : 'secondary'}
+          className={
+            asset.useStatus === 'In Use' 
+              ? 'bg-blue-100 text-blue-800' 
+              : 'bg-orange-100 text-orange-800'
+          }
         >
           {asset.useStatus}
         </Badge>

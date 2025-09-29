@@ -165,7 +165,7 @@ export function AssetForm({ asset, onSubmit, onCancel, isSubmitting = false }: A
                   <SelectContent>
                     {assetGroups.map((group) => (
                       <SelectItem key={group.id} value={group.id.toString()}>
-                        {group.assetGroup}
+                        {group.assetGroupName}
                       </SelectItem>
                     ))}
                   </SelectContent>
