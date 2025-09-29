@@ -21,7 +21,7 @@ export default function EditAssetCategoryPage() {
     
     async function fetchAssetCategory() {
       try {
-        const data = await apiGet(`/api/asset-categories/${id}`);
+        const data: AssetCategoryFormInitialData = await apiGet(`/api/asset-categories/${id}`);
         setInitial({
           id: data.id,
           category: data.category,
