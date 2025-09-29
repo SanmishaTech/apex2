@@ -113,7 +113,7 @@ export default function InternalDashboard() {
   const assetColumns: Column<Asset>[] = [
     { key: "assetNo", header: "Asset No", sortable: false, accessor: (r) => <span className="font-medium text-blue-600">{r.assetNo}</span>, cellClassName: "whitespace-nowrap" },
     { key: "assetName", header: "Asset Name", sortable: false, accessor: (r) => r.assetName, cellClassName: "whitespace-nowrap" },
-    { key: "assetGroup", header: "Group", sortable: false, accessor: (r) => r.assetGroup?.assetGroup || "—", cellClassName: "whitespace-nowrap" },
+    { key: "assetGroup", header: "Group", sortable: false, accessor: (r) => r.assetGroup?.assetGroupName || "—", cellClassName: "whitespace-nowrap" },
     { key: "useStatus", header: "Use Status", sortable: false, accessor: (r) => r.useStatus, cellClassName: "whitespace-nowrap" },
   ];
 

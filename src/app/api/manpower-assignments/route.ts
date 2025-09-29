@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardApiAccess } from '@/lib/access-guard';
 import { prisma } from '@/lib/prisma';
-import { PERMISSIONS } from '@/config/roles';
 import { z } from 'zod';
 
 // Validation schema for creating manpower assignments
@@ -11,7 +10,7 @@ const createManpowerAssignmentSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -109,7 +108,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {

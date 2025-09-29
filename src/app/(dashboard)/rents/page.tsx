@@ -295,7 +295,7 @@ export default function RentsPage() {
 									<EditButton 
 										tooltip='Edit Rent' 
 										aria-label='Edit Rent'
-										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit?${searchParams.toString()}`, 'rents-list')}
+										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit?${searchParams.toString()}`)}
 									/>
 								)}
 								{can(PERMISSIONS.DELETE_RENTS) && (

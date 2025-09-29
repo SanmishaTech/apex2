@@ -19,12 +19,12 @@ const updateSchema = z.object({
 });
 
 // GET /api/cashbooks/[id]
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await params).id);
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     const cashbook = await prisma.cashbook.findUnique({
@@ -49,12 +49,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/cashbooks/[id]
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await params).id);
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     const body = await req.json();
@@ -110,12 +110,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/cashbooks/[id]
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt((await params).id);
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     await prisma.cashbook.delete({
