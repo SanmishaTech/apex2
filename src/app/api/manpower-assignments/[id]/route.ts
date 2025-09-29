@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardApiAccess } from '@/lib/access-guard';
 import { prisma } from '@/lib/prisma';
-import { PERMISSIONS } from '@/config/roles';
 
 interface Context {
   params: Promise<{ id: string }>;
 }
 
 export async function GET(req: NextRequest, context: Context) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -72,7 +71,7 @@ export async function GET(req: NextRequest, context: Context) {
 }
 
 export async function PATCH(req: NextRequest, context: Context) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -154,7 +153,7 @@ export async function PATCH(req: NextRequest, context: Context) {
 }
 
 export async function DELETE(req: NextRequest, context: Context) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
