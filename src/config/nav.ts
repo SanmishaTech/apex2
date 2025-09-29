@@ -2,7 +2,7 @@
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
  
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package,Building, Home, ArrowRightLeft, UserPlus } from 'lucide-react';
  import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -194,25 +194,25 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
 
-  {
-    type: 'group',
-    title: 'Asset',
-    icon: Package,
-    children: [
-      {
-        title: 'Asset Group',
-        href: '/asset-groups',
-        icon: Folder,
-        permission: PERMISSIONS.READ_ASSET_GROUPS,
-      },
-      {
-        title: 'Asset Category',
-        href: '/asset-categories',
-        icon: Folder,
-        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
-      },
-    ],
-  },
+  // {
+  //   type: 'group',
+  //   title: 'Asset',
+  //   icon: Package,
+  //   children: [
+  //     {
+  //       title: 'Asset Group',
+  //       href: '/asset-groups',
+  //       icon: Folder,
+  //       permission: PERMISSIONS.READ_ASSET_GROUPS,
+  //     },
+  //     {
+  //       title: 'Asset Category',
+  //       href: '/asset-categories',
+  //       icon: Folder,
+  //       permission: PERMISSIONS.READ_ASSET_CATEGORIES,
+  //     },
+  //   ],
+  // },
 
   {
     type: 'group',
@@ -247,6 +247,12 @@ export const NAV_ITEMS: NavItem[] = [
     title: 'Cashbook',
     icon: Calculator,
     children: [
+      {
+        title: 'Cashbooks',
+        href: '/cashbooks',
+        icon: FileText,
+        permission: PERMISSIONS.READ_CASHBOOKS,
+      },
       {
         title: 'Cashbook Heads',
         href: '/cashbook-heads',
@@ -284,6 +290,18 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/asset-categories',
         icon: Database,
         permission: PERMISSIONS.READ_ASSET_CATEGORIES,
+      },
+      {
+        title: 'Asset Transfers',
+        href: '/asset-transfers',
+        icon: ArrowRightLeft,
+        permission: PERMISSIONS.READ_ASSET_TRANSFERS,
+      },
+      {
+        title: 'Assign Manpower',
+        href: '/assign-manpower',
+        icon: UserPlus,
+        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
       },
     ],
   },

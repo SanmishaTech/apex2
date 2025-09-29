@@ -14,6 +14,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
@@ -47,6 +48,8 @@ type AssetGroup = {
 };
 
 export default function AssetCategoriesPage() {
+  const { pushWithScrollSave } = useScrollRestoration('asset-categories-list');
+  
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -182,11 +185,14 @@ export default function AssetCategoriesPage() {
         <AppCard.Description>Manage asset categories.</AppCard.Description>
         {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
           <AppCard.Action>
-            <Link href='/asset-categories/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/asset-categories/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -247,9 +253,11 @@ export default function AssetCategoriesPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
-                  <Link href={`/asset-categories/${row.id}/edit`}>
-                    <EditButton tooltip='Edit Asset Category' aria-label='Edit Asset Category' />
-                  </Link>
+                  <EditButton 
+                    tooltip='Edit Asset Category' 
+                    aria-label='Edit Asset Category'
+                    onClick={() => pushWithScrollSave(`/asset-categories/${row.id}/edit`)}
+                  />
                 )}
                 {can(PERMISSIONS.DELETE_ASSET_CATEGORIES) && (
                   <DeleteButton

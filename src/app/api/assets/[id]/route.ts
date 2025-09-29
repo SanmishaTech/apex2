@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         assetGroup: {
           select: {
             id: true,
-            assetGroup: true,
+            assetGroupName: true,
           }
         },
         assetCategory: {
@@ -153,7 +153,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         assetGroup: {
           select: {
             id: true,
-            assetGroup: true,
+            assetGroupName: true,
           }
         },
         assetCategory: {

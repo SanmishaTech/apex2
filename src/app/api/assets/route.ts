@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const assetGroupId = searchParams.get("assetGroupId");
     const assetCategoryId = searchParams.get("assetCategoryId");
+    const transferStatus = searchParams.get("transferStatus");
+    const currentSiteId = searchParams.get("currentSiteId");
     const sort = searchParams.get("sort") || "createdAt";
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
 
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest) {
         { make: { contains: search } },
         { supplier: { contains: search } },
         { invoiceNo: { contains: search } },
-        { assetGroup: { assetGroup: { contains: search } } },
+        { assetGroup: { assetGroupName: { contains: search } } },
         { assetCategory: { category: { contains: search } } },
       ];
     }
@@ -52,6 +54,12 @@ export async function GET(req: NextRequest) {
     }
     if (assetCategoryId) {
       where.assetCategoryId = parseInt(assetCategoryId);
+    }
+    if (transferStatus) {
+      where.transferStatus = transferStatus;
+    }
+    if (currentSiteId) {
+      where.currentSiteId = parseInt(currentSiteId);
     }
 
     // Build orderBy object
@@ -78,7 +86,7 @@ export async function GET(req: NextRequest) {
         assetGroup: {
           select: {
             id: true,
-            assetGroup: true,
+            assetGroupName: true,
           }
         },
         assetCategory: {
@@ -87,6 +95,8 @@ export async function GET(req: NextRequest) {
             category: true,
           }
         },
+        transferStatus: true,
+        currentSiteId: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -185,7 +195,7 @@ export async function POST(req: NextRequest) {
         assetGroup: {
           select: {
             id: true,
-            assetGroup: true,
+            assetGroupName: true,
           }
         },
         assetCategory: {

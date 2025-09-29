@@ -12,6 +12,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 
 export interface AssetGroupFormInitialData {
@@ -33,6 +34,7 @@ export function AssetGroupForm({
 	redirectOnSuccess = '/asset-groups',
 }: AssetGroupFormProps) {
 	const router = useRouter();
+	const { backWithScrollRestore } = useScrollRestoration('asset-groups-list');
 	const [submitting, setSubmitting] = useState(false);
 
 	const schema = z.object({
@@ -103,7 +105,7 @@ export function AssetGroupForm({
 						<AppButton
 							type='button'
 							variant='secondary'
-							onClick={() => router.push(redirectOnSuccess)}
+							onClick={() => backWithScrollRestore()}
 							disabled={submitting}
 							iconName='X'
 						>

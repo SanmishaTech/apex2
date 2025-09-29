@@ -15,6 +15,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch, apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 import useSWR from 'swr';
 
@@ -43,6 +44,7 @@ export function AssetCategoryForm({
 	redirectOnSuccess = '/asset-categories',
 }: AssetCategoryFormProps) {
 	const router = useRouter();
+	const { backWithScrollRestore } = useScrollRestoration('asset-categories-list');
 	const [submitting, setSubmitting] = useState(false);
 
 	// Fetch asset groups for the dropdown
@@ -136,7 +138,7 @@ export function AssetCategoryForm({
 						<AppButton
 							type='button'
 							variant='secondary'
-							onClick={() => router.push(redirectOnSuccess)}
+							onClick={() => backWithScrollRestore()}
 							disabled={submitting}
 							iconName='X'
 						>
