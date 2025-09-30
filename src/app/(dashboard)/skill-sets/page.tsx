@@ -17,6 +17,7 @@ import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
+import { useProtectPage } from '@/hooks/use-protect-page';
 
 // Types
 
@@ -36,6 +37,8 @@ type SkillSetsResponse = {
 };
 
 export default function SkillSetsPage() {
+  useProtectPage();
+  
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,

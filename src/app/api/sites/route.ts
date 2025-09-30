@@ -174,6 +174,11 @@ export async function GET(req: NextRequest) {
             id: true,
             city: true
           }
+        },
+        _count: {
+          select: {
+            assignedManpower: true
+          }
         }
       },
     });

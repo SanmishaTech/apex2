@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/minimum-wages
+// POST /api/minimum-wages (Upsert: create or update if exists)
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -118,20 +118,52 @@ export async function POST(req: NextRequest) {
       minWage: data?.minWage,
     });
 
-    const created = await prisma.minimumWage.create({
-      data: {
-        siteId: parsed.siteId,
-        categoryId: parsed.categoryId,
-        skillSetId: parsed.skillSetId,
-        minWage: String(parsed.minWage) as any,
-      },
-      select: { id: true },
+    const result = await prisma.$transaction(async (tx) => {
+      // Upsert: create or update if exists
+      const upserted = await tx.minimumWage.upsert({
+        where: {
+          siteId_categoryId_skillSetId: {
+            siteId: parsed.siteId,
+            categoryId: parsed.categoryId,
+            skillSetId: parsed.skillSetId,
+          },
+        },
+        create: {
+          siteId: parsed.siteId,
+          categoryId: parsed.categoryId,
+          skillSetId: parsed.skillSetId,
+          minWage: String(parsed.minWage) as any,
+        },
+        update: {
+          minWage: String(parsed.minWage) as any,
+        },
+        select: { 
+          id: true,
+          category: { select: { categoryName: true } },
+          skillSet: { select: { skillsetName: true } },
+        },
+      });
+
+      // Update all assigned manpower with matching site, category, and skillset
+      await tx.manpower.updateMany({
+        where: {
+          currentSiteId: parsed.siteId,
+          category: upserted.category.categoryName,
+          skillSet: upserted.skillSet.skillsetName,
+          isAssigned: true,
+        },
+        data: {
+          minWage: String(parsed.minWage) as any,
+        },
+      });
+
+      return { id: upserted.id };
     });
-    return Success(created, 201);
+
+    return Success(result, 201);
   } catch (e: any) {
     if (e instanceof z.ZodError) return BadRequest(e.errors);
-    if (e?.code === 'P2002') return Error('Minimum wage for this combination already exists', 409);
-    return Error('Failed to create minimum wage');
+    return Error('Failed to save minimum wage');
   }
 }
 
@@ -163,8 +195,37 @@ export async function PATCH(req: NextRequest) {
     if (parsed.skillSetId !== undefined) updateData.skillSetId = parsed.skillSetId;
     if (parsed.minWage !== undefined) updateData.minWage = String(parsed.minWage);
 
-    const updated = await prisma.minimumWage.update({ where: { id }, data: updateData, select: { id: true } });
-    return Success(updated);
+    const result = await prisma.$transaction(async (tx) => {
+      // Update minimum wage
+      const updated = await tx.minimumWage.update({ 
+        where: { id }, 
+        data: updateData, 
+        select: { 
+          id: true,
+          siteId: true,
+          category: { select: { categoryName: true } },
+          skillSet: { select: { skillsetName: true } },
+          minWage: true,
+        } 
+      });
+
+      // Update all assigned manpower with matching site, category, and skillset
+      await tx.manpower.updateMany({
+        where: {
+          currentSiteId: updated.siteId,
+          category: updated.category.categoryName,
+          skillSet: updated.skillSet.skillsetName,
+          isAssigned: true,
+        },
+        data: {
+          minWage: updated.minWage as any,
+        },
+      });
+
+      return { id: updated.id };
+    });
+
+    return Success(result);
   } catch (e: any) {
     if (e?.code === 'P2025') return Error('Minimum wage not found', 404);
     if (e?.code === 'P2002') return Error('Minimum wage for this combination already exists', 409);

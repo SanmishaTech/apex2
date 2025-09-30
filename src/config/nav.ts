@@ -75,7 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
         title: 'Notices',
         href: '/notices',
         icon: Megaphone,
-        permission: PERMISSIONS.READ_BOQS,
+        permission: PERMISSIONS.READ_NOTICES,
       },
     ],
   },
@@ -276,7 +276,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group', 
+    type: 'group',
     title: 'Assets',
     icon: Building,
     children: [

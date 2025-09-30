@@ -290,7 +290,7 @@ export default function RentsPage() {
 						if (!can(PERMISSIONS.EDIT_RENTS) && !can(PERMISSIONS.DELETE_RENTS))
 							return null;
 						return (
-							<div className='flex'>
+							<div className='flex gap-2'>
 								{can(PERMISSIONS.EDIT_RENTS) && (
 									<EditButton 
 										tooltip='Edit Rent' 

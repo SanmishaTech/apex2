@@ -51,7 +51,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt((await params).id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     if (isNaN(id)) return BadRequest("Invalid rent ID");
 
     const rent = await prisma.rent.findUnique({
@@ -100,7 +101,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt((await params).id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     if (isNaN(id)) return BadRequest("Invalid rent ID");
 
     const raw = await req.json();
@@ -171,7 +173,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (auth.ok === false) return auth.response;
 
   try {
-    const id = parseInt((await params).id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     if (isNaN(id)) return BadRequest("Invalid rent ID");
 
     await prisma.rent.delete({
