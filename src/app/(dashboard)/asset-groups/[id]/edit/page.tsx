@@ -21,7 +21,10 @@ export default function EditAssetGroupPage() {
     
     async function fetchAssetGroup() {
       try {
-        const data = await apiGet(`/api/asset-groups/${id}`);
+        const data = await apiGet(`/api/asset-groups/${id}`) as {
+          id: number;
+          assetGroupName: string;
+        };
         setInitial({
           id: data.id,
           assetGroupName: data.assetGroupName,

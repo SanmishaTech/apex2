@@ -5,8 +5,8 @@ import { PERMISSIONS } from '@/config/roles';
 
 export async function GET(request: NextRequest) {
   try {
-    const guardResult = await guardApiAccess(request, [PERMISSIONS.READ_ASSET_TRANSFERS]);
-    if (guardResult instanceof NextResponse) return guardResult;
+    const guardResult = await guardApiAccess(request);
+    if (guardResult.ok === false) return guardResult.response;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const guardResult = await guardApiAccess(request, [PERMISSIONS.CREATE_ASSET_TRANSFERS]);
-    if (guardResult instanceof NextResponse) return guardResult;
+    const guardResult = await guardApiAccess(request);
+    if (guardResult.ok === false) return guardResult.response;
 
     const body = await request.json();
     const { transferType, challanDate, fromSiteId, toSiteId, assetIds, challanCopyUrl, remarks } = body;

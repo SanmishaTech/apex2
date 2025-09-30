@@ -1,211 +1,228 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { guardApiAccess } from '@/lib/access-guard';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { PERMISSIONS } from '@/config/roles';
-import { z } from 'zod';
+import { Success, Error as ApiError, BadRequest as ApiBadRequest } from '@/lib/api-response';
+import { guardApiAccess } from '@/lib/access-guard';
+import { paginate } from '@/lib/paginate';
 
-// Validation schema for creating manpower assignments
-const createManpowerAssignmentSchema = z.object({
-  siteId: z.number().positive("Site ID is required"),
-  manpowerIds: z.array(z.number().positive()).min(1, "At least one manpower must be selected"),
-});
+function asStringDecimal(v: unknown): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'boolean') return v ? '1' : null;
+  const n = typeof v === 'string' ? v : String(v);
+  if (n.trim() === '') return null;
+  return n as any; // Prisma Decimal accepts string
+}
 
+// GET /api/manpower-assignments?siteId=123&mode=assigned|available&supplierId=&search=&page=&perPage=
 export async function GET(req: NextRequest) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
-
   try {
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
-    const search = searchParams.get("search")?.trim() || "";
-    const siteId = searchParams.get("siteId");
-    const manpowerSupplierId = searchParams.get("manpowerSupplierId");
-    const isActive = searchParams.get("isActive");
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(searchParams.get('perPage')) || 10));
+    const search = (searchParams.get('search') || '').trim();
+    const mode = (searchParams.get('mode') || 'assigned').toLowerCase();
+    const siteId = Number(searchParams.get('siteId'));
+    const supplierId = searchParams.get('supplierId');
+    const sort = (searchParams.get('sort') || 'firstName');
+    const order = (searchParams.get('order') === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
 
     const where: any = {};
-    
-    // Apply filters
-    if (siteId) {
-      where.siteId = parseInt(siteId);
+    if (mode === 'assigned') {
+      if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required for mode=assigned');
+      where.isAssigned = true;
+      where.currentSiteId = siteId;
+    } else if (mode === 'available') {
+      // Only unassigned manpower
+      where.isAssigned = false;
     }
-    
-    if (isActive !== null && isActive !== undefined) {
-      where.isActive = isActive === 'true';
+
+    if (supplierId) {
+      const sid = Number(supplierId);
+      if (!Number.isNaN(sid)) where.supplierId = sid;
     }
-    
-    if (manpowerSupplierId) {
-      where.manpower = {
-        supplierId: parseInt(manpowerSupplierId)
-      };
-    }
-    
+
     if (search) {
       where.OR = [
-        { site: { site: { contains: search } } },
-        { manpower: { firstName: { contains: search } } },
-        { manpower: { lastName: { contains: search } } },
-        { manpower: { manpowerSupplier: { supplierName: { contains: search } } } },
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { mobileNumber: { contains: search } },
+        { manpowerSupplier: { supplierName: { contains: search } } },
       ];
     }
 
-    // Get total count
-    const total = await prisma.manpowerAssignment.count({ where });
+    const sortable = new Set(['firstName','lastName','mobileNumber','wage','createdAt']);
+    const orderBy: Record<string,'asc'|'desc'> = sortable.has(sort) ? { [sort]: order } : { firstName: 'asc' };
 
-    // Get paginated results with relations
-    const assignments = await prisma.manpowerAssignment.findMany({
+    const result = await paginate({
+      model: prisma.manpower,
       where,
-      skip: (page - 1) * perPage,
-      take: perPage,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        site: {
-          select: {
-            id: true,
-            site: true,
-            shortName: true,
-          }
-        },
-        manpower: {
-          select: {
-            id: true,
-            firstName: true,
-            middleName: true,
-            lastName: true,
-            category: true,
-            skillSet: true,
-            wage: true,
-            mobileNumber: true,
-            manpowerSupplier: {
-              select: {
-                id: true,
-                supplierName: true,
-              }
-            }
-          }
-        }
-      }
-    });
-
-    const totalPages = Math.ceil(total / perPage);
-
-    return NextResponse.json({
-      data: assignments,
-      meta: {
-        total,
-        page,
-        totalPages,
-        perPage,
+      orderBy,
+      page,
+      perPage,
+      select: {
+        id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        supplierId: true,
+        manpowerSupplier: { select: { id: true, supplierName: true } },
+        mobileNumber: true,
+        // assignment fields
+        category: true,
+        skillSet: true,
+        wage: true,
+        minWage: true,
+        esic: true,
+        pf: true,
+        pt: true,
+        hra: true,
+        mlwf: true,
+        isAssigned: true,
+        currentSiteId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-  } catch (error) {
-    console.error('Manpower assignments GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch manpower assignments' },
-      { status: 500 }
-    );
+    return Success(result);
+  } catch (e) {
+    return ApiError('Failed to fetch manpower assignments');
   }
 }
 
+// POST /api/manpower-assignments  { siteId, items: [{ manpowerId, category, skillSet, wage, minWage, esic, pf, pt }] }
 export async function POST(req: NextRequest) {
-  const auth = await guardApiAccess(req, [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS]);
+  const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
-
   try {
-    const body = await req.json();
-    const validatedData = createManpowerAssignmentSchema.parse(body);
-    const { siteId, manpowerIds } = validatedData;
+    const body = await req.json().catch(() => null);
+    const siteId = Number(body?.siteId);
+    const items: any[] = Array.isArray(body?.items) ? body.items : [];
+    if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required');
+    if (items.length === 0) return ApiBadRequest('items are required');
 
-    // Check if manpower are available (not assigned or assigned to other sites)
-    const manpowerToAssign = await prisma.manpower.findMany({
-      where: {
-        id: { in: manpowerIds },
-        isAssigned: false, // Only allow unassigned manpower
-      },
-    });
+    const ids = items.map((i) => Number(i.manpowerId)).filter((n) => Number.isFinite(n));
+    if (ids.length === 0) return ApiBadRequest('Valid manpowerIds are required');
 
-    if (manpowerToAssign.length !== manpowerIds.length) {
-      return NextResponse.json(
-        { error: 'Some manpower are already assigned or not found' },
-        { status: 400 }
-      );
-    }
-
-    // Check if site exists
-    const site = await prisma.site.findUnique({
-      where: { id: siteId }
-    });
-
-    if (!site) {
-      return NextResponse.json(
-        { error: 'Site not found' },
-        { status: 400 }
-      );
-    }
-
-    // Create assignments and update manpower status in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the manpower assignments
-      const assignments = await Promise.all(
-        manpowerIds.map(async (manpowerId) => {
-          return await tx.manpowerAssignment.create({
+    const updated = await prisma.$transaction(async (tx) => {
+      // Ensure all target manpower are currently unassigned
+      const existing = await tx.manpower.findMany({ where: { id: { in: ids } }, select: { id: true, isAssigned: true } });
+      const notAllowed = existing.filter((m) => m.isAssigned);
+      if (notAllowed.length > 0) {
+        throw new Error('Some manpower already assigned. Refresh and try again.');
+      }
+      // Apply updates
+      const updates = await Promise.all(
+        items.map((i) =>
+          tx.manpower.update({
+            where: { id: Number(i.manpowerId) },
             data: {
-              siteId,
-              manpowerId,
+              currentSiteId: siteId,
+              isAssigned: true,
+              category: (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null),
+              skillSet: (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null),
+              wage: asStringDecimal(i.wage) as any,
+              minWage: asStringDecimal(i.minWage) as any,
+              esic: asStringDecimal(i.esic) as any,
+              pf: i.pf === true,
+              pt: asStringDecimal(i.pt) as any,
+              hra: asStringDecimal(i.hra) as any,
+              mlwf: asStringDecimal(i.mlwf) as any,
             },
-            include: {
-              site: {
-                select: {
-                  id: true,
-                  site: true,
-                  shortName: true,
-                }
-              },
-              manpower: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  middleName: true,
-                  lastName: true,
-                  category: true,
-                  skillSet: true,
-                  wage: true,
-                }
-              }
-            }
-          });
-        })
+            select: { id: true },
+          })
+        )
       );
-
-      // Update manpower status to assigned
-      await tx.manpower.updateMany({
-        where: { id: { in: manpowerIds } },
-        data: {
-          isAssigned: true,
-          currentSiteId: siteId,
-        },
-      });
-
-      return assignments;
+      return updates.length;
     });
 
-    return NextResponse.json({
-      data: result,
-      message: `Successfully assigned ${manpowerIds.length} manpower to ${site.site}`,
+    return Success({ count: updated }, 201);
+  } catch (e: any) {
+    return ApiError(e?.message || 'Failed to assign manpower');
+  }
+}
+
+// PATCH /api/manpower-assignments  { siteId, items: [{ manpowerId, ...partialFields }] }
+export async function PATCH(req: NextRequest) {
+  const auth = await guardApiAccess(req);
+  if (auth.ok === false) return auth.response;
+  try {
+    const body = await req.json().catch(() => null);
+    const siteId = body?.siteId != null ? Number(body.siteId) : undefined;
+    const items: any[] = Array.isArray(body?.items) ? body.items : [];
+    if (items.length === 0) return ApiBadRequest('items are required');
+
+    const updates = await prisma.$transaction(async (tx) => {
+      let count = 0;
+      for (const i of items) {
+        const id = Number(i.manpowerId);
+        if (!Number.isFinite(id)) continue;
+        const data: any = {};
+        if (i.category !== undefined) data.category = (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null);
+        if (i.skillSet !== undefined) data.skillSet = (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null);
+        if (i.wage !== undefined) data.wage = asStringDecimal(i.wage) as any;
+        if (i.minWage !== undefined) data.minWage = asStringDecimal(i.minWage) as any;
+        if (i.esic !== undefined) data.esic = asStringDecimal(i.esic) as any;
+        if (i.pf !== undefined) data.pf = !!i.pf;
+        if (i.pt !== undefined) data.pt = asStringDecimal(i.pt) as any;
+        if (i.hra !== undefined) data.hra = asStringDecimal(i.hra) as any;
+        if (i.mlwf !== undefined) data.mlwf = asStringDecimal(i.mlwf) as any;
+        
+
+        const where: any = { id };
+        if (siteId !== undefined) where.currentSiteId = siteId;
+        await tx.manpower.update({ where, data, select: { id: true } }).catch((err) => {
+          throw err;
+        });
+        count++;
+      }
+      return count;
     });
 
-  } catch (error) {
-    console.error('Manpower assignments POST error:', error);
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
-        { status: 400 }
+    return Success({ count: updates });
+  } catch (e) {
+    return ApiError('Failed to update assignments');
+  }
+}
+
+// DELETE /api/manpower-assignments  { manpowerIds: number[], siteId? }
+export async function DELETE(req: NextRequest) {
+  const auth = await guardApiAccess(req);
+  if (auth.ok === false) return auth.response;
+  try {
+    const body = await req.json().catch(() => null);
+    const siteId = body?.siteId != null ? Number(body.siteId) : undefined;
+    const manpowerIds: number[] = Array.isArray(body?.manpowerIds) ? body.manpowerIds.map((n: any) => Number(n)).filter((n: any) => Number.isFinite(n)) : [];
+    if (manpowerIds.length === 0) return ApiBadRequest('manpowerIds are required');
+
+    const count = await prisma.$transaction(async (tx) => {
+      const updates = await Promise.all(
+        manpowerIds.map((id) =>
+          tx.manpower.update({
+            where: siteId != null ? { id, currentSiteId: siteId } as any : { id },
+            data: {
+              isAssigned: false,
+              currentSiteId: null,
+              category: null,
+              skillSet: null,
+              wage: null as any,
+              minWage: null as any,
+              esic: null as any,
+              pf: false,
+              pt: null as any,
+              hra: null as any,
+              mlwf: null as any,
+            },
+            select: { id: true },
+          })
+        )
       );
-    }
-    return NextResponse.json(
-      { error: 'Failed to create manpower assignments' },
-      { status: 500 }
-    );
+      return updates.length;
+    });
+
+    return Success({ count });
+  } catch (e) {
+    return ApiError('Failed to unassign manpower');
   }
 }

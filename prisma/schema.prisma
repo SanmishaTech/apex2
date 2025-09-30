@@ -296,7 +296,6 @@ model Site {
   assetTransfersFrom  AssetTransfer[] @relation("FromSiteTransfers")
   assetTransfersTo    AssetTransfer[] @relation("ToSiteTransfers")
   assignedManpower    Manpower[]
-  manpowerAssignments ManpowerAssignment[]
 
 
   @@map("sites")
@@ -895,6 +894,8 @@ model Manpower {
   esic                    Decimal?  @db.Decimal(10, 2)
   pf                      Boolean   @default(false)
   pt                      Decimal?  @db.Decimal(10, 2)
+  hra                     Decimal?  @db.Decimal(10, 2)
+  mlwf                    Decimal?  @db.Decimal(10, 2)
   isAssigned              Boolean   @default(false)
   currentSiteId           Int?
 
@@ -902,7 +903,6 @@ model Manpower {
   updatedAt               DateTime  @updatedAt
 
   currentSite             Site?                 @relation(fields: [currentSiteId], references: [id])
-  assignments             ManpowerAssignment[]
 
   @@map("manpower")
   @@index([supplierId])
@@ -1213,18 +1213,3 @@ model AssetTransferItem {
   @@map("asset_transfer_items")
 }
 
-model ManpowerAssignment {
-  id         Int      @id @default(autoincrement())
-  siteId     Int
-  manpowerId Int
-  assignedAt DateTime @default(now())
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  site     Site     @relation(fields: [siteId], references: [id])
-  manpower Manpower @relation(fields: [manpowerId], references: [id])
-
-  @@unique([siteId, manpowerId])
-  @@map("manpower_assignments")
-}

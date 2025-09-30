@@ -9,8 +9,8 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const guardResult = await guardApiAccess(request, [PERMISSIONS.READ_ASSET_TRANSFERS]);
-    if (guardResult instanceof NextResponse) return guardResult;
+    const guardResult = await guardApiAccess(request);
+    if (guardResult.ok === false) return guardResult.response;
 
     const { id } = await context.params;
     const transferId = parseInt(id, 10);
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const guardResult = await guardApiAccess(request, [PERMISSIONS.EDIT_ASSET_TRANSFERS, PERMISSIONS.APPROVE_ASSET_TRANSFERS]);
-    if (guardResult instanceof NextResponse) return guardResult;
+    const guardResult = await guardApiAccess(request);
+    if (guardResult.ok === false) return guardResult.response;
 
     const { id } = await context.params;
     const transferId = parseInt(id, 10);
@@ -224,8 +224,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const guardResult = await guardApiAccess(request, [PERMISSIONS.DELETE_ASSET_TRANSFERS]);
-    if (guardResult instanceof NextResponse) return guardResult;
+    const guardResult = await guardApiAccess(request);
+    if (guardResult.ok === false) return guardResult.response;
 
     const { id } = await context.params;
     const transferId = parseInt(id, 10);

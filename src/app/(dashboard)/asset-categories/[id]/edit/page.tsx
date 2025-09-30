@@ -21,7 +21,11 @@ export default function EditAssetCategoryPage() {
     
     async function fetchAssetCategory() {
       try {
-        const data = await apiGet(`/api/asset-categories/${id}`);
+        const data = await apiGet(`/api/asset-categories/${id}`) as {
+          id: number;
+          category: string;
+          assetGroupId: number;
+        };
         setInitial({
           id: data.id,
           category: data.category,

@@ -290,12 +290,12 @@ export default function RentsPage() {
 						if (!can(PERMISSIONS.EDIT_RENTS) && !can(PERMISSIONS.DELETE_RENTS))
 							return null;
 						return (
-							<div className='flex'>
+							<div className='flex gap-2'>
 								{can(PERMISSIONS.EDIT_RENTS) && (
 									<EditButton 
 										tooltip='Edit Rent' 
 										aria-label='Edit Rent'
-										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit?${searchParams.toString()}`, 'rents-list')}
+										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit?${searchParams.toString()}`)}
 									/>
 								)}
 								{can(PERMISSIONS.DELETE_RENTS) && (

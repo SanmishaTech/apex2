@@ -120,7 +120,6 @@ export function AssetCategoryForm({
 									label='Asset Group'
 									placeholder='Select an asset group'
 									options={assetGroupOptions}
-									required
 								/>
 							</FormRow>
 							<FormRow>
