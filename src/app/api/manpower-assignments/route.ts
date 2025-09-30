@@ -12,6 +12,14 @@ function asStringDecimal(v: unknown): string | null {
   return n as any; // Prisma Decimal accepts string
 }
 
+function asNonNegativeDecimal(v: unknown): string | null {
+  const result = asStringDecimal(v);
+  if (result === null) return null;
+  const num = Number(result);
+  if (Number.isNaN(num) || num < 0) return null; // Reject negative values
+  return result;
+}
+
 // GET /api/manpower-assignments?siteId=123&mode=assigned|available&supplierId=&search=&page=&perPage=
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -122,8 +130,8 @@ export async function POST(req: NextRequest) {
               isAssigned: true,
               category: (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null),
               skillSet: (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null),
-              wage: asStringDecimal(i.wage) as any,
-              minWage: asStringDecimal(i.minWage) as any,
+              wage: asNonNegativeDecimal(i.wage) as any,
+              minWage: asNonNegativeDecimal(i.minWage) as any,
               esic: asStringDecimal(i.esic) as any,
               pf: i.pf === true,
               pt: asStringDecimal(i.pt) as any,
@@ -161,8 +169,8 @@ export async function PATCH(req: NextRequest) {
         const data: any = {};
         if (i.category !== undefined) data.category = (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null);
         if (i.skillSet !== undefined) data.skillSet = (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null);
-        if (i.wage !== undefined) data.wage = asStringDecimal(i.wage) as any;
-        if (i.minWage !== undefined) data.minWage = asStringDecimal(i.minWage) as any;
+        if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
+        if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
         if (i.esic !== undefined) data.esic = asStringDecimal(i.esic) as any;
         if (i.pf !== undefined) data.pf = !!i.pf;
         if (i.pt !== undefined) data.pt = asStringDecimal(i.pt) as any;

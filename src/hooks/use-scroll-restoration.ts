@@ -8,8 +8,9 @@ interface ScrollPosition {
   y: number;
 }
 
-// In-memory storage for scroll positions during the session
+// In-memory storage for scroll positions and URLs during the session
 const scrollPositions = new Map<string, ScrollPosition>();
+const savedUrls = new Map<string, string>();
 
 export function useScrollRestoration(key: string) {
   const router = useRouter();
@@ -33,11 +34,23 @@ export function useScrollRestoration(key: string) {
     return false;
   }, [key]);
 
-  // Enhanced router push that saves scroll position before navigating
+  // Enhanced router push that saves scroll position and current URL before navigating
   const pushWithScrollSave = useCallback((href: string) => {
     saveScrollPosition();
+    // Save current URL with query params
+    const currentUrl = window.location.pathname + window.location.search;
+    savedUrls.set(key, currentUrl);
+    console.log(`[ScrollRestoration] Saved scroll for key: ${key}, position: ${window.scrollY}, url: ${currentUrl}`);
     router.push(href);
-  }, [router, saveScrollPosition]);
+  }, [router, saveScrollPosition, key]);
+
+  // Navigate to a URL and restore the saved state for a specific key
+  const pushAndRestoreKey = useCallback((restoreKey: string) => {
+    const savedUrl = savedUrls.get(restoreKey);
+    const targetUrl = savedUrl || pathname;
+    console.log(`[ScrollRestoration] Navigating to: ${targetUrl} (from key: ${restoreKey})`);
+    router.push(targetUrl);
+  }, [router, pathname]);
 
   // Enhanced router back that restores scroll position
   const backWithScrollRestore = useCallback(() => {
@@ -58,16 +71,20 @@ export function useScrollRestoration(key: string) {
   // Auto-restore scroll position when component mounts (if coming back)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      restoreScrollPosition();
-    }, 100); // Small delay to ensure content is rendered
+      const restored = restoreScrollPosition();
+      if (restored) {
+        console.log(`[ScrollRestoration] Restored scroll for key: ${key}`);
+      }
+    }, 150); // Increased delay to ensure content is fully rendered
 
     return () => clearTimeout(timeoutId);
-  }, [restoreScrollPosition]);
+  }, [restoreScrollPosition, key]);
 
   return {
     saveScrollPosition,
     restoreScrollPosition,
     pushWithScrollSave,
+    pushAndRestoreKey,
     backWithScrollRestore,
   };
 }

@@ -3,6 +3,8 @@
 import { use } from 'react';
 import useSWR from 'swr';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { DataTable, Column, SortState } from '@/components/common/data-table';
@@ -15,7 +17,6 @@ import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 import type { AssignedManpowerItem, AssignManpowerRequestItem } from '@/types/manpower-assignments';
 type ViewRow = AssignedManpowerItem & { __sr: string };
@@ -27,7 +28,13 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   const { id } = use(params);
   const siteId = Number(id);
   const { can } = usePermissions();
-  const { backWithScrollRestore } = useScrollRestoration('assign-manpower-view');
+  const router = useRouter();
+  const { pushWithScrollSave, pushAndRestoreKey } = useScrollRestoration('assign-manpower-view');
+  
+  const goBack = () => {
+    // Restore the list page with its saved URL (including query params)
+    pushAndRestoreKey('assign-manpower-sites');
+  };
 
   const [qp, setQp] = useQueryParamsState<ViewQ>({ page: 1, perPage: 10, supplierId: '', name: '', sort: 'firstName', order: 'asc' });
   const { page, perPage, supplierId, name, sort, order } = qp;
@@ -120,13 +127,13 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
     },
     {
       key: 'wage', header: 'Wage', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
-        <input type='number' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String((edits[r.id]?.wage as any) ?? r.wage ?? '')}
+        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String((edits[r.id]?.wage as any) ?? r.wage ?? '')}
           onChange={(e) => setField(r.id, 'wage', e.currentTarget.value)} />
       )
     },
     {
       key: 'minWage', header: 'Min Wage', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
-        <input type='number' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String((edits[r.id]?.minWage as any) ?? r.minWage ?? '')}
+        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String((edits[r.id]?.minWage as any) ?? r.minWage ?? '')}
           onChange={(e) => setField(r.id, 'minWage', e.currentTarget.value)} />
       )
     },
@@ -223,7 +230,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
         <AppCard.Title>Assigned Manpower</AppCard.Title>
         <AppCard.Description>Manage manpower currently assigned to this site.</AppCard.Description>
         <AppCard.Action>
-          <AppButton size='sm' variant='secondary' onClick={() => backWithScrollRestore()}>Back</AppButton>
+          <AppButton size='sm' variant='secondary' onClick={goBack}>Back</AppButton>
         </AppCard.Action>
       </AppCard.Header>
       <AppCard.Content>
