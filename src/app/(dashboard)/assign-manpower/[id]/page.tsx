@@ -17,7 +17,7 @@ import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
-
+ 
 import type { AssignedManpowerItem, AssignManpowerRequestItem } from '@/types/manpower-assignments';
 type ViewRow = AssignedManpowerItem & { __sr: string };
 type ViewQ = { page: number; perPage: number; supplierId: string; name: string; sort: string; order: 'asc' | 'desc' };
