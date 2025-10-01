@@ -68,9 +68,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/boqs/', permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: '/boqs', permissions: [PERMISSIONS.READ_BOQS] },
   // Notices
-  { prefix: '/notices/new', permissions: [PERMISSIONS.EDIT_BOQS] },
-  { prefix: '/notices/', permissions: [PERMISSIONS.EDIT_BOQS] },
-  { prefix: '/notices', permissions: [PERMISSIONS.READ_BOQS] },
+  { prefix: '/notices/new', permissions: [PERMISSIONS.CREATE_NOTICES] },
+  { prefix: '/notices/', permissions: [PERMISSIONS.EDIT_NOTICES] },
+  { prefix: '/notices', permissions: [PERMISSIONS.READ_NOTICES] },
   // Cashbook Heads
   { prefix: '/cashbook-heads/new', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
   { prefix: '/cashbook-heads/', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
@@ -115,7 +115,8 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/asset-transfers/new', permissions: [PERMISSIONS.CREATE_ASSET_TRANSFERS] },
   { prefix: '/asset-transfers/', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
   { prefix: '/asset-transfers', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
-  // Manpower Assignments  
+  // Assign Manpower
+  { prefix: '/assign-manpower/', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
   { prefix: '/assign-manpower', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
   // add more page rules here (place more specific prefixes first)
 ];
@@ -314,10 +315,10 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
     prefix: '/api/notices',
     methods: {
-      GET: [PERMISSIONS.READ_BOQS],
-      POST: [PERMISSIONS.EDIT_BOQS],
-      PATCH: [PERMISSIONS.EDIT_BOQS],
-      DELETE: [PERMISSIONS.DELETE_BOQS],
+      GET: [PERMISSIONS.READ_NOTICES],
+      POST: [PERMISSIONS.CREATE_NOTICES],
+      PATCH: [PERMISSIONS.EDIT_NOTICES],
+      DELETE: [PERMISSIONS.DELETE_NOTICES],
     },
   },
   {

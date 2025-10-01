@@ -47,12 +47,21 @@ export async function GET(req: NextRequest) {
         noticeDescription: true,
         documentUrl: true,
         createdAt: true,
+        updatedAt: true,
       },
       page,
       perPage,
     });
 
-    return Success(result);
+    return Success({
+      data: result.data,
+      meta: {
+        page: result.page,
+        perPage: result.perPage,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
   } catch (e) {
     return ApiError('Failed to fetch notices');
   }

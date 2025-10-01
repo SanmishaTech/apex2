@@ -13,9 +13,11 @@ import { DeleteButton } from '@/components/common/delete-button';
 import { EditButton } from '@/components/common/icon-button';
 import { Pagination } from '@/components/common/pagination';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useProtectPage } from '@/hooks/use-protect-page';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { formatDate, formatRelativeTime } from '@/lib/locales';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 type NoticeListItem = {
   id: number;
@@ -29,13 +31,18 @@ type NoticeListItem = {
 
 type NoticesResponse = {
   data: NoticeListItem[];
-  page: number;
-  perPage: number;
-  total: number;
-  totalPages: number;
+  meta: {
+    page: number;
+    perPage: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 export default function NoticesPage() {
+  useProtectPage();
+  
+  const { pushWithScrollSave } = useScrollRestoration('notices-list');
   const [qp, setQp] = useQueryParamsState({ page: 1, perPage: 10, search: '' });
   const { page, perPage, search } = qp as unknown as { page: number; perPage: number; search: string };
 
@@ -80,13 +87,16 @@ export default function NoticesPage() {
       <AppCard.Header>
         <AppCard.Title>Notices</AppCard.Title>
         <AppCard.Description>Manage site-wide notices.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_BOQS) && (
+        {can(PERMISSIONS.CREATE_NOTICES) && (
           <AppCard.Action>
-            <Link href='/notices/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <AppButton 
+              size='sm' 
+              iconName='Plus' 
+              type='button'
+              onClick={() => pushWithScrollSave('/notices/new')}
+            >
+              Add
+            </AppButton>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -119,12 +129,14 @@ export default function NoticesPage() {
               {row.documentUrl ? (
                 <Link href={row.documentUrl} target='_blank' className='text-xs underline'>Document</Link>
               ) : null}
-              {can(PERMISSIONS.EDIT_BOQS) && (
-                <Link href={`/notices/${row.id}/edit`}>
-                  <EditButton tooltip='Edit Notice' aria-label='Edit Notice' />
-                </Link>
+              {can(PERMISSIONS.EDIT_NOTICES) && (
+                <EditButton 
+                  tooltip='Edit Notice' 
+                  aria-label='Edit Notice'
+                  onClick={() => pushWithScrollSave(`/notices/${row.id}/edit`)}
+                />
               )}
-              {can(PERMISSIONS.DELETE_BOQS) && (
+              {can(PERMISSIONS.DELETE_NOTICES) && (
                 <DeleteButton
                   onDelete={() => handleDelete(row.id)}
                   itemLabel='Notice'
@@ -138,9 +150,9 @@ export default function NoticesPage() {
       </AppCard.Content>
       <AppCard.Footer className='justify-end'>
         <Pagination
-          page={data?.page || page}
-          totalPages={data?.totalPages || 1}
-          total={data?.total}
+          page={data?.meta?.page || page}
+          totalPages={data?.meta?.totalPages || 1}
+          total={data?.meta?.total}
           perPage={perPage}
           onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
           onPageChange={(p) => setQp({ page: p })}
