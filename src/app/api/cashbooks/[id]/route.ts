@@ -24,12 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (auth.ok === false) return auth.response;
 
   try {
-<<<<<<< HEAD
-    const id = parseInt((await params).id);
-=======
     const { id: idParam } = await params;
     const id = parseInt(idParam);
->>>>>>> 1395cad (asd)
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     const cashbook = await prisma.cashbook.findUnique({
@@ -59,12 +55,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (auth.ok === false) return auth.response;
 
   try {
-<<<<<<< HEAD
-    const id = parseInt((await params).id);
-=======
     const { id: idParam } = await params;
     const id = parseInt(idParam);
->>>>>>> 1395cad (asd)
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     const body = await req.json();
@@ -125,12 +117,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (auth.ok === false) return auth.response;
 
   try {
-<<<<<<< HEAD
-    const id = parseInt((await params).id);
-=======
     const { id: idParam } = await params;
     const id = parseInt(idParam);
->>>>>>> 1395cad (asd)
     if (isNaN(id)) return BadRequest("Invalid ID");
 
     await prisma.cashbook.delete({
