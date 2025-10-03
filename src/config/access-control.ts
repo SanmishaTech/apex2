@@ -118,6 +118,13 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Assign Manpower
   { prefix: '/assign-manpower/', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
   { prefix: '/assign-manpower', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
+  // Manpower Transfers  
+  { prefix: '/manpower-transfers/new', permissions: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS] },
+  { prefix: '/manpower-transfers/', permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS] },
+  { prefix: '/manpower-transfers', permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS] },
+  // Attendances
+  { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
+  { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -427,6 +434,22 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS],
       PATCH: [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS],
       DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
+    },
+  },
+  {
+    prefix: '/api/manpower-transfers',
+    methods: {
+      GET: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
+      POST: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS],
+      PATCH: [PERMISSIONS.EDIT_MANPOWER_TRANSFERS],
+      DELETE: [PERMISSIONS.DELETE_MANPOWER_TRANSFERS],
+    },
+  },
+  {
+    prefix: '/api/attendances',
+    methods: {
+      GET: [PERMISSIONS.READ_ATTENDANCES],
+      POST: [PERMISSIONS.CREATE_ATTENDANCES],
     },
   },
   // add more API rules here
