@@ -88,6 +88,18 @@ export async function GET(req: NextRequest) {
       manpowerSupplier: { select: { id: true, supplierName: true } },
       mobileNumber: true,
       wage: true,
+      // Assignment tracking fields
+      category: true,
+      skillSet: true,
+      minWage: true,
+      hours: true,
+      esic: true,
+      pf: true,
+      pt: true,
+      hra: true,
+      mlwf: true,
+      isAssigned: true,
+      currentSiteId: true,
       createdAt: true,
       updatedAt: true,
     }

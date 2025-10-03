@@ -2,7 +2,7 @@
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
  
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package,Building, Home, ArrowRightLeft, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package,Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck } from 'lucide-react';
  import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
@@ -309,6 +309,18 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/assign-manpower',
         icon: UserPlus,
         permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
+      },
+      {
+        title: 'Manpower Transfers',
+        href: '/manpower-transfers',
+        icon: ArrowUpDown,
+        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
+      },
+      {
+        title: 'Attendances',
+        href: '/attendances',
+        icon: ClipboardCheck,
+        permission: PERMISSIONS.READ_ATTENDANCES,
       },
     ],
   },
