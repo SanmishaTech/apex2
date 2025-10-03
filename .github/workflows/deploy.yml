@@ -1,0 +1,61 @@
+name: CI/CD — Deploy to Server
+
+on:
+  push:
+    branches:
+      - main    # Triggers on push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Setup SSH for secure server connection
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+        shell: bash
+
+      # Step 3: Sync files to htdocs folder (excludes unnecessary files)
+      - name: Sync files to server (rsync over SSH)
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.next' \
+            --exclude='uploads' \
+            --exclude='.env' \
+            ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_DIR }}
+        shell: bash
+
+      # Step 4: Install dependencies, update database, build, and restart PM2
+      - name: Deploy and restart server
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            set -e
+            cd ${{ secrets.DEPLOY_DIR }}
+            
+            # Install dependencies
+            npm ci
+            
+            # Push database schema changes
+            npx prisma db push
+            
+            # Generate Prisma client
+            npx prisma generate
+            
+            # Build the Next.js application
+            npm run build
+            
+            # Go back one directory and restart PM2 instance
+            cd ..
+            pm2 restart 0
+          EOF
+        shell: bash
