@@ -21,6 +21,25 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Create SSH config to disable strict host key checking
+          cat >> ~/.ssh/config <<EOF
+          Host ${{ secrets.DEPLOY_HOST }}
+            HostName ${{ secrets.DEPLOY_HOST }}
+            User ${{ secrets.DEPLOY_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Debug: Check if key is valid (don't print the key itself)
+          echo "SSH key file created"
+          ls -la ~/.ssh/
+          
+          # Test SSH connection
+          ssh -vvv -o BatchMode=yes -o ConnectTimeout=10 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo 'SSH connection successful'" || echo "SSH test failed"
         shell: bash
 
       # Step 3: Sync files to htdocs folder (excludes unnecessary files)
