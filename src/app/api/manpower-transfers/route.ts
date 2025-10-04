@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { guardApiAccess } from '@/lib/access-guard';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { guardApiAccess } from "@/lib/access-guard";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,11 +8,11 @@ export async function GET(request: NextRequest) {
     if (guardResult.ok === false) return guardResult.response;
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const perPage = parseInt(searchParams.get('perPage') || '10', 10);
-    const search = searchParams.get('search') || '';
-    const sort = searchParams.get('sort') || 'createdAt';
-    const order = searchParams.get('order') || 'desc';
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const perPage = parseInt(searchParams.get("perPage") || "10", 10);
+    const search = searchParams.get("search") || "";
+    const sort = searchParams.get("sort") || "createdAt";
+    const order = searchParams.get("order") || "desc";
 
     const skip = (page - 1) * perPage;
 
@@ -20,11 +20,19 @@ export async function GET(request: NextRequest) {
     const where = search
       ? {
           OR: [
-            { challanNo: { contains: search, mode: 'insensitive' as const } },
-            { status: { contains: search, mode: 'insensitive' as const } },
-            { fromSite: { site: { contains: search, mode: 'insensitive' as const } } },
-            { toSite: { site: { contains: search, mode: 'insensitive' as const } } },
-            { remarks: { contains: search, mode: 'insensitive' as const } },
+            { challanNo: { contains: search, mode: "insensitive" as const } },
+            { status: { contains: search, mode: "insensitive" as const } },
+            {
+              fromSite: {
+                site: { contains: search, mode: "insensitive" as const },
+              },
+            },
+            {
+              toSite: {
+                site: { contains: search, mode: "insensitive" as const },
+              },
+            },
+            { remarks: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {};
@@ -51,15 +59,15 @@ export async function GET(request: NextRequest) {
         transferItems: {
           include: {
             manpower: {
-              select: { 
-                id: true, 
-                firstName: true, 
+              select: {
+                id: true,
+                firstName: true,
                 middleName: true,
-                lastName: true, 
+                lastName: true,
                 mobileNumber: true,
-                manpowerSupplier: { 
-                  select: { id: true, supplierName: true } 
-                }
+                manpowerSupplier: {
+                  select: { id: true, supplierName: true },
+                },
               },
             },
           },
@@ -70,9 +78,9 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(total / perPage);
 
     // Transform the response to flatten manpower data into transfer items
-    const transformedTransfers = manpowerTransfers.map(transfer => ({
+    const transformedTransfers = manpowerTransfers.map((transfer) => ({
       ...transfer,
-      transferItems: transfer.transferItems.map(item => ({
+      transferItems: transfer.transferItems.map((item) => ({
         id: item.id,
         manpowerId: item.manpowerId,
         // Flatten manpower personal details
@@ -105,9 +113,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Manpower transfers GET error:', error);
+    console.error("Manpower transfers GET error:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch manpower transfers' },
+      { error: "Failed to fetch manpower transfers" },
       { status: 500 }
     );
   }
@@ -119,26 +127,42 @@ export async function POST(request: NextRequest) {
     if (guardResult.ok === false) return guardResult.response;
 
     const body = await request.json();
-    const { challanDate, fromSiteId, toSiteId, manpowerIds, challanCopyUrl, remarks } = body;
+    const {
+      challanDate,
+      fromSiteId,
+      toSiteId,
+      manpowerIds,
+      challanCopyUrl,
+      remarks,
+    } = body;
 
     // Validate required fields
-    if (!challanDate || !fromSiteId || !toSiteId || !manpowerIds || manpowerIds.length === 0) {
+    if (
+      !challanDate ||
+      !fromSiteId ||
+      !toSiteId ||
+      !manpowerIds ||
+      manpowerIds.length === 0
+    ) {
       return NextResponse.json(
-        { error: 'Missing required fields: challanDate, fromSiteId, toSiteId, manpowerIds' },
+        {
+          error:
+            "Missing required fields: challanDate, fromSiteId, toSiteId, manpowerIds",
+        },
         { status: 400 }
       );
     }
 
     if (fromSiteId === toSiteId) {
       return NextResponse.json(
-        { error: 'Cannot transfer manpower to the same site' },
+        { error: "Cannot transfer manpower to the same site" },
         { status: 400 }
       );
     }
 
     // Generate challan number
     const lastTransfer = await prisma.manpowerTransfer.findFirst({
-      orderBy: { id: 'desc' },
+      orderBy: { id: "desc" },
       select: { challanNo: true },
     });
 
@@ -149,7 +173,7 @@ export async function POST(request: NextRequest) {
         nextNumber = parseInt(match[1], 10) + 1;
       }
     }
-    const challanNo = `MPT-${nextNumber.toString().padStart(5, '0')}`;
+    const challanNo = `MPT-${nextNumber.toString().padStart(5, "0")}`;
 
     // Check if manpower is currently assigned to the from site
     const manpowerToTransfer = await prisma.manpower.findMany({
@@ -177,10 +201,14 @@ export async function POST(request: NextRequest) {
 
     if (manpowerToTransfer.length !== manpowerIds.length) {
       return NextResponse.json(
-        { 
-          error: 'Some manpower are not available for transfer. Only manpower currently assigned to the from site can be transferred.',
-          available: manpowerToTransfer.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName}` })),
-          requested: manpowerIds
+        {
+          error:
+            "Some manpower are not available for transfer. Only manpower currently assigned to the from site can be transferred.",
+          available: manpowerToTransfer.map((m) => ({
+            id: m.id,
+            name: `${m.firstName} ${m.lastName}`,
+          })),
+          requested: manpowerIds,
         },
         { status: 400 }
       );
@@ -246,15 +274,17 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      message: 'Manpower transfer created successfully',
-      data: transfer,
-    }, { status: 201 });
-
-  } catch (error) {
-    console.error('Manpower transfer POST error:', error);
     return NextResponse.json(
-      { error: 'Failed to create manpower transfer' },
+      {
+        message: "Manpower transfer created successfully",
+        data: transfer,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Manpower transfer POST error:", error);
+    return NextResponse.json(
+      { error: "Failed to create manpower transfer" },
       { status: 500 }
     );
   }

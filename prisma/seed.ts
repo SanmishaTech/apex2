@@ -5,34 +5,63 @@ import { ROLES } from "../src/config/roles";
 
 const prisma = new PrismaClient();
 
-async function upsertUser(email: string, role: string, name:string, passwordHash: string) {
+async function upsertUser(
+  email: string,
+  role: string,
+  name: string,
+  passwordHash: string
+) {
   return prisma.user.upsert({
     where: { email },
     update: { name, role },
-    create: { email, name, role, passwordHash }
+    create: { email, name, role, passwordHash },
   });
 }
 
 async function main() {
   const passwordHash = await bcrypt.hash("abcd123", 10);
 
-  const admin = await upsertUser("admin@demo.com", ROLES.ADMIN, "Admin", passwordHash);
-  const user  = await upsertUser("user@demo.com",  ROLES.USER,  "User",  passwordHash);
+  const admin = await upsertUser(
+    "admin@demo.com",
+    ROLES.ADMIN,
+    "Admin",
+    passwordHash
+  );
+  const user = await upsertUser(
+    "user@demo.com",
+    ROLES.USER,
+    "User",
+    passwordHash
+  );
+  const pm = await upsertUser(
+    "pm@demo.com",
+    ROLES.PROJECT_MANAGER,
+    "Project Manager",
+    passwordHash
+  );
+  const siteEng = await upsertUser(
+    "siteEng@demo.com",
+    ROLES.SITE_ENGINEER,
+    "Site Engineer",
+    passwordHash
+  );
+
+  const HR = await upsertUser("hr@demo.com", ROLES.HR, "HR", passwordHash);
 
   const [
     { token: adminRefresh, expiresAt: adminExp },
-    { token: userRefresh,  expiresAt: userExp }
+    { token: userRefresh, expiresAt: userExp },
   ] = await Promise.all([
     signRefreshTokenWithExpiry({ sub: String(admin.id), role: admin.role }),
-    signRefreshTokenWithExpiry({ sub: String(user.id),  role: user.role })
+    signRefreshTokenWithExpiry({ sub: String(user.id), role: user.role }),
   ]);
 
   await prisma.refreshToken.createMany({
     data: [
       { token: adminRefresh, userId: admin.id, expiresAt: adminExp },
-      { token: userRefresh,  userId: user.id,  expiresAt: userExp }
+      { token: userRefresh, userId: user.id, expiresAt: userExp },
     ],
-    skipDuplicates: true
+    skipDuplicates: true,
   });
 
   // Insert 27 dummy users for pagination testing (idempotent via upsert by unique email)
@@ -40,21 +69,29 @@ async function main() {
   for (let i = 1; i <= 27; i++) {
     const email = `dummy${i}@demo.com`;
     const name = `Dummy User ${i}`;
-    dummyPromises.push(
-      upsertUser(email, ROLES.USER, name, passwordHash)
-    );
+    dummyPromises.push(upsertUser(email, ROLES.USER, name, passwordHash));
   }
   await Promise.all(dummyPromises);
 
   console.log("Seed complete:", {
-    admin: { id: admin.id, email: admin.email, role: admin.role, refreshToken: adminRefresh },
-    user:  { id: user.id,  email: user.email,  role: user.role,  refreshToken: userRefresh },
-    dummyUsers: 27
+    admin: {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+      refreshToken: adminRefresh,
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      refreshToken: userRefresh,
+    },
+    dummyUsers: 27,
   });
 }
 
 main()
-  .catch(e => {
+  .catch((e) => {
     console.error("Seed failed", e);
     process.exit(1);
   })
