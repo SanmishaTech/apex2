@@ -103,7 +103,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
                   </button>
                   <div className={cn(
                     'ml-0 overflow-hidden transition-all duration-200 ease-in-out',
-                    open ? 'mt-1 mb-2 max-h-64 opacity-100' : 'max-h-0 opacity-0'
+                    open ? 'mt-1 mb-2 max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
                   )} aria-hidden={!open}>
                     <ul className="space-y-1 pt-0.5">
                     {item.children.map((child, idx) => {

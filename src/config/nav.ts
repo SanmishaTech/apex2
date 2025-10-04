@@ -2,8 +2,8 @@
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
 import { PERMISSIONS } from '@/config/roles';
  
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package,Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck } from 'lucide-react';
- import type { ComponentType } from 'react';
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package, Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck, Edit3 } from 'lucide-react';
+import type { ComponentType } from 'react';
 
 export type NavLeafItem = {
   type?: 'item';
@@ -115,6 +115,30 @@ export const NAV_ITEMS: NavItem[] = [
         href: '/minimum-wages',
         icon: Folder,
         permission: PERMISSIONS.READ_MIN_WAGES,
+      },
+      {
+        title: 'Assign Manpower',
+        href: '/assign-manpower',
+        icon: UserPlus,
+        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
+      },
+      {
+        title: 'Manpower Transfers',
+        href: '/manpower-transfers',
+        icon: ArrowUpDown,
+        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
+      },
+      {
+        title: 'Attendances',
+        href: '/attendances',
+        icon: ClipboardCheck,
+        permission: PERMISSIONS.READ_ATTENDANCES,
+      },
+      {
+        title: 'Edit Attendance',
+        href: '/edit-attendance',
+        icon: Edit3,
+        permission: PERMISSIONS.EDIT_ATTENDANCES,
       },
     ],
   },
@@ -304,24 +328,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: ArrowRightLeft,
         permission: PERMISSIONS.READ_ASSET_TRANSFERS,
       },
-      {
-        title: 'Assign Manpower',
-        href: '/assign-manpower',
-        icon: UserPlus,
-        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
-      },
-      {
-        title: 'Manpower Transfers',
-        href: '/manpower-transfers',
-        icon: ArrowUpDown,
-        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
-      },
-      {
-        title: 'Attendances',
-        href: '/attendances',
-        icon: ClipboardCheck,
-        permission: PERMISSIONS.READ_ATTENDANCES,
-      },
+   
     ],
   },
 

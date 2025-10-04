@@ -41,6 +41,7 @@ export async function GET(
         firstName: true,
         middleName: true,
         lastName: true,
+        assignedAt: true,
       },
     });
 
@@ -62,6 +63,7 @@ export async function GET(
           middleName: m.middleName,
           lastName: m.lastName,
           lastAttendance: lastAttendance?.date.toISOString() || null,
+          assignedAt: m.assignedAt?.toISOString() || null,
           ot: 0,
           isPresent: false,
           isIdle: false,

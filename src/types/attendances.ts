@@ -22,6 +22,8 @@ export interface AttendanceWithRelations extends Attendance {
     firstName: string;
     middleName?: string | null;
     lastName: string;
+    category?: string | null;
+    skillSet?: string | null;
   };
 }
 
@@ -62,6 +64,8 @@ export interface ManpowerAttendanceItem {
   ot: number;
   isPresent: boolean;
   isIdle: boolean;
+  assignedAt?: string | null;
+  isLocked?: boolean;
 }
 
 export interface CreateAttendanceRequest {
@@ -73,4 +77,26 @@ export interface CreateAttendanceRequest {
     isIdle: boolean;
     ot?: number;
   }[];
+}
+
+export interface EditAttendanceRequest {
+  attendances: {
+    id: number;
+    isPresent: boolean;
+    isIdle: boolean;
+    ot?: number | null;
+  }[];
+}
+
+export interface AttendanceForEdit extends AttendanceWithRelations {
+  // Additional fields for display and editing
+  manpowerFullName?: string;
+  category?: string | null;
+  skillSet?: string | null;
+}
+
+export interface EditAttendanceFilters {
+  siteId?: number;
+  fromDate?: string;
+  toDate?: string;
 }

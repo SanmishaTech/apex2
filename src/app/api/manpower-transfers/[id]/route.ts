@@ -183,6 +183,7 @@ export async function PATCH(
                 where: { id: item.manpowerId },
                 data: {
                   currentSiteId: existingTransfer.toSiteId,
+                  assignedAt: existingTransfer.challanDate,
                   // Copy all assignment details from transfer item
                   category: item.category,
                   skillSet: item.skillSet,

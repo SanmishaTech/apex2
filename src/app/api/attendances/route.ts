@@ -19,8 +19,20 @@ const createAttendanceSchema = z.object({
   ),
 });
 
+// Schema for bulk editing attendance
+const editAttendanceSchema = z.object({
+  attendances: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      isPresent: z.boolean(),
+      isIdle: z.boolean(),
+      ot: z.number().optional().nullable(),
+    })
+  ),
+});
+
 // GET - List attendances with pagination & search
-// Supports query params: page, perPage, search, siteId, date, manpowerId
+// Supports query params: page, perPage, search, siteId, date, fromDate, toDate, manpowerId
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -32,6 +44,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')?.trim() || '';
     const siteId = searchParams.get('siteId');
     const date = searchParams.get('date');
+    const fromDate = searchParams.get('fromDate');
+    const toDate = searchParams.get('toDate');
     const manpowerId = searchParams.get('manpowerId');
 
     const where: any = {};
@@ -56,6 +70,21 @@ export async function GET(req: NextRequest) {
         gte: startOfDay,
         lte: endOfDay,
       };
+    }
+
+    // Filter by date range if provided
+    if (fromDate || toDate) {
+      where.date = where.date || {};
+      if (fromDate) {
+        const start = new Date(fromDate);
+        start.setHours(0, 0, 0, 0);
+        where.date.gte = start;
+      }
+      if (toDate) {
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
     }
 
     // Filter by manpowerId if provided
@@ -113,6 +142,8 @@ export async function GET(req: NextRequest) {
             firstName: true,
             middleName: true,
             lastName: true,
+            category: true,
+            skillSet: true,
           },
         },
       },
@@ -180,5 +211,47 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     return Error('Failed to create attendance');
+  }
+}
+
+// PATCH - Bulk edit attendance records
+export async function PATCH(req: NextRequest) {
+  const auth = await guardApiAccess(req);
+  if (auth.ok === false) return auth.response;
+
+  try {
+    const body = await req.json();
+    const { attendances } = editAttendanceSchema.parse(body);
+
+    // Update each attendance record
+    const results = await Promise.all(
+      attendances.map((att) =>
+        prisma.attendance.update({
+          where: { id: att.id },
+          data: {
+            isPresent: att.isPresent,
+            isIdle: att.isIdle,
+            ot: att.ot !== undefined && att.ot !== null ? att.ot : null,
+          },
+          select: {
+            id: true,
+            date: true,
+            siteId: true,
+            manpowerId: true,
+            isPresent: true,
+            isIdle: true,
+            ot: true,
+          },
+        })
+      )
+    );
+
+    return Success({ count: results.length, attendances: results });
+  } catch (error) {
+    console.error('Edit attendance error:', error);
+    if (error instanceof z.ZodError) {
+      return BadRequest(error.errors);
+    }
+    return Error('Failed to update attendance');
   }
 }

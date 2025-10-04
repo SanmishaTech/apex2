@@ -902,6 +902,7 @@ model Manpower {
   mlwf                    Decimal?  @db.Decimal(10, 2)
   isAssigned              Boolean   @default(false)
   currentSiteId           Int?
+  assignedAt              DateTime?
 
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt

@@ -100,6 +100,7 @@ export async function GET(req: NextRequest) {
       mlwf: true,
       isAssigned: true,
       currentSiteId: true,
+      assignedAt: true,
       createdAt: true,
       updatedAt: true,
     }

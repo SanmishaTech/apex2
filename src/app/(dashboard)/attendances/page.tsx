@@ -126,7 +126,7 @@ export default function AttendancesPage() {
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>
+        <AppCard.Title className='flex items-center'>
           <ClipboardCheck className="w-5 h-5 mr-2" />
           Manage Attendance
         </AppCard.Title>
@@ -157,13 +157,17 @@ export default function AttendancesPage() {
           renderRowActions={(row) => (
             <div className="flex gap-2">
               {canCreate && (
+                <div className='flex items-center gap-1.5'>                  <ClipboardCheck className="w-4 h-4 mr-1.5" />
+
+
                 <AppButton 
+                
                   size="sm"
                   onClick={() => pushWithScrollSave(`/attendances/mark/${row.id}`)}
                 >
-                  <ClipboardCheck className="w-4 h-4 mr-1.5" />
-                  Mark Attendance
+                   Mark Attendance
                 </AppButton>
+                </div>
               )}
             </div>
           )}

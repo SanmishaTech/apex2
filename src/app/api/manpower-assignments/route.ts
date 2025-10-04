@@ -20,6 +20,13 @@ function asNonNegativeDecimal(v: unknown): string | null {
   return result;
 }
 
+function asDate(v: unknown): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const parsed = new Date(String(v));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // GET /api/manpower-assignments?siteId=123&mode=assigned|available&supplierId=&search=&page=&perPage=
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -121,6 +128,7 @@ export async function POST(req: NextRequest) {
         throw new Error('Some manpower already assigned. Refresh and try again.');
       }
       // Apply updates
+      const now = new Date();
       const updates = await Promise.all(
         items.map((i) =>
           tx.manpower.update({
@@ -128,6 +136,7 @@ export async function POST(req: NextRequest) {
             data: {
               currentSiteId: siteId,
               isAssigned: true,
+              assignedAt: asDate(i.assignedAt) ?? now,
               category: (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null),
               skillSet: (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null),
               wage: asNonNegativeDecimal(i.wage) as any,
@@ -137,7 +146,7 @@ export async function POST(req: NextRequest) {
               pt: asStringDecimal(i.pt) as any,
               hra: asStringDecimal(i.hra) as any,
               mlwf: asStringDecimal(i.mlwf) as any,
-            },
+            } as any,
             select: { id: true },
           })
         )
@@ -176,11 +185,12 @@ export async function PATCH(req: NextRequest) {
         if (i.pt !== undefined) data.pt = asStringDecimal(i.pt) as any;
         if (i.hra !== undefined) data.hra = asStringDecimal(i.hra) as any;
         if (i.mlwf !== undefined) data.mlwf = asStringDecimal(i.mlwf) as any;
+        if (i.assignedAt !== undefined) data.assignedAt = asDate(i.assignedAt);
         
 
         const where: any = { id };
         if (siteId !== undefined) where.currentSiteId = siteId;
-        await tx.manpower.update({ where, data, select: { id: true } }).catch((err) => {
+        await tx.manpower.update({ where, data: data as any, select: { id: true } }).catch((err) => {
           throw err;
         });
         count++;
@@ -212,6 +222,7 @@ export async function DELETE(req: NextRequest) {
             data: {
               isAssigned: false,
               currentSiteId: null,
+              assignedAt: null,
               category: null,
               skillSet: null,
               wage: null as any,
@@ -221,7 +232,7 @@ export async function DELETE(req: NextRequest) {
               pt: null as any,
               hra: null as any,
               mlwf: null as any,
-            },
+            } as any,
             select: { id: true },
           })
         )

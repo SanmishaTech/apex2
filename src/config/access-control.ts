@@ -124,6 +124,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/manpower-transfers', permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS] },
   // Attendances
   { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
+  { prefix: '/edit-attendance', permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
   { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
   // add more page rules here (place more specific prefixes first)
 ];
@@ -450,6 +451,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_ATTENDANCES],
       POST: [PERMISSIONS.CREATE_ATTENDANCES],
+      PATCH: [PERMISSIONS.EDIT_ATTENDANCES],
     },
   },
   // add more API rules here
