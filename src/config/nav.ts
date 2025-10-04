@@ -1,12 +1,36 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
-import { PERMISSIONS } from '@/config/roles';
- 
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package,Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck } from 'lucide-react';
- import type { ComponentType } from 'react';
+import { PERMISSIONS } from "@/config/roles";
+
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  MapPin,
+  Map,
+  Building2,
+  Warehouse,
+  Briefcase,
+  Folder,
+  UserCheck,
+  Receipt,
+  Megaphone,
+  Database,
+  TrendingUp,
+  Calculator,
+  FileText,
+  Package,
+  Building,
+  Home,
+  ArrowRightLeft,
+  UserPlus,
+  ArrowUpDown,
+  ClipboardCheck,
+} from "lucide-react";
+import type { ComponentType } from "react";
 
 export type NavLeafItem = {
-  type?: 'item';
+  type?: "item";
   title: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
@@ -14,7 +38,7 @@ export type NavLeafItem = {
 };
 
 export type NavGroupItem = {
-  type: 'group';
+  type: "group";
   title: string;
   icon: ComponentType<{ className?: string }>;
   children: NavLeafItem[]; // children filtered by permission dynamically
@@ -24,121 +48,139 @@ export type NavItem = NavLeafItem | NavGroupItem;
 
 export const NAV_ITEMS: NavItem[] = [
   {
-    title: 'Dashboard',
-    href: '/dashboard',
+    title: "Dashboard",
+    href: "/dashboard",
     icon: LayoutDashboard,
     permission: PERMISSIONS.VIEW_DASHBOARD,
   },
 
   {
-    type: 'group',
-    title: 'Basic',
+    type: "group",
+    title: "Basic",
     icon: Database,
     children: [
       {
-        title: 'States',
-        href: '/states',
+        title: "States",
+        href: "/states",
         icon: Map,
         permission: PERMISSIONS.READ_STATES,
       },
       {
-        title: 'Cities',
-        href: '/cities',
+        title: "Cities",
+        href: "/cities",
         icon: MapPin,
         permission: PERMISSIONS.READ_CITIES,
       },
       {
-        title: 'Companies',
-        href: '/companies',
+        title: "Companies",
+        href: "/companies",
         icon: Building2,
         permission: PERMISSIONS.READ_COMPANIES,
       },
       {
-        title: 'Sites',
-        href: '/sites',
+        title: "Sites",
+        href: "/sites",
         icon: Warehouse,
         permission: PERMISSIONS.READ_SITES,
       },
       {
-        title: 'Departments',
-        href: '/departments',
+        title: "Departments",
+        href: "/departments",
         icon: Briefcase,
         permission: PERMISSIONS.READ_DEPARTMENTS,
       },
       {
-        title: 'Employees',
-        href: '/employees',
+        title: "Employees",
+        href: "/employees",
         icon: UserCheck,
         permission: PERMISSIONS.READ_EMPLOYEES,
       },
       {
-        title: 'Notices',
-        href: '/notices',
+        title: "Notices",
+        href: "/notices",
         icon: Megaphone,
         permission: PERMISSIONS.READ_NOTICES,
       },
     ],
   },
- 
+
   {
-    type: 'group',
-    title: 'H.R',
+    type: "group",
+    title: "H.R",
     icon: UserCheck,
     children: [
       {
-        title: 'Categories',
-        href: '/categories',
+        title: "Categories",
+        href: "/categories",
         icon: Folder,
         permission: PERMISSIONS.READ_CATEGORIES,
       },
       {
-        title: 'Skill Sets',
-        href: '/skill-sets',
+        title: "Skill Sets",
+        href: "/skill-sets",
         icon: Folder,
         permission: PERMISSIONS.READ_SKILLSETS,
       },
       {
-        title: 'Manpower Suppliers',
-        href: '/manpower-suppliers',
+        title: "Manpower Suppliers",
+        href: "/manpower-suppliers",
         icon: Folder,
         permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
       },
       {
-        title: 'Manpower',
-        href: '/manpower',
+        title: "Manpower",
+        href: "/manpower",
         icon: Folder,
         permission: PERMISSIONS.READ_MANPOWER,
       },
-    
+
       {
-        title: 'Minimum Wages',
-        href: '/minimum-wages',
+        title: "Minimum Wages",
+        href: "/minimum-wages",
         icon: Folder,
         permission: PERMISSIONS.READ_MIN_WAGES,
+      },
+      {
+        title: "Assign Manpower",
+        href: "/assign-manpower",
+        icon: UserPlus,
+        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
+      },
+      {
+        title: "Manpower Transfers",
+        href: "/manpower-transfers",
+        icon: ArrowUpDown,
+        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
+      },
+      {
+        title: "Daily Attendance",
+        href: "/attendances",
+        icon: ClipboardCheck,
+        permission: PERMISSIONS.READ_ATTENDANCES,
       },
     ],
   },
 
   {
-    type: 'group',
-    title: 'Rental',
+    type: "group",
+    title: "Rental",
     icon: Building,
     children: [
       {
-        title: 'Rental Categories',
-        href: '/rental-categories',
+        title: "Rental Categories",
+        href: "/rental-categories",
         icon: Folder,
         permission: PERMISSIONS.READ_RENTAL_CATEGORIES,
       },
       {
-        title: 'Rent Types',
-        href: '/rent-types',
+        title: "Rent Types",
+        href: "/rent-types",
         icon: Folder,
         permission: PERMISSIONS.READ_RENT_TYPES,
       },
       {
-        title: 'Rental Registrations',
-        href: '/rents',
+        title: "Rental Registrations",
+        href: "/rents",
         icon: Home,
         permission: PERMISSIONS.READ_RENTS,
       },
@@ -146,61 +188,125 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group',
-    title: 'Purchased',
+    type: "group",
+    title: "Cashbook",
+    icon: Calculator,
+    children: [
+      {
+        title: "Cashbook Budgets",
+        href: "/cashbook-budgets",
+        icon: Folder,
+        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+      },
+      {
+        title: "Cashbooks",
+        href: "/cashbooks",
+        icon: FileText,
+        permission: PERMISSIONS.READ_CASHBOOKS,
+      },
+    ],
+  },
+
+  {
+    type: "group",
+    title: "Purchased",
     icon: Briefcase,
     children: [
       {
-        title: 'Indents',
-        href: '/indents',
-        icon: FileText,
-        permission: PERMISSIONS.READ_INDENTS,
-      },
-      {
-        title: 'Units',
-        href: '/units',
-        icon: Folder,
-        permission: PERMISSIONS.READ_UNITS,
-      },
-      {
-        title: 'Item Categories',
-        href: '/item-categories',
-        icon: Folder,
-        permission: PERMISSIONS.READ_ITEM_CATEGORIES,
-      },
-      {
-        title: 'Items',
-        href: '/items',
+        title: "Items",
+        href: "/items",
         icon: Folder,
         permission: PERMISSIONS.READ_ITEMS,
       },
       {
-        title: 'Billing Addresses',
-        href: '/billing-addresses',
+        title: "Indents",
+        href: "/indents",
+        icon: FileText,
+        permission: PERMISSIONS.READ_INDENTS,
+      },
+      {
+        title: "Units",
+        href: "/units",
+        icon: Folder,
+        permission: PERMISSIONS.READ_UNITS,
+      },
+      {
+        title: "Item Categories",
+        href: "/item-categories",
+        icon: Folder,
+        permission: PERMISSIONS.READ_ITEM_CATEGORIES,
+      },
+
+      {
+        title: "Billing Addresses",
+        href: "/billing-addresses",
         icon: Folder,
         permission: PERMISSIONS.READ_BILLING_ADDRESSES,
       },
       {
-        title: 'Vendors',
-        href: '/vendors',
+        title: "Vendors",
+        href: "/vendors",
         icon: Folder,
         permission: PERMISSIONS.READ_VENDORS,
       },
       {
-        title: 'Payment Terms',
-        href: '/payment-terms',
+        title: "Payment Terms",
+        href: "/payment-terms",
         icon: Folder,
         permission: PERMISSIONS.READ_PAYMENT_TERMS,
       },
       {
-        title: 'Add Budget',
-        href: '/site-budgets',
+        title: "Add Budget",
+        href: "/site-budgets",
         icon: Folder,
         permission: PERMISSIONS.READ_SITE_BUDGETS,
       },
     ],
   },
-
+  {
+    type: "group",
+    title: "Assets",
+    icon: Building,
+    children: [
+      {
+        title: "Asset Categories",
+        href: "/asset-categories",
+        icon: Database,
+        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
+      },
+      {
+        title: "Assets",
+        href: "/assets",
+        icon: Building2,
+        permission: PERMISSIONS.READ_ASSETS,
+      },
+      {
+        title: "Asset Transfers",
+        href: "/asset-transfers",
+        icon: ArrowRightLeft,
+        permission: PERMISSIONS.READ_ASSET_TRANSFERS,
+      },
+      {
+        title: "Asset Groups",
+        href: "/asset-groups",
+        icon: Folder,
+        permission: PERMISSIONS.READ_ASSET_GROUPS,
+      },
+    ],
+  },
+  {
+    type: "group",
+    title: "Progress",
+    icon: TrendingUp,
+    children: [
+      {
+        title: "BOQ Targets",
+        href: "/boq-targets",
+        icon: Folder,
+        permission: PERMISSIONS.READ_BOQS,
+      },
+    ],
+  },
   // {
   //   type: 'group',
   //   title: 'Asset',
@@ -222,13 +328,13 @@ export const NAV_ITEMS: NavItem[] = [
   // },
 
   {
-    type: 'group',
-    title: 'Billing',
+    type: "group",
+    title: "Billing",
     icon: Receipt,
     children: [
       {
-        title: 'Bills of Quantity',
-        href: '/boqs',
+        title: "Bills of Quantity",
+        href: "/boqs",
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
       },
@@ -236,103 +342,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group',
-    title: 'Progress',
-    icon: TrendingUp,
-    children: [
-      {
-        title: 'BOQ Targets',
-        href: '/boq-targets',
-        icon: Folder,
-        permission: PERMISSIONS.READ_BOQS,
-      },
-    ],
-  },
-
-  {
-    type: 'group',
-    title: 'Cashbook',
-    icon: Calculator,
-    children: [
-      {
-        title: 'Cashbooks',
-        href: '/cashbooks',
-        icon: FileText,
-        permission: PERMISSIONS.READ_CASHBOOKS,
-      },
-      {
-        title: 'Cashbook Heads',
-        href: '/cashbook-heads',
-        icon: Folder,
-        permission: PERMISSIONS.READ_CASHBOOK_HEADS,
-      },
-      {
-        title: 'Cashbook Budgets',
-        href: '/cashbook-budgets',
-        icon: Folder,
-        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
-      },
-    ],
-  },
-
-  {
-    type: 'group',
-    title: 'Assets',
-    icon: Building,
-    children: [
-      {
-        title: 'Assets',
-        href: '/assets',
-        icon: Building2,
-        permission: PERMISSIONS.READ_ASSETS,
-      },
-      {
-        title: 'Asset Groups',
-        href: '/asset-groups',
-        icon: Folder,
-        permission: PERMISSIONS.READ_ASSET_GROUPS,
-      },
-      {
-        title: 'Asset Categories',
-        href: '/asset-categories',
-        icon: Database,
-        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
-      },
-      {
-        title: 'Asset Transfers',
-        href: '/asset-transfers',
-        icon: ArrowRightLeft,
-        permission: PERMISSIONS.READ_ASSET_TRANSFERS,
-      },
-      {
-        title: 'Assign Manpower',
-        href: '/assign-manpower',
-        icon: UserPlus,
-        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
-      },
-      {
-        title: 'Manpower Transfers',
-        href: '/manpower-transfers',
-        icon: ArrowUpDown,
-        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
-      },
-      {
-        title: 'Attendances',
-        href: '/attendances',
-        icon: ClipboardCheck,
-        permission: PERMISSIONS.READ_ATTENDANCES,
-      },
-    ],
-  },
-
-  {
-    type: 'group',
-    title: 'Settings',
+    type: "group",
+    title: "Settings",
     icon: Settings,
     children: [
       {
-        title: 'Users',
-        href: '/users',
+        title: "Users",
+        href: "/users",
         icon: Users,
         permission: PERMISSIONS.READ_USERS,
       },
