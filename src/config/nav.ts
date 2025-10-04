@@ -176,26 +176,6 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: "group",
-    title: "Cashbook",
-    icon: Calculator,
-    children: [
-      {
-        title: "Cashbook Budgets",
-        href: "/cashbook-budgets",
-        icon: Folder,
-        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
-      },
-      {
-        title: "Cashbooks",
-        href: "/cashbooks",
-        icon: FileText,
-        permission: PERMISSIONS.READ_CASHBOOKS,
-      },
-    ],
-  },
-
-  {
-    type: "group",
     title: "Purchased",
     icon: Briefcase,
     children: [
@@ -250,69 +230,6 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-  {
-    type: "group",
-    title: "Assets",
-    icon: Building,
-    children: [
-      {
-        title: "Asset Categories",
-        href: "/asset-categories",
-        icon: Database,
-        permission: PERMISSIONS.READ_ASSET_CATEGORIES,
-      },
-      {
-        title: "Assets",
-        href: "/assets",
-        icon: Building2,
-        permission: PERMISSIONS.READ_ASSETS,
-      },
-      {
-        title: "Asset Transfers",
-        href: "/asset-transfers",
-        icon: ArrowRightLeft,
-        permission: PERMISSIONS.READ_ASSET_TRANSFERS,
-      },
-      {
-        title: "Asset Groups",
-        href: "/asset-groups",
-        icon: Folder,
-        permission: PERMISSIONS.READ_ASSET_GROUPS,
-      },
-    ],
-  },
-  {
-    type: "group",
-    title: "Progress",
-    icon: TrendingUp,
-    children: [
-      {
-        title: "BOQ Targets",
-        href: "/boq-targets",
-        icon: Folder,
-        permission: PERMISSIONS.READ_BOQS,
-      },
-    ],
-  },
-  // {
-  //   type: 'group',
-  //   title: 'Asset',
-  //   icon: Package,
-  //   children: [
-  //     {
-  //       title: 'Asset Group',
-  //       href: '/asset-groups',
-  //       icon: Folder,
-  //       permission: PERMISSIONS.READ_ASSET_GROUPS,
-  //     },
-  //     {
-  //       title: 'Asset Category',
-  //       href: '/asset-categories',
-  //       icon: Folder,
-  //       permission: PERMISSIONS.READ_ASSET_CATEGORIES,
-  //     },
-  //   ],
-  // },
 
   {
     type: "group",
