@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { ClipboardCheck, Save, AlertCircle, Calendar, User, Clock, CheckCircle2 } from 'lucide-react';
@@ -94,11 +94,41 @@ export default function MarkAttendancePage({
     }
   }, [lastAttendanceData]);
 
+  const enrichedManpower = useMemo(() => {
+    if (!data?.manpower) return [] as ManpowerAttendanceItem[];
+    if (!attendanceDate) return data.manpower;
+
+    return data.manpower.map((m) => {
+      const assignedDate = m.assignedAt ? formatDateForInput(new Date(m.assignedAt)) : null;
+      const locked = assignedDate ? assignedDate > attendanceDate : false;
+
+      return {
+        ...m,
+        ot: locked ? 0 : m.ot,
+        isPresent: locked ? false : m.isPresent,
+        isIdle: locked ? false : m.isIdle,
+        isLocked: locked,
+      };
+    });
+  }, [data?.manpower, attendanceDate]);
+
+  // Always display unlocked entries first, locked entries at the bottom. Within groups, sort by name.
+  const sortedManpower = useMemo(() => {
+    const arr = [...enrichedManpower];
+    arr.sort((a, b) => {
+      const aLocked = !!a.isLocked;
+      const bLocked = !!b.isLocked;
+      if (aLocked !== bLocked) return aLocked ? 1 : -1; // unlocked first
+      const nameA = [a.firstName, a.middleName, a.lastName].filter(Boolean).join(' ').toLowerCase();
+      const nameB = [b.firstName, b.middleName, b.lastName].filter(Boolean).join(' ').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    return arr;
+  }, [enrichedManpower]);
+
   useEffect(() => {
-    if (data?.manpower) {
-      setManpowerData(data.manpower);
-    }
-  }, [data]);
+    setManpowerData(sortedManpower);
+  }, [sortedManpower]);
 
   const handleFieldChange = (
     manpowerId: number,
@@ -106,13 +136,54 @@ export default function MarkAttendancePage({
     value: boolean | number
   ) => {
     setManpowerData((prev) =>
-      prev.map((m) => (m.id === manpowerId ? { ...m, [field]: value } : m))
+      prev.map((m) => {
+        if (m.id !== manpowerId) return m;
+
+        if (m.isLocked && field !== 'ot') {
+          return m;
+        }
+
+        if (m.isLocked && field === 'ot') {
+          return { ...m, ot: m.ot };
+        }
+
+        if (field === 'isPresent') {
+          const isPresent = Boolean(value);
+          return {
+            ...m,
+            isPresent,
+            isIdle: isPresent ? false : m.isIdle,
+          };
+        }
+
+        if (field === 'isIdle') {
+          const isIdle = Boolean(value);
+          return {
+            ...m,
+            isIdle,
+            isPresent: isIdle ? false : m.isPresent,
+          };
+        }
+
+        if (field === 'ot') {
+          const otValue = typeof value === 'number' ? value : m.ot;
+          return { ...m, ot: otValue };
+        }
+
+        return m;
+      })
     );
   };
 
   const handleSave = async () => {
     if (!attendanceDate) {
       toast.error('Please select attendance date');
+      return;
+    }
+
+    const hasSelection = manpowerData.some((m) => m.isPresent || m.isIdle);
+    if (!hasSelection) {
+      toast.error('Mark at least one worker as Present or Idle before saving');
       return;
     }
 
@@ -154,9 +225,13 @@ export default function MarkAttendancePage({
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>
+          <>
           <ClipboardCheck className="w-5 h-5 mr-2" />
-          Mark Attendance - {data?.site.site || 'Loading...'}
-        </AppCard.Title>
+
+Mark Attendance - {data?.site.site || 'Loading...'}
+        
+          </>
+                      </AppCard.Title>
         <AppCard.Description>Mark attendance for assigned manpower at this site.</AppCard.Description>
       </AppCard.Header>
       <AppCard.Content>
@@ -191,7 +266,7 @@ export default function MarkAttendancePage({
                     </div>
                   </div>
                 </div>
-                <div className="mt-6 flex justify-center">
+                <div className="mt-6 flex justify-center mr-2">
                   <AppButton variant="outline" onClick={goBack}>
                     <Calendar className="w-4 h-4 mr-2" />
                     Back to Sites
@@ -285,13 +360,33 @@ export default function MarkAttendancePage({
                         .join(' ');
 
                       return (
-                        <tr key={manpower.id} className="border-b hover:bg-muted/30">
+                        <tr
+                          key={manpower.id}
+                          className={
+                            `border-b ${manpower.isLocked ? 'opacity-60 bg-muted/40 hover:bg-muted/40' : 'hover:bg-muted/30'}`
+                          }
+                        >
                           <td className="px-4 py-3">{index + 1}</td>
                           <td className="px-4 py-3">{fullName}</td>
                           <td className="px-4 py-3">
-                            {manpower.lastAttendance
-                              ? new Date(manpower.lastAttendance).toLocaleDateString()
-                              : 'Never'}
+                            <div className="flex flex-col gap-1">
+                              <span>
+                                {manpower.lastAttendance
+                                  ? new Date(manpower.lastAttendance).toLocaleDateString()
+                                  : 'Never'}
+                              </span>
+                              {manpower.assignedAt && (
+                                <span className="text-xs text-muted-foreground">
+                                  Assigned: {new Date(manpower.assignedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {manpower.isLocked && (
+                                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 w-fit">
+                                  <Clock className="h-3 w-3" />
+                                  Scheduled from {new Date(manpower.assignedAt as string).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <input
@@ -307,6 +402,7 @@ export default function MarkAttendancePage({
                                 )
                               }
                               className="w-20 px-2 py-1 border border-input bg-background text-foreground rounded text-center"
+                              disabled={manpower.isLocked}
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -317,6 +413,7 @@ export default function MarkAttendancePage({
                                 handleFieldChange(manpower.id, 'isPresent', e.target.checked)
                               }
                               className="w-4 h-4 cursor-pointer"
+                              disabled={manpower.isLocked}
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -327,6 +424,7 @@ export default function MarkAttendancePage({
                                 handleFieldChange(manpower.id, 'isIdle', e.target.checked)
                               }
                               className="w-4 h-4 cursor-pointer"
+                              disabled={manpower.isLocked}
                             />
                           </td>
                         </tr>
@@ -342,7 +440,7 @@ export default function MarkAttendancePage({
       </AppCard.Content>
       {canMarkAttendance && (
         <AppCard.Footer>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <AppButton variant="outline" onClick={goBack}>
               <Calendar className="w-4 h-4 mr-2" />
               Back to Sites

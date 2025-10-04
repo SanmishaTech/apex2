@@ -18,6 +18,7 @@ export interface AssignedManpowerItem {
   mlwf?: string | null; // Prisma Decimal serialized to string
   isAssigned: boolean;
   currentSiteId?: number | null;
+  assignedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +34,7 @@ export interface AssignManpowerRequestItem {
   pt?: number | string | null;
   hra?: number | string | null;
   mlwf?: number | string | null;
+  assignedAt?: string | Date | null;
 }
 
 export interface AssignManpowerRequest {
