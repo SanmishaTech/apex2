@@ -66,7 +66,7 @@ async function main() {
 
   // Insert 27 dummy users for pagination testing (idempotent via upsert by unique email)
   const dummyPromises: Promise<unknown>[] = [];
-  for (let i = 1; i <= 27; i++) {
+  for (let i = 1; i <= 5; i++) {
     const email = `dummy${i}@demo.com`;
     const name = `Dummy User ${i}`;
     dummyPromises.push(upsertUser(email, ROLES.USER, name, passwordHash));

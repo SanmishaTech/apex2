@@ -39,7 +39,8 @@ export function UserForm({
 	const router = useRouter();
 	const [submitting, setSubmitting] = useState(false);
 
-	const rolesArrayTyped = Object.values(ROLES) as Array<'admin' | 'user'>;
+	// Derive allowed roles from central config
+	const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 	const schema = z.object({
 		name: z.string().min(1, 'Name is required'),
 		email: z.string().email('Invalid email'),
@@ -47,7 +48,7 @@ export function UserForm({
 			? z.string().min(6, 'Password must be at least 6 characters')
 			: z.string().optional()
 		).transform((v) => (v === '' ? undefined : v)),
-		role: z.enum([rolesArrayTyped[0], rolesArrayTyped[1]] as ['admin','user'], { required_error: 'Role is required' }),
+		role: z.enum(ROLE_VALUES, { required_error: 'Role is required' }),
 		status: z.boolean(),
 	});
 
@@ -62,7 +63,7 @@ export function UserForm({
 			email: initial?.email || '',
 			password: '',
 			// role left undefined for placeholder unless editing with known role
-			role: (initial?.role === 'admin' || initial?.role === 'user') ? initial.role : (undefined as unknown as 'admin'),
+			role: (initial?.role && (ROLE_VALUES as readonly string[]).includes(initial.role)) ? (initial.role as any) : (undefined as unknown as any),
 			status: initial?.status ?? true,
 		},
 	});
@@ -142,8 +143,10 @@ export function UserForm({
 									placeholder='Select role'
 									required
 								>
-									{rolesArrayTyped.map(r => (
-										<AppSelect.Item key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</AppSelect.Item>
+									{(ROLE_VALUES as readonly string[]).map(r => (
+										<AppSelect.Item key={r} value={r}>
+											{r === 'pm' ? 'Project Manager' : r === 'siteEng' ? 'Site Engineer' : r === 'project_user' ? 'Project User' : r.toUpperCase() === 'HR' ? 'HR' : r.charAt(0).toUpperCase() + r.slice(1)}
+										</AppSelect.Item>
 									))}
 								</AppSelect>
 								<AppCheckbox

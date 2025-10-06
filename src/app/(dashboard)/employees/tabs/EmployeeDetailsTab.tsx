@@ -5,6 +5,7 @@ import { TextInput } from '@/components/common/text-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
 import type { DepartmentsResponse } from '@/types/departments';
 import type { SitesResponse } from '@/types/sites';
+import { ROLES } from '@/config/roles';
 
 interface Props {
   control: any;
@@ -13,6 +14,16 @@ interface Props {
   sitesData?: SitesResponse;
   onSignatureChange?: (file: File | null) => void;
   onProfilePicChange?: (file: File | null) => void;
+}
+
+const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+
+function roleLabel(r: string) {
+  if (r === 'pm') return 'Project Manager';
+  if (r === 'siteEng') return 'Site Engineer';
+  if (r === 'project_user') return 'Project User';
+  if (r.toUpperCase() === 'HR') return 'HR';
+  return r.charAt(0).toUpperCase() + r.slice(1);
 }
 
 export default function EmployeeDetailsTab({ control, isCreate, departmentsData, sitesData, onSignatureChange, onProfilePicChange }: Props) {
@@ -78,11 +89,11 @@ export default function EmployeeDetailsTab({ control, isCreate, departmentsData,
               label='Role'
               triggerClassName='h-9 w-full'
               placeholder='Select role'
-            >
-              <AppSelect.Item value='user'>User</AppSelect.Item>
-              <AppSelect.Item value='admin'>Admin</AppSelect.Item>
-              <AppSelect.Item value='project_user'>Project User</AppSelect.Item>
-            </AppSelect>
+          >
+            {(ROLE_VALUES as readonly string[]).map(r => (
+              <AppSelect.Item key={r} value={r}>{roleLabel(r)}</AppSelect.Item>
+            ))}
+          </AppSelect>
             <TextInput
               control={control}
               name='email'

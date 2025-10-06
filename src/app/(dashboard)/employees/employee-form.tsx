@@ -18,6 +18,7 @@ import type { DepartmentsResponse } from '@/types/departments';
 import type { SitesResponse } from '@/types/sites';
 import type { StatesResponse } from '@/types/states';
 import type { CitiesResponse } from '@/types/cities';
+import { ROLES } from '@/config/roles';
 
 // Code-split tabs
 const EmployeeDetailsTab = dynamic(() => import('./tabs/EmployeeDetailsTab'));
@@ -73,6 +74,8 @@ export interface EmployeeFormProps {
   redirectOnSuccess?: string; // default '/employees'
 }
 
+const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+
 const createInputSchema = z.object({
   name: z.string().min(1, 'Employee name is required'),
   departmentId: z.string().optional(),
@@ -118,7 +121,7 @@ const createInputSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Confirm password must be at least 6 characters'),
-  role: z.enum(['admin','user','project_user']).default('user'),
+  role: z.enum(ROLE_VALUES).default(ROLES.USER),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],

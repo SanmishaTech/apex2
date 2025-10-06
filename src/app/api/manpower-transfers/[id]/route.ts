@@ -4,13 +4,14 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const id = parseInt(params.id);
+    const { id: idParam } = await context.params;
+    const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid manpower transfer ID' },
@@ -94,13 +95,14 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const id = parseInt(params.id);
+    const { id: idParam } = await context.params;
+    const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid manpower transfer ID' },
@@ -256,13 +258,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const id = parseInt(params.id);
+    const { id: idParam } = await context.params;
+    const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid manpower transfer ID' },
