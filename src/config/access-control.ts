@@ -202,12 +202,12 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
   },
   // Attendances
-  {
-    prefix: "/attendances/mark/",
-    permissions: [PERMISSIONS.CREATE_ATTENDANCES],
-  },
-  { prefix: "/edit-attendance", permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
-  { prefix: "/attendances", permissions: [PERMISSIONS.READ_ATTENDANCES] },
+  { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
+  { prefix: '/edit-attendance', permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
+  { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
+  // Attendance Reports
+  { prefix: '/attendance-reports', permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS] },
+
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -546,6 +546,12 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       GET: [PERMISSIONS.READ_ATTENDANCES],
       POST: [PERMISSIONS.CREATE_ATTENDANCES],
       PATCH: [PERMISSIONS.EDIT_ATTENDANCES],
+    },
+  },
+  {
+    prefix: '/api/attendance-reports',
+    methods: {
+      GET: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
     },
   },
   // add more API rules here

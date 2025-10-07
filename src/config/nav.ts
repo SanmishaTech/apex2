@@ -1,34 +1,10 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
-import { PERMISSIONS } from "@/config/roles";
-
-import {
-  LayoutDashboard,
-  Users,
-  Settings,
-  MapPin,
-  Map,
-  Building2,
-  Warehouse,
-  Briefcase,
-  Folder,
-  UserCheck,
-  Receipt,
-  Megaphone,
-  Database,
-  TrendingUp,
-  Calculator,
-  FileText,
-  Package,
-  Building,
-  Home,
-  ArrowRightLeft,
-  UserPlus,
-  ArrowUpDown,
-  ClipboardCheck,
-  Edit3,
-} from "lucide-react";
-import type { ComponentType } from "react";
+ import { PERMISSIONS } from '@/config/roles';
+ 
+import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package, Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck, Edit3, FileBarChart } from 'lucide-react';
+import type { ComponentType } from 'react';
+ 
 
 export type NavLeafItem = {
   type?: "item";
@@ -42,7 +18,7 @@ export type NavGroupItem = {
   type: "group";
   title: string;
   icon: ComponentType<{ className?: string }>;
-  children: NavLeafItem[]; // children filtered by permission dynamically
+  children: (NavLeafItem | NavGroupItem)[]; // support nested groups
 };
 
 export type NavItem = NavLeafItem | NavGroupItem;
@@ -165,6 +141,25 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/edit-attendance",
         icon: Edit3,
         permission: PERMISSIONS.EDIT_ATTENDANCES,
+      },
+      {
+        type: "group",
+        title: 'Manpower Reports',
+        icon: FileBarChart,
+        children: [
+          {
+            title: 'Attendance Reports',
+            href: '/attendance-reports',
+            icon: ClipboardCheck,
+            permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
+          },
+          {
+            title: 'Manpower Attendance Summary',
+            href: '/attendance-reports/summary',
+            icon: FileText,
+            permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
+          },
+        ],
       },
     ],
   },
@@ -343,6 +338,7 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
+
 
   {
     type: "group",
