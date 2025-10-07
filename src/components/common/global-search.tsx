@@ -27,7 +27,7 @@ export function GlobalSearch() {
   const router = useRouter();
   const { user } = useCurrentUser();
 
-  // Generate searchable items based on user permissions
+  // Generate searchable items based on user permissions (handles nested groups)
   const searchableItems = useMemo(() => {
     if (!user) return [];
 
@@ -35,22 +35,24 @@ export function GlobalSearch() {
     const permissionSet = new Set(rolePermissions);
     const items: SearchableItem[] = [];
 
-    const processItems = (navItems: NavItem[], groupPath: string = '') => {
+    function processNavItems(navItems: NavItem[], parentPath: string = '', parentGroup: string = '') {
       navItems.forEach(item => {
         if (isGroup(item)) {
-          const currentPath = groupPath ? `${groupPath} > ${item.title}` : item.title;
-          processItems(item.children, currentPath);
+          const currentPath = parentPath ? `${parentPath} > ${item.title}` : item.title;
+          const currentGroup = parentGroup || item.title;
+          processNavItems(item.children, currentPath, currentGroup);
         } else if (permissionSet.has(item.permission)) {
+          const fullPath = parentPath ? `${parentPath} > ${item.title}` : item.title;
           items.push({
             ...item,
-            group: groupPath || undefined,
-            fullPath: groupPath ? `${groupPath} > ${item.title}` : item.title
+            group: parentGroup || undefined,
+            fullPath
           });
         }
       });
-    };
+    }
 
-    processItems(NAV_ITEMS);
+    processNavItems(NAV_ITEMS);
     return items;
   }, [user?.role]);
 

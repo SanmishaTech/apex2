@@ -4,13 +4,13 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const { id: idParam } = await context.params;
+    const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
@@ -95,13 +95,13 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const { id: idParam } = await context.params;
+    const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
@@ -258,13 +258,13 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guardResult = await guardApiAccess(request);
     if (guardResult.ok === false) return guardResult.response;
 
-    const { id: idParam } = await context.params;
+    const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {
       return NextResponse.json(
