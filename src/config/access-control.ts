@@ -126,6 +126,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
   { prefix: '/edit-attendance', permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
   { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
+
+  // Payroll pages
+  { prefix: '/payslips', permissions: [PERMISSIONS.READ_PAYSLIPS] },
+  { prefix: '/reports/wage-sheet', permissions: [PERMISSIONS.READ_PAYSLIPS] },
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -452,6 +456,25 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       GET: [PERMISSIONS.READ_ATTENDANCES],
       POST: [PERMISSIONS.CREATE_ATTENDANCES],
       PATCH: [PERMISSIONS.EDIT_ATTENDANCES],
+    },
+  },
+  {
+    prefix: '/api/payslips',
+    methods: {
+      GET: [PERMISSIONS.READ_PAYSLIPS],
+      POST: [PERMISSIONS.GENERATE_PAYSLIPS],
+    },
+  },
+  {
+    prefix: '/api/reports/wage-sheet',
+    methods: {
+      GET: [PERMISSIONS.READ_PAYSLIPS],
+    },
+  },
+  {
+    prefix: '/api/reports/wage-sheet.xlsx',
+    methods: {
+      GET: [PERMISSIONS.READ_PAYSLIPS],
     },
   },
   // add more API rules here

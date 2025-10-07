@@ -300,9 +300,10 @@ model Site {
   manpowerTransfersFrom ManpowerTransfer[] @relation("FromSiteManpowerTransfers")
   manpowerTransfersTo   ManpowerTransfer[] @relation("ToSiteManpowerTransfers")
   attendances         Attendance[]       @relation("SiteAttendances")
-
-
-  @@map("sites")
+  paySlipDetails      PaySlipDetail[]
+ 
+ 
+   @@map("sites")
   @@index([site])
   @@index([shortName])
   @@index([uinNo])
@@ -910,8 +911,9 @@ model Manpower {
   currentSite             Site?                 @relation(fields: [currentSiteId], references: [id])
   transferItems           ManpowerTransferItem[]
   attendances             Attendance[]          @relation("ManpowerAttendances")
-
-  @@map("manpower")
+  paySlips               PaySlip[]
+ 
+   @@map("manpower")
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
@@ -1296,5 +1298,71 @@ model ManpowerTransferItem {
   @@map("manpower_transfer_items")
   @@index([manpowerTransferId])
   @@index([manpowerId])
+}
+
+// Payroll models
+model PaySlip {
+  id            Int            @id @default(autoincrement())
+  manpowerId    Int
+  manpower      Manpower       @relation(fields: [manpowerId], references: [id])
+  period        String         // MM-YYYY
+  paySlipDate   DateTime
+  govt          Boolean        @default(false)
+  netWages      Decimal        @db.Decimal(12, 2)
+  amountInWords String?
+  details       PaySlipDetail[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([manpowerId, period, govt])
+  @@map("pay_slips")
+  @@index([period])
+  @@index([govt])
+}
+
+model PaySlipDetail {
+  id             Int       @id @default(autoincrement())
+  paySlipId      Int
+  paySlip        PaySlip   @relation(fields: [paySlipId], references: [id], onDelete: Cascade)
+  siteId         Int
+  site           Site      @relation(fields: [siteId], references: [id])
+  workingDays    Decimal   @db.Decimal(6, 2)
+  ot             Decimal?  @db.Decimal(6, 2)
+  idle           Decimal?  @db.Decimal(6, 2)
+  wages          Decimal   @db.Decimal(12, 2)
+  grossWages     Decimal   @db.Decimal(12, 2)
+  hra            Decimal?  @db.Decimal(12, 2)
+  pf             Decimal?  @db.Decimal(12, 2)
+  esic           Decimal?  @db.Decimal(12, 2)
+  pt             Decimal?  @db.Decimal(12, 2)
+  mlwf           Decimal?  @db.Decimal(12, 2)
+  total          Decimal   @db.Decimal(12, 2)
+  amountInWords  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("pay_slip_details")
+  @@index([paySlipId])
+  @@index([siteId])
+}
+
+model PayrollConfig {
+  id                 Int      @id @default(1)
+  hoursPerDay        Decimal  @db.Decimal(6, 2) @default(8)
+  govtWorkingDayCap  Int      @default(26)
+  hraPercentage      Decimal  @db.Decimal(6, 2) @default(5.00)
+  pfPercentage       Decimal  @db.Decimal(6, 2) @default(12.00)
+  esicPercentage     Decimal  @db.Decimal(6, 2) @default(1.75)
+  ptThreshold1       Decimal  @db.Decimal(12, 2) @default(7500)
+  ptAmount1          Decimal  @db.Decimal(12, 2) @default(175)
+  ptThreshold2       Decimal  @db.Decimal(12, 2) @default(10000)
+  ptAmount2          Decimal  @db.Decimal(12, 2) @default(200)
+  febPtAmount        Decimal  @db.Decimal(12, 2) @default(300)
+  mlwfAmount         Decimal  @db.Decimal(12, 2) @default(12)
+  mlwfMonths         String   @default("02,06")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("payroll_config")
 }
 

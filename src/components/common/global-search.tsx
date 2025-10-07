@@ -35,24 +35,22 @@ export function GlobalSearch() {
     const permissionSet = new Set(rolePermissions);
     const items: SearchableItem[] = [];
 
-    NAV_ITEMS.forEach(item => {
-      if (isGroup(item)) {
-        const filteredChildren = item.children.filter(c => permissionSet.has(c.permission));
-        filteredChildren.forEach(child => {
+    const processItems = (navItems: NavItem[], groupPath: string = '') => {
+      navItems.forEach(item => {
+        if (isGroup(item)) {
+          const currentPath = groupPath ? `${groupPath} > ${item.title}` : item.title;
+          processItems(item.children, currentPath);
+        } else if (permissionSet.has(item.permission)) {
           items.push({
-            ...child,
-            group: item.title,
-            fullPath: `${item.title} > ${child.title}`
+            ...item,
+            group: groupPath || undefined,
+            fullPath: groupPath ? `${groupPath} > ${item.title}` : item.title
           });
-        });
-      } else if (permissionSet.has(item.permission)) {
-        items.push({
-          ...item,
-          fullPath: item.title
-        });
-      }
-    });
+        }
+      });
+    };
 
+    processItems(NAV_ITEMS);
     return items;
   }, [user?.role]);
 
