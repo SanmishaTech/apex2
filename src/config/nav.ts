@@ -1,10 +1,34 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
- import { PERMISSIONS } from '@/config/roles';
- 
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package, Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck, Edit3 } from 'lucide-react';
-import type { ComponentType } from 'react';
- 
+import { PERMISSIONS } from "@/config/roles";
+
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  MapPin,
+  Map,
+  Building2,
+  Warehouse,
+  Briefcase,
+  Folder,
+  UserCheck,
+  Receipt,
+  Megaphone,
+  Database,
+  TrendingUp,
+  Calculator,
+  FileText,
+  Package,
+  Building,
+  Home,
+  ArrowRightLeft,
+  UserPlus,
+  ArrowUpDown,
+  ClipboardCheck,
+  Edit3,
+} from "lucide-react";
+import type { ComponentType } from "react";
 
 export type NavLeafItem = {
   type?: "item";
@@ -118,30 +142,27 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_MIN_WAGES,
       },
       {
-
-        title: 'Assign Manpower',
-        href: '/assign-manpower',
+        title: "Assign Manpower",
+        href: "/assign-manpower",
 
         icon: UserPlus,
         permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
       },
       {
-
-        title: 'Manpower Transfers',
-        href: '/manpower-transfers',
+        title: "Manpower Transfers",
+        href: "/manpower-transfers",
         icon: ArrowUpDown,
         permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
       },
       {
-
-        title: 'Attendances',
-        href: '/attendances',
+        title: "Attendances",
+        href: "/attendances",
         icon: ClipboardCheck,
         permission: PERMISSIONS.READ_ATTENDANCES,
       },
       {
-        title: 'Edit Attendance',
-        href: '/edit-attendance',
+        title: "Edit Attendance",
+        href: "/edit-attendance",
         icon: Edit3,
         permission: PERMISSIONS.EDIT_ATTENDANCES,
       },
@@ -246,39 +267,45 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group',
-    title: 'Progress',
+    type: "group",
+    title: "Progress",
     icon: TrendingUp,
     children: [
       {
-        title: 'BOQ Targets',
-        href: '/boq-targets',
+        title: "BOQ Targets",
+        href: "/boq-targets",
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
+      },
+      {
+        title: "Daily Progress",
+        href: "/daily-progresses",
+        icon: Folder,
+        permission: PERMISSIONS.READ_DAILY_PROGRESSES,
       },
     ],
   },
 
   {
-    type: 'group',
-    title: 'Cashbook',
+    type: "group",
+    title: "Cashbook",
     icon: Calculator,
     children: [
       {
-        title: 'Cashbooks',
-        href: '/cashbooks',
+        title: "Cashbooks",
+        href: "/cashbooks",
         icon: FileText,
         permission: PERMISSIONS.READ_CASHBOOKS,
       },
       {
-        title: 'Cashbook Heads',
-        href: '/cashbook-heads',
+        title: "Cashbook Heads",
+        href: "/cashbook-heads",
         icon: Folder,
         permission: PERMISSIONS.READ_CASHBOOK_HEADS,
       },
       {
-        title: 'Cashbook Budgets',
-        href: '/cashbook-budgets',
+        title: "Cashbook Budgets",
+        href: "/cashbook-budgets",
         icon: Folder,
         permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
       },
@@ -286,41 +313,40 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    type: 'group',
-    title: 'Assets',
+    type: "group",
+    title: "Assets",
     icon: Building,
     children: [
       {
-        title: 'Assets',
-        href: '/assets',
+        title: "Assets",
+        href: "/assets",
         icon: Building2,
         permission: PERMISSIONS.READ_ASSETS,
       },
       {
-        title: 'Asset Groups',
-        href: '/asset-groups',
+        title: "Asset Groups",
+        href: "/asset-groups",
         icon: Folder,
         permission: PERMISSIONS.READ_ASSET_GROUPS,
       },
       {
-        title: 'Asset Categories',
-        href: '/asset-categories',
+        title: "Asset Categories",
+        href: "/asset-categories",
         icon: Database,
         permission: PERMISSIONS.READ_ASSET_CATEGORIES,
       },
       {
-        title: 'Asset Transfers',
-        href: '/asset-transfers',
+        title: "Asset Transfers",
+        href: "/asset-transfers",
         icon: ArrowRightLeft,
         permission: PERMISSIONS.READ_ASSET_TRANSFERS,
       },
-   
     ],
   },
 
   {
-    type: 'group',
-    title: 'Settings',
+    type: "group",
+    title: "Settings",
 
     icon: Settings,
     children: [
