@@ -493,8 +493,8 @@ export function DailyProgressForm({
               <div className="flex flex-col gap-4">
                 {hindranceFields.map((field, index) => (
                   <div key={field.id} className="border rounded-md p-4 bg-card">
-                    <div className="grid grid-cols-4 gap-3">
-                      <div>
+                    <div className="grid grid-cols-12  gap-3">
+                      <div className="col-span-12 md:col-span-3">
                         <TextInput
                           control={control}
                           name={`hindrances.${index}.from`}
@@ -502,7 +502,7 @@ export function DailyProgressForm({
                           type="time"
                         />
                       </div>
-                      <div>
+                      <div className="col-span-12 md:col-span-3">
                         <TextInput
                           control={control}
                           name={`hindrances.${index}.to`}
@@ -510,7 +510,7 @@ export function DailyProgressForm({
                           type="time"
                         />
                       </div>
-                      <div>
+                      <div className="col-span-12 md:col-span-3">
                         <TextInput
                           control={control}
                           name={`hindrances.${index}.hrs`}
@@ -518,7 +518,7 @@ export function DailyProgressForm({
                           type="number"
                         />
                       </div>
-                      <div>
+                      <div className="col-span-12 md:col-span-3">
                         <TextInput
                           control={control}
                           name={`hindrances.${index}.location`}
