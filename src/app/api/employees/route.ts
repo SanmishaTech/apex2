@@ -8,6 +8,9 @@ import bcrypt from 'bcryptjs';
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { ROLES } from "@/config/roles";
+
+const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 
 const createSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
@@ -17,7 +20,7 @@ const createSchema = z.object({
     if (!val) return undefined;
     return new Date(val);
   }),
-  role: z.enum(['admin','user','project_user']).default('user'),
+  role: z.enum(ROLE_VALUES).default(ROLES.USER),
   // Personal Details
   dateOfBirth: z.string().optional().transform((val) => {
     if (!val) return undefined;
@@ -174,7 +177,7 @@ export async function POST(req: NextRequest) {
         departmentId: form.get('departmentId') ? Number(form.get('departmentId')) : undefined,
         siteId: form.get('siteId') ? Number(form.get('siteId')) : undefined,
         resignDate: form.get('resignDate') ? String(form.get('resignDate')) : undefined,
-        role: (String(form.get('role') || 'user') as 'admin' | 'user' | 'project_user'),
+        role: String(form.get('role') || 'user'),
         dateOfBirth: form.get('dateOfBirth') ? String(form.get('dateOfBirth')) : undefined,
         anniversaryDate: form.get('anniversaryDate') ? String(form.get('anniversaryDate')) : undefined,
         spouseName: (form.get('spouseName') as string) || undefined,

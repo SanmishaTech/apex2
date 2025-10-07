@@ -192,6 +192,9 @@ export const PERMISSIONS = {
   EDIT_ATTENDANCES: "EDIT:ATTENDANCES",
   DELETE_ATTENDANCES: "DELETE:ATTENDANCES",
 
+  // Payroll Permissions
+  READ_PAYSLIPS: "READ:PAYSLIPS",
+  GENERATE_PAYSLIPS: "GENERATE:PAYSLIPS",
   // Attendance Report Permissions
   VIEW_ATTENDANCE_REPORTS: "VIEW:ATTENDANCE:REPORTS",
 } as const;
@@ -255,6 +258,9 @@ export const ROLES_PERMISSIONS = {
     // keep create/edit attendances for internal staff (from yash)
     PERMISSIONS.CREATE_ATTENDANCES,
     PERMISSIONS.EDIT_ATTENDANCES,
+
+    // Payroll (read-only for internal staff)
+    PERMISSIONS.READ_PAYSLIPS,
     PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
   ],
 
@@ -301,6 +307,9 @@ export const ROLES_PERMISSIONS = {
     PERMISSIONS.READ_ATTENDANCES,
     // keep create_attendances on project_user as in yash (remove if clients shouldn't create attendance)
     PERMISSIONS.CREATE_ATTENDANCES,
+
+    // Payroll (view-only)
+    PERMISSIONS.READ_PAYSLIPS,
     PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
   ],
 

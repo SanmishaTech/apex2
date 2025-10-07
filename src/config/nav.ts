@@ -143,6 +143,34 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.EDIT_ATTENDANCES,
       },
       {
+        title: 'Payslips',
+        href: '/payslips',
+        icon: Receipt,
+        permission: PERMISSIONS.READ_PAYSLIPS,
+      },
+      {
+        type: "group",
+        title: "Reports",
+        icon: Receipt,
+        children: [
+          {
+            type: "group",
+            title: "Wages Reports",
+            icon: Receipt,
+            children: [
+              {
+                title: "Wage sheet as per minimum wages",
+                href: "/reports/wage-sheet?mode=govt",
+                icon: Receipt,
+                permission: PERMISSIONS.READ_PAYSLIPS,
+              },
+              {
+                title: "Wage sheet as per company rates",
+                href: "/reports/wage-sheet?mode=company",
+                icon: Receipt,
+                permission: PERMISSIONS.READ_PAYSLIPS,
+              },
+            ],
         type: "group",
         title: 'Manpower Reports',
         icon: FileBarChart,
