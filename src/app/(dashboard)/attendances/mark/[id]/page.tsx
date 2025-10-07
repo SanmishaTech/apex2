@@ -391,7 +391,6 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                           <td className="px-4 py-3 text-center">
                             <input
                               type="number"
-                              min="0"
                               step="0.5"
                               value={manpower.ot}
                               onChange={(e) =>

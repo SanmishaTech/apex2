@@ -187,6 +187,9 @@ export const PERMISSIONS = {
   CREATE_ATTENDANCES: "CREATE:ATTENDANCES",
   EDIT_ATTENDANCES: "EDIT:ATTENDANCES",
   DELETE_ATTENDANCES: "DELETE:ATTENDANCES",
+
+  // Attendance Report Permissions
+  VIEW_ATTENDANCE_REPORTS: "VIEW:ATTENDANCE:REPORTS",
 } as const;
 
 export const ROLES = {
@@ -248,6 +251,7 @@ export const ROLES_PERMISSIONS = {
     // keep create/edit attendances for internal staff (from yash)
     PERMISSIONS.CREATE_ATTENDANCES,
     PERMISSIONS.EDIT_ATTENDANCES,
+    PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
   ],
 
   // Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
@@ -293,6 +297,7 @@ export const ROLES_PERMISSIONS = {
     PERMISSIONS.READ_ATTENDANCES,
     // keep create_attendances on project_user as in yash (remove if clients shouldn't create attendance)
     PERMISSIONS.CREATE_ATTENDANCES,
+    PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
   ],
 
   [ROLES.PROJECT_MANAGER]: [
@@ -313,6 +318,7 @@ export const ROLES_PERMISSIONS = {
     // ATTENDANCES
     PERMISSIONS.READ_ATTENDANCES,
     PERMISSIONS.CREATE_ATTENDANCES,
+    PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
 
     // RENTS
     PERMISSIONS.READ_RENTS,
@@ -390,6 +396,7 @@ export const ROLES_PERMISSIONS = {
     // ATTENDANCES
     PERMISSIONS.READ_ATTENDANCES,
     PERMISSIONS.CREATE_ATTENDANCES,
+    PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
 
     // Cashbook Heads
     PERMISSIONS.READ_CASHBOOK_HEADS,
@@ -508,6 +515,7 @@ export const ROLES_PERMISSIONS = {
     // ATTENDANCES
     PERMISSIONS.READ_ATTENDANCES,
     PERMISSIONS.CREATE_ATTENDANCES,
+    PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
 
     // Cashbook Heads
     PERMISSIONS.READ_CASHBOOK_HEADS,

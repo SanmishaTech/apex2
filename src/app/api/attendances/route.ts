@@ -14,7 +14,7 @@ const createAttendanceSchema = z.object({
       manpowerId: z.number().int().positive(),
       isPresent: z.boolean(),
       isIdle: z.boolean(),
-      ot: z.number().optional(),
+      ot: z.number().optional().nullable(),
     })
   ),
 });
