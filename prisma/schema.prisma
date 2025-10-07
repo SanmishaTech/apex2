@@ -28,6 +28,8 @@ model User {
   employee                Employee?
   approvedAssetTransfers  AssetTransfer[]
   approvedManpowerTransfers ManpowerTransfer[] @relation("ManpowerTransferApprovals")
+  dailyProgressesCreated        DailyProgress[]  @relation("DailyProgressCreated")
+  dailyProgressesUpdated                DailyProgress[]  @relation("DailyProgressUpdated")
 
   @@index([role])
 }
@@ -300,6 +302,7 @@ model Site {
   manpowerTransfersFrom ManpowerTransfer[] @relation("FromSiteManpowerTransfers")
   manpowerTransfersTo   ManpowerTransfer[] @relation("ToSiteManpowerTransfers")
   attendances         Attendance[]       @relation("SiteAttendances")
+  dailyProgresses         DailyProgress[]      
 
 
   @@map("sites")
@@ -746,6 +749,9 @@ model Boq {
   // Back-relation for Cashbook.boq
   cashbooks                       Cashbook[]
 
+  // daily progress
+  dailyProgresses                DailyProgress[]
+
   @@map("boqs")
   @@index([siteId])
   @@index([boqNo])
@@ -771,6 +777,8 @@ model BoqItem {
   isGroup          Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  dailyProgressDetails                DailyProgressDetail[]
 
   @@map("boq_items")
   @@index([boqId])
@@ -1298,3 +1306,64 @@ model ManpowerTransferItem {
   @@index([manpowerId])
 }
 
+model DailyProgress {
+  id             Int                     @id @default(autoincrement())
+  siteId         Int 
+  boqId          Int                   
+  progressDate   DateTime               
+  amount         Decimal                @db.Decimal(12, 2)  @default(0.00)
+  createdById      Int  
+  createdAt            DateTime          @default(now())
+  updatedById      Int  
+  updatedAt            DateTime          @updatedAt
+
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  createdBy             User     @relation("DailyProgressCreated",fields: [createdById], references: [id], onDelete: Cascade)
+  updatedBy             User     @relation("DailyProgressUpdated",fields: [updatedById], references: [id], onDelete: Cascade)
+
+  dailyProgressHindrances              DailyProgressHindrance[]
+  dailyProgressDetails              DailyProgressDetail[]
+
+  @@index([siteId])
+  @@index([boqId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("daily_progresses")
+}
+
+model DailyProgressDetail {
+  id              Int           @id @default(autoincrement())
+  dailyProgressId Int      
+  boqItemId     Int          
+  clientSerialNo    String?      
+  activityId      String?      
+  particulars     String?
+  doneQty         Decimal       @db.Decimal(12, 2)  @default(0.00)
+  amount          Decimal      @db.Decimal(12, 2)  @default(0.00)
+
+  // Relations
+  dailyProgress   DailyProgress   @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
+  boqItems        BoqItem   @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+
+  @@index([dailyProgressId])
+  @@index([boqItemId])
+  @@map("daily_progress_details")
+}
+
+model DailyProgressHindrance {
+  id              Int           @id @default(autoincrement())
+  dailyProgressId Int        
+  from            DateTime?
+  to              DateTime?
+  hrs             Int?
+  location          String? @db.VarChar(500)
+  reason          String? @db.VarChar(500)
+
+  // Relations
+  dailyProgress   DailyProgress   @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
+
+  @@index([dailyProgressId])
+  
+  @@map("daily_progress_hindrances")
+}

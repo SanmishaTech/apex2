@@ -1,139 +1,219 @@
 // Access control configuration: declarative page + API prefix -> required permission mapping
 // Provides longest-prefix rule resolution via findAccessRule for client guards (and future middleware).
 // No side effects; consumed by hooks (useProtectPage) & guardApiAccess.
-import { PERMISSIONS } from '@/config/roles';
+import { PERMISSIONS } from "@/config/roles";
 
 // Page (app router) path prefix -> required permissions (ALL must pass)
 // Order no longer matters once longest-prefix logic below is applied, but keep specific before general for readability.
 export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Dashboard
-  { prefix: '/dashboard', permissions: [PERMISSIONS.VIEW_DASHBOARD] },
-  { prefix: '/users/new', permissions: [PERMISSIONS.EDIT_USERS] },            // create user page
-  { prefix: '/users/', permissions: [PERMISSIONS.EDIT_USERS] },                // edit user pages (/users/:id/...)
-  { prefix: '/users', permissions: [PERMISSIONS.READ_USERS] },                 // users list (view only)
+  { prefix: "/dashboard", permissions: [PERMISSIONS.VIEW_DASHBOARD] },
+  { prefix: "/users/new", permissions: [PERMISSIONS.EDIT_USERS] }, // create user page
+  { prefix: "/users/", permissions: [PERMISSIONS.EDIT_USERS] }, // edit user pages (/users/:id/...)
+  { prefix: "/users", permissions: [PERMISSIONS.READ_USERS] }, // users list (view only)
   // Projects (adjust actual router paths as implemented)
-  { prefix: '/projects/new', permissions: [PERMISSIONS.CREATE_PROJECT] },
-  { prefix: '/projects/', permissions: [PERMISSIONS.READ_PROJECT] },           // details/edit pages /projects/:id
-  { prefix: '/projects', permissions: [PERMISSIONS.READ_PROJECT] },            // project list
+  { prefix: "/projects/new", permissions: [PERMISSIONS.CREATE_PROJECT] },
+  { prefix: "/projects/", permissions: [PERMISSIONS.READ_PROJECT] }, // details/edit pages /projects/:id
+  { prefix: "/projects", permissions: [PERMISSIONS.READ_PROJECT] }, // project list
   // Cities
-  { prefix: '/cities/new', permissions: [PERMISSIONS.EDIT_CITIES] },
-  { prefix: '/cities/', permissions: [PERMISSIONS.EDIT_CITIES] },
-  { prefix: '/cities', permissions: [PERMISSIONS.READ_CITIES] },
+  { prefix: "/cities/new", permissions: [PERMISSIONS.EDIT_CITIES] },
+  { prefix: "/cities/", permissions: [PERMISSIONS.EDIT_CITIES] },
+  { prefix: "/cities", permissions: [PERMISSIONS.READ_CITIES] },
   // States
-  { prefix: '/states/new', permissions: [PERMISSIONS.EDIT_STATES] },
-  { prefix: '/states/', permissions: [PERMISSIONS.EDIT_STATES] },
-  { prefix: '/states', permissions: [PERMISSIONS.READ_STATES] },
+  { prefix: "/states/new", permissions: [PERMISSIONS.EDIT_STATES] },
+  { prefix: "/states/", permissions: [PERMISSIONS.EDIT_STATES] },
+  { prefix: "/states", permissions: [PERMISSIONS.READ_STATES] },
   // Companies
-  { prefix: '/companies/new', permissions: [PERMISSIONS.EDIT_COMPANIES] },
-  { prefix: '/companies/', permissions: [PERMISSIONS.EDIT_COMPANIES] },
-  { prefix: '/companies', permissions: [PERMISSIONS.READ_COMPANIES] },
+  { prefix: "/companies/new", permissions: [PERMISSIONS.EDIT_COMPANIES] },
+  { prefix: "/companies/", permissions: [PERMISSIONS.EDIT_COMPANIES] },
+  { prefix: "/companies", permissions: [PERMISSIONS.READ_COMPANIES] },
   // Sites
-  { prefix: '/sites/new', permissions: [PERMISSIONS.EDIT_SITES] },
-  { prefix: '/sites/', permissions: [PERMISSIONS.EDIT_SITES] },
-  { prefix: '/sites', permissions: [PERMISSIONS.READ_SITES] },
+  { prefix: "/sites/new", permissions: [PERMISSIONS.EDIT_SITES] },
+  { prefix: "/sites/", permissions: [PERMISSIONS.EDIT_SITES] },
+  { prefix: "/sites", permissions: [PERMISSIONS.READ_SITES] },
   // Departments
-  { prefix: '/departments/new', permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
-  { prefix: '/departments/', permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
-  { prefix: '/departments', permissions: [PERMISSIONS.READ_DEPARTMENTS] },
+  { prefix: "/departments/new", permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
+  { prefix: "/departments/", permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
+  { prefix: "/departments", permissions: [PERMISSIONS.READ_DEPARTMENTS] },
   // Employees
-  { prefix: '/employees/new', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
-  { prefix: '/employees/', permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
-  { prefix: '/employees', permissions: [PERMISSIONS.READ_EMPLOYEES] },
+  { prefix: "/employees/new", permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
+  { prefix: "/employees/", permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
+  { prefix: "/employees", permissions: [PERMISSIONS.READ_EMPLOYEES] },
   // Manpower (workers)
-  { prefix: '/manpower/new', permissions: [PERMISSIONS.EDIT_MANPOWER] },
-  { prefix: '/manpower/', permissions: [PERMISSIONS.EDIT_MANPOWER] },
-  { prefix: '/manpower', permissions: [PERMISSIONS.READ_MANPOWER] },
+  { prefix: "/manpower/new", permissions: [PERMISSIONS.EDIT_MANPOWER] },
+  { prefix: "/manpower/", permissions: [PERMISSIONS.EDIT_MANPOWER] },
+  { prefix: "/manpower", permissions: [PERMISSIONS.READ_MANPOWER] },
   // Manpower Suppliers
-  { prefix: '/manpower-suppliers/new', permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS] },
-  { prefix: '/manpower-suppliers/', permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS] },
-  { prefix: '/manpower-suppliers', permissions: [PERMISSIONS.READ_MANPOWER_SUPPLIERS] },
+  {
+    prefix: "/manpower-suppliers/new",
+    permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
+  },
+  {
+    prefix: "/manpower-suppliers/",
+    permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
+  },
+  {
+    prefix: "/manpower-suppliers",
+    permissions: [PERMISSIONS.READ_MANPOWER_SUPPLIERS],
+  },
   // Categories
-  { prefix: '/categories/new', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
-  { prefix: '/categories/', permissions: [PERMISSIONS.EDIT_CATEGORIES] },
-  { prefix: '/categories', permissions: [PERMISSIONS.READ_CATEGORIES] },
+  { prefix: "/categories/new", permissions: [PERMISSIONS.EDIT_CATEGORIES] },
+  { prefix: "/categories/", permissions: [PERMISSIONS.EDIT_CATEGORIES] },
+  { prefix: "/categories", permissions: [PERMISSIONS.READ_CATEGORIES] },
   // Skill Sets
-  { prefix: '/skill-sets/new', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
-  { prefix: '/skill-sets/', permissions: [PERMISSIONS.EDIT_SKILLSETS] },
-  { prefix: '/skill-sets', permissions: [PERMISSIONS.READ_SKILLSETS] },
+  { prefix: "/skill-sets/new", permissions: [PERMISSIONS.EDIT_SKILLSETS] },
+  { prefix: "/skill-sets/", permissions: [PERMISSIONS.EDIT_SKILLSETS] },
+  { prefix: "/skill-sets", permissions: [PERMISSIONS.READ_SKILLSETS] },
   // Minimum Wages
-  { prefix: '/minimum-wages/new', permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
-  { prefix: '/minimum-wages/', permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
-  { prefix: '/minimum-wages', permissions: [PERMISSIONS.READ_MIN_WAGES] },
+  { prefix: "/minimum-wages/new", permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
+  { prefix: "/minimum-wages/", permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
+  { prefix: "/minimum-wages", permissions: [PERMISSIONS.READ_MIN_WAGES] },
   // Units
-  { prefix: '/units/new', permissions: [PERMISSIONS.EDIT_UNITS] },
-  { prefix: '/units/', permissions: [PERMISSIONS.EDIT_UNITS] },
-  { prefix: '/units', permissions: [PERMISSIONS.READ_UNITS] },
+  { prefix: "/units/new", permissions: [PERMISSIONS.EDIT_UNITS] },
+  { prefix: "/units/", permissions: [PERMISSIONS.EDIT_UNITS] },
+  { prefix: "/units", permissions: [PERMISSIONS.READ_UNITS] },
   // BOQs
-  { prefix: '/boqs/new', permissions: [PERMISSIONS.EDIT_BOQS] },
-  { prefix: '/boqs/', permissions: [PERMISSIONS.EDIT_BOQS] },
-  { prefix: '/boqs', permissions: [PERMISSIONS.READ_BOQS] },
+  { prefix: "/boqs/new", permissions: [PERMISSIONS.EDIT_BOQS] },
+  { prefix: "/boqs/", permissions: [PERMISSIONS.EDIT_BOQS] },
+  { prefix: "/boqs", permissions: [PERMISSIONS.READ_BOQS] },
+  // daily Progress
+  {
+    prefix: "/daily-progresses/new",
+    permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+  },
+  {
+    prefix: "/daily-progresses/",
+    permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+  },
+  {
+    prefix: "/daily-progresses",
+    permissions: [PERMISSIONS.READ_DAILY_PROGRESSES],
+  },
   // Notices
-  { prefix: '/notices/new', permissions: [PERMISSIONS.CREATE_NOTICES] },
-  { prefix: '/notices/', permissions: [PERMISSIONS.EDIT_NOTICES] },
-  { prefix: '/notices', permissions: [PERMISSIONS.READ_NOTICES] },
+  { prefix: "/notices/new", permissions: [PERMISSIONS.CREATE_NOTICES] },
+  { prefix: "/notices/", permissions: [PERMISSIONS.EDIT_NOTICES] },
+  { prefix: "/notices", permissions: [PERMISSIONS.READ_NOTICES] },
   // Cashbook Heads
-  { prefix: '/cashbook-heads/new', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
-  { prefix: '/cashbook-heads/', permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS] },
-  { prefix: '/cashbook-heads', permissions: [PERMISSIONS.READ_CASHBOOK_HEADS] },
+  {
+    prefix: "/cashbook-heads/new",
+    permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+  },
+  {
+    prefix: "/cashbook-heads/",
+    permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+  },
+  { prefix: "/cashbook-heads", permissions: [PERMISSIONS.READ_CASHBOOK_HEADS] },
   // Cashbook Budgets
-  { prefix: '/cashbook-budgets/new', permissions: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS] },
-  { prefix: '/cashbook-budgets/', permissions: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS] },
-  { prefix: '/cashbook-budgets', permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS] },
+  {
+    prefix: "/cashbook-budgets/new",
+    permissions: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS],
+  },
+  {
+    prefix: "/cashbook-budgets/",
+    permissions: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS],
+  },
+  {
+    prefix: "/cashbook-budgets",
+    permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+  },
   // Cashbooks
-  { prefix: '/cashbooks/new', permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
-  { prefix: '/cashbooks/', permissions: [PERMISSIONS.EDIT_CASHBOOKS] },
-  { prefix: '/cashbooks', permissions: [PERMISSIONS.READ_CASHBOOKS] },
+  { prefix: "/cashbooks/new", permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
+  { prefix: "/cashbooks/", permissions: [PERMISSIONS.EDIT_CASHBOOKS] },
+  { prefix: "/cashbooks", permissions: [PERMISSIONS.READ_CASHBOOKS] },
   // Indents
-  { prefix: '/indents/new', permissions: [PERMISSIONS.CREATE_INDENTS] },
-  { prefix: '/indents/', permissions: [PERMISSIONS.EDIT_INDENTS] },
-  { prefix: '/indents', permissions: [PERMISSIONS.READ_INDENTS] },
+  { prefix: "/indents/new", permissions: [PERMISSIONS.CREATE_INDENTS] },
+  { prefix: "/indents/", permissions: [PERMISSIONS.EDIT_INDENTS] },
+  { prefix: "/indents", permissions: [PERMISSIONS.READ_INDENTS] },
   // Rental Categories
-  { prefix: '/rental-categories/new', permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES] },
-  { prefix: '/rental-categories/', permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES] },
-  { prefix: '/rental-categories', permissions: [PERMISSIONS.READ_RENTAL_CATEGORIES] },
+  {
+    prefix: "/rental-categories/new",
+    permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+  },
+  {
+    prefix: "/rental-categories/",
+    permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+  },
+  {
+    prefix: "/rental-categories",
+    permissions: [PERMISSIONS.READ_RENTAL_CATEGORIES],
+  },
   // Rent Types
-  { prefix: '/rent-types/new', permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
-  { prefix: '/rent-types/', permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
-  { prefix: '/rent-types', permissions: [PERMISSIONS.READ_RENT_TYPES] },
+  { prefix: "/rent-types/new", permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
+  { prefix: "/rent-types/", permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
+  { prefix: "/rent-types", permissions: [PERMISSIONS.READ_RENT_TYPES] },
   // Rents
-  { prefix: '/rents/new', permissions: [PERMISSIONS.CREATE_RENTS] },
-  { prefix: '/rents/', permissions: [PERMISSIONS.EDIT_RENTS] },
-  { prefix: '/rents', permissions: [PERMISSIONS.READ_RENTS] },
+  { prefix: "/rents/new", permissions: [PERMISSIONS.CREATE_RENTS] },
+  { prefix: "/rents/", permissions: [PERMISSIONS.EDIT_RENTS] },
+  { prefix: "/rents", permissions: [PERMISSIONS.READ_RENTS] },
   // Asset Groups
-  { prefix: '/asset-groups/new', permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
-  { prefix: '/asset-groups/', permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
-  { prefix: '/asset-groups', permissions: [PERMISSIONS.READ_ASSET_GROUPS] },
+  { prefix: "/asset-groups/new", permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
+  { prefix: "/asset-groups/", permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
+  { prefix: "/asset-groups", permissions: [PERMISSIONS.READ_ASSET_GROUPS] },
   // Asset Categories
-  { prefix: '/asset-categories/new', permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES] },
-  { prefix: '/asset-categories/', permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES] },
-  { prefix: '/asset-categories', permissions: [PERMISSIONS.READ_ASSET_CATEGORIES] },
+  {
+    prefix: "/asset-categories/new",
+    permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+  },
+  {
+    prefix: "/asset-categories/",
+    permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+  },
+  {
+    prefix: "/asset-categories",
+    permissions: [PERMISSIONS.READ_ASSET_CATEGORIES],
+  },
   // Assets
-  { prefix: '/assets/new', permissions: [PERMISSIONS.CREATE_ASSETS] },
-  { prefix: '/assets/', permissions: [PERMISSIONS.EDIT_ASSETS] },
-  { prefix: '/assets', permissions: [PERMISSIONS.READ_ASSETS] },
+  { prefix: "/assets/new", permissions: [PERMISSIONS.CREATE_ASSETS] },
+  { prefix: "/assets/", permissions: [PERMISSIONS.EDIT_ASSETS] },
+  { prefix: "/assets", permissions: [PERMISSIONS.READ_ASSETS] },
   // Asset Transfers
-  { prefix: '/asset-transfers/new', permissions: [PERMISSIONS.CREATE_ASSET_TRANSFERS] },
-  { prefix: '/asset-transfers/', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
-  { prefix: '/asset-transfers', permissions: [PERMISSIONS.READ_ASSET_TRANSFERS] },
+  {
+    prefix: "/asset-transfers/new",
+    permissions: [PERMISSIONS.CREATE_ASSET_TRANSFERS],
+  },
+  {
+    prefix: "/asset-transfers/",
+    permissions: [PERMISSIONS.READ_ASSET_TRANSFERS],
+  },
+  {
+    prefix: "/asset-transfers",
+    permissions: [PERMISSIONS.READ_ASSET_TRANSFERS],
+  },
   // Assign Manpower
-  { prefix: '/assign-manpower/', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
-  { prefix: '/assign-manpower', permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS] },
-  // Manpower Transfers  
-  { prefix: '/manpower-transfers/new', permissions: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS] },
-  { prefix: '/manpower-transfers/', permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS] },
-  { prefix: '/manpower-transfers', permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS] },
+  {
+    prefix: "/assign-manpower/",
+    permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
+  },
+  {
+    prefix: "/assign-manpower",
+    permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
+  },
+  // Manpower Transfers
+  {
+    prefix: "/manpower-transfers/new",
+    permissions: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS],
+  },
+  {
+    prefix: "/manpower-transfers/",
+    permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
+  },
+  {
+    prefix: "/manpower-transfers",
+    permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
+  },
   // Attendances
   { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
   { prefix: '/edit-attendance', permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
   { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
   // Attendance Reports
   { prefix: '/attendance-reports', permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS] },
+
   // add more page rules here (place more specific prefixes first)
 ];
 
 // API route path prefix -> required permissions (ALL must pass)
 // NOTE: '/api/users' will also match '/api/users/...'
-export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 // Method-aware API rules. If methods map present, use per-method permissions; else fall back to permissions.
 export type ApiAccessRule = {
@@ -144,7 +224,7 @@ export type ApiAccessRule = {
 
 export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
-    prefix: '/api/users',
+    prefix: "/api/users",
     methods: {
       GET: [PERMISSIONS.READ_USERS],
       POST: [PERMISSIONS.EDIT_USERS],
@@ -154,7 +234,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   },
   // More specific projects sub-path rule (must appear before generic '/api/projects' to win longest-prefix)
   {
-    prefix: '/api/projects/',
+    prefix: "/api/projects/",
     methods: {
       GET: [PERMISSIONS.READ_PROJECT], // covers /api/projects/:id and nested like /api/projects/:id/users
       POST: [PERMISSIONS.MANAGE_PROJECT_USERS], // membership additions under /api/projects/:id/users
@@ -163,7 +243,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/projects',
+    prefix: "/api/projects",
     methods: {
       GET: [PERMISSIONS.READ_PROJECT],
       POST: [PERMISSIONS.CREATE_PROJECT],
@@ -172,7 +252,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/project-files', // adjust if nesting under /api/projects/:id/files
+    prefix: "/api/project-files", // adjust if nesting under /api/projects/:id/files
     methods: {
       GET: [PERMISSIONS.READ_PROJECT_FILE],
       POST: [PERMISSIONS.UPLOAD_PROJECT_FILE],
@@ -180,7 +260,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/blocks',
+    prefix: "/api/blocks",
     methods: {
       GET: [PERMISSIONS.READ_CRACKS],
       POST: [PERMISSIONS.MANAGE_BLOCKS],
@@ -189,7 +269,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/cracks',
+    prefix: "/api/cracks",
     methods: {
       GET: [PERMISSIONS.READ_CRACKS],
       POST: [PERMISSIONS.IMPORT_CRACKS],
@@ -197,7 +277,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/design-maps',
+    prefix: "/api/design-maps",
     methods: {
       GET: [PERMISSIONS.READ_DESIGN_MAP],
       POST: [PERMISSIONS.WRITE_DESIGN_MAP],
@@ -206,7 +286,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/cities',
+    prefix: "/api/cities",
     methods: {
       GET: [PERMISSIONS.READ_CITIES],
       POST: [PERMISSIONS.EDIT_CITIES],
@@ -215,7 +295,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/states',
+    prefix: "/api/states",
     methods: {
       GET: [PERMISSIONS.READ_STATES],
       POST: [PERMISSIONS.EDIT_STATES],
@@ -224,7 +304,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/companies',
+    prefix: "/api/companies",
     methods: {
       GET: [PERMISSIONS.READ_COMPANIES],
       POST: [PERMISSIONS.EDIT_COMPANIES],
@@ -233,7 +313,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/sites',
+    prefix: "/api/sites",
     methods: {
       GET: [PERMISSIONS.READ_SITES],
       POST: [PERMISSIONS.EDIT_SITES],
@@ -242,7 +322,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/departments',
+    prefix: "/api/departments",
     methods: {
       GET: [PERMISSIONS.READ_DEPARTMENTS],
       POST: [PERMISSIONS.EDIT_DEPARTMENTS],
@@ -251,7 +331,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/employees',
+    prefix: "/api/employees",
     methods: {
       GET: [PERMISSIONS.READ_EMPLOYEES],
       POST: [PERMISSIONS.EDIT_EMPLOYEES],
@@ -260,7 +340,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/manpower',
+    prefix: "/api/manpower",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER],
       POST: [PERMISSIONS.EDIT_MANPOWER],
@@ -269,7 +349,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/manpower-suppliers',
+    prefix: "/api/manpower-suppliers",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_SUPPLIERS],
       POST: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
@@ -278,7 +358,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/categories',
+    prefix: "/api/categories",
     methods: {
       GET: [PERMISSIONS.READ_CATEGORIES],
       POST: [PERMISSIONS.EDIT_CATEGORIES],
@@ -287,7 +367,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/skill-sets',
+    prefix: "/api/skill-sets",
     methods: {
       GET: [PERMISSIONS.READ_SKILLSETS],
       POST: [PERMISSIONS.EDIT_SKILLSETS],
@@ -296,7 +376,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/minimum-wages',
+    prefix: "/api/minimum-wages",
     methods: {
       GET: [PERMISSIONS.READ_MIN_WAGES],
       POST: [PERMISSIONS.EDIT_MIN_WAGES],
@@ -305,7 +385,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/units',
+    prefix: "/api/units",
     methods: {
       GET: [PERMISSIONS.READ_UNITS],
       POST: [PERMISSIONS.EDIT_UNITS],
@@ -314,7 +394,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/boqs',
+    prefix: "/api/boqs",
     methods: {
       GET: [PERMISSIONS.READ_BOQS],
       POST: [PERMISSIONS.EDIT_BOQS],
@@ -323,7 +403,16 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/notices',
+    prefix: "/api/daily-progresses",
+    methods: {
+      GET: [PERMISSIONS.READ_DAILY_PROGRESSES],
+      POST: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+      PATCH: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+      DELETE: [PERMISSIONS.DELETE_DAILY_PROGRESSES],
+    },
+  },
+  {
+    prefix: "/api/notices",
     methods: {
       GET: [PERMISSIONS.READ_NOTICES],
       POST: [PERMISSIONS.CREATE_NOTICES],
@@ -332,7 +421,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/cashbook-heads',
+    prefix: "/api/cashbook-heads",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_HEADS],
       POST: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
@@ -341,7 +430,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/cashbook-budgets',
+    prefix: "/api/cashbook-budgets",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
       POST: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS],
@@ -350,7 +439,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/cashbooks',
+    prefix: "/api/cashbooks",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOKS],
       POST: [PERMISSIONS.CREATE_CASHBOOKS],
@@ -359,7 +448,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/indents',
+    prefix: "/api/indents",
     methods: {
       GET: [PERMISSIONS.READ_INDENTS],
       POST: [PERMISSIONS.CREATE_INDENTS],
@@ -368,7 +457,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/rental-categories',
+    prefix: "/api/rental-categories",
     methods: {
       GET: [PERMISSIONS.READ_RENTAL_CATEGORIES],
       POST: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
@@ -377,7 +466,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/rent-types',
+    prefix: "/api/rent-types",
     methods: {
       GET: [PERMISSIONS.READ_RENT_TYPES],
       POST: [PERMISSIONS.EDIT_RENT_TYPES],
@@ -386,7 +475,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/rents',
+    prefix: "/api/rents",
     methods: {
       GET: [PERMISSIONS.READ_RENTS],
       POST: [PERMISSIONS.CREATE_RENTS],
@@ -395,7 +484,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/asset-groups',
+    prefix: "/api/asset-groups",
     methods: {
       GET: [PERMISSIONS.READ_ASSET_GROUPS],
       POST: [PERMISSIONS.EDIT_ASSET_GROUPS],
@@ -404,7 +493,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/asset-categories',
+    prefix: "/api/asset-categories",
     methods: {
       GET: [PERMISSIONS.READ_ASSET_CATEGORIES],
       POST: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
@@ -413,7 +502,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/assets',
+    prefix: "/api/assets",
     methods: {
       GET: [PERMISSIONS.READ_ASSETS],
       POST: [PERMISSIONS.CREATE_ASSETS],
@@ -422,16 +511,19 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/asset-transfers',
+    prefix: "/api/asset-transfers",
     methods: {
       GET: [PERMISSIONS.READ_ASSET_TRANSFERS],
       POST: [PERMISSIONS.CREATE_ASSET_TRANSFERS],
-      PATCH: [PERMISSIONS.EDIT_ASSET_TRANSFERS, PERMISSIONS.APPROVE_ASSET_TRANSFERS],
+      PATCH: [
+        PERMISSIONS.EDIT_ASSET_TRANSFERS,
+        PERMISSIONS.APPROVE_ASSET_TRANSFERS,
+      ],
       DELETE: [PERMISSIONS.DELETE_ASSET_TRANSFERS],
     },
   },
   {
-    prefix: '/api/manpower-assignments',
+    prefix: "/api/manpower-assignments",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
       POST: [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS],
@@ -440,7 +532,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/manpower-transfers',
+    prefix: "/api/manpower-transfers",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
       POST: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS],
@@ -449,7 +541,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/attendances',
+    prefix: "/api/attendances",
     methods: {
       GET: [PERMISSIONS.READ_ATTENDANCES],
       POST: [PERMISSIONS.CREATE_ATTENDANCES],
@@ -467,7 +559,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
 
 export type AccessRuleMatch = {
   permissions: Permission[];
-  type: 'page' | 'api';
+  type: "page" | "api";
 };
 
 // Cache for access rule lookups to avoid repeated computation
@@ -482,7 +574,7 @@ export function findAccessRule(pathname: string): AccessRuleMatch | null {
 
   let result: AccessRuleMatch | null = null;
 
-  if (pathname.startsWith('/api/')) {
+  if (pathname.startsWith("/api/")) {
     let match: ApiAccessRule | undefined;
     for (const r of API_ACCESS_RULES) {
       if (pathname.startsWith(r.prefix)) {
@@ -490,8 +582,8 @@ export function findAccessRule(pathname: string): AccessRuleMatch | null {
       }
     }
     if (match) {
-      const perms = match.methods?.['GET'] || match.permissions || [];
-      result = { permissions: perms, type: 'api' };
+      const perms = match.methods?.["GET"] || match.permissions || [];
+      result = { permissions: perms, type: "api" };
     }
   } else {
     let match: { prefix: string; permissions: string[] } | undefined;
@@ -500,7 +592,8 @@ export function findAccessRule(pathname: string): AccessRuleMatch | null {
         if (!match || r.prefix.length > match.prefix.length) match = r;
       }
     }
-    if (match) result = { permissions: match.permissions as Permission[], type: 'page' };
+    if (match)
+      result = { permissions: match.permissions as Permission[], type: "page" };
   }
 
   // Cache the result
