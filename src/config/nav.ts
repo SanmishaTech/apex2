@@ -171,21 +171,25 @@ export const NAV_ITEMS: NavItem[] = [
                 permission: PERMISSIONS.READ_PAYSLIPS,
               },
             ],
-        type: "group",
-        title: 'Manpower Reports',
-        icon: FileBarChart,
-        children: [
-          {
-            title: 'Attendance Reports',
-            href: '/attendance-reports',
-            icon: ClipboardCheck,
-            permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
           },
           {
-            title: 'Manpower Attendance Summary',
-            href: '/attendance-reports/summary',
-            icon: FileText,
-            permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
+            type: "group",
+            title: 'Manpower Reports',
+            icon: FileBarChart,
+            children: [
+              {
+                title: 'Attendance Reports',
+                href: '/attendance-reports',
+                icon: ClipboardCheck,
+                permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
+              },
+              {
+                title: 'Manpower Attendance Summary',
+                href: '/attendance-reports/summary',
+                icon: FileText,
+                permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
+              },
+            ],
           },
         ],
       },

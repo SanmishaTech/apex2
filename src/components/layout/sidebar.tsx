@@ -45,9 +45,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
 
     return filterNavItems(NAV_ITEMS);
   }, [user?.role]); // Only re-run when role changes, not entire user object
-
-    return NAV_ITEMS.map(filterItem).filter(Boolean) as NavItem[];
-  }, [user?.role]);
+ 
 
   // Manage open groups (keyed by group path for nested groups)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
