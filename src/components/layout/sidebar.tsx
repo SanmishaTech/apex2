@@ -47,34 +47,70 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
   }, [user?.role]); // Only re-run when role changes, not entire user object
  
 
-  // Manage open groups (keyed by group path for nested groups)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-
-  // Auto-open groups containing active route (recursive)
-  const activePath = pathname;
-  
-  function checkActiveInChildren(children: (NavLeafItem | NavGroupItem)[]): boolean {
-    return children.some(c => {
-      if (isGroup(c)) {
-        return checkActiveInChildren(c.children);
-      }
-      // Exact match or child route (but not partial string match)
-      return c.href === activePath || (activePath.startsWith(c.href + '/') && c.href !== activePath.slice(0, c.href.length));
-    });
-  }
-  
-  function autoOpenGroups(items: NavItem[]) {
-    items.forEach(item => {
-      if (isGroup(item)) {
-        const hasActive = checkActiveInChildren(item.children);
-        if (hasActive && !openGroups[item.title]) {
-          openGroups[item.title] = true; // mutate initial (safe before first render commit)
+  // Create a function to check active children that accepts pathname and searchParams as arguments
+  const createActiveChecker = (currentPathname: string, currentSearchParams: URLSearchParams) => {
+    function checkActiveInChildren(children: (NavLeafItem | NavGroupItem)[]): boolean {
+      return children.some(c => {
+        if (isGroup(c)) {
+          return checkActiveInChildren(c.children);
         }
-      }
-    });
+        try {
+          // Parse hrefs to handle query parameters
+          const cUrl = new URL(c.href, 'http://example.com');
+          const currentFullPath = currentPathname + (currentSearchParams.toString() ? '?' + currentSearchParams.toString() : '');
+          const currentUrl = new URL(currentFullPath, 'http://example.com');
+          
+          // Exact match (including query params) or child route
+          return (currentUrl.pathname === cUrl.pathname && currentUrl.search === cUrl.search) || 
+            (currentUrl.pathname.startsWith(cUrl.pathname + '/')) ||
+            (currentUrl.pathname === cUrl.pathname && cUrl.search && currentUrl.search.includes(cUrl.search.substring(1)));
+        } catch (e) {
+          // Fallback for invalid URLs
+          return c.href === currentPathname;
+        }
+      });
+    }
+    return checkActiveInChildren;
+  };
+  
+  // Initialize openGroups state with groups that contain active routes
+  function getInitialOpenGroups(items: NavItem[], currentPathname: string, currentSearchParams: URLSearchParams): Record<string, boolean> {
+    const initial: Record<string, boolean> = {};
+    const checkActiveInChildren = createActiveChecker(currentPathname, currentSearchParams);
+    
+    function processItems(items: NavItem[], parentPath: string = '') {
+      items.forEach(item => {
+        if (isGroup(item)) {
+          const groupPath = parentPath ? `${parentPath} > ${item.title}` : item.title;
+          const hasActive = checkActiveInChildren(item.children);
+          if (hasActive) {
+            initial[item.title] = true;
+          }
+          // Process nested groups
+          processItems(item.children, groupPath);
+        }
+      });
+    }
+    
+    processItems(items);
+    return initial;
   }
   
-  autoOpenGroups(items);
+  // Manage open groups (keyed by group path for nested groups)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenGroups(items, pathname, searchParams));
+  
+  // Update open groups when pathname or search params change
+  useEffect(() => {
+    const newOpenGroups = getInitialOpenGroups(items, pathname, searchParams);
+    // Merge with existing open groups to preserve user's manual opens
+    setOpenGroups(current => {
+      const merged = { ...current };
+      Object.entries(newOpenGroups).forEach(([key, value]) => {
+        if (value) merged[key] = true;
+      });
+      return merged;
+    });
+  }, [pathname, searchParams, items]);
 
   // Helper to get all leaf hrefs from navigation tree
   function getAllLeafHrefs(items: NavItem[]): string[] {
@@ -99,6 +135,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
     if (isGroup(item)) {
       const open = openGroups[item.title];
       const toggle = () => setOpenGroups(g => ({ ...g, [item.title]: !open }));
+      const checkActiveInChildren = createActiveChecker(pathname, searchParams);
       const childActive = checkActiveInChildren(item.children);
       const GroupIcon = item.icon;
       
@@ -106,7 +143,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
         <li key={item.title} className={separatorClass}>
           <div className={cn(
             'relative',
-            childActive && depth > 0 ? 'before:absolute before:inset-0 before:rounded-md before:border-2 before:border-primary/50 before:pointer-events-none' : ''
+            childActive && depth > 0 ? 'before:absolute before:inset-0 before:rounded-md before:pointer-events-none' : ''
           )}>
             <button
               type="button"
@@ -140,19 +177,39 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
     const leaf = item as NavLeafItem;
     const ActiveIcon = leaf.icon;
     
-    // Check if current path is exactly this route or a true child route
-    // But NOT if there's a more specific route that matches better
-    const isExactMatch = pathname === leaf.href;
-    const isChildRoute = activePath.startsWith(leaf.href + '/');
-    
-    // Find if there's a more specific route that also matches
-    const hasMoreSpecificMatch = isChildRoute && allHrefs.some(h => 
-      h !== leaf.href && 
-      h.startsWith(leaf.href) && 
-      (activePath === h || activePath.startsWith(h + '/'))
-    );
-    
-    const active = isExactMatch || (isChildRoute && !hasMoreSpecificMatch);
+    let active = false;
+    try {
+      // Parse href to handle query parameters
+      const hrefUrl = new URL(leaf.href, 'http://example.com');
+      const currentUrl = new URL(pathname + (searchParams.toString() ? '?' + searchParams.toString() : ''), 'http://example.com');
+      
+      // Check if current path matches exactly (including query params)
+      const isExactMatch = currentUrl.pathname === hrefUrl.pathname && currentUrl.search === hrefUrl.search;
+      
+      // Check if it's a child route (pathname starts with href pathname)
+      const isChildRoute = currentUrl.pathname.startsWith(hrefUrl.pathname + '/');
+      
+      // For routes with query params, also check if pathname matches and query params match
+      const isPathnameMatchWithQuery = currentUrl.pathname === hrefUrl.pathname && 
+        hrefUrl.search && currentUrl.search.includes(hrefUrl.search.substring(1));
+      
+      // Find if there's a more specific route that also matches
+      const hasMoreSpecificMatch = isChildRoute && allHrefs.some(h => {
+        if (h === leaf.href) return false;
+        try {
+          const hUrl = new URL(h, 'http://example.com');
+          return hUrl.pathname.startsWith(hrefUrl.pathname) && 
+            (currentUrl.pathname === hUrl.pathname || currentUrl.pathname.startsWith(hUrl.pathname + '/'));
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      active = isExactMatch || isPathnameMatchWithQuery || (isChildRoute && !hasMoreSpecificMatch);
+    } catch (e) {
+      // Fallback for invalid URLs
+      active = pathname === leaf.href;
+    }
     
     return (
       <li
@@ -219,85 +276,4 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
       </nav>
     </aside>
   );
-
-  function renderItems(itemsToRender: NavItem[], parentKey = '', level = 0) {
-    return itemsToRender.map((item, idx) => {
-      const separatorClass = level === 0 && idx > 0 ? 'mt-2 pt-2 border-t border-border/40' : '';
-      if (isGroup(item)) {
-        const key = parentKey ? `${parentKey} > ${item.title}` : item.title;
-        const open = !!openGroups[key];
-        const toggle = () => setOpenGroups(g => ({ ...g, [key]: !open }));
-        const GroupIcon = item.icon;
-        const hasActiveItem = groupHasActive(item);
-        return (
-          <li key={key} className={separatorClass}>
-            <button
-              type="button"
-              onClick={toggle}
-              className={cn(
-                'w-full flex items-center gap-2 rounded-md px-4 py-2 text-left transition-colors outline-none hover:text-primary font-semibold',
-                hasActiveItem ? 'text-primary bg-primary/5' : open ? 'text-primary' : 'text-muted-foreground'
-              )}
-              aria-expanded={open}
-            >
-              <GroupIcon className={cn(
-                'h-4 w-4 transition-colors',
-                hasActiveItem ? 'text-primary' : ''
-              )} />
-              <span className={cn(
-                'flex-1 truncate text-left transition-colors',
-                hasActiveItem ? 'text-primary font-bold' : ''
-              )}>{item.title}</span>
-              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-            <div
-              className={cn(
-                'ml-0 overflow-hidden transition-all duration-200 ease-in-out',
-                open ? 'mt-1 mb-2 max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
-              )}
-              aria-hidden={!open}
-            >
-              <ul className="space-y-1 pt-0.5">
-                {renderItems(item.children, key, level + 1)}
-              </ul>
-            </div>
-          </li>
-        );
-      }
-      const leaf = item as NavLeafItem;
-      const ActiveIcon = leaf.icon;
-      const active = isActivePath(leaf.href, activePath);
-      return (
-        <li key={leaf.href}>
-          <Link
-            href={leaf.href}
-            onClick={() => onNavigate?.()}
-            className={cn(
-              'group flex items-center rounded-md pl-9 pr-3 py-1.5 text-sm font-medium transition-colors relative',
-              active 
-                ? 'text-primary bg-primary/10 border border-primary/20 shadow-sm' 
-                : 'text-muted-foreground hover:text-primary hover:bg-muted/50'
-            )}
-          >
-            <ActiveIcon className={cn(
-              'h-4 w-4 mr-2 transition-colors',
-              active ? 'text-primary' : 'text-muted-foreground'
-            )} />
-            <span className={cn(
-              'truncate transition-colors',
-              active ? 'text-primary font-semibold' : ''
-            )}>{leaf.title}</span>
-            <span
-              className={cn(
-                'absolute left-3 top-1/2 -translate-y-1/2 h-5 w-1 rounded transition-all duration-200',
-                active 
-                  ? 'bg-primary w-1.5 shadow-sm' 
-                  : 'bg-primary/0 group-hover:bg-primary/40 w-1'
-              )}
-            />
-          </Link>
-        </li>
-      );
-    });
-  }
 }
