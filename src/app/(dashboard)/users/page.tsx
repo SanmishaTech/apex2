@@ -13,7 +13,7 @@ import { AppButton } from '@/components/common/app-button';
 import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS } from '@/config/roles';
+import { PERMISSIONS, ROLES } from '@/config/roles';
 import { StatusBadge } from '@/components/common/status-badge';
 import { formatCurrency, formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
@@ -230,8 +230,19 @@ export default function UsersPage() {
 						placeholder='Role'
 					>
 						<AppSelect.Item value='__all'>All Roles</AppSelect.Item>
-						<AppSelect.Item value='admin'>Admin</AppSelect.Item>
-						<AppSelect.Item value='user'>User</AppSelect.Item>
+						{(Object.values(ROLES) as readonly string[]).map((r) => (
+							<AppSelect.Item key={r} value={r}>
+								{r === 'pm'
+									? 'Project Manager'
+									: r === 'siteEng'
+									? 'Site Engineer'
+									: r === 'project_user'
+									? 'Project User'
+									: r.toUpperCase() === 'HR'
+									? 'HR'
+									: r.charAt(0).toUpperCase() + r.slice(1)}
+							</AppSelect.Item>
+						))}
 					</AppSelect>
 					<AppSelect
 						value={statusDraft || '__all'}

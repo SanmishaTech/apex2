@@ -63,21 +63,15 @@ export async function GET(req: NextRequest) {
       const wsName = siteGroup.siteName.slice(0, 31); // Excel sheet name limit
       const sheetData: any[][] = [];
       
-      // Header rows
-      sheetData.push([`Monthly Wage Sheet As Per ${mode === 'govt' ? 'Minimum Wage' : 'Company Rates'}`]);
-      sheetData.push([`Site: ${siteGroup.siteName}`]);
-      sheetData.push([`Period: ${monthName} / ${yyyy}`]);
-      sheetData.push([]); // Empty row
-      
-      // Column headers
+      // Column headers (uppercase for emphasis)
       const headers = [
-        "Sr.No",
-        "Name",
-        "Manpower Supplier",
-        "Designation",
-        "UNA No",
-        "ESIC No",
-        mode === 'company' ? "Rate" : "Skill Set"
+        "SR.NO",
+        "NAME",
+        "MANPOWER SUPPLIER",
+        "DESIGNATION",
+        "UNA NO",
+        "ESIC NO",
+        mode === 'company' ? "RATE" : "SKILL SET"
       ];
       
       // Add day columns
@@ -88,25 +82,25 @@ export async function GET(req: NextRequest) {
       // Add summary columns based on mode
       if (mode === 'govt') {
         headers.push(
-          "Total Days",
-          "Wage Rate",
-          "Gross Wage",
+          "TOTAL DAYS",
+          "WAGE RATE",
+          "GROSS WAGE",
           "HRA @5%",
           "PF @12%",
           "ESIC",
           "PT",
           "MLWF",
-          "Total Deduction",
-          "Payable"
+          "TOTAL DEDUCTION",
+          "PAYABLE"
         );
       } else {
         headers.push(
-          "Working Days",
+          "WORKING DAYS",
           "OT",
-          "Actual Wages",
-          "Idle Days",
-          "Idle Wages",
-          "Total Wages"
+          "ACTUAL WAGES",
+          "IDLE DAYS",
+          "IDLE WAGES",
+          "TOTAL WAGES"
         );
       }
       

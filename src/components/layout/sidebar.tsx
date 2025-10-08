@@ -140,7 +140,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
       const GroupIcon = item.icon;
       
       return (
-        <li key={item.title} className={separatorClass}>
+        <li key={`${item.title}-${depth}-${idx}`} className={separatorClass}>
           <div className={cn(
             'relative',
             childActive && depth > 0 ? 'before:absolute before:inset-0 before:rounded-md before:pointer-events-none' : ''
