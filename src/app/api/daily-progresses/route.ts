@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     : { progressDate: "desc" };
 
   const result = await paginate({
-    model: prisma.dailyProgress,
+    model: prisma.dailyProgress as any,
     where,
     orderBy,
     page,

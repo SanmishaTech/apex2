@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle file upload if present
-    let attachCopyUrl = null;
+    let attachCopyUrl: string | null = null;
     if (attachCopyFile && attachCopyFile.size > 0) {
       // Validate file size
       if (attachCopyFile.size > 20 * 1024 * 1024) {

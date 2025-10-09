@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       : { companyName: "asc" };
 
     const result = await paginate({
-      model: prisma.company,
+      model: prisma.company as any,
       where,
       orderBy,
       page,
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle logo upload if present
-    let logoUrl = null;
+    let logoUrl: string | null = null;
     if (logoFile && logoFile.size > 0) {
       // Validate file type and size
       if (!logoFile.type?.startsWith('image/')) {

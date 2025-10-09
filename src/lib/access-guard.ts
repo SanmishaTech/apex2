@@ -30,7 +30,7 @@ export async function guardApiPermissions(req: NextRequest, required: Permission
 
   const perms = ROLES_PERMISSIONS[user.role as keyof typeof ROLES_PERMISSIONS] || [];
   if (required.length) {
-    const missing = required.filter(p => !perms.includes(p));
+    const missing = required.filter(p => !(perms as string[]).includes(p));
     if (missing.length) return { ok: false, response: Forbidden() };
   }
   return { ok: true, user };

@@ -14,6 +14,7 @@ export interface IndentItem {
   };
   remark?: string;
   indentQty: number;
+  approvedQty?: number;
   deliveryDate: string;
 }
 
@@ -22,7 +23,8 @@ export interface Indent {
   indentNo?: string;
   indentDate: string;
   siteId?: number;
-  deliveryDate: string;
+  approvalStatus?: 'DRAFT' | 'APPROVED_1' | 'APPROVED_2' | 'COMPLETED';
+  suspended?: boolean;
   remarks?: string;
   createdAt: string;
   updatedAt: string;
@@ -46,7 +48,6 @@ export interface IndentsResponse {
 export interface CreateIndentRequest {
   indentDate: string;
   siteId?: number;
-  deliveryDate: string;
   remarks?: string;
   indentItems: {
     itemId: number;
@@ -58,10 +59,14 @@ export interface CreateIndentRequest {
   }[];
 }
 
+// For status updates from index page
+export interface UpdateIndentStatusRequest {
+  statusAction: 'approve1' | 'approve2' | 'complete' | 'suspend' | 'unsuspend';
+}
+
 export interface UpdateIndentRequest {
   indentDate?: string;
   siteId?: number;
-  deliveryDate?: string;
   remarks?: string;
   indentItems?: {
     id?: number;
@@ -70,6 +75,7 @@ export interface UpdateIndentRequest {
     unitId: number;
     remark?: string;
     indentQty: number;
+    approvedQty?: number;
     deliveryDate: string;
   }[];
 }

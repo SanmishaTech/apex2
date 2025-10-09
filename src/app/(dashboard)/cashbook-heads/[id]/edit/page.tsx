@@ -18,7 +18,7 @@ export default function EditCashbookHeadPage() {
 	useEffect(() => {
 		async function fetchCashbookHead() {
 			try {
-				const cashbookHead = await apiGet(`/api/cashbook-heads/${id}`);
+				const cashbookHead = await apiGet<CashbookHeadFormInitialData>(`/api/cashbook-heads/${id}`);
 				setInitial(cashbookHead);
 			} catch (error) {
 				toast.error('Failed to load cashbook head');

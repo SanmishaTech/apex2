@@ -23,7 +23,7 @@ export default function EditRentalCategoryPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const rec = await apiGet(`/api/rental-categories/${id}`);
+        const rec = await apiGet<RentalCategoryFormInitialData>(`/api/rental-categories/${id}`);
         setInitial(rec);
       } catch (error) {
         toast.error('Failed to load rental category');

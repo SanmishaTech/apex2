@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
         );
 
         // Generate daily attendance only for days with actual attendance records
-        const dailyAttendance = [];
+        const dailyAttendance: { date: string; isPresent: boolean; isIdle: boolean; ot: number }[] = [];
         let totalPresent = 0;
         let totalAbsent = 0;
         let totalOT = 0;

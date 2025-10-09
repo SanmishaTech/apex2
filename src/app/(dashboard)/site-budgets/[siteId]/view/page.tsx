@@ -210,7 +210,7 @@ export default function ViewSiteBudgetPage({ params }: ViewSiteBudgetPageProps) 
       className: 'text-center',
       cellClassName: 'text-center',
       accessor: (r) => {
-        const alerts = [];
+        const alerts: { label: string; color: string }[] = [];
         if (r.qty50Alert) alerts.push({ label: '50% Qty', color: 'bg-orange-100 text-orange-800' });
         if (r.value50Alert) alerts.push({ label: '50% Value', color: 'bg-orange-100 text-orange-800' });
         if (r.qty75Alert) alerts.push({ label: '75% Qty', color: 'bg-red-100 text-red-800' });

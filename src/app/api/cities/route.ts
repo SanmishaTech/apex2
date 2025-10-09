@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       : { city: "asc" };
 
     const result = await paginate({
-      model: prisma.city,
+      model: prisma.city as any,
       where,
       orderBy,
       page,

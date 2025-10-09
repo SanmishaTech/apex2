@@ -267,7 +267,7 @@ export default function EditAttendancePage() {
         createCount += attendances.length;
       }
 
-      const message = [];
+      const message: string[] = [];
       if (updateCount > 0) message.push(`Updated ${updateCount} record(s)`);
       if (createCount > 0) message.push(`Created ${createCount} record(s)`);
       

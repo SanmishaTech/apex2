@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     orderBy[sort] = order;
 
     const result = await paginate({
-      model: prisma.asset,
+      model: prisma.asset as any,
       where,
       orderBy,
       page,

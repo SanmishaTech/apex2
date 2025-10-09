@@ -2,7 +2,7 @@
 // Accepts a Prisma-like model object (count/findMany) to remain decoupled from concrete types.
 
 export type PaginateParams<TSelect extends object | undefined, TWhere extends object | undefined> = {
-  model: { count: (args: { where?: TWhere }) => Promise<number>; findMany: (args: Record<string, unknown>) => Promise<unknown[]> };
+  model: { count: (args: { where?: TWhere }) => Promise<number>; findMany: (args: any) => Promise<unknown[]> };
   where?: TWhere;
   orderBy?: Record<string, 'asc' | 'desc'>;
   page?: number;

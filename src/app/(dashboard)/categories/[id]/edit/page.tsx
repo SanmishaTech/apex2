@@ -18,7 +18,7 @@ export default function EditCategoryPage() {
 	useEffect(() => {
 		async function fetchCategory() {
 			try {
-				const category = await apiGet(`/api/categories/${id}`);
+				const category = await apiGet<CategoryFormInitialData>(`/api/categories/${id}`);
 				setInitial(category);
 			} catch (error) {
 				toast.error('Failed to load category');

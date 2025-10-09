@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { Success, Error as ApiError } from '@/lib/api-response';
 import { guardApiAccess } from '@/lib/access-guard';
 import * as XLSX from 'xlsx';
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
 	const pageSize = Math.min(100, Number(searchParams.get('pageSize') || '20'));
 	const skip = (page - 1) * pageSize;
 
-		const where: Parameters<typeof prisma.crackIdentification.findMany>[0]['where'] = { projectId };
+		const where: Prisma.CrackIdentificationWhereInput = { projectId };
 	if (blockId) where.blockId = blockId;
 	if (defectType) where.defectType = defectType;
 			if (excludeMapped) where.DesignMap = null;

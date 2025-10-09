@@ -159,7 +159,7 @@ export function DailyProgressForm({
         initial?.dailyProgressDetails?.map((d) => ({
           boqItemId: d.boqItemId ? String(d.boqItemId) : "",
           clientSerialNo: d.clientSerialNo || "",
-          activityId: d.activityId || null,
+          activityId: d.activityId || "",
           item: d.item || "",
           unit: d.unit || "",
           boqQty: d.boqQty ? String(d.boqQty) : "",
@@ -169,8 +169,8 @@ export function DailyProgressForm({
         })) || [],
       hindrances:
         initial?.dailyProgressHindrances?.map((h) => ({
-          from: utcToISTTime(h.from),
-          to: utcToISTTime(h.to),
+          from: utcToISTTime(h.from ?? null),
+          to: utcToISTTime(h.to ?? null),
           hrs: h.hrs ? String(h.hrs) : "",
           location: h.location || "",
           reason: h.reason || "",
@@ -468,7 +468,7 @@ export function DailyProgressForm({
                       appendDetail({
                         boqItemId: "",
                         clientSerialNo: "",
-                        activityId: null,
+                        activityId: "",
                         item: "",
                         unit: "",
                         boqQty: "",

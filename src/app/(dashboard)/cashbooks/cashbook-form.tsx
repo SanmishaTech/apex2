@@ -351,7 +351,7 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <FormControl>
-                        <Input {...field} type="number" step="0.01" placeholder="0.00" className="text-sm" />
+                        <Input {...field} value={field.value ?? ''} type="number" step="0.01" placeholder="0.00" className="text-sm" />
                       </FormControl>
                       <div className="min-h-[16px]">
                         <FormMessage className="text-xs" />
@@ -367,7 +367,7 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <FormControl>
-                        <Input {...field} type="number" step="0.01" placeholder="0.00" className="text-sm" />
+                        <Input {...field} value={field.value ?? ''} type="number" step="0.01" placeholder="0.00" className="text-sm" />
                       </FormControl>
                       <div className="min-h-[16px]">
                         <FormMessage className="text-xs" />

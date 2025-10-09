@@ -29,7 +29,7 @@ import { guardApiAccess } from "@/lib/access-guard";
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { assetGroupName: "asc" };
 
   const result = await paginate({
-    model: prisma.assetGroup,
+    model: prisma.assetGroup as any,
     where,
     orderBy,
     page,

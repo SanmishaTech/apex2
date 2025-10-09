@@ -18,7 +18,7 @@ export default function EditManpowerPage() {
   useEffect(() => {
     async function fetchRecord() {
       try {
-        const record = await apiGet(`/api/manpower/${id}`);
+        const record = await apiGet<ManpowerInitialData>(`/api/manpower/${id}`);
         setInitial(record);
       } catch (error) {
         toast.error('Failed to load manpower');
