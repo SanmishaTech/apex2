@@ -11,8 +11,8 @@ export default function EditBoqTargetPage() {
   // Guard based on PAGE_ACCESS_RULES for '/boq-targets/:id/...'
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<BoqTargetsFormInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
