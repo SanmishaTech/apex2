@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await paginate({
-      model: prisma.attendance,
+      model: prisma.attendance as any,
       where,
       orderBy: { date: 'desc' },
       page,

@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { itemCategoryCode: "asc" };
 
   const result = await paginate({
-    model: prisma.itemCategory,
+    model: prisma.itemCategory as any,
     where,
     orderBy,
     page,

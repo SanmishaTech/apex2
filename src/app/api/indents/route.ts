@@ -1,23 +1,37 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
 
 const indentItemSchema = z.object({
-  itemId: z.number().min(1, "Item is required"),
-  closingStock: z.number().min(0, "Closing stock must be non-negative"),
-  unitId: z.number().min(1, "Unit is required"),
+  itemId: z.coerce.number().min(1, "Item is required"),
+  closingStock: z
+    .coerce
+    .number()
+    .min(0, "Closing stock must be non-negative")
+    .max(9999999999.99, "Closing stock must be <= 9,999,999,999.99"),
+  unitId: z.coerce.number().min(1, "Unit is required"),
   remark: z.string().optional(),
-  indentQty: z.number().min(0, "Indent quantity must be non-negative"),
+  indentQty: z
+    .coerce
+    .number()
+    .min(0, "Indent quantity must be non-negative")
+    .max(9999999999.99, "Indent quantity must be <= 9,999,999,999.99"),
+  approvedQty: z
+    .coerce
+    .number()
+    .min(0, "Approved quantity must be non-negative")
+    .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
+    .optional(),
   deliveryDate: z.string().transform((val) => new Date(val)),
 });
 
 const createSchema = z.object({
   indentDate: z.string().transform((val) => new Date(val)),
-  siteId: z.number().optional(),
-  deliveryDate: z.string().transform((val) => new Date(val)),
+  siteId: z.coerce.number().optional(),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).min(1, "At least one item is required"),
 });
@@ -43,15 +57,7 @@ export async function GET(req: NextRequest) {
     const sort = (searchParams.get("sort") || "indentDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
-    type IndentWhere = {
-      OR?: Array<{ 
-        indentNo?: { contains: string }; 
-        remarks?: { contains: string };
-      }>;
-      siteId?: number;
-    };
-    
-    const where: IndentWhere = {};
+    const where: any = {};
     
     if (search) {
       where.OR = [
@@ -67,13 +73,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const sortableFields = new Set(["indentNo", "indentDate", "deliveryDate", "createdAt"]);
+    const sortableFields = new Set(["indentNo", "indentDate", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
       : { indentDate: "desc" };
 
     const result = await paginate({
-      model: prisma.indent,
+      model: prisma.indent as any,
       where,
       orderBy,
       page,
@@ -83,7 +89,8 @@ export async function GET(req: NextRequest) {
         indentNo: true,
         indentDate: true,
         siteId: true,
-        deliveryDate: true,
+        approvalStatus: true,
+        suspended: true,
         remarks: true,
         createdAt: true,
         updatedAt: true,
@@ -105,6 +112,7 @@ export async function GET(req: NextRequest) {
               },
             },
             indentQty: true,
+            approvedQty: true,
             unitId: true,
             unit: {
               select: {
@@ -150,7 +158,6 @@ export async function POST(req: NextRequest) {
           indentNo,
           indentDate: parsedData.indentDate,
           siteId: parsedData.siteId || null,
-          deliveryDate: parsedData.deliveryDate,
           remarks: parsedData.remarks || null,
         },
         select: {
@@ -158,7 +165,7 @@ export async function POST(req: NextRequest) {
           indentNo: true,
           indentDate: true,
           siteId: true,
-          deliveryDate: true,
+          approvalStatus: true,
           remarks: true,
           createdAt: true,
           updatedAt: true,
@@ -172,16 +179,19 @@ export async function POST(req: NextRequest) {
       });
 
       // Create indent items
-      const indentItems = await tx.indentItem.createMany({
-        data: parsedData.indentItems.map(item => ({
-          indentId: indent.id,
-          itemId: item.itemId,
-          closingStock: item.closingStock,
-          unitId: item.unitId,
-          remark: item.remark || null,
-          indentQty: item.indentQty,
-          deliveryDate: item.deliveryDate,
-        })),
+      const indentId: number = indent.id;
+      const itemsData: Prisma.IndentItemCreateManyInput[] = parsedData.indentItems.map(item => ({
+        indentId,
+        itemId: item.itemId,
+        closingStock: item.closingStock,
+        unitId: item.unitId,
+        remark: item.remark || null,
+        indentQty: item.indentQty,
+        approvedQty: item.approvedQty ?? null,
+        deliveryDate: item.deliveryDate,
+      }));
+      await tx.indentItem.createMany({
+        data: itemsData,
       });
 
       // Fetch the created indent with items
@@ -192,7 +202,7 @@ export async function POST(req: NextRequest) {
           indentNo: true,
           indentDate: true,
           siteId: true,
-          deliveryDate: true,
+          approvalStatus: true,
           remarks: true,
           createdAt: true,
           updatedAt: true,
@@ -213,6 +223,7 @@ export async function POST(req: NextRequest) {
                   item: true,
                 },
               },
+              approvedQty: true,
               closingStock: true,
               unitId: true,
               unit: {
@@ -226,7 +237,7 @@ export async function POST(req: NextRequest) {
               deliveryDate: true,
             },
           },
-        },
+        } as any,
       });
 
       return indentWithItems;

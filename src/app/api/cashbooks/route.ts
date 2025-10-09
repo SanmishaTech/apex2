@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { voucherDate: "desc" };
 
     const result = await paginate({
-      model: prisma.cashbook,
+      model: prisma.cashbook as any,
       where,
       orderBy,
       page,

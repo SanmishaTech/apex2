@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   const orderBy: Record<string,'asc'|'desc'> = sortable.has(sort) ? { [sort]: order } : { firstName: 'asc' };
 
   const result = await paginate({
-    model: prisma.manpower,
+    model: prisma.manpower as any,
     where,
     orderBy,
     page,

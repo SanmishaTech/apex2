@@ -18,7 +18,7 @@ export default function EditMinimumWagePage() {
   useEffect(() => {
     async function fetchRecord() {
       try {
-        const record = await apiGet(`/api/minimum-wages/${id}`);
+        const record = await apiGet<MinimumWageInitialData>(`/api/minimum-wages/${id}`);
         setInitial(record);
       } catch (error) {
         toast.error('Failed to load minimum wage');

@@ -134,8 +134,8 @@ export function SiteBudgetForm({ mode, siteId, initial, onSuccess, redirectOnSuc
   }, [watchedBudgetQty, watchedBudgetRate]);
 
   useEffect(() => {
-    const qty = parseFloat(watchedOrderedQty) || 0;
-    const rate = parseFloat(watchedAvgRate) || 0;
+    const qty = parseFloat(watchedOrderedQty ?? '') || 0;
+    const rate = parseFloat(watchedAvgRate ?? '') || 0;
     setOrderedValue(qty * rate);
   }, [watchedOrderedQty, watchedAvgRate]);
 

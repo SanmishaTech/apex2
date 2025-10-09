@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { createdAt: "desc" };
 
   const result = await paginate({
-    model: prisma.boqTarget,
+    model: prisma.boqTarget as any,
     where,
     orderBy,
     page,

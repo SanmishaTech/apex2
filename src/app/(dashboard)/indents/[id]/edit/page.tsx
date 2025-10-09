@@ -32,7 +32,6 @@ export default function EditIndentPage() {
 				indentNo: data.indentNo,
 				indentDate: data.indentDate,
 				siteId: data.siteId,
-				deliveryDate: data.deliveryDate,
 				remarks: data.remarks,
 				indentItems: data.indentItems,
 			});

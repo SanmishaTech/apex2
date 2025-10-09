@@ -66,7 +66,7 @@ export function MultiSelectInput<
       control={control}
       name={name}
       render={({ field }) => {
-        const selectedValues = Array.isArray(field.value) ? field.value : [];
+        const selectedValues: string[] = Array.isArray(field.value) ? field.value : [];
         
         const handleToggleOption = (optionValue: string) => {
           const newValues = selectedValues.includes(optionValue)

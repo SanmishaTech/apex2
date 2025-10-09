@@ -34,7 +34,7 @@ import { guardApiAccess } from "@/lib/access-guard";
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { category: "asc" };
 
   const result = await paginate({
-    model: prisma.assetCategory,
+    model: prisma.assetCategory as any,
     where,
     orderBy,
     page,

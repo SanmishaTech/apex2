@@ -18,7 +18,7 @@ export default function EditManpowerSupplierPage() {
   useEffect(() => {
     async function fetchRecord() {
       try {
-        const record = await apiGet(`/api/manpower-suppliers/${id}`);
+        const record = await apiGet<ManpowerSupplierInitialData>(`/api/manpower-suppliers/${id}`);
         setInitial(record);
       } catch (error) {
         toast.error('Failed to load supplier');

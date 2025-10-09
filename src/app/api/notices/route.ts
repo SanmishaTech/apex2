@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       : undefined;
 
     const result = await paginate({
-      model: prisma.notice,
+      model: prisma.notice as any,
       where,
       orderBy: { createdAt: 'desc' },
       select: {

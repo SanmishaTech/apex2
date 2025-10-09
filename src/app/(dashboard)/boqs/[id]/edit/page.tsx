@@ -19,7 +19,7 @@ export default function EditBoqPage() {
   useEffect(() => {
     async function fetchBoq() {
       try {
-        const boq = await apiGet(`/api/boqs/${id}`);
+        const boq = await apiGet<BoqFormInitialData>(`/api/boqs/${id}`);
         setInitial(boq);
       } catch (error) {
         toast.error('Failed to load BOQ');

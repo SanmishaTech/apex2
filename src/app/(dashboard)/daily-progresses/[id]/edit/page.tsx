@@ -24,7 +24,7 @@ export default function EditDpPage() {
   useEffect(() => {
     async function fetchBoq() {
       try {
-        const boq = await apiGet(`/api/daily-progresses/${id}`);
+        const boq = await apiGet<DailyProgressFormInitialData>(`/api/daily-progresses/${id}`);
         setInitial(boq);
       } catch (error) {
         toast.error("Failed to load Daily Progress");

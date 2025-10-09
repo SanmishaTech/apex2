@@ -18,7 +18,7 @@ export default function EditSkillSetPage() {
   useEffect(() => {
     async function fetchSkillSet() {
       try {
-        const skillSet = await apiGet(`/api/skill-sets/${id}`);
+        const skillSet = await apiGet<SkillSetFormInitialData>(`/api/skill-sets/${id}`);
         setInitial(skillSet);
       } catch (error) {
         toast.error('Failed to load skill set');

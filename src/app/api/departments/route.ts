@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       : { department: "asc" };
 
     const result = await paginate({
-      model: prisma.department,
+      model: prisma.department as any,
       where,
       orderBy,
       page,

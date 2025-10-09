@@ -208,7 +208,12 @@ export default function ManpowerTransfersPage() {
           <AppButton
             variant="ghost"
             size="sm"
-            onClick={() => window.open(`/api/documents/${transfer.challanCopyUrl.split('/').pop()}`, '_blank')}
+            onClick={() => {
+              const filename = transfer.challanCopyUrl?.split('/').pop();
+              if (filename) {
+                window.open(`/api/documents/${filename}`, '_blank');
+              }
+            }}
             title="View challan copy"
           >
             <FileText className="h-4 w-4" />

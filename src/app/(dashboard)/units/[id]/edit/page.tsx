@@ -18,7 +18,7 @@ export default function EditUnitPage() {
   useEffect(() => {
     async function fetchUnit() {
       try {
-        const unit = await apiGet(`/api/units/${id}`);
+        const unit = await apiGet<UnitFormInitialData>(`/api/units/${id}`);
         setInitial(unit);
       } catch (error) {
         toast.error('Failed to load unit');

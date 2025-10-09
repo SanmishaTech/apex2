@@ -30,7 +30,6 @@ export interface IndentFormInitialData {
   indentNo?: string;
   indentDate?: string;
   siteId?: number | null;
-  deliveryDate?: string;
   remarks?: string | null;
   indentItems?: IndentItem[];
 }
@@ -65,7 +64,6 @@ const createInputSchema = z.object({
       if (!val || val === '__none' || val === '') return undefined;
       return typeof val === 'string' ? parseInt(val) : val;
     }),
-  deliveryDate: z.string().min(1, 'Delivery date is required'),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).min(1, 'At least one item is required'),
 });
@@ -74,7 +72,6 @@ const createInputSchema = z.object({
 type FormData = {
   indentDate: string;
   siteId?: string | number;
-  deliveryDate: string;
   remarks?: string;
   indentItems: {
     itemId: string | number;
@@ -96,7 +93,6 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
     defaultValues: {
       indentDate: initial?.indentDate ? formatDateForInput(initial.indentDate) : formatDateForInput(new Date().toISOString()),
       siteId: initial?.siteId ? String(initial.siteId) : '__none',
-      deliveryDate: initial?.deliveryDate ? formatDateForInput(initial.deliveryDate) : '',
       remarks: initial?.remarks || '',
       indentItems: initial?.indentItems?.map(item => ({
         itemId: item.itemId ? String(item.itemId) : (item.item?.id ? String(item.item.id) : '__none'),
@@ -132,7 +128,6 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
       form.reset({
         indentDate: initial.indentDate ? formatDateForInput(initial.indentDate) : formatDateForInput(new Date().toISOString()),
         siteId: initial.siteId ? String(initial.siteId) : '__none',
-        deliveryDate: initial.deliveryDate ? formatDateForInput(initial.deliveryDate) : '',
         remarks: initial.remarks || '',
         indentItems: initial.indentItems?.map(item => ({
           itemId: item.itemId ? String(item.itemId) : (item.item?.id ? String(item.item.id) : '__none'),
@@ -179,7 +174,6 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
       const payload: CreateIndentRequest = {
         indentDate: transformedData.indentDate,
         siteId: transformedData.siteId,
-        deliveryDate: transformedData.deliveryDate,
         remarks: transformedData.remarks || undefined,
         indentItems: transformedData.indentItems.map(item => ({
           itemId: item.itemId,
@@ -424,20 +418,6 @@ export function IndentForm({ mode, initial, onSuccess, redirectOnSuccess = '/ind
                     <div className="min-h-[20px]">
                       <FormMessage className="text-xs" />
                     </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="deliveryDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Delivery Date *</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="date" />
-                    </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />

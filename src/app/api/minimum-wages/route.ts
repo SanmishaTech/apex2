@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await paginate({
-      model: prisma.minimumWage,
+      model: prisma.minimumWage as any,
       where,
       orderBy,
       page,

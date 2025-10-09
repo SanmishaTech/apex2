@@ -246,7 +246,7 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
 
     setSaving(true);
     try {
-      const operations = [];
+      const operations: Promise<unknown>[] = [];
 
       for (const item of budgetItems) {
         if (item.isDeleted && item.id && !item.isNew) {

@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
       : { name: "asc" };
 
     const result = await paginate({
-      model: prisma.employee,
+      model: prisma.employee as any,
       where,
       orderBy,
       page,
