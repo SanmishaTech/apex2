@@ -104,16 +104,10 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenGroups(items, safePathname, sp));
   
   // Update open groups when pathname or search params change
+  // Standard behavior: close all dropdowns except those containing the active page
   useEffect(() => {
     const newOpenGroups = getInitialOpenGroups(items, safePathname, sp);
-    // Merge with existing open groups to preserve user's manual opens
-    setOpenGroups(current => {
-      const merged = { ...current };
-      Object.entries(newOpenGroups).forEach(([key, value]) => {
-        if (value) merged[key] = true;
-      });
-      return merged;
-    });
+    setOpenGroups(newOpenGroups);
   }, [safePathname, qs, items]);
 
   // Helper to get all leaf hrefs from navigation tree

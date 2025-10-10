@@ -145,7 +145,22 @@ export function UserForm({
 								>
 									{(ROLE_VALUES as readonly string[]).map(r => (
 										<AppSelect.Item key={r} value={r}>
-											{r === 'pm' ? 'Project Manager' : r === 'siteEng' ? 'Site Engineer' : r === 'project_user' ? 'Project User' : r.toUpperCase() === 'HR' ? 'HR' : r.charAt(0).toUpperCase() + r.slice(1)}
+											{r === 'projectManager' ? 'Project Manager'
+												: r === 'siteEngineer' ? 'Site Engineer'
+												: r === 'siteIncharge' ? 'Site Incharge'
+												: r === 'projectUser' ? 'Project User'
+												: r === 'humanResources' ? 'HR'
+												: r === 'storeIncharge' ? 'Store Incharge'
+												: r === 'siteSupervisor' ? 'Site Supervisor'
+												: r === 'generalManager' ? 'General Manager'
+												: r === 'safetyIncharge' ? 'Safety Incharge'
+												: r === 'billingAssistant' ? 'Billing Assistant'
+												: r === 'purchaseManager' ? 'Purchase Manager'
+												: r === 'qaqc' ? 'QA/QC'
+												: r === 'businessDevelopment' ? 'Business Development'
+												: r === 'internalAuditor' ? 'Internal Auditor'
+												: r === 'externalAuditor' ? 'External Auditor'
+												: r.charAt(0).toUpperCase() + r.slice(1)}
 										</AppSelect.Item>
 									))}
 								</AppSelect>
