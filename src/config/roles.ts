@@ -183,12 +183,27 @@ export const PERMISSIONS = {
 
 export const ROLES = {
   ADMIN: "admin", // full system access
-  USER: "user", // internal staff (can see dashboard, read projects/users, but not create projects or upload files)
-  PROJECT_MANAGER: "pm", // project manager
-  HR: "HR", // HR
-  SITE_ENGINEER: "siteEng", // site engineer
-
-  PROJECT_USER: "project_user", // external / client user tied to specific projects (can only read its own project + files)
+  USER: "user", // internal staff
+  PROJECT_MANAGER: "projectManager", // project manager
+  HR: "humanResources", // HR
+  SITE_ENGINEER: "siteEngineer", // site engineer
+  SITE_INCHARGE: "siteIncharge", // site incharge
+  PURCHASE: "purchase", // purchase
+  STORE_INCHARGE: "storeIncharge", // store incharge
+  EMPLOYEE: "employee", // employee
+  SITE_SUPERVISOR: "siteSupervisor", // site supervisor
+  DIRECTOR: "director", // director
+  GENERAL_MANAGER: "generalManager", // general manager
+  ACCOUNTS: "accounts", // accounts
+  SAFETY_INCHARGE: "safetyIncharge", // safety incharge
+  BILLING: "billing", // billing
+  BILLING_ASSISTANT: "billingAssistant", // billing assistant
+  PURCHASE_MANAGER: "purchaseManager", // purchase manager
+  QAQC: "qaqc", // QA/QC
+  BUSINESS_DEVELOPMENT: "businessDevelopment", // business development
+  INTERNAL_AUDITOR: "internalAuditor", // internal auditor
+  EXTERNAL_AUDITOR: "externalAuditor", // external auditor
+  PROJECT_USER: "projectUser", // external / client user tied to specific projects
 } as const;
 
 export const ROLES_PERMISSIONS = {

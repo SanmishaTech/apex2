@@ -19,10 +19,21 @@ interface Props {
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 
 function roleLabel(r: string) {
-  if (r === 'pm') return 'Project Manager';
-  if (r === 'siteEng') return 'Site Engineer';
-  if (r === 'project_user') return 'Project User';
-  if (r.toUpperCase() === 'HR') return 'HR';
+  if (r === 'projectManager') return 'Project Manager';
+  if (r === 'siteEngineer') return 'Site Engineer';
+  if (r === 'siteIncharge') return 'Site Incharge';
+  if (r === 'projectUser') return 'Project User';
+  if (r === 'humanResources') return 'HR';
+  if (r === 'storeIncharge') return 'Store Incharge';
+  if (r === 'siteSupervisor') return 'Site Supervisor';
+  if (r === 'generalManager') return 'General Manager';
+  if (r === 'safetyIncharge') return 'Safety Incharge';
+  if (r === 'billingAssistant') return 'Billing Assistant';
+  if (r === 'purchaseManager') return 'Purchase Manager';
+  if (r === 'qaqc') return 'QA/QC';
+  if (r === 'businessDevelopment') return 'Business Development';
+  if (r === 'internalAuditor') return 'Internal Auditor';
+  if (r === 'externalAuditor') return 'External Auditor';
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
 
