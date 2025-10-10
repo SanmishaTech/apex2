@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Form } from '@/components/ui/form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { EmailInput, PasswordInput, AppSelect, AppButton } from '@/components/common';
+import { EmailInput, PasswordInput, AppButton, ComboboxInput } from '@/components/common';
 import { AppCheckbox } from '@/components/common/app-checkbox';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
@@ -30,6 +30,26 @@ export interface UserFormProps {
 	redirectOnSuccess?: string; // default '/users'
 }
 
+// Helper function to get role label
+function getRoleLabel(roleValue: string): string {
+	if (roleValue === 'projectManager') return 'Project Manager';
+	if (roleValue === 'siteEngineer') return 'Site Engineer';
+	if (roleValue === 'siteIncharge') return 'Site Incharge';
+	if (roleValue === 'projectUser') return 'Project User';
+	if (roleValue === 'humanResources') return 'HR';
+	if (roleValue === 'storeIncharge') return 'Store Incharge';
+	if (roleValue === 'siteSupervisor') return 'Site Supervisor';
+	if (roleValue === 'generalManager') return 'General Manager';
+	if (roleValue === 'safetyIncharge') return 'Safety Incharge';
+	if (roleValue === 'billingAssistant') return 'Billing Assistant';
+	if (roleValue === 'purchaseManager') return 'Purchase Manager';
+	if (roleValue === 'qaqc') return 'QA/QC';
+	if (roleValue === 'businessDevelopment') return 'Business Development';
+	if (roleValue === 'internalAuditor') return 'Internal Auditor';
+	if (roleValue === 'externalAuditor') return 'External Auditor';
+	return roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
+}
+
 export function UserForm({
 	mode,
 	initial,
@@ -41,6 +61,7 @@ export function UserForm({
 
 	// Derive allowed roles from central config
 	const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+	const roleOptions = ROLE_VALUES.map(r => ({ value: r, label: getRoleLabel(r) }));
 	const schema = z.object({
 		name: z.string().min(1, 'Name is required'),
 		email: z.string().email('Invalid email'),
@@ -135,35 +156,16 @@ export function UserForm({
 								/>
 							</FormRow>
 							<FormRow cols={2} className='grid-cols-2'>
-								<AppSelect
+								<ComboboxInput
 									control={control}
 									name='role'
 									label='Role'
-									triggerClassName='h-9 w-full'
+									options={roleOptions}
 									placeholder='Select role'
+									searchPlaceholder='Search roles...'
+									emptyText='No role found.'
 									required
-								>
-									{(ROLE_VALUES as readonly string[]).map(r => (
-										<AppSelect.Item key={r} value={r}>
-											{r === 'projectManager' ? 'Project Manager'
-												: r === 'siteEngineer' ? 'Site Engineer'
-												: r === 'siteIncharge' ? 'Site Incharge'
-												: r === 'projectUser' ? 'Project User'
-												: r === 'humanResources' ? 'HR'
-												: r === 'storeIncharge' ? 'Store Incharge'
-												: r === 'siteSupervisor' ? 'Site Supervisor'
-												: r === 'generalManager' ? 'General Manager'
-												: r === 'safetyIncharge' ? 'Safety Incharge'
-												: r === 'billingAssistant' ? 'Billing Assistant'
-												: r === 'purchaseManager' ? 'Purchase Manager'
-												: r === 'qaqc' ? 'QA/QC'
-												: r === 'businessDevelopment' ? 'Business Development'
-												: r === 'internalAuditor' ? 'Internal Auditor'
-												: r === 'externalAuditor' ? 'External Auditor'
-												: r.charAt(0).toUpperCase() + r.slice(1)}
-										</AppSelect.Item>
-									))}
-								</AppSelect>
+								/>
 								<AppCheckbox
 									label='Active Status'
 									checked={statusValue}
