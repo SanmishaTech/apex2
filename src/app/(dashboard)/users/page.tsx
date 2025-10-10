@@ -7,6 +7,7 @@ import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
 import { AppSelect } from '@/components/common/app-select';
+import { AppCombobox } from '@/components/common/app-combobox';
 import { FilterBar } from '@/components/common'; // filter layout wrapper
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -38,6 +39,26 @@ type UsersResponse = {
 	total: number;
 	totalPages: number;
 };
+
+// Helper function to get role label
+function getRoleLabel(roleValue: string): string {
+	if (roleValue === 'projectManager') return 'Project Manager';
+	if (roleValue === 'siteEngineer') return 'Site Engineer';
+	if (roleValue === 'siteIncharge') return 'Site Incharge';
+	if (roleValue === 'projectUser') return 'Project User';
+	if (roleValue === 'humanResources') return 'HR';
+	if (roleValue === 'storeIncharge') return 'Store Incharge';
+	if (roleValue === 'siteSupervisor') return 'Site Supervisor';
+	if (roleValue === 'generalManager') return 'General Manager';
+	if (roleValue === 'safetyIncharge') return 'Safety Incharge';
+	if (roleValue === 'billingAssistant') return 'Billing Assistant';
+	if (roleValue === 'purchaseManager') return 'Purchase Manager';
+	if (roleValue === 'qaqc') return 'QA/QC';
+	if (roleValue === 'businessDevelopment') return 'Business Development';
+	if (roleValue === 'internalAuditor') return 'Internal Auditor';
+	if (roleValue === 'externalAuditor') return 'External Auditor';
+	return roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
+}
 
 export default function UsersPage() {
 	const [qp, setQp] = useQueryParamsState({
@@ -224,48 +245,21 @@ export default function UsersPage() {
 						onChange={(e) => setSearchDraft(e.target.value)}
 						containerClassName='w-full'
 					/>
-					<AppSelect
-						value={roleDraft || '__all'}
-						onValueChange={(v) => setRoleDraft(v === '__all' ? '' : v)}
-						placeholder='Role'
-					>
-						<AppSelect.Item value='__all'>All Roles</AppSelect.Item>
-						{(Object.values(ROLES) as readonly string[]).map((r) => (
-							<AppSelect.Item key={r} value={r}>
-								{r === 'projectManager'
-									? 'Project Manager'
-									: r === 'siteEngineer'
-									? 'Site Engineer'
-									: r === 'siteIncharge'
-									? 'Site Incharge'
-									: r === 'projectUser'
-									? 'Project User'
-									: r === 'humanResources'
-									? 'HR'
-									: r === 'storeIncharge'
-									? 'Store Incharge'
-									: r === 'siteSupervisor'
-									? 'Site Supervisor'
-									: r === 'generalManager'
-									? 'General Manager'
-									: r === 'safetyIncharge'
-									? 'Safety Incharge'
-									: r === 'billingAssistant'
-									? 'Billing Assistant'
-									: r === 'purchaseManager'
-									? 'Purchase Manager'
-									: r === 'qaqc'
-									? 'QA/QC'
-									: r === 'businessDevelopment'
-									? 'Business Development'
-									: r === 'internalAuditor'
-									? 'Internal Auditor'
-									: r === 'externalAuditor'
-									? 'External Auditor'
-									: r.charAt(0).toUpperCase() + r.slice(1)}
-							</AppSelect.Item>
-						))}
-					</AppSelect>
+					<AppCombobox
+						value={roleDraft}
+						onValueChange={(v) => setRoleDraft(v)}
+						options={[
+							{ value: '', label: 'All Roles' },
+							...(Object.values(ROLES) as readonly string[]).map((r) => ({
+								value: r,
+								label: getRoleLabel(r),
+							})),
+						]}
+						placeholder='All Roles'
+						searchPlaceholder='Search roles...'
+						emptyText='No role found.'
+						className='w-full min-w-[180px]'
+					/>
 					<AppSelect
 						value={statusDraft || '__all'}
 						onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}

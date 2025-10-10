@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSelect } from '@/components/common';
+import { AppSelect, ComboboxInput } from '@/components/common';
 import { TextInput } from '@/components/common/text-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
 import type { DepartmentsResponse } from '@/types/departments';
@@ -18,7 +18,7 @@ interface Props {
 
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 
-function roleLabel(r: string) {
+function getRoleLabel(r: string) {
   if (r === 'projectManager') return 'Project Manager';
   if (r === 'siteEngineer') return 'Site Engineer';
   if (r === 'siteIncharge') return 'Site Incharge';
@@ -36,6 +36,8 @@ function roleLabel(r: string) {
   if (r === 'externalAuditor') return 'External Auditor';
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
+
+const roleOptions = ROLE_VALUES.map(r => ({ value: r, label: getRoleLabel(r) }));
 
 export default function EmployeeDetailsTab({ control, isCreate, departmentsData, sitesData, onSignatureChange, onProfilePicChange }: Props) {
   return (
@@ -94,17 +96,15 @@ export default function EmployeeDetailsTab({ control, isCreate, departmentsData,
       {isCreate && (
         <FormSection legend='Login Details'>
           <FormRow cols={2}>
-            <AppSelect
+            <ComboboxInput
               control={control}
               name='role'
               label='Role'
-              triggerClassName='h-9 w-full'
+              options={roleOptions}
               placeholder='Select role'
-          >
-            {(ROLE_VALUES as readonly string[]).map(r => (
-              <AppSelect.Item key={r} value={r}>{roleLabel(r)}</AppSelect.Item>
-            ))}
-          </AppSelect>
+              searchPlaceholder='Search roles...'
+              emptyText='No role found.'
+            />
             <TextInput
               control={control}
               name='email'
