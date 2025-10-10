@@ -389,14 +389,17 @@ export default function IndentsPage() {
             sort={sortState}
             onSortChange={(s) => toggleSort(s.field)}
             stickyColumns={1}
-            renderRowActions={(indent) => 
+            renderRowActions={(indent) =>
               !can(PERMISSIONS.EDIT_INDENTS) && !can(PERMISSIONS.DELETE_INDENTS) ? null : (
                 <div className='flex gap-2'>
                   {can(PERMISSIONS.EDIT_INDENTS) && (
                     <EditButton
                       tooltip='Edit Indent'
                       aria-label='Edit Indent'
-                      onClick={() => pushWithScrollSave(`/indents/${indent.id}/edit?${searchParams.toString()}`)}
+                      onClick={() => {
+                        const qs = searchParams ? searchParams.toString() : '';
+                        pushWithScrollSave(`/indents/${indent.id}/edit${qs ? `?${qs}` : ''}`);
+                      }}
                     />
                   )}
                   {can(PERMISSIONS.EDIT_INDENTS) && getAvailableActions(indent.approvalStatus).length > 0 && (
@@ -427,21 +430,19 @@ export default function IndentsPage() {
           />
         </AppCard.Content>
         <AppCard.Footer className='justify-end'>
-          <Pagination
-            page={data?.meta?.page || page}
-            totalPages={data?.meta?.totalPages || 1}
-            total={data?.meta?.total}
-            perPage={data?.meta?.perPage || perPage}
-            onPerPageChange={(val) => {
-              console.log('Changing perPage from', perPage, 'to', val);
-              setQp({ page: 1, perPage: val });
-            }}
-            onPageChange={(p) => {
-              console.log('Changing page from', page, 'to', p);
-              setQp({ page: p });
-            }}
-            showPageNumbers
-            maxButtons={5}
+    <Pagination
+      page={data?.meta?.page || page}
+      totalPages={data?.meta?.totalPages || 1}
+      perPage={data?.meta?.perPage || perPage}
+      onPerPageChange={(val) => {
+        console.log('Changing perPage from', perPage, 'to', val);
+        setQp({ page: 1, perPage: val });
+      }}
+      onPageChange={(p) => {
+        console.log('Changing page from', page, 'to', p);
+        setQp({ page: p });
+      }}
+      showPageNumbers
             disabled={isLoading}
           />
         </AppCard.Footer>

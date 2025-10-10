@@ -11,14 +11,13 @@ import type { Rent } from '@/types/rents';
 export default function EditRentPage() {
   useProtectPage();
   
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
 
   const { data: rent, error, isLoading } = useSWR<Rent>(
     id ? `/api/rents/${id}` : null,
     apiGet
   );
-
   if (isLoading) {
     return (
       <div className="p-6">

@@ -24,6 +24,7 @@ import type { SitesResponse } from '@/types/sites';
 
 export default function RentsPage() {
 	const searchParams = useSearchParams();
+	const qs = searchParams ? searchParams.toString() : '';
 	const { pushWithScrollSave } = useScrollRestoration('rents-list');
 	
 	const [qp, setQp] = useQueryParamsState({
@@ -295,7 +296,7 @@ export default function RentsPage() {
 									<EditButton 
 										tooltip='Edit Rent' 
 										aria-label='Edit Rent'
-										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit?${searchParams.toString()}`)}
+										onClick={() => pushWithScrollSave(`/rents/${rent.id}/edit${qs ? `?${qs}` : ''}`)}
 									/>
 								)}
 								{can(PERMISSIONS.DELETE_RENTS) && (

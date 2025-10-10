@@ -11,16 +11,18 @@ export default function EditBoqPage() {
   // Guard based on PAGE_ACCESS_RULES for '/boqs/:id/...'
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<BoqFormInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchBoq() {
       try {
-        const boq = await apiGet<BoqFormInitialData>(`/api/boqs/${id}`);
-        setInitial(boq);
+        if (id) {
+          const boq = await apiGet<BoqFormInitialData>(`/api/boqs/${id}`);
+          setInitial(boq);
+        }
       } catch (error) {
         toast.error('Failed to load BOQ');
       } finally {

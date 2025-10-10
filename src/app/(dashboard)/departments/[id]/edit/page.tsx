@@ -8,8 +8,8 @@ import DepartmentForm, { DepartmentFormInitialData } from '@/app/(dashboard)/dep
 import { Department } from '@/types/departments';
 
 export default function EditDepartmentPage() {
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
 
   const { data: dept, error, isLoading } = useSWR<Department>(
     id ? `/api/departments/${id}` : null,

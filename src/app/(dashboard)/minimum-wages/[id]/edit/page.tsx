@@ -10,16 +10,18 @@ import { toast } from '@/lib/toast';
 export default function EditMinimumWagePage() {
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<MinimumWageInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchRecord() {
       try {
-        const record = await apiGet<MinimumWageInitialData>(`/api/minimum-wages/${id}`);
-        setInitial(record);
+        if (id) {
+          const record = await apiGet<MinimumWageInitialData>(`/api/minimum-wages/${id}`);
+          setInitial(record);
+        }
       } catch (error) {
         toast.error('Failed to load minimum wage');
       } finally {

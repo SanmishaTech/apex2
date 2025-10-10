@@ -10,16 +10,18 @@ import { toast } from '@/lib/toast';
 export default function EditUnitPage() {
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<UnitFormInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchUnit() {
       try {
-        const unit = await apiGet<UnitFormInitialData>(`/api/units/${id}`);
-        setInitial(unit);
+        if (id) {
+          const unit = await apiGet<UnitFormInitialData>(`/api/units/${id}`);
+          setInitial(unit);
+        }
       } catch (error) {
         toast.error('Failed to load unit');
       } finally {

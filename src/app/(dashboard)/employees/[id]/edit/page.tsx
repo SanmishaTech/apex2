@@ -7,8 +7,8 @@ import type { Employee } from '@/types/employees';
 import { useParams } from 'next/navigation';
 
 export default function EditEmployeePage() {
-	const params = useParams();
-	const id = params.id as string;
+	const params = useParams<{ id?: string }>();
+	const id = params?.id;
 
 	const { data: employee, isLoading, error } = useSWR<Employee>(
 		id ? `/api/employees/${id}` : null,

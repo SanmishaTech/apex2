@@ -7,7 +7,8 @@ import { toast } from '@/lib/toast';
 import UserForm, { UserFormInitialData } from '@/app/(dashboard)/users/user-form';
 
 export default function EditUserPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [initial, setInitial] = useState<UserFormInitialData | null>(null);

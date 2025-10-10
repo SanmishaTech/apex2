@@ -47,7 +47,7 @@ export function useScrollRestoration(key: string) {
   // Navigate to a URL and restore the saved state for a specific key
   const pushAndRestoreKey = useCallback((restoreKey: string) => {
     const savedUrl = savedUrls.get(restoreKey);
-    const targetUrl = savedUrl || pathname;
+    const targetUrl = savedUrl || pathname || '/';
     console.log(`[ScrollRestoration] Navigating to: ${targetUrl} (from key: ${restoreKey})`);
     router.push(targetUrl);
   }, [router, pathname]);

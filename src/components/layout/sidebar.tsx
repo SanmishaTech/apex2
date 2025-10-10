@@ -20,7 +20,10 @@ type SidebarProps = {
 
 export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const safePathname = pathname ?? '';
   const searchParams = useSearchParams();
+  const sp = searchParams ?? new URLSearchParams();
+  const qs = sp.toString();
   const { user } = useCurrentUser();
 
   function isGroup(item: NavItem): item is NavGroupItem {
@@ -48,7 +51,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
  
 
   // Create a function to check active children that accepts pathname and searchParams as arguments
-  const createActiveChecker = (currentPathname: string, currentSearchParams: URLSearchParams) => {
+  const createActiveChecker = (currentPathname: string, currentSearchParams: ReturnType<typeof useSearchParams> | URLSearchParams) => {
     function checkActiveInChildren(children: (NavLeafItem | NavGroupItem)[]): boolean {
       return children.some(c => {
         if (isGroup(c)) {
@@ -57,7 +60,8 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
         try {
           // Parse hrefs to handle query parameters
           const cUrl = new URL(c.href, 'http://example.com');
-          const currentFullPath = currentPathname + (currentSearchParams.toString() ? '?' + currentSearchParams.toString() : '');
+          const searchParamsStr = currentSearchParams?.toString() || '';
+          const currentFullPath = currentPathname + (searchParamsStr ? '?' + searchParamsStr : '');
           const currentUrl = new URL(currentFullPath, 'http://example.com');
           
           // Exact match (including query params) or child route
@@ -74,7 +78,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
   };
   
   // Initialize openGroups state with groups that contain active routes
-  function getInitialOpenGroups(items: NavItem[], currentPathname: string, currentSearchParams: URLSearchParams): Record<string, boolean> {
+  function getInitialOpenGroups(items: NavItem[], currentPathname: string, currentSearchParams: ReturnType<typeof useSearchParams> | URLSearchParams): Record<string, boolean> {
     const initial: Record<string, boolean> = {};
     const checkActiveInChildren = createActiveChecker(currentPathname, currentSearchParams);
     
@@ -97,11 +101,11 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
   }
   
   // Manage open groups (keyed by group path for nested groups)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenGroups(items, pathname, searchParams));
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenGroups(items, safePathname, sp));
   
   // Update open groups when pathname or search params change
   useEffect(() => {
-    const newOpenGroups = getInitialOpenGroups(items, pathname, searchParams);
+    const newOpenGroups = getInitialOpenGroups(items, safePathname, sp);
     // Merge with existing open groups to preserve user's manual opens
     setOpenGroups(current => {
       const merged = { ...current };
@@ -110,7 +114,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
       });
       return merged;
     });
-  }, [pathname, searchParams, items]);
+  }, [safePathname, qs, items]);
 
   // Helper to get all leaf hrefs from navigation tree
   function getAllLeafHrefs(items: NavItem[]): string[] {
@@ -135,7 +139,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
     if (isGroup(item)) {
       const open = openGroups[item.title];
       const toggle = () => setOpenGroups(g => ({ ...g, [item.title]: !open }));
-      const checkActiveInChildren = createActiveChecker(pathname, searchParams);
+      const checkActiveInChildren = createActiveChecker(safePathname, sp);
       const childActive = checkActiveInChildren(item.children);
       const GroupIcon = item.icon;
       
@@ -181,7 +185,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
     try {
       // Parse href to handle query parameters
       const hrefUrl = new URL(leaf.href, 'http://example.com');
-      const currentUrl = new URL(pathname + (searchParams.toString() ? '?' + searchParams.toString() : ''), 'http://example.com');
+      const currentUrl = new URL(safePathname + (qs ? '?' + qs : ''), 'http://example.com');
       
       // Check if current path matches exactly (including query params)
       const isExactMatch = currentUrl.pathname === hrefUrl.pathname && currentUrl.search === hrefUrl.search;

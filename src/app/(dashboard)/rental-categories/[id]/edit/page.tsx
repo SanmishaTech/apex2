@@ -10,15 +10,14 @@ import { toast } from '@/lib/toast';
 export default function EditRentalCategoryPage() {
   useProtectPage();
 
-  const params = useParams();
+  const params = useParams<{ id?: string }>();
   const searchParams = useSearchParams();
-  const id = params.id as string;
+  const id = params?.id;
   const [initial, setInitial] = useState<RentalCategoryFormInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const redirectOnSuccess = searchParams.toString()
-    ? `/rental-categories?${searchParams.toString()}`
-    : '/rental-categories';
+  const qs = searchParams ? searchParams.toString() : '';
+  const redirectOnSuccess = qs ? `/rental-categories?${qs}` : '/rental-categories';
 
   useEffect(() => {
     async function fetchData() {

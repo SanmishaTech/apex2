@@ -46,7 +46,7 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
   const pathname = usePathname();
   const { user, isLoading } = useCurrentUser();
 
-  const rule = findAccessRule(pathname);
+  const rule = findAccessRule(pathname || '');
   const isPageRule = rule?.type === 'page';
 
   const userPerms = user ? (ROLES_PERMISSIONS[user.role] || []) : [];

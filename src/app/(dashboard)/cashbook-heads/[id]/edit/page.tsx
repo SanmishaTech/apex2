@@ -10,14 +10,17 @@ import { toast } from '@/lib/toast';
 export default function EditCashbookHeadPage() {
 	useProtectPage();
 
-	const params = useParams();
-	const id = params.id as string;
+	const params = useParams<{ id?: string }>();
+	const id = params?.id;
 	const [initial, setInitial] = useState<CashbookHeadFormInitialData | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		async function fetchCashbookHead() {
 			try {
+				if (!id) {
+					return;
+				}
 				const cashbookHead = await apiGet<CashbookHeadFormInitialData>(`/api/cashbook-heads/${id}`);
 				setInitial(cashbookHead);
 			} catch (error) {
