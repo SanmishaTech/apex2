@@ -8,8 +8,8 @@ import { useProtectPage } from '@/hooks/use-protect-page';
 import type { Cashbook } from '@/types/cashbooks';
 
 export default function EditCashbookPage() {
-  const params = useParams();
-  const cashbookId = params?.id as string;
+  const params = useParams<{ id?: string }>();
+  const cashbookId = params?.id as string | undefined;
   
   useProtectPage();
 

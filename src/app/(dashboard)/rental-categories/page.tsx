@@ -22,6 +22,7 @@ import type { RentalCategoriesResponse } from '@/types/rental-categories';
 
 export default function RentalCategoriesPage() {
   const searchParams = useSearchParams();
+  const qs = searchParams ? searchParams.toString() : '';
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -135,7 +136,7 @@ export default function RentalCategoriesPage() {
         <AppCard.Description>Manage application rental categories.</AppCard.Description>
         {can(PERMISSIONS.EDIT_RENTAL_CATEGORIES) && (
           <AppCard.Action>
-            <Link href={`/rental-categories/new?${searchParams.toString()}`}>
+            <Link href={`/rental-categories/new${qs ? `?${qs}` : ''}`}>
               <AppButton size='sm' iconName='Plus' type='button'>
                 Add
               </AppButton>
@@ -184,7 +185,7 @@ export default function RentalCategoriesPage() {
             return (
               <div className='flex'>
                 {can(PERMISSIONS.EDIT_RENTAL_CATEGORIES) && (
-                  <Link href={`/rental-categories/${row.id}/edit?${searchParams.toString()}`}>
+                  <Link href={`/rental-categories/${row.id}/edit${qs ? `?${qs}` : ''}`}>
                     <EditButton tooltip='Edit Rental Category' aria-label='Edit Rental Category' />
                   </Link>
                 )}

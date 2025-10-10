@@ -10,15 +10,14 @@ import { toast } from '@/lib/toast';
 import type { Indent } from '@/types/indents';
 
 export default function EditIndentPage() {
-	const params = useParams();
+	const params = useParams<{ id?: string | string[] }>();
 	const searchParams = useSearchParams();
-	const id = Array.isArray(params.id) ? params.id[0] : params.id;
+	const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 	const [initialData, setInitialData] = useState<IndentFormInitialData | null>(null);
 
 	// Build redirect URL with preserved query parameters
-	const redirectUrl = searchParams.toString() 
-		? `/indents?${searchParams.toString()}` 
-		: '/indents';
+	const search = searchParams ? searchParams.toString() : '';
+	const redirectUrl = search ? `/indents?${search}` : '/indents';
 
 	const { data, error, isLoading } = useSWR<Indent>(
 		id ? `/api/indents/${id}` : null,

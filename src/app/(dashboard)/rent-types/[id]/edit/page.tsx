@@ -8,14 +8,13 @@ import RentTypeForm, { RentTypeFormInitialData } from '@/app/(dashboard)/rent-ty
 import { RentType } from '@/types/rent-types';
 
 export default function EditRentTypePage() {
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
 
   const { data: rentType, error, isLoading } = useSWR<RentType>(
     id ? `/api/rent-types/${id}` : null,
     apiGet
   );
-
   if (error) {
     toast.error((error as Error).message || 'Failed to load rent type');
   }

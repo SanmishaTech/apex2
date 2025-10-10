@@ -10,31 +10,30 @@ import { CashbookBudgetForm, CashbookBudgetFormInitialData } from '../../cashboo
 import { toast } from '@/lib/toast';
 
 type CashbookBudgetResponse = {
-	id: number;
-	name: string;
-	month: string;
-	totalBudget: string;
-	siteId: number;
-	boqName: string | null;
-	attachCopyUrl: string | null;
-	approved1Remarks: string | null;
-	remarksForFinalApproval: string | null;
-	budgetItems: Array<{
-		id: number;
-		cashbookHeadId: number;
-		description: string;
-		amount: string;
-		cashbookHead: { id: number; cashbookHeadName: string };
-	}>;
-	site: { id: number; site: string };
-	createdAt: string;
-	updatedAt: string;
+  id: number;
+  name: string;
+  month: string;
+  totalBudget: string;
+  siteId: number;
+  boqName: string | null;
+  attachCopyUrl: string | null;
+  approved1Remarks: string | null;
+  remarksForFinalApproval: string | null;
+  budgetItems: Array<{
+    id: number;
+    cashbookHeadId: number;
+    description: string;
+    amount: string;
+    cashbookHead: { id: number; cashbookHeadName: string };
+  }>;
+  site: { id: number; site: string };
+  createdAt: string;
+  updatedAt: string;
 };
-
 export default function EditCashbookBudgetPage() {
-	const params = useParams();
+	const params = useParams<{ id?: string }>();
 	const { can } = usePermissions();
-	const id = params.id as string;
+	const id = params?.id;
 
 	useProtectPage({
 		redirectForbidden: '/cashbook-budgets'

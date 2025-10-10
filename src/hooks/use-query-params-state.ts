@@ -8,9 +8,9 @@ import { parseQuery, buildQuery, QueryShape } from '@/lib/qs';
 export function useQueryParamsState<T extends QueryShape>(defaults: T) {
   const search = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '/';
 
-  const state = useMemo(() => parseQuery(search.toString(), defaults), [search, defaults]);
+  const state = useMemo(() => parseQuery(search?.toString() ?? '', defaults), [search, defaults]);
 
   const setState = useCallback((patch: Partial<T>, options?: { replace?: boolean }) => {
     const url = buildQuery<T>(pathname, patch, state, defaults, { skipDefaults: true });

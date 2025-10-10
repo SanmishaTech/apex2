@@ -10,14 +10,15 @@ import { toast } from '@/lib/toast';
 export default function EditManpowerPage() {
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<ManpowerInitialData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchRecord() {
       try {
+        if (!id) return;
         const record = await apiGet<ManpowerInitialData>(`/api/manpower/${id}`);
         setInitial(record);
       } catch (error) {

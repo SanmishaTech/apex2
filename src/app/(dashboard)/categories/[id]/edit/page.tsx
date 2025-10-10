@@ -10,8 +10,8 @@ import { toast } from '@/lib/toast';
 export default function EditCategoryPage() {
 	useProtectPage();
 	
-	const params = useParams();
-	const id = params.id as string;
+	const params = useParams<{ id?: string }>();
+	const id = params?.id;
 	const [initial, setInitial] = useState<CategoryFormInitialData | null>(null);
 	const [loading, setLoading] = useState(true);
 

@@ -14,8 +14,8 @@ export default function EditDpPage() {
   // Guard based on PAGE_ACCESS_RULES for '/boqs/:id/...'
   useProtectPage();
 
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
   const [initial, setInitial] = useState<DailyProgressFormInitialData | null>(
     null
   );

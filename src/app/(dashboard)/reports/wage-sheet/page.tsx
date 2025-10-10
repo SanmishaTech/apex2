@@ -32,13 +32,13 @@ export default function WageSheetPage() {
   }, []);
 
   useEffect(() => {
-    const m = search.get("mode");
+    const m = search?.get("mode");
     if (m === "company" || m === "govt") {
       setMode(m);
     }
-    const p = search.get("period");
+    const p = search?.get("period");
     if (p) setPeriod(p);
-    const s = search.get("siteId");
+    const s = search?.get("siteId");
     if (s) {
       setSiteId(s);
     } else {

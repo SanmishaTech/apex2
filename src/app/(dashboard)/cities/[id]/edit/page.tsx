@@ -9,14 +9,13 @@ import CityForm, { CityFormInitialData } from '@/app/(dashboard)/cities/city-for
 import { City } from '@/types/cities';
 
 export default function EditCityPage() {
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
 
   const { data: city, error, isLoading } = useSWR<City>(
     id ? `/api/cities/${id}` : null,
     apiGet
   );
-
   if (error) {
     toast.error((error as Error).message || 'Failed to load city');
   }
