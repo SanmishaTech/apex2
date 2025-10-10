@@ -9,24 +9,6 @@ export const PERMISSIONS = {
   EDIT_USERS: "EDIT:USERS",
   DELETE_USERS: "MANAGE:USERS",
 
-  // Projects
-  CREATE_PROJECT: "CREATE:PROJECT", // create new project (Admin only)
-  READ_PROJECT: "READ:PROJECT", // view project(s)
-  EDIT_PROJECT: "EDIT:PROJECT", // edit project metadata
-  DELETE_PROJECT: "DELETE:PROJECT", // delete project
-  MANAGE_PROJECT_USERS: "MANAGE:PROJECT:USERS", // add/remove users to project
-
-  // Project Files
-  UPLOAD_PROJECT_FILE: "UPLOAD:PROJECT:FILE", // upload / attach file to project
-  READ_PROJECT_FILE: "READ:PROJECT:FILE", // download/view project files
-  DELETE_PROJECT_FILE: "DELETE:PROJECT:FILE", // remove project files
-  // Blocks & Cracks
-  IMPORT_CRACKS: "IMPORT:CRACKS", // import crack identifications via Excel
-  READ_CRACKS: "READ:CRACKS",
-  MANAGE_BLOCKS: "MANAGE:BLOCKS",
-  // Design Maps
-  READ_DESIGN_MAP: "READ:DESIGN:MAP",
-  WRITE_DESIGN_MAP: "WRITE:DESIGN:MAP",
   // Cities
   READ_CITIES: "READ:CITIES",
   EDIT_CITIES: "EDIT:CITIES",
@@ -217,10 +199,6 @@ export const ROLES_PERMISSIONS = {
   [ROLES.USER]: [
     PERMISSIONS.VIEW_DASHBOARD,
     PERMISSIONS.READ_USERS,
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.READ_PROJECT_FILE,
-    PERMISSIONS.READ_CRACKS,
-    PERMISSIONS.READ_DESIGN_MAP,
     PERMISSIONS.READ_CITIES,
     PERMISSIONS.READ_STATES,
     PERMISSIONS.READ_COMPANIES,
@@ -264,13 +242,9 @@ export const ROLES_PERMISSIONS = {
     PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
   ],
 
-  // Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
+  // Project (client) user: minimal permissions
   [ROLES.PROJECT_USER]: [
     PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.READ_PROJECT_FILE,
-    PERMISSIONS.READ_CRACKS,
-    PERMISSIONS.READ_DESIGN_MAP,
     PERMISSIONS.READ_CITIES,
     PERMISSIONS.READ_STATES,
     PERMISSIONS.READ_COMPANIES,

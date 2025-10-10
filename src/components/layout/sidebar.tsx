@@ -154,7 +154,7 @@ export function Sidebar({ fixed, className, mobile, onNavigate }: SidebarProps) 
               onClick={toggle}
               className={cn(
                 'w-full flex items-center gap-2 rounded-md px-4 py-2 text-left transition-colors outline-none focus:ring-2 focus:ring-ring hover:text-primary',
-                depth > 0 ? 'font-medium text-xs' : 'font-semibold',
+                depth > 0 ? 'font-medium text-sm' : 'font-semibold text-sm',
                 childActive ? 'text-primary' : 'text-muted-foreground'
               )}
               style={{ paddingLeft: depth > 0 ? `${1 + depth * 0.75}rem` : undefined }}

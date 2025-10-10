@@ -17,35 +17,34 @@ enum IndentApprovalStatus {
 }
 
 model User {
-  id                      Int            @id @default(autoincrement())
-  name                    String?
-  email                   String         @unique
-  passwordHash            String // was: password
-  role                    String
-  profilePhoto            String?
-  emailVerified           DateTime?
-  verificationToken       String?        @unique
-  verificationTokenExpiry DateTime?
-  status                  Boolean        @default(true)
-  lastLogin               DateTime?
-  createdAt               DateTime       @default(now())
-  updatedAt               DateTime       @updatedAt
-  refreshTokens           RefreshToken[]
-  projectUsers            ProjectUser[]
-  projectFilesUploaded    ProjectFile[]  @relation("UserProjectFiles")
-  employee                Employee?
-  approvedAssetTransfers  AssetTransfer[]
+  id                        Int                @id @default(autoincrement())
+  name                      String?
+  email                     String             @unique
+  passwordHash              String // was: password
+  role                      String
+  profilePhoto              String?
+  emailVerified             DateTime?
+  verificationToken         String?            @unique
+  verificationTokenExpiry   DateTime?
+  status                    Boolean            @default(true)
+  lastLogin                 DateTime?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  refreshTokens             RefreshToken[]
+  employee                  Employee?
+  approvedAssetTransfers    AssetTransfer[]
   approvedManpowerTransfers ManpowerTransfer[] @relation("ManpowerTransferApprovals")
-  dailyProgressesCreated        DailyProgress[]  @relation("DailyProgressCreated")
-  dailyProgressesUpdated                DailyProgress[]  @relation("DailyProgressUpdated")
+  dailyProgressesCreated    DailyProgress[]    @relation("DailyProgressCreated")
+  dailyProgressesUpdated    DailyProgress[]    @relation("DailyProgressUpdated")
   // Back-relations for Indent approval workflow
-  indentsApproved1          Indent[]       @relation("IndentApproved1By")
-  indentsApproved2          Indent[]       @relation("IndentApproved2By")
-  indentsCompleted          Indent[]       @relation("IndentCompletedBy")
+  indentsApproved1          Indent[]           @relation("IndentApproved1By")
+  indentsApproved2          Indent[]           @relation("IndentApproved2By")
+  indentsCompleted          Indent[]           @relation("IndentCompletedBy")
   // Back-relation for Indent.suspendedBy
-  indentsSuspended          Indent[]       @relation("IndentSuspendedBy")
+  indentsSuspended          Indent[]           @relation("IndentSuspendedBy")
 
   @@index([role])
+  @@map("users")
 }
 
 model RefreshToken {
@@ -60,134 +59,18 @@ model RefreshToken {
 
   @@index([userId])
   @@index([expiresAt])
+  @@map("refresh_tokens")
 }
-
-// Represents a project. Each project can have many client users (via ProjectClient)
-model Project {
-  id          Int                   @id @default(autoincrement())
-  name        String
-  clientName  String // Top-level client / organization name
-  location    String? // Optional location string (city / region / address)
-  description String?               @db.Text
-  designImage String? // stored filename or URL of the project design image
-  users       ProjectUser[]
-  files       ProjectFile[]
-  blocks      Block[]
-  cracks      CrackIdentification[]
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  DesignMap   DesignMap[]
-
-  @@index([name])
-  @@index([clientName])
-}
-
-// Join table linking Users (with a global role of e.g. "CLIENT") to Projects.
-// Keeping a separate join model lets you later add per-project roles or metadata.
-model ProjectUser {
-  id        Int     @id @default(autoincrement())
-  projectId Int
-  userId    Int
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, userId])
-  @@index([userId])
-  @@index([projectId])
-}
-
-// Files (documents, spreadsheets, PDFs, etc.) attached to a Project.
-// Store both an internal filename/key and the original upload name.
-model ProjectFile {
-  id           Int      @id @default(autoincrement())
-  projectId    Int
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploadedById Int? // optional: which user uploaded
-  uploadedBy   User?    @relation("UserProjectFiles", fields: [uploadedById], references: [id], onDelete: SetNull)
-  // Storage metadata
-  filename     String // internal stored filename or generated UUID name
-  originalName String // original filename from user
-  title        String // display title (required)
-  mimeType     String // e.g. application/pdf
-  size         Int // bytes
-  storageKey   String? // e.g. S3 object key, if different from filename
-  url          String? // cached/public URL if applicable
-  createdAt    DateTime @default(now())
-
-  @@index([projectId])
-  @@index([uploadedById])
-  @@index([mimeType])
-}
-
-// Physical / logical block within a project that contains crack identifications
-model Block {
-  id        Int                   @id @default(autoincrement())
-  projectId Int
-  name      String // e.g. Block A / Segment 1
-  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  cracks    CrackIdentification[]
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
-
-  @@unique([projectId, name]) // block names unique within project
-  @@index([projectId])
-}
-
-// Individual crack record captured under a block
-model CrackIdentification {
-  id            Int        @id @default(autoincrement())
-  projectId     Int // duplicated for easier querying/filtering
-  blockId       Int
-  chainageFrom  String?
-  chainageTo    String?
-  rl            Float?
-  lengthMm      Float?
-  widthMm       Float?
-  heightMm      Float?
-  defectType    String?
-  videoFileName String?
-  // Video timeline position (HH:MM:SS). Stored as fixed-length CHAR(8) string (e.g. 03:30:00).
-  startTime     String?    @db.Char(8)
-  endTime       String?    @db.Char(8)
-  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  block         Block      @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  DesignMap     DesignMap?
-
-  @@index([projectId])
-  @@index([blockId])
-}
-
-model DesignMap {
-  id                    Int                 @id @default(autoincrement())
-  projectId             Int
-  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  crackIdentificationId Int                 @unique // Each map is unique to one crack identification
-  crackIdentification   CrackIdentification @relation(fields: [crackIdentificationId], references: [id], onDelete: Cascade)
-
-  // Rectangle coordinates for the map area
-  x      Float
-  y      Float
-  width  Float
-  height Float
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([projectId])
-}
-
 
 model City {
   id        Int      @id @default(autoincrement())
   city      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   stateId          Int?
-  state            State?   @relation(fields: [stateId], references: [id])
+  state            State?           @relation(fields: [stateId], references: [id])
   companies        Company[]
   sites            Site[]
   employees        Employee[]
@@ -199,127 +82,126 @@ model City {
 
 // Company master data for business management
 model Company {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   companyName String
   shortName   String?
-  
+
   // Contact Person Details
   contactPerson String?
   contactNo     String?
-  
-  // Address Details
-  addressLine1  String?
-  addressLine2  String?
-  stateId       Int?
-  cityId        Int?
-  pinCode       String?
-  
-  // Logo
-  logoUrl       String?
-  
-  // Status
-  closed        Boolean  @default(false)
-  
-  // Other Details
-  panNo         String?
-  gstNo         String?
-  tanNo         String?
-  cinNo         String?
-  
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  state         State?   @relation(fields: [stateId], references: [id])
-  city          City?    @relation(fields: [cityId], references: [id])
-  sites         Site[]
 
-  @@map("companies")
+  // Address Details
+  addressLine1 String?
+  addressLine2 String?
+  stateId      Int?
+  cityId       Int?
+  pinCode      String?
+
+  // Logo
+  logoUrl String?
+
+  // Status
+  closed Boolean @default(false)
+
+  // Other Details
+  panNo String?
+  gstNo String?
+  tanNo String?
+  cinNo String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  state State? @relation(fields: [stateId], references: [id])
+  city  City?  @relation(fields: [cityId], references: [id])
+  sites Site[]
+
   @@index([companyName])
   @@index([shortName])
   @@index([closed])
   @@index([stateId])
   @@index([cityId])
+  @@map("companies")
 }
 
 // Site master data for location/branch management
 model Site {
-  id             Int      @id @default(autoincrement())
-  uinNo          String?
-  site           String
-  shortName      String?
-  
+  id        Int     @id @default(autoincrement())
+  uinNo     String?
+  site      String
+  shortName String?
+
   // Company Relation
-  companyId      Int?
-  company        Company? @relation(fields: [companyId], references: [id])
-  
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+
   // Status Flags
-  closed         Boolean  @default(false)
+  closed          Boolean @default(false)
   permanentClosed Boolean @default(false)
-  monitor        Boolean  @default(false)
-  
+  monitor         Boolean @default(false)
+
   // File Upload
-  attachCopyUrl  String?
-  
+  attachCopyUrl String?
+
   // Contact Person Details
-  contactPerson  String?
-  contactNo      String?
-  
+  contactPerson String?
+  contactNo     String?
+
   // Address Details
-  addressLine1   String?
-  addressLine2   String?
-  stateId        Int?
-  cityId         Int?
-  pinCode        String?
-  longitude      String?
-  latitude       String?
-  
+  addressLine1 String?
+  addressLine2 String?
+  stateId      Int?
+  cityId       Int?
+  pinCode      String?
+  longitude    String?
+  latitude     String?
+
   // Other Details
-  panNo          String?
-  gstNo          String?
-  tanNo          String?
-  cinNo          String?
-  
+  panNo String?
+  gstNo String?
+  tanNo String?
+  cinNo String?
+
   // Timestamps
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  state          State?     @relation(fields: [stateId], references: [id])
-  city           City?      @relation(fields: [cityId], references: [id])
-  employees      Employee[]
+  state              State?      @relation(fields: [stateId], references: [id])
+  city               City?       @relation(fields: [cityId], references: [id])
+  employees          Employee[]
   // Back-relation for Employee.reportingSite
-  reportingEmployees Employee[] @relation("ReportingSite")
+  reportingEmployees Employee[]  @relation("ReportingSite")
   // Back-relation for Boq.site
-  boqs           Boq[]
+  boqs               Boq[]
   // Back-relation for BoqTarget.site
-  boqTargets     BoqTarget[]
+  boqTargets         BoqTarget[]
 
   // Back-relation for MinimumWage.site
-  minimumWages   MinimumWage[]
+  minimumWages MinimumWage[]
 
   cashbookBudgets CashbookBudget[]
   // Back-relation for Indent.site
   indents         Indent[]
 
-  siteBudgets    SiteBudget[]
+  siteBudgets           SiteBudget[]
   // Back-relation for Rent.site
-  rents          Rent[]
+  rents                 Rent[]
   // Back-relation for Cashbook.site
-  cashbooks      Cashbook[]
+  cashbooks             Cashbook[]
   // Back-relation for Asset.currentSite
-  assets         Asset[]
-  assetTransfersFrom  AssetTransfer[] @relation("FromSiteTransfers")
-  assetTransfersTo    AssetTransfer[] @relation("ToSiteTransfers")
-  assignedManpower    Manpower[]
+  assets                Asset[]
+  assetTransfersFrom    AssetTransfer[]    @relation("FromSiteTransfers")
+  assetTransfersTo      AssetTransfer[]    @relation("ToSiteTransfers")
+  assignedManpower      Manpower[]
   manpowerTransfersFrom ManpowerTransfer[] @relation("FromSiteManpowerTransfers")
   manpowerTransfersTo   ManpowerTransfer[] @relation("ToSiteManpowerTransfers")
-  attendances         Attendance[]       @relation("SiteAttendances")
-  paySlipDetails      PaySlipDetail[]
-  dailyProgresses         DailyProgress[]
+  attendances           Attendance[]       @relation("SiteAttendances")
+  paySlipDetails        PaySlipDetail[]
+  dailyProgresses       DailyProgress[]
 
-  @@map("sites")
   @@index([site])
   @@index([shortName])
   @@index([uinNo])
@@ -329,20 +211,21 @@ model Site {
   @@index([monitor])
   @@index([stateId])
   @@index([cityId])
+  @@map("sites")
 }
 
 // Department master data (single-field entity)
 model Department {
-  id          Int        @id @default(autoincrement())
-  department  String     @unique
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  
-  // Relations
-  employees   Employee[]
+  id         Int      @id @default(autoincrement())
+  department String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@map("departments")
+  // Relations
+  employees Employee[]
+
   @@index([department])
+  @@map("departments")
 }
 
 // Rent Type master data (single-field entity)
@@ -353,88 +236,85 @@ model RentType {
   updatedAt DateTime @updatedAt
 
   // Relations
-  rents     Rent[]
+  rents Rent[]
 
-  @@map("rent_types")
   @@index([rentType])
+  @@map("rent_types")
 }
-
-
 
 // Employee master data for workforce management
 model Employee {
-  id           Int         @id @default(autoincrement())
-  name         String
-  
+  id   Int    @id @default(autoincrement())
+  name String
+
   // User Relation (each employee is linked to a user account)
-  userId       Int?        @unique
-  user         User?       @relation(fields: [userId], references: [id])
-  
+  userId Int?  @unique
+  user   User? @relation(fields: [userId], references: [id])
+
   // Department Relation
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
-  
+
   // Site Relation
-  siteId       Int?
-  site         Site?       @relation(fields: [siteId], references: [id])
+  siteId                    Int?
+  site                      Site?     @relation(fields: [siteId], references: [id])
   // Reporting Site
-  reportingSiteId            Int?
-  reportingSite              Site?      @relation("ReportingSite", fields: [reportingSiteId], references: [id])
-  reportingSiteAssignedDate  DateTime?
-  
+  reportingSiteId           Int?
+  reportingSite             Site?     @relation("ReportingSite", fields: [reportingSiteId], references: [id])
+  reportingSiteAssignedDate DateTime?
+
   // Employment Details
-  resignDate   DateTime?
-  
+  resignDate DateTime?
+
   // Personal Details
   dateOfBirth     DateTime?
   anniversaryDate DateTime?
   spouseName      String?
   bloodGroup      String?
-  
+
   // Address Details
   addressLine1 String?
   addressLine2 String?
   stateId      Int?
-  state        State?      @relation(fields: [stateId], references: [id])
+  state        State?  @relation(fields: [stateId], references: [id])
   cityId       Int?
-  city         City?       @relation(fields: [cityId], references: [id])
+  city         City?   @relation(fields: [cityId], references: [id])
   pincode      String?
-  
-  // Contact Details
-  mobile1      String?
-  mobile2      String?
-  
-  // Other Details
-  esic         String?
-  pf           String?
-  panNo        String?
-  adharNo      String?
-  cinNo        String?
-  
-  // Travel/Reporting Details
-  airTravelClass      String?
-  railwayTravelClass  String?
-  busTravelClass      String?
-  reporting1Id        Int?
-  reporting2Id        Int?
-  reporting1          Employee?   @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
-  reporting2          Employee?   @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
-  subordinates1       Employee[]  @relation("EmployeeReporting1")
-  subordinates2       Employee[]  @relation("EmployeeReporting2")
-  
-  // Leave Details
-  sickLeavesPerYear    Int?
-  paidLeavesPerYear    Int?
-  casualLeavesPerYear  Int?
-  balanceSickLeaves    Int?
-  balancePaidLeaves    Int?
-  balanceCasualLeaves  Int?
-  
-  // Timestamps
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
 
-  @@map("employees")
+  // Contact Details
+  mobile1 String?
+  mobile2 String?
+
+  // Other Details
+  esic    String?
+  pf      String?
+  panNo   String?
+  adharNo String?
+  cinNo   String?
+
+  // Travel/Reporting Details
+  airTravelClass     String?
+  railwayTravelClass String?
+  busTravelClass     String?
+  reporting1Id       Int?
+  reporting2Id       Int?
+  reporting1         Employee?  @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
+  reporting2         Employee?  @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
+  subordinates1      Employee[] @relation("EmployeeReporting1")
+  subordinates2      Employee[] @relation("EmployeeReporting2")
+
+  // Leave Details
+  sickLeavesPerYear   Int?
+  paidLeavesPerYear   Int?
+  casualLeavesPerYear Int?
+  balanceSickLeaves   Int?
+  balancePaidLeaves   Int?
+  balanceCasualLeaves Int?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([name])
   @@index([departmentId])
   @@index([siteId])
@@ -445,6 +325,7 @@ model Employee {
   @@index([reporting1Id])
   @@index([reporting2Id])
   @@index([reportingSiteId])
+  @@map("employees")
 }
 
 // Category master data
@@ -457,22 +338,22 @@ model Category {
   // Back-relation for MinimumWage.category
   minimumWages MinimumWage[]
 
-  @@map("categories")
   @@index([categoryName])
+  @@map("categories")
 }
 
 // Rental Category master data
 model RentalCategory {
-  id              Int      @id @default(autoincrement())
-  rentalCategory  String   @unique
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  rentalCategory String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  rents           Rent[]
+  rents Rent[]
 
-  @@map("rental_categories")
   @@index([rentalCategory])
+  @@map("rental_categories")
 }
 
 // Skill Set master data
@@ -485,8 +366,8 @@ model SkillSet {
   // Back-relation for MinimumWage.skillSet
   minimumWages MinimumWage[]
 
-  @@map("skill_sets")
   @@index([skillsetName])
+  @@map("skill_sets")
 }
 
 // State master data
@@ -515,8 +396,8 @@ model Unit {
   updatedAt DateTime @updatedAt
 
   // Relations
-  boqItems  BoqItem[]
-  items     Item[]
+  boqItems    BoqItem[]
+  items       Item[]
   indentItems IndentItem[]
 
   @@map("units")
@@ -524,10 +405,10 @@ model Unit {
 
 // Asset Group master data
 model AssetGroup {
-  id             Int             @id @default(autoincrement())
-  assetGroupName String          @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id             Int      @id @default(autoincrement())
+  assetGroupName String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
   assetCategories AssetCategory[]
@@ -538,55 +419,54 @@ model AssetGroup {
 
 // Asset Category master data
 model AssetCategory {
-  id            Int        @id @default(autoincrement())
-  assetGroupId  Int
-  category      String
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           Int      @id @default(autoincrement())
+  assetGroupId Int
+  category     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  assetGroup    AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Cascade)
-  assets        Asset[]
+  assetGroup AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Cascade)
+  assets     Asset[]
 
   @@unique([assetGroupId, category]) // Unique category per asset group
-  @@map("asset_categories")
   @@index([assetGroupId])
+  @@map("asset_categories")
 }
 
 // Asset master data for asset management
 model Asset {
-  id               Int           @id @default(autoincrement())
-  assetNo          String        @unique // auto-generated like AST-00001
-  
+  id      Int    @id @default(autoincrement())
+  assetNo String @unique // auto-generated like AST-00001
+
   // Asset Details
-  assetGroupId     Int
-  assetCategoryId  Int
-  assetName        String
-  make             String?
-  description      String?       @db.Text
-  
+  assetGroupId    Int
+  assetCategoryId Int
+  assetName       String
+  make            String?
+  description     String? @db.Text
+
   // Purchase Details
-  purchaseDate     DateTime?
-  invoiceNo        String?
-  supplier         String?
-  invoiceCopyUrl   String?       // Invoice copy file path
+  purchaseDate        DateTime?
+  invoiceNo           String?
+  supplier            String?
+  invoiceCopyUrl      String? // Invoice copy file path
   nextMaintenanceDate DateTime?
-  status           String        @default("Working") // Working, Under Repair, etc.
-  useStatus        String        @default("In Use")  // In Use, Available, etc.
-  transferStatus   String        @default("Available") // Available, In Transit, Assigned
-  currentSiteId    Int?          // Current site where asset is located
-  currentSite      Site?         @relation(fields: [currentSiteId], references: [id])
-  
+  status              String    @default("Working") // Working, Under Repair, etc.
+  useStatus           String    @default("In Use") // In Use, Available, etc.
+  transferStatus      String    @default("Available") // Available, In Transit, Assigned
+  currentSiteId       Int? // Current site where asset is located
+  currentSite         Site?     @relation(fields: [currentSiteId], references: [id])
+
   // Timestamps
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  assetGroup       AssetGroup    @relation(fields: [assetGroupId], references: [id])
-  assetCategory    AssetCategory @relation(fields: [assetCategoryId], references: [id])
-  transferItems    AssetTransferItem[]
+  assetGroup    AssetGroup          @relation(fields: [assetGroupId], references: [id])
+  assetCategory AssetCategory       @relation(fields: [assetCategoryId], references: [id])
+  transferItems AssetTransferItem[]
 
-  @@map("assets")
   @@index([assetNo])
   @@index([assetGroupId])
   @@index([assetCategoryId])
@@ -596,6 +476,7 @@ model Asset {
   @@index([transferStatus])
   @@index([currentSiteId])
   @@index([purchaseDate])
+  @@map("assets")
 }
 
 // Item Category master data
@@ -615,103 +496,103 @@ model ItemCategory {
 
 // Items master data
 model Item {
-  id             Int      @id @default(autoincrement())
-  itemCode       String   @unique // auto-generated
+  id             Int           @id @default(autoincrement())
+  itemCode       String        @unique // auto-generated
   hsnCode        String?
   item           String
   itemCategoryId Int?
   itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
   unitId         Int?
-  unit           Unit?    @relation(fields: [unitId], references: [id])
-  gstRate        Decimal? @db.Decimal(5, 2)
-  asset          Boolean  @default(false)
-  discontinue    Boolean  @default(false)
-  description    String?  @db.Text
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  unit           Unit?         @relation(fields: [unitId], references: [id])
+  gstRate        Decimal?      @db.Decimal(5, 2)
+  asset          Boolean       @default(false)
+  discontinue    Boolean       @default(false)
+  description    String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  indentItems    IndentItem[]
+  indentItems IndentItem[]
 
-  siteBudgets    SiteBudget[]
+  siteBudgets SiteBudget[]
 
-  @@map("items")
   @@index([itemCode])
   @@index([itemCategoryId])
   @@index([unitId])
+  @@map("items")
 }
 
 // Billing Address master data
 model BillingAddress {
-  id            Int      @id @default(autoincrement())
-  companyName   String
-  addressLine1  String
-  addressLine2  String?
-  stateId       Int?
-  state         State?   @relation(fields: [stateId], references: [id])
-  cityId        Int?
-  city          City?    @relation(fields: [cityId], references: [id])
-  pincode       String?
-  landline1     String?
-  landline2     String?
-  fax           String?
-  email         String?
-  panNumber     String?
-  vatTinNumber  String?
-  gstNumber     String?
-  cstTinNumber  String?
-  cinNumber     String?
-  stateCode     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  companyName  String
+  addressLine1 String
+  addressLine2 String?
+  stateId      Int?
+  state        State?   @relation(fields: [stateId], references: [id])
+  cityId       Int?
+  city         City?    @relation(fields: [cityId], references: [id])
+  pincode      String?
+  landline1    String?
+  landline2    String?
+  fax          String?
+  email        String?
+  panNumber    String?
+  vatTinNumber String?
+  gstNumber    String?
+  cstTinNumber String?
+  cinNumber    String?
+  stateCode    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@map("billing_addresses")
   @@index([companyName])
+  @@map("billing_addresses")
 }
 
 // Vendor master data
 model Vendor {
-  id                Int      @id @default(autoincrement())
-  vendorName        String
-  contactPerson     String?
-  addressLine1      String
-  addressLine2      String?
-  stateId           Int?
-  state             State?   @relation(fields: [stateId], references: [id])
-  cityId            Int?
-  city              City?    @relation(fields: [cityId], references: [id])
-  pincode           String?
-  mobile1           String?
-  mobile2           String?
-  email             String?
-  alternateEmail1   String?
-  alternateEmail2   String?
-  alternateEmail3   String?
-  alternateEmail4   String?
-  landline1         String?
-  landline2         String?
-  bank              String?
-  branch            String?
-  branchCode        String?
-  accountNumber     String?
-  ifscCode          String?
-  panNumber         String?
-  vatTinNumber      String?
-  cstTinNumber      String?
-  gstNumber         String?
-  cinNumber         String?
-  serviceTaxNumber  String?
-  stateCode         String?
-  itemCategories    VendorItemCategory[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               Int                  @id @default(autoincrement())
+  vendorName       String
+  contactPerson    String?
+  addressLine1     String
+  addressLine2     String?
+  stateId          Int?
+  state            State?               @relation(fields: [stateId], references: [id])
+  cityId           Int?
+  city             City?                @relation(fields: [cityId], references: [id])
+  pincode          String?
+  mobile1          String?
+  mobile2          String?
+  email            String?
+  alternateEmail1  String?
+  alternateEmail2  String?
+  alternateEmail3  String?
+  alternateEmail4  String?
+  landline1        String?
+  landline2        String?
+  bank             String?
+  branch           String?
+  branchCode       String?
+  accountNumber    String?
+  ifscCode         String?
+  panNumber        String?
+  vatTinNumber     String?
+  cstTinNumber     String?
+  gstNumber        String?
+  cinNumber        String?
+  serviceTaxNumber String?
+  stateCode        String?
+  itemCategories   VendorItemCategory[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  @@map("vendors")
   @@index([vendorName])
   @@index([email])
   @@index([gstNumber])
   @@index([stateId])
   @@index([cityId])
+  @@map("vendors")
 }
 
 // Junction table for Vendor-ItemCategory many-to-many relationship
@@ -724,103 +605,103 @@ model VendorItemCategory {
   createdAt      DateTime     @default(now())
 
   @@unique([vendorId, itemCategoryId])
-  @@map("vendor_item_categories")
   @@index([vendorId])
   @@index([itemCategoryId])
+  @@map("vendor_item_categories")
 }
 
 // Bill of Quantity (BOQ)
 model Boq {
-  id                              Int       @id @default(autoincrement())
-  boqNo                           String?   @unique // auto-generated like BOQ-00001
-  siteId                          Int?
-  site                            Site?     @relation(fields: [siteId], references: [id])
-  workName                        String?
-  workOrderNo                     String?
-  workOrderDate                   DateTime?
-  startDate                       DateTime?
-  endDate                         DateTime?
-  totalWorkValue                  Decimal?  @db.Decimal(12, 2)
-  gstRate                         Decimal?  @db.Decimal(5, 2)
-  agreementNo                     String?
-  agreementStatus                 String?
-  completionPeriod                String?
-  completionDate                  DateTime?
-  dateOfExpiry                    DateTime?
-  commencementDate                DateTime?
-  timeExtensionDate               DateTime?
-  defectLiabilityPeriod           String?
-  performanceSecurityMode         String?
-  performanceSecurityDocumentNo   String?
-  performanceSecurityPeriod       String?
-  createdAt                       DateTime  @default(now())
-  updatedAt                       DateTime  @updatedAt
+  id                            Int         @id @default(autoincrement())
+  boqNo                         String?     @unique // auto-generated like BOQ-00001
+  siteId                        Int?
+  site                          Site?       @relation(fields: [siteId], references: [id])
+  workName                      String?
+  workOrderNo                   String?
+  workOrderDate                 DateTime?
+  startDate                     DateTime?
+  endDate                       DateTime?
+  totalWorkValue                Decimal?    @db.Decimal(12, 2)
+  gstRate                       Decimal?    @db.Decimal(5, 2)
+  agreementNo                   String?
+  agreementStatus               String?
+  completionPeriod              String?
+  completionDate                DateTime?
+  dateOfExpiry                  DateTime?
+  commencementDate              DateTime?
+  timeExtensionDate             DateTime?
+  defectLiabilityPeriod         String?
+  performanceSecurityMode       String?
+  performanceSecurityDocumentNo String?
+  performanceSecurityPeriod     String?
+  createdAt                     DateTime    @default(now())
+  updatedAt                     DateTime    @updatedAt
   // Relations
-  items                           BoqItem[]
-  targets                         BoqTarget[]
+  items                         BoqItem[]
+  targets                       BoqTarget[]
   // Back-relation for Rent.boq
-  rents                           Rent[]
+  rents                         Rent[]
   // Back-relation for Cashbook.boq
-  cashbooks                       Cashbook[]
+  cashbooks                     Cashbook[]
 
   // daily progress
-  dailyProgresses                DailyProgress[]
+  dailyProgresses DailyProgress[]
 
-  @@map("boqs")
   @@index([siteId])
   @@index([boqNo])
+  @@map("boqs")
 }
 
 // BOQ line items
 model BoqItem {
-  id               Int      @id @default(autoincrement())
-  boqId            Int
-  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  activityId       String?
-  clientSrNo       String?
-  item             String?  // long description
-  unitId           Int?
-  unit             Unit?    @relation(fields: [unitId], references: [id])
-  qty              Decimal? @db.Decimal(12, 2)
-  rate             Decimal? @db.Decimal(12, 2)
-  amount           Decimal? @db.Decimal(14, 2)
-  openingQty       Decimal? @db.Decimal(12, 2)
-  openingValue     Decimal? @db.Decimal(12, 2)
-  closingQty       Decimal? @db.Decimal(12, 2)
-  closingValue     Decimal? @db.Decimal(12, 2)
-  isGroup          Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  boqId        Int
+  boq          Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  activityId   String?
+  clientSrNo   String?
+  item         String? // long description
+  unitId       Int?
+  unit         Unit?    @relation(fields: [unitId], references: [id])
+  qty          Decimal? @db.Decimal(12, 2)
+  rate         Decimal? @db.Decimal(12, 2)
+  amount       Decimal? @db.Decimal(14, 2)
+  openingQty   Decimal? @db.Decimal(12, 2)
+  openingValue Decimal? @db.Decimal(12, 2)
+  closingQty   Decimal? @db.Decimal(12, 2)
+  closingValue Decimal? @db.Decimal(12, 2)
+  isGroup      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  dailyProgressDetails                DailyProgressDetail[]
+  dailyProgressDetails DailyProgressDetail[]
 
-  @@map("boq_items")
   @@index([boqId])
   @@index([unitId])
+  @@map("boq_items")
 }
 
 // BOQ Targets for daily quantity planning
 model BoqTarget {
-  id               Int      @id @default(autoincrement())
-  siteId           Int
-  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  boqId            Int
-  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  activityId       String
-  fromTargetDate   DateTime
-  toTargetDate     DateTime
-  dailyTargetQty   Decimal  @db.Decimal(12, 2)
-  createdBy        String?
-  updatedBy        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  siteId         Int
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  boqId          Int
+  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  activityId     String
+  fromTargetDate DateTime
+  toTargetDate   DateTime
+  dailyTargetQty Decimal  @db.Decimal(12, 2)
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  @@map("boq_targets")
   @@index([siteId])
   @@index([boqId])
   @@index([activityId])
   @@index([fromTargetDate])
   @@index([toTargetDate])
+  @@map("boq_targets")
 }
 
 // Notice announcements with optional document upload
@@ -829,137 +710,137 @@ model Notice {
   noticeHead        String
   noticeHeading     String
   noticeDescription String?
-  documentUrl       String?   // path under /uploads/notices
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  documentUrl       String? // path under /uploads/notices
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@map("notices")
   @@index([createdAt])
+  @@map("notices")
 }
 
 // Manpower Supplier master data
 model ManpowerSupplier {
-  id                  Int      @id @default(autoincrement())
-  vendorCode          String?
-  supplierName        String   // "Manpower Supplier"
-  contactPerson       String?
-  representativeName  String?
-  localContactNo      String?
-  permanentContactNo  String?
-  address             String?  @db.Text
-  state               String?
-  permanentAddress    String?  @db.Text
-  city                String?
-  pincode             String?
-  bankName            String?
-  accountNo           String?
-  ifscNo              String?
-  rtgsNo              String?
-  panNo               String?
-  adharNo             String?
-  pfNo                String?
-  esicNo              String?
-  gstNo               String?
-  numberOfWorkers     Int?
-  typeOfWork          String?  @db.Text
-  workDone            String?  @db.Text
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  vendorCode         String?
+  supplierName       String // "Manpower Supplier"
+  contactPerson      String?
+  representativeName String?
+  localContactNo     String?
+  permanentContactNo String?
+  address            String?  @db.Text
+  state              String?
+  permanentAddress   String?  @db.Text
+  city               String?
+  pincode            String?
+  bankName           String?
+  accountNo          String?
+  ifscNo             String?
+  rtgsNo             String?
+  panNo              String?
+  adharNo            String?
+  pfNo               String?
+  esicNo             String?
+  gstNo              String?
+  numberOfWorkers    Int?
+  typeOfWork         String?  @db.Text
+  workDone           String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Back-relation: all manpower workers for this supplier
-  manpower             Manpower[]
+  manpower Manpower[]
 
-  @@map("manpower_suppliers")
   @@index([supplierName])
   @@index([city])
+  @@map("manpower_suppliers")
 }
 
 // Manpower (individual worker) linked to a ManpowerSupplier
 model Manpower {
-  id                      Int       @id @default(autoincrement())
-  firstName               String
-  middleName              String?
-  lastName                String
-  supplierId              Int
-  manpowerSupplier        ManpowerSupplier @relation(fields: [supplierId], references: [id])
-  dateOfBirth             DateTime?
+  id               Int              @id @default(autoincrement())
+  firstName        String
+  middleName       String?
+  lastName         String
+  supplierId       Int
+  manpowerSupplier ManpowerSupplier @relation(fields: [supplierId], references: [id])
+  dateOfBirth      DateTime?
 
   // Contact details
-  address                 String?   @db.Text
-  location                String?
-  mobileNumber            String?
-  wage                    Decimal?  @db.Decimal(12, 2)
+  address      String?  @db.Text
+  location     String?
+  mobileNumber String?
+  wage         Decimal? @db.Decimal(12, 2)
 
   // Bank details
-  bank                    String?
-  branch                  String?
-  accountNumber           String?
-  ifscCode                String?
-  pfNo                    String?
-  esicNo                  String?
-  unaNo                   String?
+  bank          String?
+  branch        String?
+  accountNumber String?
+  ifscCode      String?
+  pfNo          String?
+  esicNo        String?
+  unaNo         String?
 
   // Other details with document URLs stored in /uploads/manpower
-  panNumber               String?
-  panDocumentUrl          String?
-  aadharNo                String?
-  aadharDocumentUrl       String?
-  voterIdNo               String?
-  voterIdDocumentUrl      String?
-  drivingLicenceNo        String?
+  panNumber                 String?
+  panDocumentUrl            String?
+  aadharNo                  String?
+  aadharDocumentUrl         String?
+  voterIdNo                 String?
+  voterIdDocumentUrl        String?
+  drivingLicenceNo          String?
   drivingLicenceDocumentUrl String?
-  bankDetailsDocumentUrl  String?
-  bankDetails             String?
-  watch                   Boolean   @default(false)
-  
+  bankDetailsDocumentUrl    String?
+  bankDetails               String?
+  watch                     Boolean @default(false)
+
   // Assignment tracking fields
-  category                String?
-  skillSet                String?
-  minWage                 Decimal?  @db.Decimal(10, 2)
-  hours                   Decimal?  @db.Decimal(5, 2)
-  esic                    Decimal?  @db.Decimal(10, 2)
-  pf                      Boolean   @default(false)
-  pt                      Decimal?  @db.Decimal(10, 2)
-  hra                     Decimal?  @db.Decimal(10, 2)
-  mlwf                    Decimal?  @db.Decimal(10, 2)
-  isAssigned              Boolean   @default(false)
-  currentSiteId           Int?
-  assignedAt              DateTime?
+  category      String?
+  skillSet      String?
+  minWage       Decimal?  @db.Decimal(10, 2)
+  hours         Decimal?  @db.Decimal(5, 2)
+  esic          Decimal?  @db.Decimal(10, 2)
+  pf            Boolean   @default(false)
+  pt            Decimal?  @db.Decimal(10, 2)
+  hra           Decimal?  @db.Decimal(10, 2)
+  mlwf          Decimal?  @db.Decimal(10, 2)
+  isAssigned    Boolean   @default(false)
+  currentSiteId Int?
+  assignedAt    DateTime?
 
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  currentSite             Site?                 @relation(fields: [currentSiteId], references: [id])
-  transferItems           ManpowerTransferItem[]
-  attendances             Attendance[]          @relation("ManpowerAttendances")
-  paySlips               PaySlip[]
- 
-   @@map("manpower")
+  currentSite   Site?                  @relation(fields: [currentSiteId], references: [id])
+  transferItems ManpowerTransferItem[]
+  attendances   Attendance[]           @relation("ManpowerAttendances")
+  paySlips      PaySlip[]
+
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
   @@index([currentSiteId])
+  @@map("manpower")
 }
 
 // Minimum wage mapping per Site + Category + SkillSet
 model MinimumWage {
-  id          Int      @id @default(autoincrement())
-  siteId      Int
-  categoryId  Int
-  skillSetId  Int
-  minWage     Decimal  @db.Decimal(12, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  siteId     Int
+  categoryId Int
+  skillSetId Int
+  minWage    Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  site        Site     @relation(fields: [siteId], references: [id])
-  category    Category @relation(fields: [categoryId], references: [id])
-  skillSet    SkillSet @relation(fields: [skillSetId], references: [id])
+  site     Site     @relation(fields: [siteId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+  skillSet SkillSet @relation(fields: [skillSetId], references: [id])
 
   @@unique([siteId, categoryId, skillSetId])
-  @@map("minimum_wages")
   @@index([siteId])
   @@index([categoryId])
   @@index([skillSetId])
+  @@map("minimum_wages")
 }
 
 // Payment Terms master data
@@ -970,10 +851,9 @@ model PaymentTerm {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("payment_terms")
   @@index([paymentTerm])
+  @@map("payment_terms")
 }
-
 
 // Cashbook Heads master data
 model CashbookHead {
@@ -986,182 +866,180 @@ model CashbookHead {
   cashbookBudgetItems CashbookBudgetItem[]
   cashbookDetails     CashbookDetail[]
 
-  @@map("cashbook_heads")
   @@index([cashbookHeadName])
+  @@map("cashbook_heads")
 }
 
 // Cashbook Budgets master data
 model CashbookBudget {
-  id                        Int                  @id @default(autoincrement())
-  name                      String
-  month                     String
-  siteId                    Int?
-  site                      Site?                @relation(fields: [siteId], references: [id])
-  boqName                   String?
-  attachCopyUrl             String?
-  approved1Remarks          String?              @db.Text
-  remarksForFinalApproval   String?              @db.Text
-  totalBudget               Decimal              @db.Decimal(12, 2)
-  createdAt                 DateTime             @default(now())
-  updatedAt                 DateTime             @updatedAt
+  id                      Int      @id @default(autoincrement())
+  name                    String
+  month                   String
+  siteId                  Int?
+  site                    Site?    @relation(fields: [siteId], references: [id])
+  boqName                 String?
+  attachCopyUrl           String?
+  approved1Remarks        String?  @db.Text
+  remarksForFinalApproval String?  @db.Text
+  totalBudget             Decimal  @db.Decimal(12, 2)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   // Relations
-  budgetItems               CashbookBudgetItem[]
+  budgetItems CashbookBudgetItem[]
 
-  @@map("cashbook_budgets")
   @@index([name])
   @@index([month])
   @@index([siteId])
+  @@map("cashbook_budgets")
 }
 
 // Cashbook Budget Items (line items for budgets)
 model CashbookBudgetItem {
-  id               Int          @id @default(autoincrement())
-  budgetId         Int
-  budget           CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  cashbookHeadId   Int
-  cashbookHead     CashbookHead @relation(fields: [cashbookHeadId], references: [id])
-  description      String?      @db.Text
-  amount           Decimal      @db.Decimal(12, 2)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id             Int            @id @default(autoincrement())
+  budgetId       Int
+  budget         CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  cashbookHeadId Int
+  cashbookHead   CashbookHead   @relation(fields: [cashbookHeadId], references: [id])
+  description    String?        @db.Text
+  amount         Decimal        @db.Decimal(12, 2)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  @@map("cashbook_budget_items")
   @@index([budgetId])
   @@index([cashbookHeadId])
+  @@map("cashbook_budget_items")
 }
 
 // Indent master data for material requisitions
 model Indent {
-  id               Int         @id @default(autoincrement())
-  indentNo         String?     @unique // auto-generated like IND-00001
-  indentDate       DateTime
-  siteId           Int?
-  site             Site?       @relation(fields: [siteId], references: [id])
+  id             Int                  @id @default(autoincrement())
+  indentNo       String?              @unique // auto-generated like IND-00001
+  indentDate     DateTime
+  siteId         Int?
+  site           Site?                @relation(fields: [siteId], references: [id])
   // Approval workflow
-  approvalStatus   IndentApprovalStatus @default(DRAFT)
-  approved1ById    Int?
-  approved1By      User?      @relation("IndentApproved1By", fields: [approved1ById], references: [id])
-  approved1At      DateTime?
-  approved2ById    Int?
-  approved2By      User?      @relation("IndentApproved2By", fields: [approved2ById], references: [id])
-  approved2At      DateTime?
-  completedById    Int?
-  completedBy      User?      @relation("IndentCompletedBy", fields: [completedById], references: [id])
-  completedAt      DateTime?
+  approvalStatus IndentApprovalStatus @default(DRAFT)
+  approved1ById  Int?
+  approved1By    User?                @relation("IndentApproved1By", fields: [approved1ById], references: [id])
+  approved1At    DateTime?
+  approved2ById  Int?
+  approved2By    User?                @relation("IndentApproved2By", fields: [approved2ById], references: [id])
+  approved2At    DateTime?
+  completedById  Int?
+  completedBy    User?                @relation("IndentCompletedBy", fields: [completedById], references: [id])
+  completedAt    DateTime?
   // Suspension (orthogonal to approval)
-  suspended        Boolean     @default(false)
-  suspendedById    Int?
-  suspendedBy      User?       @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
-  suspendedAt      DateTime?
-  remarks          String?     @db.Text
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  suspended      Boolean              @default(false)
+  suspendedById  Int?
+  suspendedBy    User?                @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
+  suspendedAt    DateTime?
+  remarks        String?              @db.Text
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   // Relations
-  indentItems      IndentItem[]
+  indentItems IndentItem[]
 
-  @@map("indents")
   @@index([indentNo])
   @@index([siteId])
   @@index([indentDate])
   @@index([approvalStatus])
   @@index([suspended])
+  @@map("indents")
 }
 
 // Indent line items for detailed material requirements
 model IndentItem {
-  id               Int         @id @default(autoincrement())
-  indentId         Int
-  indent           Indent      @relation(fields: [indentId], references: [id], onDelete: Cascade)
-  itemId           Int
-  item             Item        @relation(fields: [itemId], references: [id])
-  closingStock     Decimal     @db.Decimal(12, 2)
-  unitId           Int
-  unit             Unit        @relation(fields: [unitId], references: [id])
-  remark           String?     @db.Text
-  indentQty        Decimal     @db.Decimal(12, 2)
-  approvedQty      Decimal?    @db.Decimal(12, 2)
-  deliveryDate     DateTime
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id           Int      @id @default(autoincrement())
+  indentId     Int
+  indent       Indent   @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  itemId       Int
+  item         Item     @relation(fields: [itemId], references: [id])
+  closingStock Decimal  @db.Decimal(12, 2)
+  unitId       Int
+  unit         Unit     @relation(fields: [unitId], references: [id])
+  remark       String?  @db.Text
+  indentQty    Decimal  @db.Decimal(12, 2)
+  approvedQty  Decimal? @db.Decimal(12, 2)
+  deliveryDate DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@map("indent_items")
   @@index([indentId])
   @@index([itemId])
   @@index([unitId])
+  @@map("indent_items")
 }
 
 // Site Budget - manages budget items for each site
 model SiteBudget {
-  id            Int      @id @default(autoincrement())
-  siteId        Int
-  itemId        Int
-  budgetQty     Decimal  @db.Decimal(12, 2)
-  budgetRate    Decimal  @db.Decimal(12, 2)
-  purchaseRate  Decimal  @db.Decimal(12, 2)
-  budgetValue   Decimal  @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
-  orderedQty    Decimal  @db.Decimal(12, 2) @default(0)
-  avgRate       Decimal  @db.Decimal(12, 2) @default(0)
-  orderedValue  Decimal  @db.Decimal(12, 2) @default(0) // Calculated: orderedQty * avgRate
-  
+  id           Int     @id @default(autoincrement())
+  siteId       Int
+  itemId       Int
+  budgetQty    Decimal @db.Decimal(12, 2)
+  budgetRate   Decimal @db.Decimal(12, 2)
+  purchaseRate Decimal @db.Decimal(12, 2)
+  budgetValue  Decimal @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
+  orderedQty   Decimal @default(0) @db.Decimal(12, 2)
+  avgRate      Decimal @default(0) @db.Decimal(12, 2)
+  orderedValue Decimal @default(0) @db.Decimal(12, 2) // Calculated: orderedQty * avgRate
+
   // Alert checkboxes
-  qty50Alert    Boolean  @default(false)
-  value50Alert  Boolean  @default(false)
-  qty75Alert    Boolean  @default(false)
-  value75Alert  Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  qty50Alert   Boolean @default(false)
+  value50Alert Boolean @default(false)
+  qty75Alert   Boolean @default(false)
+  value75Alert Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  site          Site     @relation(fields: [siteId], references: [id])
-  item          Item     @relation(fields: [itemId], references: [id])
+  site Site @relation(fields: [siteId], references: [id])
+  item Item @relation(fields: [itemId], references: [id])
 
   @@unique([siteId, itemId]) // One budget entry per site-item combination
-  @@map("site_budgets")
   @@index([siteId])
   @@index([itemId])
-
+  @@map("site_budgets")
 }
 
 // Rent master data for rental agreement management
 model Rent {
-  id                 Int      @id @default(autoincrement())
-  
-  // Basic Details
-  siteId             Int?
-  site               Site?    @relation(fields: [siteId], references: [id])
-  boqId              Int?
-  boq                Boq?     @relation(fields: [boqId], references: [id])
-  rentalCategoryId   Int?
-  rentalCategory     RentalCategory? @relation(fields: [rentalCategoryId], references: [id])
-  rentTypeId         Int?
-  rentType           RentType? @relation(fields: [rentTypeId], references: [id])
-  owner              String?
-  pancardNo          String?
-  rentDay            String?   // Dropdown: 1st, 2nd, etc.
-  fromDate           DateTime?
-  toDate             DateTime?
-  description        String?
-  depositAmount      Decimal?  @db.Decimal(12, 2)
-  rentAmount         Decimal?  @db.Decimal(12, 2)
-  
-  // Bank Details
-  bank               String?
-  branch             String?
-  accountNo          String?
-  accountName        String?
-  ifscCode           String?
-  
-  // File Upload
-  momCopyUrl         String?   // MOM Copy file path
-  
-  // Timestamps
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id Int @id @default(autoincrement())
 
-  @@map("rents")
+  // Basic Details
+  siteId           Int?
+  site             Site?           @relation(fields: [siteId], references: [id])
+  boqId            Int?
+  boq              Boq?            @relation(fields: [boqId], references: [id])
+  rentalCategoryId Int?
+  rentalCategory   RentalCategory? @relation(fields: [rentalCategoryId], references: [id])
+  rentTypeId       Int?
+  rentType         RentType?       @relation(fields: [rentTypeId], references: [id])
+  owner            String?
+  pancardNo        String?
+  rentDay          String? // Dropdown: 1st, 2nd, etc.
+  fromDate         DateTime?
+  toDate           DateTime?
+  description      String?
+  depositAmount    Decimal?        @db.Decimal(12, 2)
+  rentAmount       Decimal?        @db.Decimal(12, 2)
+
+  // Bank Details
+  bank        String?
+  branch      String?
+  accountNo   String?
+  accountName String?
+  ifscCode    String?
+
+  // File Upload
+  momCopyUrl String? // MOM Copy file path
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([siteId])
   @@index([boqId])
   @@index([rentalCategoryId])
@@ -1169,260 +1047,261 @@ model Rent {
   @@index([fromDate])
   @@index([toDate])
   @@index([owner])
+  @@map("rents")
 }
 
 // Cashbook voucher master data for voucher management
 model Cashbook {
-  id                 Int      @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Header Details
-  voucherNo          String?  @unique // auto-generated like VCH-00001
-  voucherDate        DateTime
-  siteId             Int?
-  site               Site?    @relation(fields: [siteId], references: [id])
-  boqId              Int?
-  boq                Boq?     @relation(fields: [boqId], references: [id])
+  voucherNo            String?  @unique // auto-generated like VCH-00001
+  voucherDate          DateTime
+  siteId               Int?
+  site                 Site?    @relation(fields: [siteId], references: [id])
+  boqId                Int?
+  boq                  Boq?     @relation(fields: [boqId], references: [id])
   attachVoucherCopyUrl String? // File upload for voucher copy
-  
+
   // Timestamps
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  cashbookDetails    CashbookDetail[]
+  cashbookDetails CashbookDetail[]
 
-  @@map("cashbooks")
   @@index([voucherNo])
   @@index([siteId])
   @@index([boqId])
   @@index([voucherDate])
+  @@map("cashbooks")
 }
 
 // Cashbook detail items (line items for cashbook vouchers)
 model CashbookDetail {
-  id               Int          @id @default(autoincrement())
-  cashbookId       Int
-  cashbook         Cashbook     @relation(fields: [cashbookId], references: [id], onDelete: Cascade)
-  cashbookHeadId   Int
-  cashbookHead     CashbookHead @relation(fields: [cashbookHeadId], references: [id])
-  description      String?      @db.Text
-  received         Decimal?     @db.Decimal(12, 2)
-  expense          Decimal?     @db.Decimal(12, 2)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id             Int          @id @default(autoincrement())
+  cashbookId     Int
+  cashbook       Cashbook     @relation(fields: [cashbookId], references: [id], onDelete: Cascade)
+  cashbookHeadId Int
+  cashbookHead   CashbookHead @relation(fields: [cashbookHeadId], references: [id])
+  description    String?      @db.Text
+  received       Decimal?     @db.Decimal(12, 2)
+  expense        Decimal?     @db.Decimal(12, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  @@map("cashbook_details")
   @@index([cashbookId])
   @@index([cashbookHeadId])
+  @@map("cashbook_details")
 }
 
 // Asset Transfer for assigning/transferring assets between sites
 model AssetTransfer {
-  id               Int      @id @default(autoincrement())
-  challanNo        String   @unique // auto-generated like CHN-00001
-  challanDate      DateTime
-  transferType     String   // "New Assign" or "Transfer"
-  fromSiteId       Int?     // null for new assignments
-  fromSite         Site?    @relation("FromSiteTransfers", fields: [fromSiteId], references: [id])
-  toSiteId         Int
-  toSite           Site     @relation("ToSiteTransfers", fields: [toSiteId], references: [id])
-  status           String   @default("Pending") // Pending, Accepted, Rejected
-  challanCopyUrl   String?  // File upload for challan copy
-  approvedById     Int?     // User who approved/rejected
-  approvedBy       User?    @relation(fields: [approvedById], references: [id])
-  approvedAt       DateTime?
-  remarks          String?  @db.Text
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  challanNo      String    @unique // auto-generated like CHN-00001
+  challanDate    DateTime
+  transferType   String // "New Assign" or "Transfer"
+  fromSiteId     Int? // null for new assignments
+  fromSite       Site?     @relation("FromSiteTransfers", fields: [fromSiteId], references: [id])
+  toSiteId       Int
+  toSite         Site      @relation("ToSiteTransfers", fields: [toSiteId], references: [id])
+  status         String    @default("Pending") // Pending, Accepted, Rejected
+  challanCopyUrl String? // File upload for challan copy
+  approvedById   Int? // User who approved/rejected
+  approvedBy     User?     @relation(fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  remarks        String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  transferItems    AssetTransferItem[]
+  transferItems AssetTransferItem[]
 
-  @@map("asset_transfers")
   @@index([challanNo])
   @@index([fromSiteId])
   @@index([toSiteId])
   @@index([status])
   @@index([transferType])
   @@index([challanDate])
+  @@map("asset_transfers")
 }
 
 // Junction table for multiple assets per transfer
 model AssetTransferItem {
-  id               Int           @id @default(autoincrement())
-  assetTransferId  Int
-  assetId          Int
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id              Int      @id @default(autoincrement())
+  assetTransferId Int
+  assetId         Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  assetTransfer   AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Cascade)
-  asset           Asset         @relation(fields: [assetId], references: [id])
+  assetTransfer AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Cascade)
+  asset         Asset         @relation(fields: [assetId], references: [id])
 
   @@map("asset_transfer_items")
 }
 
 // Attendance tracking for manpower per site
 model Attendance {
-  id               Int       @id @default(autoincrement())
-  date             DateTime  // Attendance date
-  siteId           Int
-  site             Site      @relation("SiteAttendances", fields: [siteId], references: [id])
-  manpowerId       Int
-  manpower         Manpower  @relation("ManpowerAttendances", fields: [manpowerId], references: [id])
-  isPresent        Boolean   @default(false) // Present/Absent
-  isIdle           Boolean   @default(false) // Idle status
-  ot               Decimal?  @db.Decimal(5, 2) // Overtime hours
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id         Int      @id @default(autoincrement())
+  date       DateTime // Attendance date
+  siteId     Int
+  site       Site     @relation("SiteAttendances", fields: [siteId], references: [id])
+  manpowerId Int
+  manpower   Manpower @relation("ManpowerAttendances", fields: [manpowerId], references: [id])
+  isPresent  Boolean  @default(false) // Present/Absent
+  isIdle     Boolean  @default(false) // Idle status
+  ot         Decimal? @db.Decimal(5, 2) // Overtime hours
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([date, siteId, manpowerId]) // One attendance record per manpower per site per date
-  @@map("attendances")
   @@index([date])
   @@index([siteId])
   @@index([manpowerId])
   @@index([isPresent])
+  @@map("attendances")
 }
 
 // Manpower Transfer for transferring assigned manpower between sites
 model ManpowerTransfer {
-  id               Int      @id @default(autoincrement())
-  challanNo        String   @unique // auto-generated like MPT-00001
-  challanDate      DateTime
-  fromSiteId       Int
-  fromSite         Site     @relation("FromSiteManpowerTransfers", fields: [fromSiteId], references: [id])
-  toSiteId         Int
-  toSite           Site     @relation("ToSiteManpowerTransfers", fields: [toSiteId], references: [id])
-  status           String   @default("Pending") // Pending, Accepted, Rejected
-  challanCopyUrl   String?  // File upload for challan copy
-  approvedById     Int?     // User who approved/rejected
-  approvedBy       User?    @relation("ManpowerTransferApprovals", fields: [approvedById], references: [id])
-  approvedAt       DateTime?
-  remarks          String?  @db.Text
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  challanNo      String    @unique // auto-generated like MPT-00001
+  challanDate    DateTime
+  fromSiteId     Int
+  fromSite       Site      @relation("FromSiteManpowerTransfers", fields: [fromSiteId], references: [id])
+  toSiteId       Int
+  toSite         Site      @relation("ToSiteManpowerTransfers", fields: [toSiteId], references: [id])
+  status         String    @default("Pending") // Pending, Accepted, Rejected
+  challanCopyUrl String? // File upload for challan copy
+  approvedById   Int? // User who approved/rejected
+  approvedBy     User?     @relation("ManpowerTransferApprovals", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  remarks        String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  transferItems    ManpowerTransferItem[]
+  transferItems ManpowerTransferItem[]
 
-  @@map("manpower_transfers")
   @@index([challanNo])
   @@index([fromSiteId])
   @@index([toSiteId])
   @@index([status])
   @@index([challanDate])
+  @@map("manpower_transfers")
 }
 
 // Junction table for multiple manpower per transfer
 model ManpowerTransferItem {
-  id                   Int               @id @default(autoincrement())
-  manpowerTransferId   Int
-  manpowerId           Int
+  id                 Int      @id @default(autoincrement())
+  manpowerTransferId Int
+  manpowerId         Int
   // Preserve original assignment details during transfer
-  category             String?
-  skillSet             String?
-  wage                 Decimal?          @db.Decimal(12, 2)
-  minWage              Decimal?          @db.Decimal(10, 2)
-  hours                Decimal?          @db.Decimal(5, 2)
-  esic                 Decimal?          @db.Decimal(10, 2)
-  pf                   Boolean           @default(false)
-  pt                   Decimal?          @db.Decimal(10, 2)
-  hra                  Decimal?          @db.Decimal(10, 2)
-  mlwf                 Decimal?          @db.Decimal(10, 2)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  category           String?
+  skillSet           String?
+  wage               Decimal? @db.Decimal(12, 2)
+  minWage            Decimal? @db.Decimal(10, 2)
+  hours              Decimal? @db.Decimal(5, 2)
+  esic               Decimal? @db.Decimal(10, 2)
+  pf                 Boolean  @default(false)
+  pt                 Decimal? @db.Decimal(10, 2)
+  hra                Decimal? @db.Decimal(10, 2)
+  mlwf               Decimal? @db.Decimal(10, 2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  manpowerTransfer     ManpowerTransfer  @relation(fields: [manpowerTransferId], references: [id], onDelete: Cascade)
-  manpower             Manpower          @relation(fields: [manpowerId], references: [id])
+  manpowerTransfer ManpowerTransfer @relation(fields: [manpowerTransferId], references: [id], onDelete: Cascade)
+  manpower         Manpower         @relation(fields: [manpowerId], references: [id])
 
-  @@map("manpower_transfer_items")
   @@index([manpowerTransferId])
   @@index([manpowerId])
+  @@map("manpower_transfer_items")
 }
 
 // Payroll models
 model PaySlip {
-  id            Int            @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   manpowerId    Int
-  manpower      Manpower       @relation(fields: [manpowerId], references: [id])
-  period        String         // MM-YYYY
+  manpower      Manpower        @relation(fields: [manpowerId], references: [id])
+  period        String // MM-YYYY
   paySlipDate   DateTime
-  govt          Boolean        @default(false)
-  netWages      Decimal        @db.Decimal(12, 2)
+  govt          Boolean         @default(false)
+  netWages      Decimal         @db.Decimal(12, 2)
   amountInWords String?
   details       PaySlipDetail[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   @@unique([manpowerId, period, govt])
-  @@map("pay_slips")
   @@index([period])
   @@index([govt])
+  @@map("pay_slips")
 }
 
 model PaySlipDetail {
-  id             Int       @id @default(autoincrement())
-  paySlipId      Int
-  paySlip        PaySlip   @relation(fields: [paySlipId], references: [id], onDelete: Cascade)
-  siteId         Int
-  site           Site      @relation(fields: [siteId], references: [id])
-  workingDays    Decimal   @db.Decimal(6, 2)
-  ot             Decimal?  @db.Decimal(6, 2)
-  idle           Decimal?  @db.Decimal(6, 2)
-  wages          Decimal   @db.Decimal(12, 2)
-  grossWages     Decimal   @db.Decimal(12, 2)
-  hra            Decimal?  @db.Decimal(12, 2)
-  pf             Decimal?  @db.Decimal(12, 2)
-  esic           Decimal?  @db.Decimal(12, 2)
-  pt             Decimal?  @db.Decimal(12, 2)
-  mlwf           Decimal?  @db.Decimal(12, 2)
-  total          Decimal   @db.Decimal(12, 2)
-  amountInWords  String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  paySlipId     Int
+  paySlip       PaySlip  @relation(fields: [paySlipId], references: [id], onDelete: Cascade)
+  siteId        Int
+  site          Site     @relation(fields: [siteId], references: [id])
+  workingDays   Decimal  @db.Decimal(6, 2)
+  ot            Decimal? @db.Decimal(6, 2)
+  idle          Decimal? @db.Decimal(6, 2)
+  wages         Decimal  @db.Decimal(12, 2)
+  grossWages    Decimal  @db.Decimal(12, 2)
+  hra           Decimal? @db.Decimal(12, 2)
+  pf            Decimal? @db.Decimal(12, 2)
+  esic          Decimal? @db.Decimal(12, 2)
+  pt            Decimal? @db.Decimal(12, 2)
+  mlwf          Decimal? @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
+  amountInWords String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@map("pay_slip_details")
   @@index([paySlipId])
   @@index([siteId])
+  @@map("pay_slip_details")
 }
 
 model PayrollConfig {
-  id                 Int      @id @default(1)
-  hoursPerDay        Decimal  @db.Decimal(6, 2) @default(8)
-  govtWorkingDayCap  Int      @default(26)
-  hraPercentage      Decimal  @db.Decimal(6, 2) @default(5.00)
-  pfPercentage       Decimal  @db.Decimal(6, 2) @default(12.00)
-  esicPercentage     Decimal  @db.Decimal(6, 2) @default(1.75)
-  ptThreshold1       Decimal  @db.Decimal(12, 2) @default(7500)
-  ptAmount1          Decimal  @db.Decimal(12, 2) @default(175)
-  ptThreshold2       Decimal  @db.Decimal(12, 2) @default(10000)
-  ptAmount2          Decimal  @db.Decimal(12, 2) @default(200)
-  febPtAmount        Decimal  @db.Decimal(12, 2) @default(300)
-  mlwfAmount         Decimal  @db.Decimal(12, 2) @default(12)
-  mlwfMonths         String   @default("02,06")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                Int      @id @default(1)
+  hoursPerDay       Decimal  @default(8) @db.Decimal(6, 2)
+  govtWorkingDayCap Int      @default(26)
+  hraPercentage     Decimal  @default(5.00) @db.Decimal(6, 2)
+  pfPercentage      Decimal  @default(12.00) @db.Decimal(6, 2)
+  esicPercentage    Decimal  @default(1.75) @db.Decimal(6, 2)
+  ptThreshold1      Decimal  @default(7500) @db.Decimal(12, 2)
+  ptAmount1         Decimal  @default(175) @db.Decimal(12, 2)
+  ptThreshold2      Decimal  @default(10000) @db.Decimal(12, 2)
+  ptAmount2         Decimal  @default(200) @db.Decimal(12, 2)
+  febPtAmount       Decimal  @default(300) @db.Decimal(12, 2)
+  mlwfAmount        Decimal  @default(12) @db.Decimal(12, 2)
+  mlwfMonths        String   @default("02,06")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@map("payroll_config")
 }
 
 model DailyProgress {
-  id             Int                     @id @default(autoincrement())
-  siteId         Int 
-  boqId          Int                   
-  progressDate   DateTime               
-  amount         Decimal                @db.Decimal(12, 2)  @default(0.00)
-  createdById      Int  
-  createdAt            DateTime          @default(now())
-  updatedById      Int  
-  updatedAt            DateTime          @updatedAt
+  id           Int      @id @default(autoincrement())
+  siteId       Int
+  boqId        Int
+  progressDate DateTime
+  amount       Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
 
-  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  boq              Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  createdBy             User     @relation("DailyProgressCreated",fields: [createdById], references: [id], onDelete: Cascade)
-  updatedBy             User     @relation("DailyProgressUpdated",fields: [updatedById], references: [id], onDelete: Cascade)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  boq       Boq  @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  createdBy User @relation("DailyProgressCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  updatedBy User @relation("DailyProgressUpdated", fields: [updatedById], references: [id], onDelete: Cascade)
 
-  dailyProgressHindrances              DailyProgressHindrance[]
-  dailyProgressDetails              DailyProgressDetail[]
+  dailyProgressHindrances DailyProgressHindrance[]
+  dailyProgressDetails    DailyProgressDetail[]
 
   @@index([siteId])
   @@index([boqId])
@@ -1432,18 +1311,18 @@ model DailyProgress {
 }
 
 model DailyProgressDetail {
-  id              Int           @id @default(autoincrement())
-  dailyProgressId Int      
-  boqItemId     Int          
-  clientSerialNo    String?      
-  activityId      String?      
+  id              Int     @id @default(autoincrement())
+  dailyProgressId Int
+  boqItemId       Int
+  clientSerialNo  String?
+  activityId      String?
   particulars     String?
-  doneQty         Decimal       @db.Decimal(12, 2)  @default(0.00)
-  amount          Decimal      @db.Decimal(12, 2)  @default(0.00)
+  doneQty         Decimal @default(0.00) @db.Decimal(12, 2)
+  amount          Decimal @default(0.00) @db.Decimal(12, 2)
 
   // Relations
-  dailyProgress   DailyProgress   @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
-  boqItems        BoqItem   @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
+  boqItems      BoqItem       @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
 
   @@index([dailyProgressId])
   @@index([boqItemId])
@@ -1451,18 +1330,17 @@ model DailyProgressDetail {
 }
 
 model DailyProgressHindrance {
-  id              Int           @id @default(autoincrement())
-  dailyProgressId Int        
+  id              Int       @id @default(autoincrement())
+  dailyProgressId Int
   from            DateTime?
   to              DateTime?
   hrs             Int?
-  location          String? @db.VarChar(500)
-  reason          String? @db.VarChar(500)
+  location        String?   @db.VarChar(500)
+  reason          String?   @db.VarChar(500)
 
   // Relations
-  dailyProgress   DailyProgress   @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
+  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
 
   @@index([dailyProgressId])
-  
   @@map("daily_progress_hindrances")
 }
