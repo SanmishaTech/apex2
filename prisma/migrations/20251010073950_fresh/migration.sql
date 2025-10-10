@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE `User` (
+CREATE TABLE `users` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NULL,
     `email` VARCHAR(191) NOT NULL,
@@ -14,14 +14,14 @@ CREATE TABLE `User` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `User_email_key`(`email`),
-    UNIQUE INDEX `User_verificationToken_key`(`verificationToken`),
-    INDEX `User_role_idx`(`role`),
+    UNIQUE INDEX `users_email_key`(`email`),
+    UNIQUE INDEX `users_verificationToken_key`(`verificationToken`),
+    INDEX `users_role_idx`(`role`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `RefreshToken` (
+CREATE TABLE `refresh_tokens` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `token` VARCHAR(191) NOT NULL,
     `userId` INTEGER NOT NULL,
@@ -30,110 +30,9 @@ CREATE TABLE `RefreshToken` (
     `revokedAt` DATETIME(3) NULL,
     `replacedBy` VARCHAR(191) NULL,
 
-    UNIQUE INDEX `RefreshToken_token_key`(`token`),
-    INDEX `RefreshToken_userId_idx`(`userId`),
-    INDEX `RefreshToken_expiresAt_idx`(`expiresAt`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Project` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(191) NOT NULL,
-    `clientName` VARCHAR(191) NOT NULL,
-    `location` VARCHAR(191) NULL,
-    `description` TEXT NULL,
-    `designImage` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Project_name_idx`(`name`),
-    INDEX `Project_clientName_idx`(`clientName`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `ProjectUser` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `projectId` INTEGER NOT NULL,
-    `userId` INTEGER NOT NULL,
-
-    INDEX `ProjectUser_userId_idx`(`userId`),
-    INDEX `ProjectUser_projectId_idx`(`projectId`),
-    UNIQUE INDEX `ProjectUser_projectId_userId_key`(`projectId`, `userId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `ProjectFile` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `projectId` INTEGER NOT NULL,
-    `uploadedById` INTEGER NULL,
-    `filename` VARCHAR(191) NOT NULL,
-    `originalName` VARCHAR(191) NOT NULL,
-    `title` VARCHAR(191) NOT NULL,
-    `mimeType` VARCHAR(191) NOT NULL,
-    `size` INTEGER NOT NULL,
-    `storageKey` VARCHAR(191) NULL,
-    `url` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-
-    INDEX `ProjectFile_projectId_idx`(`projectId`),
-    INDEX `ProjectFile_uploadedById_idx`(`uploadedById`),
-    INDEX `ProjectFile_mimeType_idx`(`mimeType`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Block` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `projectId` INTEGER NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Block_projectId_idx`(`projectId`),
-    UNIQUE INDEX `Block_projectId_name_key`(`projectId`, `name`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `CrackIdentification` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `projectId` INTEGER NOT NULL,
-    `blockId` INTEGER NOT NULL,
-    `chainageFrom` VARCHAR(191) NULL,
-    `chainageTo` VARCHAR(191) NULL,
-    `rl` DOUBLE NULL,
-    `lengthMm` DOUBLE NULL,
-    `widthMm` DOUBLE NULL,
-    `heightMm` DOUBLE NULL,
-    `defectType` VARCHAR(191) NULL,
-    `videoFileName` VARCHAR(191) NULL,
-    `startTime` CHAR(8) NULL,
-    `endTime` CHAR(8) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `CrackIdentification_projectId_idx`(`projectId`),
-    INDEX `CrackIdentification_blockId_idx`(`blockId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `DesignMap` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `projectId` INTEGER NOT NULL,
-    `crackIdentificationId` INTEGER NOT NULL,
-    `x` DOUBLE NOT NULL,
-    `y` DOUBLE NOT NULL,
-    `width` DOUBLE NOT NULL,
-    `height` DOUBLE NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `DesignMap_crackIdentificationId_key`(`crackIdentificationId`),
-    INDEX `DesignMap_projectId_idx`(`projectId`),
+    UNIQUE INDEX `refresh_tokens_token_key`(`token`),
+    INDEX `refresh_tokens_userId_idx`(`userId`),
+    INDEX `refresh_tokens_expiresAt_idx`(`expiresAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -1142,34 +1041,7 @@ CREATE TABLE `daily_progress_hindrances` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
-ALTER TABLE `RefreshToken` ADD CONSTRAINT `RefreshToken_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ProjectUser` ADD CONSTRAINT `ProjectUser_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ProjectUser` ADD CONSTRAINT `ProjectUser_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ProjectFile` ADD CONSTRAINT `ProjectFile_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ProjectFile` ADD CONSTRAINT `ProjectFile_uploadedById_fkey` FOREIGN KEY (`uploadedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Block` ADD CONSTRAINT `Block_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `CrackIdentification` ADD CONSTRAINT `CrackIdentification_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `CrackIdentification` ADD CONSTRAINT `CrackIdentification_blockId_fkey` FOREIGN KEY (`blockId`) REFERENCES `Block`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `DesignMap` ADD CONSTRAINT `DesignMap_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `Project`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `DesignMap` ADD CONSTRAINT `DesignMap_crackIdentificationId_fkey` FOREIGN KEY (`crackIdentificationId`) REFERENCES `CrackIdentification`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `refresh_tokens` ADD CONSTRAINT `refresh_tokens_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `cities` ADD CONSTRAINT `cities_stateId_fkey` FOREIGN KEY (`stateId`) REFERENCES `states`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1190,7 +1062,7 @@ ALTER TABLE `sites` ADD CONSTRAINT `sites_stateId_fkey` FOREIGN KEY (`stateId`) 
 ALTER TABLE `sites` ADD CONSTRAINT `sites_cityId_fkey` FOREIGN KEY (`cityId`) REFERENCES `cities`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `employees` ADD CONSTRAINT `employees_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `employees` ADD CONSTRAINT `employees_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `employees` ADD CONSTRAINT `employees_departmentId_fkey` FOREIGN KEY (`departmentId`) REFERENCES `departments`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1292,16 +1164,16 @@ ALTER TABLE `cashbook_budget_items` ADD CONSTRAINT `cashbook_budget_items_cashbo
 ALTER TABLE `indents` ADD CONSTRAINT `indents_siteId_fkey` FOREIGN KEY (`siteId`) REFERENCES `sites`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `indents` ADD CONSTRAINT `indents_approved1ById_fkey` FOREIGN KEY (`approved1ById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `indents` ADD CONSTRAINT `indents_approved1ById_fkey` FOREIGN KEY (`approved1ById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `indents` ADD CONSTRAINT `indents_approved2ById_fkey` FOREIGN KEY (`approved2ById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `indents` ADD CONSTRAINT `indents_approved2ById_fkey` FOREIGN KEY (`approved2ById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `indents` ADD CONSTRAINT `indents_completedById_fkey` FOREIGN KEY (`completedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `indents` ADD CONSTRAINT `indents_completedById_fkey` FOREIGN KEY (`completedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `indents` ADD CONSTRAINT `indents_suspendedById_fkey` FOREIGN KEY (`suspendedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `indents` ADD CONSTRAINT `indents_suspendedById_fkey` FOREIGN KEY (`suspendedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `indent_items` ADD CONSTRAINT `indent_items_indentId_fkey` FOREIGN KEY (`indentId`) REFERENCES `indents`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1349,7 +1221,7 @@ ALTER TABLE `asset_transfers` ADD CONSTRAINT `asset_transfers_fromSiteId_fkey` F
 ALTER TABLE `asset_transfers` ADD CONSTRAINT `asset_transfers_toSiteId_fkey` FOREIGN KEY (`toSiteId`) REFERENCES `sites`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `asset_transfers` ADD CONSTRAINT `asset_transfers_approvedById_fkey` FOREIGN KEY (`approvedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `asset_transfers` ADD CONSTRAINT `asset_transfers_approvedById_fkey` FOREIGN KEY (`approvedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `asset_transfer_items` ADD CONSTRAINT `asset_transfer_items_assetTransferId_fkey` FOREIGN KEY (`assetTransferId`) REFERENCES `asset_transfers`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1370,7 +1242,7 @@ ALTER TABLE `manpower_transfers` ADD CONSTRAINT `manpower_transfers_fromSiteId_f
 ALTER TABLE `manpower_transfers` ADD CONSTRAINT `manpower_transfers_toSiteId_fkey` FOREIGN KEY (`toSiteId`) REFERENCES `sites`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `manpower_transfers` ADD CONSTRAINT `manpower_transfers_approvedById_fkey` FOREIGN KEY (`approvedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `manpower_transfers` ADD CONSTRAINT `manpower_transfers_approvedById_fkey` FOREIGN KEY (`approvedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `manpower_transfer_items` ADD CONSTRAINT `manpower_transfer_items_manpowerTransferId_fkey` FOREIGN KEY (`manpowerTransferId`) REFERENCES `manpower_transfers`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1394,10 +1266,10 @@ ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_siteId_fkey` FOR
 ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_boqId_fkey` FOREIGN KEY (`boqId`) REFERENCES `boqs`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_updatedById_fkey` FOREIGN KEY (`updatedById`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `daily_progresses` ADD CONSTRAINT `daily_progresses_updatedById_fkey` FOREIGN KEY (`updatedById`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `daily_progress_details` ADD CONSTRAINT `daily_progress_details_dailyProgressId_fkey` FOREIGN KEY (`dailyProgressId`) REFERENCES `daily_progresses`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
