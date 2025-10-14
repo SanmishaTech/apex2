@@ -56,6 +56,10 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
+    const fromDate = searchParams.get("fromDate")?.trim() || "";
+    const toDate = searchParams.get("toDate")?.trim() || "";
+    const sort = searchParams.get("sort") || "srNo";
+    const order = searchParams.get("order") === "desc" ? "desc" : "asc";
 
     const where: any = {};
     if (search) {
@@ -69,11 +73,24 @@ export async function GET(req: NextRequest) {
         { rentType: { rentType: { contains: search } } },
       ];
     }
+    
+    // Date range filtering
+    if (fromDate) {
+      where.dueDate = { ...where.dueDate, gte: new Date(fromDate) };
+    }
+    if (toDate) {
+      where.dueDate = { ...where.dueDate, lte: new Date(toDate) };
+    }
 
     const result = await paginate({
       model: prisma.rent,
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: sort === 'srNo' ? [
+        { fromDate: order },
+        { toDate: order },
+        { srNo: order },
+        { id: order }
+      ] : { [sort]: order },
       page,
       perPage,
       select: {
@@ -94,6 +111,10 @@ export async function GET(req: NextRequest) {
         description: true,
         depositAmount: true,
         rentAmount: true,
+        srNo: true,
+        listStatus: true,
+        dueDate: true,
+        status: true,
         bank: true,
         branch: true,
         accountNo: true,
@@ -131,7 +152,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Create new rent
+// POST - Create new rent with monthly record generation
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -141,51 +162,137 @@ export async function POST(req: NextRequest) {
     const body = normalizeRentPayload(raw);
     const validatedData = createRentSchema.parse(body);
     
-    // Convert date strings to Date objects if provided and not empty
-    const rentData: any = { ...validatedData };
-    if (rentData.fromDate && rentData.fromDate.trim() !== '') {
-      rentData.fromDate = new Date(rentData.fromDate);
-    } else {
-      delete rentData.fromDate; // Remove empty date fields
-    }
-    if (rentData.toDate && rentData.toDate.trim() !== '') {
-      rentData.toDate = new Date(rentData.toDate);
-    } else {
-      delete rentData.toDate; // Remove empty date fields
-    }
-    
-    const created = await prisma.rent.create({
-      data: rentData,
-      select: {
-        id: true,
-        siteId: true,
-        site: { select: { id: true, site: true } },
-        boqId: true,
-        boq: { select: { id: true, boqNo: true } },
-        rentalCategoryId: true,
-        rentalCategory: { select: { id: true, rentalCategory: true } },
-        rentTypeId: true,
-        rentType: { select: { id: true, rentType: true } },
-        owner: true,
-        pancardNo: true,
-        rentDay: true,
-        fromDate: true,
-        toDate: true,
-        description: true,
-        depositAmount: true,
-        rentAmount: true,
-        bank: true,
-        branch: true,
-        accountNo: true,
-        accountName: true,
-        ifscCode: true,
-        momCopyUrl: true,
-        createdAt: true,
-        updatedAt: true,
+    // If both fromDate and toDate are provided, generate monthly records
+    if (validatedData.fromDate && validatedData.toDate && validatedData.rentDay) {
+      const fromDate = new Date(validatedData.fromDate);
+      const toDate = new Date(validatedData.toDate);
+      const rentDay = parseInt(validatedData.rentDay);
+      
+      // Calculate the first due date
+      let dueDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), rentDay);
+      
+      // If the due date is before the from date, move to next month
+      if (dueDate < fromDate) {
+        dueDate.setMonth(dueDate.getMonth() + 1);
       }
-    });
-    
-    return Success(created, 201);
+      
+      const createdRents = [];
+      let srNo = 1;
+      
+      // Generate monthly records
+      while (dueDate <= toDate) {
+        const rentData: any = { 
+          ...validatedData,
+          fromDate,
+          toDate,
+          srNo,
+          dueDate,
+          status: 'Unpaid',
+          listStatus: null
+        };
+        
+        // Mark first record
+        if (srNo === 1) {
+          rentData.listStatus = 'First';
+        }
+        
+        // Check if this is the last record
+        const nextDueDate = new Date(dueDate);
+        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+        if (nextDueDate > toDate) {
+          rentData.listStatus = 'Last';
+        }
+        
+        const created = await prisma.rent.create({
+          data: rentData,
+          select: {
+            id: true,
+            siteId: true,
+            site: { select: { id: true, site: true } },
+            boqId: true,
+            boq: { select: { id: true, boqNo: true } },
+            rentalCategoryId: true,
+            rentalCategory: { select: { id: true, rentalCategory: true } },
+            rentTypeId: true,
+            rentType: { select: { id: true, rentType: true } },
+            owner: true,
+            pancardNo: true,
+            rentDay: true,
+            fromDate: true,
+            toDate: true,
+            description: true,
+            depositAmount: true,
+            rentAmount: true,
+            srNo: true,
+            listStatus: true,
+            dueDate: true,
+            status: true,
+            bank: true,
+            branch: true,
+            accountNo: true,
+            accountName: true,
+            ifscCode: true,
+            momCopyUrl: true,
+            createdAt: true,
+            updatedAt: true,
+          }
+        });
+        
+        createdRents.push(created);
+        
+        // Move to next month
+        dueDate.setMonth(dueDate.getMonth() + 1);
+        srNo++;
+      }
+      
+      return Success({ message: `Created ${createdRents.length} monthly rent records`, data: createdRents }, 201);
+    } else {
+      // Single record creation (backward compatibility)
+      const rentData: any = { ...validatedData };
+      if (rentData.fromDate && rentData.fromDate.trim() !== '') {
+        rentData.fromDate = new Date(rentData.fromDate);
+      } else {
+        delete rentData.fromDate;
+      }
+      if (rentData.toDate && rentData.toDate.trim() !== '') {
+        rentData.toDate = new Date(rentData.toDate);
+      } else {
+        delete rentData.toDate;
+      }
+      
+      const created = await prisma.rent.create({
+        data: rentData,
+        select: {
+          id: true,
+          siteId: true,
+          site: { select: { id: true, site: true } },
+          boqId: true,
+          boq: { select: { id: true, boqNo: true } },
+          rentalCategoryId: true,
+          rentalCategory: { select: { id: true, rentalCategory: true } },
+          rentTypeId: true,
+          rentType: { select: { id: true, rentType: true } },
+          owner: true,
+          pancardNo: true,
+          rentDay: true,
+          fromDate: true,
+          toDate: true,
+          description: true,
+          depositAmount: true,
+          rentAmount: true,
+          bank: true,
+          branch: true,
+          accountNo: true,
+          accountName: true,
+          ifscCode: true,
+          momCopyUrl: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+      
+      return Success(created, 201);
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);

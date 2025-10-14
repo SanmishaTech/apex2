@@ -125,7 +125,13 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
         ? await apiPost('/api/rents', cleanData)
         : await apiPatch(`/api/rents/${initial?.id}`, cleanData);
       
-      toast.success(`Rent ${mode === 'create' ? 'created' : 'updated'} successfully`);
+      // Handle response for multiple records creation
+      if (mode === 'create' && result.message && result.data) {
+        toast.success(result.message);
+      } else {
+        toast.success(`Rent ${mode === 'create' ? 'created' : 'updated'} successfully`);
+      }
+      
       if (onSuccess) onSuccess(result);
       else backWithScrollRestore();
     } catch (error) {
