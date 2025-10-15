@@ -27,6 +27,7 @@ export type DataTableProps<T extends object> = {
 	sort?: SortState;
 	onSortChange?: (next: SortState) => void;
 	getRowKey?: (row: T, index: number) => string | number;
+	getRowClassName?: (row: T, index: number) => string;
 	renderRowActions?: (row: T) => React.ReactNode;
 	actionsHeader?: React.ReactNode;
 	className?: string;
@@ -52,6 +53,7 @@ export function DataTable<T extends object>({
 	sort,
 	onSortChange,
 	getRowKey,
+	getRowClassName,
 	renderRowActions,
 	actionsHeader = 'Actions',
 	className,
@@ -282,17 +284,18 @@ export function DataTable<T extends object>({
 								</tr>
 							)}
 
-							{!loading &&
-								data.map((row, i) => (
-									<tr
-										key={rowKey(row, i)}
-										className={cn(
-											simpleStyle
-												? 'transition-colors hover:bg-muted/30'
-												: 'border-t transition-colors hover:bg-muted/40',
-											!noStriping && !simpleStyle && i % 2 === 1 && 'bg-muted/20 dark:bg-muted/10'
-										)}
-									>
+						{!loading &&
+							data.map((row, i) => (
+								<tr
+									key={rowKey(row, i)}
+									className={cn(
+										simpleStyle
+											? 'transition-colors hover:bg-muted/30'
+											: 'border-t transition-colors hover:bg-muted/40',
+										!noStriping && !simpleStyle && i % 2 === 1 && 'bg-muted/20 dark:bg-muted/10',
+										getRowClassName?.(row, i)
+									)}
+								>
 										{columns.map((col, cIdx) => (
 											<td
 												key={col.key}

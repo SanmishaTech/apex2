@@ -35,6 +35,7 @@ const createRentSchema = z.object({
   rentDay: z.string().optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),
+  dueDate: z.string().optional(),
   description: z.string().optional(),
   depositAmount: z.number().optional(),
   rentAmount: z.number().optional(),
@@ -85,12 +86,12 @@ export async function GET(req: NextRequest) {
     const result = await paginate({
       model: prisma.rent,
       where,
-      orderBy: sort === 'srNo' ? [
+      orderBy: (sort === 'srNo' ? [
         { fromDate: order },
         { toDate: order },
         { srNo: order },
         { id: order }
-      ] : { [sort]: order },
+      ] : { [sort]: order }) as any,
       page,
       perPage,
       select: {
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
         dueDate.setMonth(dueDate.getMonth() + 1);
       }
       
-      const createdRents = [];
+      const createdRents: any[] = [];
       let srNo = 1;
       
       // Generate monthly records

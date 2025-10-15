@@ -149,7 +149,7 @@ export default function ViewRentPage() {
             <h3 className="text-lg font-semibold mb-3">Attached MOM Copy</h3>
             {rent.momCopyUrl ? (
               <a
-                href={rent.momCopyUrl}
+                href={`/api/documents/${rent.momCopyUrl}`}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline inline-flex items-center gap-2'
