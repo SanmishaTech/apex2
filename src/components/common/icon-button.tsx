@@ -87,4 +87,17 @@ export function OpenIconButton(props: Omit<IconButtonProps, 'iconName' | 'toolti
   );
 }
 
+// Pre-configured view button
+export function ViewButton(props: Omit<IconButtonProps, 'iconName' | 'tooltip'> & { tooltip?: string }) {
+  return (
+    <IconButton
+      iconName="Eye"
+      tooltip={props.tooltip || 'View'}
+      variant={props.variant || 'ghost'}
+      size={props.size || 'sm'}
+      {...props}
+    />
+  );
+}
+
 export default IconButton;

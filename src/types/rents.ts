@@ -28,6 +28,13 @@ export interface Rent {
   description?: string;
   depositAmount?: number;
   rentAmount?: number;
+  
+  // Monthly Tracking Fields
+  srNo?: number;
+  listStatus?: 'First' | 'Last' | null;
+  dueDate?: string;
+  status?: 'Paid' | 'Unpaid';
+  
   bank?: string;
   branch?: string;
   accountNo?: string;

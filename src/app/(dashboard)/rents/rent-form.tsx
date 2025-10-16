@@ -17,6 +17,8 @@ import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { formatDateForInput } from '@/lib/locales';
 import useSWR from 'swr';
 import { RENT_DAY_OPTIONS } from '@/types/rents';
+import { UploadInput } from '@/components/common/upload-input';
+import { documentUploadConfig, uploadFile } from '@/lib/upload-config';
 
 interface SitesResponse {
   data: Array<{ id: number; site: string }>;
@@ -44,19 +46,63 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   const { backWithScrollRestore } = useScrollRestoration('rents-list');
   const [submitting, setSubmitting] = useState(false);
 
-  const schema = z.object({
-    siteId: z.number().optional().nullable(),
-    boqId: z.number().optional().nullable(),
-    rentalCategoryId: z.number().optional().nullable(),
-    rentTypeId: z.number().optional().nullable(),
-    owner: z.string().optional(),
+  // Different schemas for add vs edit modes
+  const addSchema = z.object({
+    siteId: z.number({ required_error: 'Site is required' }).min(1, 'Site is required'),
+    boqId: z.number({ required_error: 'Bill of Quantity is required' }).min(1, 'Bill of Quantity is required'),
+    rentalCategoryId: z.number({ required_error: 'Rent Category is required' }).min(1, 'Rent Category is required'),
+    rentTypeId: z.number({ required_error: 'Rent Type is required' }).min(1, 'Rent Type is required'),
+    owner: z.string().min(1, 'Owner is required'),
     pancardNo: z.string().optional(),
-    rentDay: z.string().optional(),
-    fromDate: z.string().optional(),
-    toDate: z.string().optional(),
+    rentDay: z.string().min(1, 'Rent Day is required'),
+    fromDate: z.string().min(1, 'From Date is required'),
+    toDate: z.string().min(1, 'To Date is required'),
     description: z.string().optional(),
-    depositAmount: z.preprocess((val) => (val === '' || val == null ? null : Number(val)), z.number().min(0).nullable().optional()),
-    rentAmount: z.preprocess((val) => (val === '' || val == null ? null : Number(val)), z.number().min(0).nullable().optional()),
+    depositAmount: z.preprocess(
+      (val) => {
+        if (val === '' || val == null) return undefined;
+        return Number(val);
+      },
+      z.number({ required_error: 'Deposit Amount is required' }).min(0, 'Deposit Amount must be 0 or greater')
+    ),
+    rentAmount: z.preprocess(
+      (val) => {
+        if (val === '' || val == null) return undefined;
+        return Number(val);
+      },
+      z.number({ required_error: 'Rent Amount is required' }).min(0, 'Rent Amount must be 0 or greater')
+    ),
+    bank: z.string().optional(),
+    branch: z.string().optional(),
+    accountNo: z.string().optional(),
+    accountName: z.string().optional(),
+    ifscCode: z.string().optional(),
+    momCopy: z.instanceof(File).optional(),
+  });
+
+  const editSchema = z.object({
+    siteId: z.number({ required_error: 'Site is required' }).min(1, 'Site is required'),
+    boqId: z.number({ required_error: 'Bill of Quantity is required' }).min(1, 'Bill of Quantity is required'),
+    rentalCategoryId: z.number({ required_error: 'Rent Category is required' }).min(1, 'Rent Category is required'),
+    rentTypeId: z.number({ required_error: 'Rent Type is required' }).min(1, 'Rent Type is required'),
+    owner: z.string().min(1, 'Owner is required'),
+    pancardNo: z.string().optional(),
+    dueDate: z.string().min(1, 'Due Date is required'),
+    description: z.string().optional(),
+    depositAmount: z.preprocess(
+      (val) => {
+        if (val === '' || val == null) return undefined;
+        return Number(val);
+      },
+      z.number({ required_error: 'Deposit Amount is required' }).min(0, 'Deposit Amount must be 0 or greater')
+    ),
+    rentAmount: z.preprocess(
+      (val) => {
+        if (val === '' || val == null) return undefined;
+        return Number(val);
+      },
+      z.number({ required_error: 'Rent Amount is required' }).min(0, 'Rent Amount must be 0 or greater')
+    ),
     bank: z.string().optional(),
     branch: z.string().optional(),
     accountNo: z.string().optional(),
@@ -64,18 +110,17 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
     ifscCode: z.string().optional(),
   });
 
-  const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
+  const schema = mode === 'create' ? addSchema : editSchema;
+
+  // Different default values for add vs edit modes
+  const getDefaultValues = () => {
+    const baseDefaults = {
       siteId: initial?.siteId ?? null,
       boqId: initial?.boqId ?? null,
       rentalCategoryId: initial?.rentalCategoryId ?? null,
       rentTypeId: initial?.rentTypeId ?? null,
       owner: initial?.owner ?? '',
       pancardNo: initial?.pancardNo ?? '',
-      rentDay: initial?.rentDay ?? '',
-      fromDate: initial?.fromDate ? formatDateForInput(new Date(initial.fromDate)) : '',
-      toDate: initial?.toDate ? formatDateForInput(new Date(initial.toDate)) : '',
       description: initial?.description ?? '',
       depositAmount: initial?.depositAmount ?? '',
       rentAmount: initial?.rentAmount ?? '',
@@ -84,7 +129,27 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
       accountNo: initial?.accountNo ?? '',
       accountName: initial?.accountName ?? '',
       ifscCode: initial?.ifscCode ?? '',
-    },
+    };
+
+    if (mode === 'create') {
+      return {
+        ...baseDefaults,
+        momCopy: null,
+        rentDay: initial?.rentDay ?? '',
+        fromDate: initial?.fromDate ? formatDateForInput(new Date(initial.fromDate)) : '',
+        toDate: initial?.toDate ? formatDateForInput(new Date(initial.toDate)) : '',
+      };
+    } else {
+      return {
+        ...baseDefaults,
+        dueDate: initial?.dueDate ? formatDateForInput(new Date(initial.dueDate)) : '',
+      };
+    }
+  };
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: getDefaultValues() as any,
   });
 
   const { control, handleSubmit, watch, setValue } = form;
@@ -99,6 +164,18 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   async function onSubmit(data: any) {
     setSubmitting(true);
     try {
+      // Handle file upload only in create mode
+      let momCopyUrl = initial?.momCopyUrl || null;
+      if (mode === 'create' && data.momCopy && data.momCopy instanceof File) {
+        const uploadResult = await uploadFile(data.momCopy, 'document', 'rent-mom');
+        if (uploadResult.success) {
+          momCopyUrl = uploadResult.filename;
+        } else {
+          toast.error(uploadResult.error || 'Failed to upload file');
+          return;
+        }
+      }
+
       // Clean up the data before sending to API
       const cleanData = {
         ...data,
@@ -110,22 +187,34 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
         // Clean up empty strings
         owner: data.owner?.trim() || undefined,
         pancardNo: data.pancardNo?.trim() || undefined,
-        rentDay: data.rentDay || undefined,
-        fromDate: data.fromDate?.trim() || undefined,
-        toDate: data.toDate?.trim() || undefined,
+        ...(mode === 'create' ? {
+          rentDay: data.rentDay || undefined,
+          fromDate: data.fromDate?.trim() || undefined,
+          toDate: data.toDate?.trim() || undefined,
+        } : {
+          dueDate: data.dueDate?.trim() || undefined,
+        }),
         description: data.description?.trim() || undefined,
         bank: data.bank?.trim() || undefined,
         branch: data.branch?.trim() || undefined,
         accountNo: data.accountNo?.trim() || undefined,
         accountName: data.accountName?.trim() || undefined,
         ifscCode: data.ifscCode?.trim() || undefined,
+        // Only include momCopyUrl in create mode
+        ...(mode === 'create' ? { momCopyUrl } : {}),
       };
 
       const result = mode === 'create' 
         ? await apiPost('/api/rents', cleanData)
         : await apiPatch(`/api/rents/${initial?.id}`, cleanData);
       
-      toast.success(`Rent ${mode === 'create' ? 'created' : 'updated'} successfully`);
+      // Handle response for multiple records creation
+      if (mode === 'create' && result && typeof result === 'object' && 'message' in result && 'data' in result) {
+        toast.success(result.message as string);
+      } else {
+        toast.success(`Rent ${mode === 'create' ? 'created' : 'updated'} successfully`);
+      }
+      
       if (onSuccess) onSuccess(result);
       else backWithScrollRestore();
     } catch (error) {
@@ -143,82 +232,28 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
       <AppCard.Content>
         <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <FormSection legend={<span>Basic Details</span>}>
+            <FormSection legend="Basic Details">
               <FormRow cols={2} from="md">
-                <TextInput control={control} name="owner" label="Owner" />
-                <TextInput control={control} name="pancardNo" label="PAN Card No" />
-              </FormRow>
-              <FormRow cols={2} from="md">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Site</label>
-                  <AppSelect
-                    value={watch('siteId') ? String(watch('siteId')) : ''}
-                    onValueChange={(v) => setValue('siteId', v ? parseInt(v) : null)}
-                  >
-                    {sitesData?.data?.map((s: any) => (
-                      <AppSelect.Item key={s.id} value={String(s.id)}>{s.site}</AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Bill Of Quantity</label>
-                  <AppSelect
-                    value={watch('boqId') ? String(watch('boqId')) : ''}
-                    onValueChange={(v) => setValue('boqId', v ? parseInt(v) : null)}
-                    disabled={!selectedSiteId}
-                  >
-                    {boqsData?.data?.filter((b: any) => !selectedSiteId || b.siteId === selectedSiteId).map((b: any) => (
-                      <AppSelect.Item key={b.id} value={String(b.id)}>
-                        {b.boqNo}{b.workName ? ` - ${b.workName}` : ''}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-              </FormRow>
-              <FormRow cols={2} from="md">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rent Category</label>
-                  <AppSelect
-                    value={watch('rentalCategoryId') ? String(watch('rentalCategoryId')) : ''}
-                    onValueChange={(v) => setValue('rentalCategoryId', v ? parseInt(v) : null)}
-                  >
-                    {categoriesData?.data?.map((c: any) => (
-                      <AppSelect.Item key={c.id} value={String(c.id)}>{c.rentalCategory}</AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rent Type</label>
-                  <AppSelect
-                    value={watch('rentTypeId') ? String(watch('rentTypeId')) : ''}
-                    onValueChange={(v) => setValue('rentTypeId', v ? parseInt(v) : null)}
-                  >
-                    {typesData?.data?.map((t: any) => (
-                      <AppSelect.Item key={t.id} value={String(t.id)}>{t.rentType}</AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-              </FormRow>
-              <FormRow cols={2} from="md">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rent Day</label>
-                  <AppSelect value={watch('rentDay')} onValueChange={(v) => setValue('rentDay', v)}>
-                    {RENT_DAY_OPTIONS.map((opt) => (
-                      <AppSelect.Item key={opt.value} value={opt.value}>{opt.label}</AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-                <TextInput control={control} name="description" label="Description" />
+                <TextInput control={control} name="owner" label="Owner" required placeholder="Enter owner name" />
+                <TextInput control={control} name="pancardNo" label="PAN Card No" placeholder="Enter PAN card number" />
               </FormRow>
               <FormRow cols={2} from="md">
                 <FormField
                   control={control}
-                  name="fromDate"
-                  render={({ field }) => (
+                  name="siteId"
+                  render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>From Date</FormLabel>
+                      <FormLabel>Site <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" />
+                        <AppSelect
+                          value={field.value ? String(field.value) : ''}
+                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          placeholder="Select a site"
+                        >
+                          {sitesData?.data?.map((s: any) => (
+                            <AppSelect.Item key={s.id} value={String(s.id)}>{s.site}</AppSelect.Item>
+                          ))}
+                        </AppSelect>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -226,38 +261,183 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                 />
                 <FormField
                   control={control}
-                  name="toDate"
-                  render={({ field }) => (
+                  name="boqId"
+                  render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>To Date</FormLabel>
+                      <FormLabel>Bill Of Quantity <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" />
+                        <AppSelect
+                          value={field.value ? String(field.value) : ''}
+                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          disabled={!selectedSiteId}
+                          placeholder="Select BOQ"
+                        >
+                          {boqsData?.data?.filter((b: any) => !selectedSiteId || b.siteId === selectedSiteId).map((b: any) => (
+                            <AppSelect.Item key={b.id} value={String(b.id)}>
+                              {b.boqNo}{b.workName ? ` - ${b.workName}` : ''}
+                            </AppSelect.Item>
+                          ))}
+                        </AppSelect>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={control}
+                  name="rentalCategoryId"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <FormLabel>Rent Category <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <AppSelect
+                          value={field.value ? String(field.value) : ''}
+                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          placeholder="Select rent category"
+                        >
+                          {categoriesData?.data?.map((c: any) => (
+                            <AppSelect.Item key={c.id} value={String(c.id)}>{c.rentalCategory}</AppSelect.Item>
+                          ))}
+                        </AppSelect>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={control}
+                  name="rentTypeId"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <FormLabel>Rent Type <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <AppSelect
+                          value={field.value ? String(field.value) : ''}
+                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          placeholder="Select rent type"
+                        >
+                          {typesData?.data?.map((t: any) => (
+                            <AppSelect.Item key={t.id} value={String(t.id)}>{t.rentType}</AppSelect.Item>
+                          ))}
+                        </AppSelect>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </FormRow>
-              <FormRow cols={2} from="md">
-                <TextInput control={control} name="depositAmount" label="Deposit Amount" type="number" />
-                <TextInput control={control} name="rentAmount" label="Rent Amount" type="number" />
+              {mode === 'create' ? (
+                // Add Mode: Show rentDay, fromDate, toDate
+                <>
+                  <FormRow cols={3} from="md">
+                    <FormField
+                      control={control}
+                      name="rentDay"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>Rent Day <span className="text-red-500">*</span></FormLabel>
+                          <FormControl>
+                            <AppSelect
+                              value={field.value || ''}
+                              onValueChange={field.onChange}
+                              placeholder="Select rent day"
+                            >
+                              {RENT_DAY_OPTIONS.map((option) => (
+                                <AppSelect.Item key={option.value} value={option.value}>
+                                  {option.label}
+                                </AppSelect.Item>
+                              ))}
+                            </AppSelect>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={control}
+                      name="fromDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>From Date <span className="text-red-500">*</span></FormLabel>
+                          <FormControl>
+                            <Input {...field} type="date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={control}
+                      name="toDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>To Date <span className="text-red-500">*</span></FormLabel>
+                          <FormControl>
+                            <Input {...field} type="date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </FormRow>
+                  <FormRow cols={2} from="md">
+                    <TextInput control={control} name="depositAmount" label="Deposit Amount" required type="number" placeholder="Enter deposit amount" />
+                    <TextInput control={control} name="rentAmount" label="Rent Amount" required type="number" placeholder="Enter rent amount" />
+                  </FormRow>
+                </>
+              ) : (
+                // Edit Mode: Show dueDate, deposit and rent amounts
+                <>
+                  <FormRow cols={3} from="md">
+                    <TextInput control={control} name="depositAmount" label="Deposit Amount" required type="number" placeholder="Enter deposit amount" />
+                    <TextInput control={control} name="rentAmount" label="Rent Amount" required type="number" placeholder="Enter rent amount" />
+                    <FormField
+                      control={control}
+                      name="dueDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Due Date <span className="text-red-500">*</span></FormLabel>
+                          <FormControl>
+                            <Input {...field} type="date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </FormRow>
+                </>
+              )}
+              <FormRow cols={1} from="md">
+                <TextInput control={control} name="description" label="Description" placeholder="Enter description" />
               </FormRow>
             </FormSection>
 
-            <FormSection legend={<span>Bank Details</span>}>
-              <FormRow cols={2} from="md">
-                <TextInput control={control} name="bank" label="Bank" />
-                <TextInput control={control} name="branch" label="Branch" />
-              </FormRow>
-              <FormRow cols={2} from="md">
-                <TextInput control={control} name="accountNo" label="Account No" />
-                <TextInput control={control} name="accountName" label="Account Name" />
-              </FormRow>
-              <FormRow cols={2} from="md">
-                <TextInput control={control} name="ifscCode" label="IFSC Code" />
-                <div></div>
+            <FormSection legend="Bank Details">
+              <FormRow cols={5} from="md">
+                <TextInput control={control} name="bank" label="Bank" placeholder="Enter bank name" />
+                <TextInput control={control} name="branch" label="Branch" placeholder="Enter branch name" />
+                <TextInput control={control} name="accountNo" label="Account No" placeholder="Enter account number" />
+                <TextInput control={control} name="accountName" label="Account Name" placeholder="Enter account holder name" />
+                <TextInput control={control} name="ifscCode" label="IFSC Code" placeholder="Enter IFSC code" />
               </FormRow>
             </FormSection>
+
+            {mode === 'create' && (
+              <FormSection legend="File Upload">
+                <FormRow cols={1} from="md">
+                  <UploadInput
+                    control={control}
+                    name="momCopy"
+                    label="MOM Copy"
+                    description="Upload Minutes of Meeting copy (PDF, DOC, etc.)"
+                    accept=".pdf,.doc,.docx,.txt"
+                    maxSizeBytes={documentUploadConfig.maxSize}
+                    existingUrl={initial?.momCopyUrl ? `/api/documents/${initial.momCopyUrl}` : null}
+                    showPreview={false}
+                  />
+                </FormRow>
+              </FormSection>
+            )}
 
             <div className="flex gap-2 justify-end">
               <AppButton 

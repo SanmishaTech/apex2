@@ -1,46 +1,21 @@
+// Server-only file for file system operations
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import type { UploadConfig, UploadResult } from './upload-config';
+import { 
+  imageUploadConfig, 
+  documentUploadConfig, 
+  profileImageConfig 
+} from './upload-config';
 
-export interface UploadConfig {
-  allowedTypes: string[];
-  maxSize: number;
-  uploadDir: string;
-}
-
-export interface UploadResult {
-  success: boolean;
-  filename?: string;
-  publicUrl?: string;
-  error?: string;
-}
-
-// Default configurations for different file types
-export const imageUploadConfig: UploadConfig = {
-  allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-  maxSize: 10 * 1024 * 1024, // 10MB
-  uploadDir: 'uploads/images',
-};
-
-export const documentUploadConfig: UploadConfig = {
-  allowedTypes: [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'text/csv',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ],
-  maxSize: 20 * 1024 * 1024, // 20MB
-  uploadDir: 'uploads/documents',
-};
-
-export const profileImageConfig: UploadConfig = {
-  allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-  maxSize: 5 * 1024 * 1024, // 5MB
-  uploadDir: 'uploads/profiles',
+// Re-export types and configs from client-safe module
+export type { UploadConfig, UploadResult };
+export { 
+  imageUploadConfig, 
+  documentUploadConfig, 
+  profileImageConfig 
 };
 
 /**

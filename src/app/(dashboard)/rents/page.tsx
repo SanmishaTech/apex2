@@ -17,10 +17,11 @@ import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { useSearchParams } from 'next/navigation';
-import { EditButton } from '@/components/common/icon-button';
+import { EditButton, ViewButton } from '@/components/common/icon-button';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import type { Rent, RentsResponse } from '@/types/rents';
 import type { SitesResponse } from '@/types/sites';
+import Link from 'next/link';
 
 export default function RentsPage() {
 	const searchParams = useSearchParams();
@@ -32,22 +33,48 @@ export default function RentsPage() {
 		perPage: 10,
 		search: '',
 		site: '',
-		sort: 'createdAt',
-		order: 'desc',
+		fromDate: '',
+		toDate: '',
+		sort: 'srNo',
+		order: 'asc',
 	});
-	const { page, perPage, search, site, sort, order } =
+	const { page, perPage, search, site, fromDate, toDate, sort, order } =
 		qp as unknown as {
 			page: number;
 			perPage: number;
 			search: string;
 			site: string;
+			fromDate: string;
+			toDate: string;
 			sort: string;
 			order: 'asc' | 'desc';
 		};
 
+	// Get highlight parameter from URL
+	const highlightId = searchParams?.get('highlight');
+	const [highlightedRow, setHighlightedRow] = useState<string | null>(null);
+
+	// Handle highlight on mount and clear after 3 seconds
+	useEffect(() => {
+		if (highlightId) {
+			setHighlightedRow(highlightId);
+			// Remove highlight after 3 seconds
+			const timer = setTimeout(() => {
+				setHighlightedRow(null);
+				// Remove highlight parameter from URL
+				const newUrl = new URL(window.location.href);
+				newUrl.searchParams.delete('highlight');
+				window.history.replaceState({}, '', newUrl.toString());
+			}, 3000);
+			return () => clearTimeout(timer);
+		}
+	}, [highlightId]);
+
 	// Local filter draft state (only applied when clicking Filter)
 	const [searchDraft, setSearchDraft] = useState(search);
 	const [siteDraft, setSiteDraft] = useState(site);
+	const [fromDateDraft, setFromDateDraft] = useState(fromDate);
+	const [toDateDraft, setToDateDraft] = useState(toDate);
 
 	// Sync drafts when query params change externally (e.g., back navigation)
 	useEffect(() => {
@@ -56,22 +83,32 @@ export default function RentsPage() {
 	useEffect(() => {
 		setSiteDraft(site);
 	}, [site]);
+	useEffect(() => {
+		setFromDateDraft(fromDate);
+	}, [fromDate]);
+	useEffect(() => {
+		setToDateDraft(toDate);
+	}, [toDate]);
 
 	const filtersDirty =
-		searchDraft !== search || siteDraft !== site;
+		searchDraft !== search || siteDraft !== site || fromDateDraft !== fromDate || toDateDraft !== toDate;
 
 	function applyFilters() {
 		setQp({
 			page: 1,
 			search: searchDraft.trim(),
 			site: siteDraft,
+			fromDate: fromDateDraft,
+			toDate: toDateDraft,
 		});
 	}
 
 	function resetFilters() {
 		setSearchDraft('');
 		setSiteDraft('');
-		setQp({ page: 1, search: '', site: '' });
+		setFromDateDraft('');
+		setToDateDraft('');
+		setQp({ page: 1, search: '', site: '', fromDate: '', toDate: '' });
 	}
 
 	const query = useMemo(() => {
@@ -80,10 +117,12 @@ export default function RentsPage() {
 		sp.set('perPage', String(perPage));
 		if (search) sp.set('search', search);
 		if (site) sp.set('site', site);
+		if (fromDate) sp.set('fromDate', fromDate);
+		if (toDate) sp.set('toDate', toDate);
 		if (sort) sp.set('sort', sort);
 		if (order) sp.set('order', order);
 		return `/api/rents?${sp.toString()}`;
-	}, [page, perPage, search, site, sort, order]);
+	}, [page, perPage, search, site, fromDate, toDate, sort, order]);
 
 	const { data, error, isLoading, mutate } = useSWR<RentsResponse>(
 		query,
@@ -137,6 +176,27 @@ export default function RentsPage() {
 
 	const columns: Column<Rent>[] = [
 		{
+			key: 'srNo',
+			header: 'Sr No',
+			sortable: true,
+			accessor: (r) => r.srNo || '—',
+			cellClassName: 'text-center',
+		},
+		{
+			key: 'listStatus',
+			header: 'Month Status',
+			sortable: false,
+			accessor: (r) => {
+				if (r.listStatus === 'First') {
+					return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">First</span>;
+				} else if (r.listStatus === 'Last') {
+					return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Last</span>;
+				}
+				return '';
+			},
+			cellClassName: 'text-center',
+		},
+		{
 			key: 'owner',
 			header: 'Owner',
 			sortable: true,
@@ -151,6 +211,20 @@ export default function RentsPage() {
 			cellClassName: 'whitespace-nowrap',
 		},
 		{
+			key: 'boq',
+			header: 'Boq No',
+			sortable: false,
+			accessor: (r) => r.boq?.boqNo || '—',
+			cellClassName: 'whitespace-nowrap',
+		},
+		{
+			key: 'rentalCategory',
+			header: 'Rent Category',
+			sortable: false,
+			accessor: (r) => r.rentalCategory?.rentalCategory || '—',
+			cellClassName: 'whitespace-nowrap',
+		},
+		{
 			key: 'rentType',
 			header: 'Rent Type',
 			sortable: false,
@@ -158,27 +232,27 @@ export default function RentsPage() {
 			cellClassName: 'whitespace-nowrap',
 		},
 		{
-			key: 'rentalCategory',
-			header: 'Category',
+			key: 'description',
+			header: 'Description',
 			sortable: false,
-			accessor: (r) => r.rentalCategory?.rentalCategory || '—',
-			cellClassName: 'whitespace-nowrap',
+			accessor: (r) => r.description || '—',
+			cellClassName: 'max-w-xs truncate',
 		},
 		{
-			key: 'fromDate',
-			header: 'From Date',
+			key: 'dueDate',
+			header: 'Due Date',
 			sortable: true,
 			className: 'whitespace-nowrap',
 			cellClassName: 'whitespace-nowrap',
-			accessor: (r) => r.fromDate ? formatDate(r.fromDate) : '—',
+			accessor: (r) => r.dueDate ? formatDate(r.dueDate) : '—',
 		},
 		{
-			key: 'toDate',
-			header: 'To Date',
+			key: 'depositAmount',
+			header: 'Deposit Amount',
 			sortable: true,
-			className: 'whitespace-nowrap',
-			cellClassName: 'whitespace-nowrap',
-			accessor: (r) => r.toDate ? formatDate(r.toDate) : '—',
+			className: 'text-right',
+			cellClassName: 'text-right',
+			accessor: (r) => r.depositAmount ? `₹${Number(r.depositAmount).toLocaleString()}` : '—',
 		},
 		{
 			key: 'rentAmount',
@@ -186,15 +260,20 @@ export default function RentsPage() {
 			sortable: true,
 			className: 'text-right',
 			cellClassName: 'text-right',
-			accessor: (r) => r.rentAmount ? `₹${r.rentAmount.toLocaleString()}` : '—',
+			accessor: (r) => r.rentAmount ? `₹${Number(r.rentAmount).toLocaleString()}` : '—',
 		},
 		{
-			key: 'createdAt',
-			header: 'Created',
+			key: 'status',
+			header: 'Status',
 			sortable: true,
-			className: 'whitespace-nowrap',
-			cellClassName: 'text-muted-foreground whitespace-nowrap',
-			accessor: (r) => formatDate(r.createdAt),
+			accessor: (r) => {
+				if (r.status === 'Paid') {
+					return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Paid</span>;
+				} else {
+					return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Unpaid</span>;
+				}
+			},
+			cellClassName: 'text-center',
 		},
 	];
 
@@ -258,6 +337,22 @@ export default function RentsPage() {
 							</AppSelect.Item>
 						))}
 					</AppSelect>
+					<input
+						type="date"
+						aria-label='From Date'
+						placeholder='From Date'
+						value={fromDateDraft}
+						onChange={(e) => setFromDateDraft(e.target.value)}
+						className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+					/>
+					<input
+						type="date"
+						aria-label='To Date'
+						placeholder='To Date'
+						value={toDateDraft}
+						onChange={(e) => setToDateDraft(e.target.value)}
+						className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+					/>
 					<AppButton
 						size='sm'
 						onClick={applyFilters}
@@ -268,7 +363,7 @@ export default function RentsPage() {
 					>
 						Filter
 					</AppButton>
-					{(search || site) && (
+					{(search || site || fromDate || toDate) && (
 						<AppButton
 							variant='secondary'
 							size='sm'
@@ -287,11 +382,24 @@ export default function RentsPage() {
 					sort={sortState}
 					onSortChange={(s) => toggleSort(s.field)}
 					stickyColumns={1}
+					getRowClassName={(rent) => 
+						highlightedRow === String(rent.id) 
+							? 'bg-green-50 dark:bg-green-950 transition-all duration-300 shadow-md border-l-4 border-green-500' 
+							: 'transition-all duration-300'
+					}
 					renderRowActions={(rent) => {
-						if (!can(PERMISSIONS.EDIT_RENTS) && !can(PERMISSIONS.DELETE_RENTS))
+						if (!can(PERMISSIONS.READ_RENTS) && !can(PERMISSIONS.EDIT_RENTS) && !can(PERMISSIONS.DELETE_RENTS))
 							return null;
 						return (
 							<div className='flex gap-2'>
+								{can(PERMISSIONS.READ_RENTS) && (
+									<Link href={`/rents/${rent.id}/view${qs ? `?${qs}` : ''}`}>
+										<ViewButton 
+											tooltip='View Rent' 
+											aria-label='View Rent'
+										/>
+									</Link>
+								)}
 								{can(PERMISSIONS.EDIT_RENTS) && (
 									<EditButton 
 										tooltip='Edit Rent' 

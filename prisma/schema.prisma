@@ -1026,6 +1026,12 @@ model Rent {
   depositAmount    Decimal?        @db.Decimal(12, 2)
   rentAmount       Decimal?        @db.Decimal(12, 2)
 
+  // Monthly Tracking Fields
+  srNo        Int? // Serial number for the month
+  listStatus  String? // 'First', 'Last', or null for middle months
+  dueDate     DateTime? // Actual due date for this month's rent
+  status      String? @default("Unpaid") // 'Paid' or 'Unpaid'
+
   // Bank Details
   bank        String?
   branch      String?
@@ -1047,6 +1053,8 @@ model Rent {
   @@index([fromDate])
   @@index([toDate])
   @@index([owner])
+  @@index([dueDate])
+  @@index([status])
   @@map("rents")
 }
 

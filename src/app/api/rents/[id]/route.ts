@@ -34,6 +34,7 @@ const updateRentSchema = z.object({
   rentDay: z.string().optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),
+  dueDate: z.string().optional(),
   description: z.string().optional(),
   depositAmount: z.number().optional(),
   rentAmount: z.number().optional(),
@@ -75,6 +76,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         description: true,
         depositAmount: true,
         rentAmount: true,
+        srNo: true,
+        listStatus: true,
+        dueDate: true,
+        status: true,
         bank: true,
         branch: true,
         accountNo: true,
@@ -121,6 +126,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } else if (updateData.toDate === '') {
       updateData.toDate = null; // Set to null to clear the date field
     }
+    if (updateData.dueDate && updateData.dueDate.trim() !== '') {
+      updateData.dueDate = new Date(updateData.dueDate);
+    } else if (updateData.dueDate === '') {
+      updateData.dueDate = null; // Set to null to clear the date field
+    }
 
     const updated = await prisma.rent.update({
       where: { id },
@@ -143,6 +153,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         description: true,
         depositAmount: true,
         rentAmount: true,
+        srNo: true,
+        listStatus: true,
+        dueDate: true,
+        status: true,
         bank: true,
         branch: true,
         accountNo: true,

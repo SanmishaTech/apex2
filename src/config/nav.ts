@@ -219,6 +219,19 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Home,
         permission: PERMISSIONS.READ_RENTS,
       },
+      {
+        type: "group",
+        title: "Reports",
+        icon: FileText,
+        children: [
+          {
+            title: "Rent Registration Report",
+            href: "/reports/rent-registration",
+            icon: FileText,
+            permission: PERMISSIONS.READ_RENTS,
+          },
+        ],
+      },
     ],
   },
 

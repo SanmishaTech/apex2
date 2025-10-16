@@ -203,6 +203,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
   // Attendance Reports
   { prefix: '/attendance-reports', permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS] },
+  // Reports
+  { prefix: '/reports/rent-registration', permissions: [PERMISSIONS.READ_RENTS] },
+  { prefix: '/reports/wage-sheet', permissions: [PERMISSIONS.READ_PAYSLIPS] },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -495,6 +498,12 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: '/api/attendance-reports',
     methods: {
       GET: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
+    },
+  },
+  {
+    prefix: '/api/reports/rent-registration',
+    methods: {
+      GET: [PERMISSIONS.READ_RENTS],
     },
   },
   // add more API rules here
