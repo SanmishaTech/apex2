@@ -1,13 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
-import { PERMISSIONS } from "@/config/roles";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export async function GET(req: NextRequest) {
+  const auth = await guardApiAccess(req);
+  if (auth.ok === false) return auth.response;
+
   try {
-    await guardApiAccess(req, [PERMISSIONS.READ_RENTS]);
 
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get("fromDate");
@@ -159,7 +160,6 @@ export async function GET(req: NextRequest) {
         head: [["Owner", "Rent Category", "Rent Type", "Description", "Due Date", "Status", "Deposit Amount", "Rent Amount"]],
         body: tableData,
         startY: startY,
-        theme: "grid",
         styles: { fontSize: 9, cellPadding: 2 },
         headStyles: { fillColor: [200, 200, 200], textColor: 0 },
         columnStyles: {

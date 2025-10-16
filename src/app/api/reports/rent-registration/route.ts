@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
-import { PERMISSIONS } from "@/config/roles";
 
 export async function GET(req: NextRequest) {
+  const auth = await guardApiAccess(req);
+  if (auth.ok === false) return auth.response;
+
   try {
-    await guardApiAccess(req, [PERMISSIONS.READ_RENTS]);
 
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get("fromDate");
