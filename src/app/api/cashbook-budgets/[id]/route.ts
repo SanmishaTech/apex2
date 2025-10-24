@@ -29,6 +29,18 @@ export async function GET(
         },
         site: {
           select: { id: true, site: true }
+        },
+        boq: {
+          select: { id: true, boqNo: true }
+        },
+        approvedBy_user: {
+          select: { id: true, name: true, email: true }
+        },
+        approved1By_user: {
+          select: { id: true, name: true, email: true }
+        },
+        acceptedBy_user: {
+          select: { id: true, name: true, email: true }
         }
       }
     });

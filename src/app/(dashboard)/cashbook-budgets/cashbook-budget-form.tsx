@@ -24,7 +24,7 @@ export interface CashbookBudgetFormInitialData {
 	name?: string;
 	month?: string;
 	siteId?: number;
-	boqName?: string;
+	boqId?: number | null;
 	attachCopyUrl?: string;
 	approved1Remarks?: string;
 	remarksForFinalApproval?: string;
@@ -52,6 +52,10 @@ type CashbookHeadsResponse = {
 	data: Array<{ id: number; cashbookHeadName: string }>;
 };
 
+type BoqsResponse = {
+	data: Array<{ id: number; boqNo: string | null }>;
+};
+
 const budgetItemSchema = z.object({
 	cashbookHeadId: z.string().min(1, 'Cashbook head is required'),
 	description: z.string().optional(),
@@ -65,7 +69,7 @@ const schema = z.object({
 	name: z.string().min(1, 'Budget name is required').max(255, 'Budget name is too long'),
 	month: z.string().min(1, 'Month is required'),
 	siteId: z.string().min(1, 'Site is required'),
-	boqName: z.string().optional(),
+	boqId: z.string().optional(),
 	attachCopyUrl: z.string().optional(),
 	approved1Remarks: z.string().optional(),
 	remarksForFinalApproval: z.string().optional(),
@@ -91,6 +95,7 @@ export function CashbookBudgetForm({
 
 	// Fetch dropdown data
 	const { data: sitesData } = useSWR<SitesResponse>('/api/sites?perPage=100', apiGet);
+	const { data: boqsData } = useSWR<BoqsResponse>('/api/boqs?perPage=500', apiGet);
 	const { data: cashbookHeadsData } = useSWR<CashbookHeadsResponse>('/api/cashbook-heads?perPage=100', apiGet);
 
 	const form = useForm<FormValues>({
@@ -100,8 +105,8 @@ export function CashbookBudgetForm({
 		defaultValues: {
 			name: initial?.name || '',
 			month: initial?.month || '',
-			siteId: initial?.siteId ? String(initial.siteId) : '',
-			boqName: initial?.boqName || '',
+      siteId: initial?.siteId ? String(initial.siteId) : '',
+      boqId: initial?.boqId ? String(initial.boqId) : 'none',
 			attachCopyUrl: initial?.attachCopyUrl || '',
 			approved1Remarks: initial?.approved1Remarks || '',
 			remarksForFinalApproval: initial?.remarksForFinalApproval || '',
@@ -121,28 +126,28 @@ export function CashbookBudgetForm({
 	const budgetItemsWatch = watch('budgetItems');
 	const totalBudget = useMemo(() => {
 		return budgetItemsWatch.reduce((sum, item) => {
-			const amount = Number(item.amount);
+			const amount = Number(item.amount || 0);
 			return sum + (isNaN(amount) ? 0 : amount);
 		}, 0);
-	}, [budgetItemsWatch]);
+	}, [budgetItemsWatch.map(item => item.amount).join(',')]); // Trigger recalculation when amounts change
 
-	async function onSubmit(data: FormValues) {
-		setSubmitting(true);
-		try {
-			const payload = {
-				name: data.name.trim(),
-				month: data.month.trim(),
-				siteId: Number(data.siteId),
-				boqName: data.boqName?.trim() || null,
-				attachCopyUrl: data.attachCopyUrl?.trim() || null,
-				approved1Remarks: data.approved1Remarks?.trim() || null,
-				remarksForFinalApproval: data.remarksForFinalApproval?.trim() || null,
-				budgetItems: data.budgetItems.map(item => ({
-					cashbookHeadId: Number(item.cashbookHeadId),
-					description: item.description?.trim() || '',
-					amount: item.amount,
-				})),
-			};
+  async function onSubmit(data: FormValues) {
+    setSubmitting(true);
+    try {
+    const payload = {
+      name: data.name.trim(),
+      month: data.month.trim(),
+      siteId: Number(data.siteId),
+      boqId: (data.boqId && data.boqId !== 'none') ? Number(data.boqId) : null,
+      attachCopyUrl: data.attachCopyUrl?.trim() || null,
+      approved1Remarks: data.approved1Remarks?.trim() || null,
+      remarksForFinalApproval: data.remarksForFinalApproval?.trim() || null,
+      budgetItems: data.budgetItems.map(item => ({
+        cashbookHeadId: Number(item.cashbookHeadId),
+        description: item.description?.trim() || '',
+        amount: item.amount,
+      })),
+    };
 
 			if (isCreate) {
 				const res = await apiPost('/api/cashbook-budgets', payload);
@@ -217,21 +222,28 @@ export function CashbookBudgetForm({
 									))}
 								</AppSelect>
 							</FormRow>
-							<FormRow>
-								<TextInput
-									control={control}
-									name='boqName'
-									label='Bill Of Quantity'
-									placeholder='Enter BOQ name (optional)'
-								/>
-								<TextInput
-									control={control}
-									name='attachCopyUrl'
-									label='Attach Copy'
-									placeholder='Enter file URL (optional)'
-									type='url'
-								/>
-							</FormRow>
+						<FormRow>
+            <AppSelect
+              control={control}
+              name='boqId'
+              label='Bill Of Quantity'
+              placeholder='Select BOQ (optional)'
+            >
+              <AppSelect.Item value="none">None</AppSelect.Item>
+              {boqsData?.data?.map(boq => (
+                <AppSelect.Item key={boq.id} value={String(boq.id)}>
+                  {boq.boqNo || `BOQ ${boq.id}`}
+                </AppSelect.Item>
+              ))}
+            </AppSelect>
+							<TextInput
+								control={control}
+								name='attachCopyUrl'
+								label='Attach Copy'
+								placeholder='Enter file URL (optional)'
+								type='url'
+							/>
+						</FormRow>
 						</FormSection>
 
 						{/* Budget Items Table */}

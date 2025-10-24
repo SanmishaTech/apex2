@@ -237,7 +237,33 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: "group",
-    title: "Purchased",
+    title: "Cashbook",
+    icon: Calculator,
+    children: [
+      {
+        title: "Cashbooks",
+        href: "/cashbooks",
+        icon: FileText,
+        permission: PERMISSIONS.READ_CASHBOOKS,
+      },
+      {
+        title: "Cashbook Heads",
+        href: "/cashbook-heads",
+        icon: Folder,
+        permission: PERMISSIONS.READ_CASHBOOK_HEADS,
+      },
+      {
+        title: "Cashbook Budgets",
+        href: "/cashbook-budgets",
+        icon: Folder,
+        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+      },
+    ],
+  },
+
+  {
+    type: "group",
+    title: "Purchase",
     icon: Briefcase,
     children: [
       {
@@ -322,32 +348,6 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/daily-progresses",
         icon: Folder,
         permission: PERMISSIONS.READ_DAILY_PROGRESSES,
-      },
-    ],
-  },
-
-  {
-    type: "group",
-    title: "Cashbook",
-    icon: Calculator,
-    children: [
-      {
-        title: "Cashbooks",
-        href: "/cashbooks",
-        icon: FileText,
-        permission: PERMISSIONS.READ_CASHBOOKS,
-      },
-      {
-        title: "Cashbook Heads",
-        href: "/cashbook-heads",
-        icon: Folder,
-        permission: PERMISSIONS.READ_CASHBOOK_HEADS,
-      },
-      {
-        title: "Cashbook Budgets",
-        href: "/cashbook-budgets",
-        icon: Folder,
-        permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
       },
     ],
   },

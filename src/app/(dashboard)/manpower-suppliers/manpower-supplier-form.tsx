@@ -52,15 +52,24 @@ export interface ManpowerSupplierFormProps {
 const schema = z.object({
   vendorCode: z.string().optional(),
   supplierName: z.string().min(1, 'Manpower Supplier is required'),
-  contactPerson: z.string().optional(),
+  contactPerson: z.string().min(1, 'Contact Person is required'),
   representativeName: z.string().optional(),
-  localContactNo: z.string().optional(),
-  permanentContactNo: z.string().optional(),
-  address: z.string().optional(),
-  state: z.string().optional(),
-  permanentAddress: z.string().optional(),
-  city: z.string().optional(),
-  pincode: z.string().optional(),
+  localContactNo: z
+    .string()
+    .min(1, 'Local Contact No is required')
+    .regex(/^\d{10}$/, 'Local Contact No must be exactly 10 digits'),
+  permanentContactNo: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || /^\d{10}$/.test(val),
+      { message: 'Permanent Contact No must be exactly 10 digits' }
+    ),
+  address: z.string().min(1, 'Address is required'),
+  state: z.string().min(1, 'State is required'),
+  permanentAddress: z.string().min(1, 'Permanent Address is required'),
+  city: z.string().min(1, 'City is required'),
+  pincode: z.string().min(1, 'Pincode is required'),
   bankName: z.string().optional(),
   accountNo: z.string().optional(),
   ifscNo: z.string().optional(),
@@ -189,20 +198,48 @@ export function ManpowerSupplierForm({
                 <TextInput control={control} name='supplierName' label='Manpower Supplier' placeholder='Supplier name' required itemClassName='col-span-6' />
               </FormRow>
               <FormRow className='grid-cols-12'>
-                <TextInput control={control} name='contactPerson' label='Contact Person' placeholder='Contact person' itemClassName='col-span-6' />
+                <TextInput control={control} name='contactPerson' label='Contact Person' placeholder='Contact person' required itemClassName='col-span-6' />
                 <TextInput control={control} name='representativeName' label='Representative Name' placeholder='Representative name' itemClassName='col-span-6' />
               </FormRow>
               <FormRow className='grid-cols-12'>
-                <TextInput control={control} name='city' label='City' placeholder='City' itemClassName='col-span-6' />
-                <TextInput control={control} name='state' label='State' placeholder='State' itemClassName='col-span-6' />
+                <TextInput control={control} name='city' label='City' placeholder='City' required itemClassName='col-span-6' />
+                <TextInput control={control} name='state' label='State' placeholder='State' required itemClassName='col-span-6' />
               </FormRow>
               <FormRow className='grid-cols-12'>
-                <TextInput control={control} name='localContactNo' label='Local Contact No' placeholder='Local contact number' itemClassName='col-span-6' />
-                <TextInput control={control} name='permanentContactNo' label='Permanent Contact No' placeholder='Permanent contact number' itemClassName='col-span-6' />
+                <TextInput 
+                  control={control} 
+                  name='localContactNo' 
+                  label='Local Contact No' 
+                  placeholder='Local contact number' 
+                  required 
+                  type='tel'
+                  maxLength={10}
+                  pattern='[0-9]*'
+                  onInput={(e) => {
+                    e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                  }}
+                  itemClassName='col-span-6' 
+                />
+                <TextInput 
+                  control={control} 
+                  name='permanentContactNo' 
+                  label='Permanent Contact No' 
+                  placeholder='Permanent contact number' 
+                  type='tel'
+                  maxLength={10}
+                  pattern='[0-9]*'
+                  onInput={(e) => {
+                    e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                  }}
+                  itemClassName='col-span-6' 
+                />
               </FormRow>
               <FormRow className='grid-cols-12'>
-                <TextareaInput control={control} name='address' label='Address' placeholder='Address' itemClassName='col-span-6' />
-                <TextareaInput control={control} name='permanentAddress' label='Permanent Address' placeholder='Permanent address' itemClassName='col-span-6' />
+                <TextareaInput control={control} name='address' label='Address' placeholder='Address' required itemClassName='col-span-6' />
+                <TextareaInput control={control} name='permanentAddress' label='Permanent Address' placeholder='Permanent address' required itemClassName='col-span-6' />
+              </FormRow>
+              <FormRow className='grid-cols-12'>
+                <TextInput control={control} name='pincode' label='Pincode' placeholder='Pincode' required itemClassName='col-span-6' />
               </FormRow>
             </FormSection>
 
@@ -214,7 +251,6 @@ export function ManpowerSupplierForm({
               </FormRow>
               <FormRow mdCols={12}>
                 <TextInput control={control} name='rtgsNo' label='RTGS No' placeholder='RTGS number' span={6} spanFrom='md' />
-                <TextInput control={control} name='pincode' label='Pincode' placeholder='Pincode' span={6} spanFrom='md' />
               </FormRow>
               <FormRow mdCols={12}>
                 <TextInput control={control} name='gstNo' label='GST No' placeholder='GST number' span={6} spanFrom='md' />
