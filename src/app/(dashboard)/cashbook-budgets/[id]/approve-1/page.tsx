@@ -223,21 +223,31 @@ export default function Approve1CashbookBudgetPage() {
         </div>
       </AppCard.Content>
 
-      <AppCard.Footer className="justify-end space-x-4">
+      <AppCard.Footer className="justify-between">
         <AppButton
           variant="secondary"
-          onClick={() => router.push('/cashbook-budgets')}
+          onClick={() => router.back()}
           disabled={submitting}
+          iconName="ArrowLeft"
         >
-          Cancel
+          Back
         </AppButton>
-        <AppButton
-          onClick={handleApprove1}
-          isLoading={submitting}
-          disabled={submitting}
-        >
-          Approve 1
-        </AppButton>
+        <div className="space-x-4">
+          <AppButton
+            variant="secondary"
+            onClick={() => router.push('/cashbook-budgets')}
+            disabled={submitting}
+          >
+            Cancel
+          </AppButton>
+          <AppButton
+            onClick={handleApprove1}
+            isLoading={submitting}
+            disabled={submitting}
+          >
+            Approve 1
+          </AppButton>
+        </div>
       </AppCard.Footer>
     </AppCard>
   );
