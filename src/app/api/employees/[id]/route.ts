@@ -1,26 +1,40 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  NotFound,
+} from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 
 const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
-  siteId: z.number().optional(),
-  resignDate: z.string().optional().transform((val) => {
-    if (!val) return undefined;
-    return new Date(val);
-  }),
+  siteId: z.union([z.number(), z.array(z.number())]).optional(),
+  resignDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
   // Personal Details
-  dateOfBirth: z.string().optional().transform((val) => {
-    if (!val) return undefined;
-    return new Date(val);
-  }),
-  anniversaryDate: z.string().optional().transform((val) => {
-    if (!val) return undefined;
-    return new Date(val);
-  }),
+  dateOfBirth: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
+  anniversaryDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
   spouseName: z.string().optional(),
   bloodGroup: z.string().optional(),
   // Address Details
@@ -45,10 +59,13 @@ const updateSchema = z.object({
   reporting1Id: z.number().optional(),
   reporting2Id: z.number().optional(),
   reportingSiteId: z.number().optional(),
-  reportingSiteAssignedDate: z.string().optional().transform((val) => {
-    if (!val) return undefined;
-    return new Date(val);
-  }),
+  reportingSiteAssignedDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
   // Leave Details
   sickLeavesPerYear: z.number().optional(),
   paidLeavesPerYear: z.number().optional(),
@@ -59,7 +76,10 @@ const updateSchema = z.object({
 });
 
 // GET /api/employees/[id] - Get single employee
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -73,7 +93,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         id: true,
         name: true,
         departmentId: true,
-        siteId: true,
         resignDate: true,
         dateOfBirth: true,
         anniversaryDate: true,
@@ -114,10 +133,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             department: true,
           },
         },
-        site: {
+        siteEmployees: {
           select: {
             id: true,
-            site: true,
+            siteId: true,
+            assignedDate: true,
+            site: {
+              select: {
+                id: true,
+                site: true,
+              },
+            },
           },
         },
         state: {
@@ -144,7 +170,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 }
 
 // PATCH /api/employees/[id] - Update employee
-export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -162,11 +191,99 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // Handle null values for optional foreign keys
     const processedData: any = {};
     for (const [key, value] of Object.entries(updateData)) {
-      if (key === 'departmentId' || key === 'siteId' || key === 'stateId' || key === 'cityId' || key === 'reporting1Id' || key === 'reporting2Id' || key === 'reportingSiteId') {
+      if (
+        key === "departmentId" ||
+        key === "siteId" ||
+        key === "stateId" ||
+        key === "cityId" ||
+        key === "reporting1Id" ||
+        key === "reporting2Id" ||
+        key === "reportingSiteId"
+      ) {
         processedData[key] = value || null;
       } else {
         processedData[key] = value;
       }
+    }
+
+    // Handle site assignments if siteId is provided
+    if (processedData.siteId !== undefined) {
+      const sitesToAssign = Array.isArray(processedData.siteId)
+        ? processedData.siteId
+        : [processedData.siteId];
+
+      // Get all current active siteEmployee records for this employee
+      const currentSiteEmployees = await prisma.siteEmployee.findMany({
+        where: {
+          employeeId: id,
+        },
+        select: {
+          id: true,
+          siteId: true,
+        },
+      });
+      const currentSiteIdToSiteEmployeeId: Record<number, number> = {};
+      for (const se of currentSiteEmployees) {
+        currentSiteIdToSiteEmployeeId[se.siteId] = se.id;
+      }
+      const currentSiteIds = currentSiteEmployees.map((se) => se.siteId);
+
+      // Find which siteIds to update, create, and delete
+      const toUpdate = sitesToAssign.filter((siteId) =>
+        currentSiteIds.includes(siteId)
+      );
+      const toCreate = sitesToAssign.filter(
+        (siteId) => !currentSiteIds.includes(siteId)
+      );
+      const toDelete = currentSiteIds.filter(
+        (siteId) => !sitesToAssign.includes(siteId)
+      );
+
+      // Update matched
+      for (const siteId of toUpdate) {
+        const seId = currentSiteIdToSiteEmployeeId[siteId];
+      }
+      // Create new
+      for (const siteId of toCreate) {
+        await prisma.siteEmployee.create({
+          data: {
+            siteId,
+            employeeId: id,
+            assignedDate: new Date(),
+            assignedById: auth.user.id,
+          },
+        });
+        // Create SiteEmployeeLog record
+        await prisma.siteEmployeeLog.create({
+          data: {
+            siteId: siteId,
+            employeeId: id,
+            assignedDate: new Date(),
+            assignedById: auth.user.id,
+          },
+        });
+      }
+      // Remove additional
+      for (const siteId of toDelete) {
+        const seId = currentSiteIdToSiteEmployeeId[siteId];
+        await prisma.siteEmployee.delete({
+          where: { id: seId },
+        });
+        // Update SiteEmployeeLog record (set unassignedDate and unassignedById for the latest assignment)
+        await prisma.siteEmployeeLog.updateMany({
+          where: {
+            siteId: siteId,
+            employeeId: id,
+            unassignedDate: null,
+          },
+          data: {
+            unassignedDate: new Date(),
+            unassignedById: auth.user.id,
+          },
+        });
+      }
+      // Remove siteId from processedData since it's not a field on Employee
+      delete processedData.siteId;
     }
 
     const updated = await prisma.employee.update({
@@ -176,7 +293,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         id: true,
         name: true,
         departmentId: true,
-        siteId: true,
         resignDate: true,
         createdAt: true,
         updatedAt: true,
@@ -186,10 +302,17 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
             department: true,
           },
         },
-        site: {
+        siteEmployees: {
           select: {
             id: true,
-            site: true,
+            siteId: true,
+            assignedDate: true,
+            site: {
+              select: {
+                id: true,
+                site: true,
+              },
+            },
           },
         },
       },
@@ -207,7 +330,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 }
 
 // DELETE /api/employees/[id] - Delete employee
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 

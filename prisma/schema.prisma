@@ -43,6 +43,12 @@ model User {
   // Back-relation for Indent.suspendedBy
   indentsSuspended          Indent[]           @relation("IndentSuspendedBy")
 
+  siteEmployeesAssigned             SiteEmployee[]    @relation("siteAssignedBy")
+  // siteEmployeesUnassigned   SiteEmployee[]    @relation("siteUnassignedBy")
+
+  siteEmployeesAssignedLogs          SiteEmployeeLog[]  @relation("siteAssignedByLogs")
+  siteEmployeesUnassignedLogs SiteEmployeeLog[] @relation("siteUnassignedByLogs")
+
   @@index([role])
   @@map("users")
 }
@@ -171,7 +177,6 @@ model Site {
   // Relations
   state              State?      @relation(fields: [stateId], references: [id])
   city               City?       @relation(fields: [cityId], references: [id])
-  employees          Employee[]
   // Back-relation for Employee.reportingSite
   reportingEmployees Employee[]  @relation("ReportingSite")
   // Back-relation for Boq.site
@@ -201,6 +206,8 @@ model Site {
   attendances           Attendance[]       @relation("SiteAttendances")
   paySlipDetails        PaySlipDetail[]
   dailyProgresses       DailyProgress[]
+  siteEmployees        SiteEmployee[]
+  siteEmployeeLogs     SiteEmployeeLog[]
 
   @@index([site])
   @@index([shortName])
@@ -255,9 +262,6 @@ model Employee {
   departmentId Int?
   department   Department? @relation(fields: [departmentId], references: [id])
 
-  // Site Relation
-  siteId                    Int?
-  site                      Site?     @relation(fields: [siteId], references: [id])
   // Reporting Site
   reportingSiteId           Int?
   reportingSite             Site?     @relation("ReportingSite", fields: [reportingSiteId], references: [id])
@@ -302,6 +306,8 @@ model Employee {
   reporting2         Employee?  @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
   subordinates1      Employee[] @relation("EmployeeReporting1")
   subordinates2      Employee[] @relation("EmployeeReporting2")
+  siteEmployees      SiteEmployee[]
+  siteEmployeesLogs  SiteEmployeeLog[]
 
   // Leave Details
   sickLeavesPerYear   Int?
@@ -317,7 +323,6 @@ model Employee {
 
   @@index([name])
   @@index([departmentId])
-  @@index([siteId])
   @@index([resignDate])
   @@index([stateId])
   @@index([cityId])
@@ -1351,4 +1356,51 @@ model DailyProgressHindrance {
 
   @@index([dailyProgressId])
   @@map("daily_progress_hindrances")
+}
+model SiteEmployeeLog {
+  id           Int      @id @default(autoincrement())
+  siteId       Int    
+  employeeId   Int     
+  assignedDate DateTime
+  assignedById   Int
+  unassignedDate DateTime?
+  unassignedById Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  assignedBy User @relation("siteAssignedByLogs", fields: [assignedById], references: [id], onDelete: Cascade)
+  unassignedBy User? @relation("siteUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Cascade)
+
+
+  @@index([siteId])
+  @@index([employeeId])
+  @@index([assignedById])
+  @@index([unassignedById])
+  @@map("site_employee_logs")
+}
+
+
+model SiteEmployee {
+  id           Int      @id @default(autoincrement())
+  siteId       Int    
+  employeeId   Int     
+  assignedDate DateTime
+  assignedById   Int
+  // unassignedDate DateTime?
+  // unassignedById Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  assignedBy User @relation("siteAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+  // unassignedBy User? @relation("siteUnassignedBy", fields: [unassignedById], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([employeeId])
+  @@index([assignedById])
+  // @@index([unassignedById])
+  @@map("site_employees")
 }

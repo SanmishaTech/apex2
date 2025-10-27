@@ -15,7 +15,7 @@ const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 const createSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
   departmentId: z.number().optional(),
-  siteId: z.number().optional(),
+  siteId: z.union([z.number(), z.array(z.number())]).optional(),
   resignDate: z.string().optional().transform((val) => {
     if (!val) return undefined;
     return new Date(val);
@@ -88,28 +88,36 @@ export async function GET(req: NextRequest) {
     type EmployeeWhere = {
       OR?: Array<{ name?: { contains: string } }>;
       departmentId?: number;
-      siteId?: number;
+      siteEmployees?: {
+        some: {
+          siteId: number;
+        };
+      };
     };
-    
+
     const where: EmployeeWhere = {};
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search } },
       ];
     }
-    
+
     if (departmentFilter) {
       const deptId = parseInt(departmentFilter);
       if (!isNaN(deptId)) {
         where.departmentId = deptId;
       }
     }
-    
+
     if (siteFilter) {
       const siteId = parseInt(siteFilter);
       if (!isNaN(siteId)) {
-        where.siteId = siteId;
+        where.siteEmployees = {
+          some: {
+            siteId: siteId,
+          },
+        };
       }
     }
 
@@ -128,7 +136,6 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         departmentId: true,
-        siteId: true,
         resignDate: true,
         createdAt: true,
         updatedAt: true,
@@ -138,10 +145,18 @@ export async function GET(req: NextRequest) {
             department: true,
           },
         },
-        site: {
+        // Include site assignments data
+        siteEmployees: {
           select: {
             id: true,
-            site: true,
+            siteId: true,
+            assignedDate: true,
+            site: {
+              select: {
+                id: true,
+                site: true,
+              },
+            },
           },
         },
       },
@@ -175,7 +190,18 @@ export async function POST(req: NextRequest) {
       const mapped = {
         name: String(form.get('name') || ''),
         departmentId: form.get('departmentId') ? Number(form.get('departmentId')) : undefined,
-        siteId: form.get('siteId') ? Number(form.get('siteId')) : undefined,
+        siteId: form.get('siteId') ? (() => {
+          const siteIdValue = form.get('siteId');
+          if (typeof siteIdValue === 'string') {
+            try {
+              const parsed = JSON.parse(siteIdValue);
+              return Array.isArray(parsed) ? parsed.map(Number) : [Number(parsed)];
+            } catch {
+              return [Number(siteIdValue)];
+            }
+          }
+          return [Number(siteIdValue)];
+        })() : undefined,
         resignDate: form.get('resignDate') ? String(form.get('resignDate')) : undefined,
         role: String(form.get('role') || 'user'),
         dateOfBirth: form.get('dateOfBirth') ? String(form.get('dateOfBirth')) : undefined,
@@ -260,9 +286,6 @@ export async function POST(req: NextRequest) {
           ...(parsedData.departmentId != null
             ? { department: { connect: { id: parsedData.departmentId } } }
             : {}),
-          ...(parsedData.siteId != null
-            ? { site: { connect: { id: parsedData.siteId } } }
-            : {}),
           ...(parsedData.stateId != null
             ? { state: { connect: { id: parsedData.stateId } } }
             : {}),
@@ -317,7 +340,6 @@ export async function POST(req: NextRequest) {
           id: true,
           name: true,
           departmentId: true,
-          siteId: true,
           resignDate: true,
           userId: true,
           createdAt: true,
@@ -328,14 +350,35 @@ export async function POST(req: NextRequest) {
               department: true,
             },
           },
-          site: {
-            select: {
-              id: true,
-              site: true,
-            },
-          },
         },
       });
+
+      // Create SiteEmployee and SiteEmployeeLog records for each selected site
+      if (parsedData.siteId && (Array.isArray(parsedData.siteId) ? parsedData.siteId.length > 0 : true)) {
+        const sitesToAssign = Array.isArray(parsedData.siteId) ? parsedData.siteId : [parsedData.siteId];
+
+        for (const siteId of sitesToAssign) {
+          // Create SiteEmployee record
+          await tx.siteEmployee.create({
+            data: {
+              siteId: siteId,
+              employeeId: employee.id,
+              assignedDate: new Date(),
+              assignedById: auth.user.id,
+            },
+          });
+
+          // Create SiteEmployeeLog record
+          await tx.siteEmployeeLog.create({
+            data: {
+              siteId: siteId,
+              employeeId: employee.id,
+              assignedDate: new Date(),
+              assignedById: auth.user.id,
+            },
+          });
+        }
+      }
 
       return { employee, user };
     });
