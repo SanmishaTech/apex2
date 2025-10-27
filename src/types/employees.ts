@@ -31,10 +31,15 @@ export interface Employee {
     id: number;
     department: string;
   } | null;
-  site?: {
+  siteEmployees?: {
     id: number;
-    site: string;
-  } | null;
+    siteId: number;
+    assignedDate: Date;
+    site: {
+      id: number;
+      site: string;
+    };
+  }[]; // assuming one employee can be linked to multiple siteEmployees
   state?: {
     id: number;
     state: string;

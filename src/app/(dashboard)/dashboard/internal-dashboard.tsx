@@ -99,7 +99,6 @@ export default function InternalDashboard() {
   const employeeColumns: Column<Employee>[] = [
     { key: "name", header: "Name", sortable: false, accessor: (r) => r.name, cellClassName: "font-medium whitespace-nowrap" },
     { key: "department", header: "Department", sortable: false, accessor: (r) => r.department?.department || "—", cellClassName: "whitespace-nowrap" },
-    { key: "site", header: "Site", sortable: false, accessor: (r) => r.site?.site || "—", cellClassName: "whitespace-nowrap" },
     { key: "createdAt", header: "Created", sortable: false, accessor: (r) => formatDate(r.createdAt), cellClassName: "text-muted-foreground whitespace-nowrap" },
   ];
 

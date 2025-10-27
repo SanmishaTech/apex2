@@ -138,13 +138,7 @@ export default function EmployeesPage() {
 			accessor: (r) => r.department?.department || '—',
 			cellClassName: 'whitespace-nowrap',
 		},
-		{
-			key: 'site',
-			header: 'Site',
-			sortable: false,
-			accessor: (r) => r.site?.site || '—',
-			cellClassName: 'whitespace-nowrap',
-		},
+		
 		{
 			key: 'resignDate',
 			header: 'Resign Date',
