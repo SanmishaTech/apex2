@@ -8,7 +8,8 @@ import {
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
-
+import fs from "fs/promises";
+import path from "path";
 const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
@@ -127,6 +128,8 @@ export async function GET(
         balanceSickLeaves: true,
         balancePaidLeaves: true,
         balanceCasualLeaves: true,
+        signatureImage: true,
+        employeeImage: true,
         department: {
           select: {
             id: true,
@@ -181,8 +184,40 @@ export async function PATCH(
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid employee ID");
 
-    const body = await req.json();
-    const updateData = updateSchema.parse(body);
+    const contentType = req.headers.get("content-type") || "";
+    let updateData: any;
+    let profilePic: File | null = null;
+    let signature: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      profilePic = (form.get("profilePic") as File) || null;
+      signature = (form.get("signature") as File) || null;
+      // Map fields for PATCH (all optional)
+      const mapped: any = {};
+      for (const key of Array.from(form.keys())) {
+        if (["profilePic", "signature"].includes(key)) continue;
+        // Special handling for siteId: parse JSON string if present
+        if (key === "siteId") {
+          const val = form.get(key);
+          if (typeof val === "string") {
+            try {
+              mapped[key] = JSON.parse(val);
+            } catch {
+              mapped[key] = val;
+            }
+          } else {
+            mapped[key] = val;
+          }
+          continue;
+        }
+        mapped[key] = form.get(key);
+      }
+      updateData = updateSchema.parse(mapped);
+    } else {
+      const body = await req.json();
+      updateData = updateSchema.parse(body);
+    }
 
     if (Object.keys(updateData).length === 0) {
       return BadRequest("No valid fields to update");
@@ -284,6 +319,33 @@ export async function PATCH(
       }
       // Remove siteId from processedData since it's not a field on Employee
       delete processedData.siteId;
+    }
+
+    // Save image files if provided
+    async function saveImage(file: File, folder: "profiles" | "signatures") {
+      if (!file || file.size === 0) return null as string | null;
+      if (!file.type?.startsWith("image/")) {
+        throw new Error("Only image files are allowed");
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        throw new Error("Image file too large (max 20MB)");
+      }
+      const ext = path.extname(file.name) || ".png";
+      const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
+      const dir = path.join(process.cwd(), "uploads", "employees", folder);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(
+        path.join(dir, filename),
+        Buffer.from(await file.arrayBuffer())
+      );
+      return `/uploads/employees/${folder}/${filename}`;
+    }
+
+    if (profilePic) {
+      processedData.employeeImage = await saveImage(profilePic, "profiles");
+    }
+    if (signature) {
+      processedData.signatureImage = await saveImage(signature, "signatures");
     }
 
     const updated = await prisma.employee.update({

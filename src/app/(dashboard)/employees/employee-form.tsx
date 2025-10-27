@@ -60,6 +60,9 @@ export interface EmployeeFormInitialData {
   // Reporting Sites
   reportingSiteId?: number | null;
   reportingSiteAssignedDate?: string | null;
+  // Signature and Profile Picture
+  signatureImage?: string | null;
+  employeeImage?: string | null;
   // Site Employees (for edit mode)
   siteEmployees?: Array<{
     id: number;
@@ -384,6 +387,12 @@ export function EmployeeForm({
   const [activeTab, setActiveTab] = useState("details");
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | undefined>(
+    initial?.signatureImage || undefined
+  );
+  const [profilePicUrl, setProfilePicUrl] = useState<string | undefined>(
+    initial?.employeeImage || undefined
+  );
   const { backWithScrollRestore } = useScrollRestoration("employees-list");
 
   const form = useForm<FormValues>({
@@ -459,6 +468,9 @@ export function EmployeeForm({
 
   useEffect(() => {
     if (mode === "edit" && initial) {
+      setSignatureUrl(initial.signatureImage || undefined);
+      setProfilePicUrl(initial.employeeImage || undefined);
+
       form.reset(
         {
           ...form.getValues(),
@@ -675,6 +687,81 @@ export function EmployeeForm({
         };
       } else {
         const data = formData as any; // Already transformed by zodResolver(editSchema)
+        // If either file is present, use FormData and send PATCH as multipart
+        if (signatureFile || profilePicFile) {
+          const fd = new FormData();
+          fd.append("name", data.name);
+          if (data.departmentId)
+            fd.append("departmentId", String(data.departmentId));
+          if (data.siteId) {
+            if (Array.isArray(data.siteId) && data.siteId.length > 0) {
+              fd.append("siteId", JSON.stringify(data.siteId));
+            } else {
+              fd.append("siteId", String(data.siteId));
+            }
+          }
+          if (data.resignDate)
+            fd.append("resignDate", data.resignDate.toISOString());
+          if (data.dateOfBirth)
+            fd.append("dateOfBirth", data.dateOfBirth.toISOString());
+          if (data.anniversaryDate)
+            fd.append("anniversaryDate", data.anniversaryDate.toISOString());
+          if (data.spouseName) fd.append("spouseName", data.spouseName);
+          if (data.bloodGroup) fd.append("bloodGroup", data.bloodGroup);
+          if (data.addressLine1) fd.append("addressLine1", data.addressLine1);
+          if (data.addressLine2) fd.append("addressLine2", data.addressLine2);
+          if (data.stateId) fd.append("stateId", String(data.stateId));
+          if (data.cityId) fd.append("cityId", String(data.cityId));
+          if (data.pincode) fd.append("pincode", data.pincode);
+          if (data.mobile1) fd.append("mobile1", data.mobile1);
+          if (data.mobile2) fd.append("mobile2", data.mobile2);
+          if (data.esic) fd.append("esic", data.esic);
+          if (data.pf) fd.append("pf", data.pf);
+          if (data.panNo) fd.append("panNo", data.panNo);
+          if (data.adharNo) fd.append("adharNo", data.adharNo);
+          if (data.cinNo) fd.append("cinNo", data.cinNo);
+          // Travel/Reporting Details
+          if (data.airTravelClass)
+            fd.append("airTravelClass", data.airTravelClass);
+          if (data.railwayTravelClass)
+            fd.append("railwayTravelClass", data.railwayTravelClass);
+          if (data.busTravelClass)
+            fd.append("busTravelClass", data.busTravelClass);
+          if (data.reporting1Id)
+            fd.append("reporting1Id", String(data.reporting1Id));
+          if (data.reporting2Id)
+            fd.append("reporting2Id", String(data.reporting2Id));
+          // Reporting Sites
+          if (data.reportingSiteId)
+            fd.append("reportingSiteId", String(data.reportingSiteId));
+          if (data.reportingSiteAssignedDate)
+            fd.append(
+              "reportingSiteAssignedDate",
+              data.reportingSiteAssignedDate.toISOString()
+            );
+          if (profilePicFile) fd.append("profilePic", profilePicFile);
+          if (signatureFile) fd.append("signature", signatureFile);
+
+          // PATCH with multipart/form-data
+          if (initial?.id) {
+            const response = await fetch(`/api/employees/${initial.id}`, {
+              method: "PATCH",
+              body: fd,
+            });
+            if (!response.ok) {
+              const err = await response.json().catch(() => null);
+              throw new Error(
+                err?.message ||
+                  `HTTP ${response.status}: Failed to update employee`
+              );
+            }
+            const res = await response.json();
+            toast.success("Employee updated");
+            onSuccess?.(res);
+            router.push(redirectOnSuccess);
+            return;
+          }
+        }
         submitData = {
           name: data.name,
           departmentId: data.departmentId || undefined,
@@ -786,6 +873,8 @@ export function EmployeeForm({
                 sitesData={sitesData}
                 onSignatureChange={setSignatureFile}
                 onProfilePicChange={setProfilePicFile}
+                initialProfilePicUrl={profilePicUrl}
+                initialSignatureUrl={signatureUrl}
               />
             )}
 

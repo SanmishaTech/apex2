@@ -312,6 +312,7 @@ model Employee {
   subordinates2      Employee[] @relation("EmployeeReporting2")
   siteEmployees      SiteEmployee[]
   siteEmployeesLogs  SiteEmployeeLog[]
+  employeeDocuments  EmployeeDocument[]
 
   // Leave Details
   sickLeavesPerYear   Int?
@@ -320,6 +321,9 @@ model Employee {
   balanceSickLeaves   Int?
   balancePaidLeaves   Int?
   balanceCasualLeaves Int?
+
+  employeeImage String?  @db.LongText 
+  signatureImage String?  @db.LongText  
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -1432,4 +1436,18 @@ model SiteEmployee {
   @@index([assignedById])
   // @@index([unassignedById])
   @@map("site_employees")
+}
+
+model EmployeeDocument {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_documents")
 }

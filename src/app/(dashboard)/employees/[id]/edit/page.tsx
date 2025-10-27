@@ -45,6 +45,8 @@ export default function EditEmployeePage() {
         resignDate: employee.resignDate
           ? new Date(employee.resignDate as unknown as string).toISOString()
           : null,
+        signatureImage: employee.signatureImage ?? null,
+        employeeImage: employee.employeeImage ?? null,
       }}
     />
   );

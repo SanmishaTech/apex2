@@ -25,6 +25,8 @@ export interface Employee {
   panNo: string | null;
   adharNo: string | null;
   cinNo: string | null;
+  signatureImage: string | null;
+  employeeImage: string | null;
   createdAt: Date;
   updatedAt: Date;
   department?: {
