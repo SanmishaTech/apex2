@@ -213,7 +213,7 @@ export default function ManpowerForm({ mode, initial, onSuccess, redirectOnSucce
                 <TextInput control={control} name='lastName' label='Last Name' placeholder='Last name' required itemClassName='col-span-4' />
               </FormRow>
               <FormRow className='grid-cols-12'>
-                <AppSelect control={control} name='supplierId' label='Manpower Supplier' placeholder='Select supplier' className='col-span-6'>
+                <AppSelect control={control} name='supplierId' label='Manpower Supplier' placeholder='Select supplier' required className='col-span-6'>
                   {suppliers?.data?.map(s => (
                     <AppSelect.Item key={s.id} value={String(s.id)}>{s.supplierName}</AppSelect.Item>
                   ))}

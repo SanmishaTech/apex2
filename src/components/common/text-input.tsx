@@ -22,6 +22,8 @@ export interface TextInputProps {
 	className?: string;
 	required?: boolean;
 	prefixIcon?: React.ReactNode;
+	pattern?: string;
+	onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
 	/** Optional class for the outer FormItem wrapper (useful for grid spans) */
 	itemClassName?: string;
 	/** Optional 1-12 column span at lg breakpoint (requires parent FormRow with cols>=span). */
@@ -44,6 +46,8 @@ export function TextInput({
 	className,
 	required,
 	prefixIcon,
+	pattern,
+	onInput,
 	itemClassName,
 	span,
 	spanFrom = 'lg',
@@ -84,6 +88,8 @@ export function TextInput({
 								disabled={disabled}
 								max={max}
 								maxLength={maxLength}
+								pattern={pattern}
+								onInput={onInput}
 								className={cn(prefixIcon && 'pl-9', className)}
 								required={required}
 								{...field}

@@ -25,11 +25,20 @@ type CashbookBudgetListItem = {
 	month: string;
 	totalBudget: string;
 	siteId: number;
-	boqName: string | null;
+	boqId: number | null;
 	attachCopyUrl: string | null;
 	approved1Remarks: string | null;
 	remarksForFinalApproval: string | null;
+	approvedBy: number | null;
+	approvedDatetime: string | null;
+	approvedBudgetAmount: string | null;
+	approved1By: number | null;
+	approved1Datetime: string | null;
+	approved1BudgetAmount: string | null;
+	acceptedBy: number | null;
+	acceptedDatetime: string | null;
 	site: { id: number; site: string };
+	boq: { id: number; boqNo: string | null } | null;
 	_count: { budgetItems: number };
 	createdAt: string;
 	updatedAt: string;
@@ -48,38 +57,56 @@ export default function CashbookBudgetsPage() {
 		page: 1,
 		perPage: 10,
 		search: '',
+		month: '',
+		siteId: '',
+		boqId: '',
 		sort: 'name',
 		order: 'asc',
 	});
-	const { page, perPage, search, sort, order } =
+	const { page, perPage, search, month, siteId, boqId, sort, order } =
 		qp as unknown as {
 			page: number;
 			perPage: number;
 			search: string;
+			month: string;
+			siteId: string;
+			boqId: string;
 			sort: string;
 			order: 'asc' | 'desc';
 		};
 
 	// Local filter draft state (only applied when clicking Filter)
 	const [searchDraft, setSearchDraft] = useState(search);
+	const [monthDraft, setMonthDraft] = useState(month);
+	const [siteIdDraft, setSiteIdDraft] = useState(siteId);
+	const [boqIdDraft, setBoqIdDraft] = useState(boqId);
 
 	// Sync drafts when query params change externally (e.g., back navigation)
 	useEffect(() => {
 		setSearchDraft(search);
-	}, [search]);
+		setMonthDraft(month);
+		setSiteIdDraft(siteId);
+		setBoqIdDraft(boqId);
+	}, [search, month, siteId, boqId]);
 
-	const filtersDirty = searchDraft !== search;
+	const filtersDirty = searchDraft !== search || monthDraft !== month || siteIdDraft !== siteId || boqIdDraft !== boqId;
 
 	function applyFilters() {
 		setQp({
 			page: 1,
 			search: searchDraft.trim(),
+			month: monthDraft,
+			siteId: siteIdDraft,
+			boqId: boqIdDraft,
 		});
 	}
 
 	function resetFilters() {
 		setSearchDraft('');
-		setQp({ page: 1, search: '' });
+		setMonthDraft('');
+		setSiteIdDraft('');
+		setBoqIdDraft('');
+		setQp({ page: 1, search: '', month: '', siteId: '', boqId: '' });
 	}
 
 	const query = useMemo(() => {
@@ -87,10 +114,13 @@ export default function CashbookBudgetsPage() {
 		sp.set('page', String(page));
 		sp.set('perPage', String(perPage));
 		if (search) sp.set('search', search);
+		if (month) sp.set('month', month);
+		if (siteId) sp.set('siteId', siteId);
+		if (boqId) sp.set('boqId', boqId);
 		if (sort) sp.set('sort', sort);
 		if (order) sp.set('order', order);
 		return `/api/cashbook-budgets?${sp.toString()}`;
-	}, [page, perPage, search, sort, order]);
+	}, [page, perPage, search, month, siteId, boqId, sort, order]);
 
 	const { data, error, isLoading, mutate } = useSWR<CashbookBudgetsResponse>(
 		query,
@@ -113,16 +143,10 @@ export default function CashbookBudgetsPage() {
 
 	const columns: Column<CashbookBudgetListItem>[] = [
 		{
-			key: 'name',
-			header: 'Budget Name',
-			sortable: true,
-			cellClassName: 'font-medium whitespace-nowrap',
-		},
-		{
 			key: 'month',
 			header: 'Month',
 			sortable: true,
-			cellClassName: 'text-muted-foreground whitespace-nowrap',
+			cellClassName: 'font-medium whitespace-nowrap',
 		},
 		{
 			key: 'site',
@@ -132,15 +156,15 @@ export default function CashbookBudgetsPage() {
 			accessor: (r) => r.site.site,
 		},
 		{
-			key: 'boqName',
-			header: 'BOQ',
+			key: 'boqId',
+			header: 'BOQ No',
 			sortable: false,
 			cellClassName: 'text-muted-foreground whitespace-nowrap',
-			accessor: (r) => r.boqName || '-',
+			accessor: (r) => r.boq?.boqNo || '-',
 		},
 		{
 			key: 'totalBudget',
-			header: 'Total Budget',
+			header: 'Budget Amount',
 			sortable: true,
 			className: 'text-right whitespace-nowrap',
 			cellClassName: 'text-right font-mono whitespace-nowrap',
@@ -151,20 +175,75 @@ export default function CashbookBudgetsPage() {
 			}).format(Number(r.totalBudget)),
 		},
 		{
-			key: '_count',
-			header: 'Items',
+			key: 'approved1BudgetAmount',
+			header: 'Approved 1 Amount',
 			sortable: false,
-			className: 'text-center whitespace-nowrap',
-			cellClassName: 'text-center whitespace-nowrap',
-			accessor: (r) => r._count.budgetItems,
+			className: 'text-right whitespace-nowrap',
+			cellClassName: 'text-right font-mono whitespace-nowrap text-blue-600',
+			accessor: (r) => r.approved1BudgetAmount ? new Intl.NumberFormat('en-IN', {
+				style: 'currency',
+				currency: 'INR',
+				minimumFractionDigits: 2
+			}).format(Number(r.approved1BudgetAmount)) : 'Rs. 0.00',
 		},
 		{
-			key: 'createdAt',
-			header: 'Created',
-			sortable: true,
+			key: 'approvedBudgetAmount',
+			header: 'Approved 2 Amount',
+			sortable: false,
+			className: 'text-right whitespace-nowrap',
+			cellClassName: 'text-right font-mono whitespace-nowrap text-green-600',
+			accessor: (r) => r.approvedBudgetAmount ? new Intl.NumberFormat('en-IN', {
+				style: 'currency',
+				currency: 'INR',
+				minimumFractionDigits: 2
+			}).format(Number(r.approvedBudgetAmount)) : 'Rs. 0.00',
+		},
+		{
+			key: 'receivedAmount',
+			header: 'Received Amount',
+			sortable: false,
+			className: 'text-right whitespace-nowrap',
+			cellClassName: 'text-right font-mono whitespace-nowrap',
+			accessor: () => 'Rs. 0.00',
+		},
+		{
+			key: 'createdBy',
+			header: 'Prepared By',
+			sortable: false,
 			className: 'whitespace-nowrap',
-			cellClassName: 'text-muted-foreground whitespace-nowrap',
-			accessor: (r) => formatDate(r.createdAt),
+			cellClassName: 'whitespace-nowrap',
+			accessor: (r) => (
+				<div className="text-xs">
+					<div className="bg-green-100 text-green-800 px-2 py-1 rounded mb-1">Administrator</div>
+					<div className="text-muted-foreground">{formatDate(r.createdAt)}</div>
+				</div>
+			),
+		},
+		{
+			key: 'approved1By',
+			header: 'Approved 1 By',
+			sortable: false,
+			className: 'whitespace-nowrap',
+			cellClassName: 'whitespace-nowrap',
+			accessor: (r) => r.approved1By && r.approved1Datetime ? (
+				<div className="text-xs">
+					<div className="bg-green-100 text-green-800 px-2 py-1 rounded mb-1">Administrator</div>
+					<div className="text-muted-foreground">{formatDate(r.approved1Datetime)}</div>
+				</div>
+			) : '-',
+		},
+		{
+			key: 'approvedBy',
+			header: 'Approved 2 By',
+			sortable: false,
+			className: 'whitespace-nowrap',
+			cellClassName: 'whitespace-nowrap',
+			accessor: (r) => r.approvedBy && r.approvedDatetime ? (
+				<div className="text-xs">
+					<div className="bg-green-100 text-green-800 px-2 py-1 rounded mb-1">Administrator</div>
+					<div className="text-muted-foreground">{formatDate(r.approvedDatetime)}</div>
+				</div>
+			) : '-',
 		},
 	];
 
@@ -202,17 +281,17 @@ export default function CashbookBudgetsPage() {
 						placeholder='Search budgets...'
 						value={searchDraft}
 						onChange={(e) => setSearchDraft(e.target.value)}
-						containerClassName='w-full'
+						containerClassName='flex-1'
 					/>
 					<AppButton
 						size='sm'
 						onClick={applyFilters}
-						disabled={!filtersDirty && !searchDraft}
+						disabled={!filtersDirty && !searchDraft && !monthDraft && !siteIdDraft && !boqIdDraft}
 						className='min-w-[84px]'
 					>
 						Filter
 					</AppButton>
-					{search && (
+					{(search || month || siteId || boqId) && (
 						<AppButton
 							variant='secondary'
 							size='sm'
@@ -230,27 +309,85 @@ export default function CashbookBudgetsPage() {
 					sort={sortState}
 					onSortChange={(s) => toggleSort(s.field)}
 					stickyColumns={1}
-					renderRowActions={(budget) => {
-						if (!can(PERMISSIONS.EDIT_CASHBOOK_BUDGETS) && !can(PERMISSIONS.DELETE_CASHBOOK_BUDGETS))
-							return null;
-						return (
-							<div className='flex'>
-								{can(PERMISSIONS.EDIT_CASHBOOK_BUDGETS) && (
-									<Link href={`/cashbook-budgets/${budget.id}/edit`}>
-										<EditButton tooltip='Edit Cashbook Budget' aria-label='Edit Cashbook Budget' />
-									</Link>
-								)}
-								{can(PERMISSIONS.DELETE_CASHBOOK_BUDGETS) && (
-									<DeleteButton
-										onDelete={() => handleDelete(budget.id)}
-										itemLabel='cashbook budget'
-										title='Delete cashbook budget?'
-										description={`This will permanently remove cashbook budget "${budget.name}" and all its items. This action cannot be undone.`}
-									/>
-								)}
-							</div>
-						);
-					}}
+                renderRowActions={(budget) => {
+                  const hasApproved1 = !!budget.approved1By;  // First approval
+                  const hasApproved = !!budget.approvedBy;     // Final approval
+                  const hasAccepted = !!budget.acceptedBy;     // Acceptance
+                  
+                  return (
+                    <div className='flex gap-1'>
+                      {/* View Button */}
+                      <Link href={`/cashbook-budgets/${budget.id}/view`}>
+                        <AppButton size='sm' variant='ghost' className='h-8 px-2'>
+                          View
+                        </AppButton>
+                      </Link>
+                      
+                      {/* Edit Button - only if not approved1 */}
+                      {can(PERMISSIONS.EDIT_CASHBOOK_BUDGETS) && !hasApproved1 && (
+                        <Link href={`/cashbook-budgets/${budget.id}/edit`}>
+                          <AppButton size='sm' variant='ghost' className='h-8 px-2'>
+                            Edit
+                          </AppButton>
+                        </Link>
+                      )}
+                      
+                      {/* Approval 1 Button - First approval if not done */}
+                      {!hasApproved1 && (
+                        <Link href={`/cashbook-budgets/${budget.id}/approve-1`}>
+                          <AppButton size='sm' variant='default' className='h-8 px-2 bg-blue-600 hover:bg-blue-700'>
+                            Approval 1
+                          </AppButton>
+                        </Link>
+                      )}
+                      
+                      {/* Approval 2 Button - Second approval only if approved1 but not approved */}
+                      {hasApproved1 && !hasApproved && (
+                        <Link href={`/cashbook-budgets/${budget.id}/approve`}>
+                          <AppButton size='sm' variant='default' className='h-8 px-2 bg-green-600 hover:bg-green-700'>
+                            Approval 2
+                          </AppButton>
+                        </Link>
+                      )}
+                      
+                      {/* Accept Button - only if both approvals done but not accepted */}
+                      {hasApproved && !hasAccepted && (
+                        <AppButton 
+                          size='sm' 
+                          variant='default' 
+                          className='h-8 px-2 bg-purple-600 hover:bg-purple-700'
+                          onClick={async () => {
+                            if (confirm('Accept this cashbook budget?')) {
+                              try {
+                                await fetch(`/api/cashbook-budgets/${budget.id}/actions`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'accept' }),
+                                });
+                                toast.success('Budget accepted');
+                                mutate();
+                              } catch (e) {
+                                toast.error('Failed to accept budget');
+                              }
+                            }
+                          }}
+                        >
+                          Accept
+                        </AppButton>
+                      )}
+                      
+                      {/* Delete Button - only if not approved1 (first approval) */}
+                      {can(PERMISSIONS.DELETE_CASHBOOK_BUDGETS) && !hasApproved1 && (
+                        <DeleteButton
+                          onDelete={() => handleDelete(budget.id)}
+                          itemLabel='cashbook budget'
+                          title='Delete cashbook budget?'
+                          description={`This will permanently remove cashbook budget "${budget.name}" and all its items. This action cannot be undone.`}
+                        />
+                      )}
+                    </div>
+                  );
+                }}
 				/>
 			</AppCard.Content>
 			<AppCard.Footer className='justify-end'>
