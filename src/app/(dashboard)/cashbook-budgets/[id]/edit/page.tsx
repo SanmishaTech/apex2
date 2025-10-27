@@ -15,7 +15,7 @@ type CashbookBudgetResponse = {
   month: string;
   totalBudget: string;
   siteId: number;
-  boqName: string | null;
+  boqId: number | null;
   attachCopyUrl: string | null;
   approved1Remarks: string | null;
   remarksForFinalApproval: string | null;
@@ -27,6 +27,7 @@ type CashbookBudgetResponse = {
     cashbookHead: { id: number; cashbookHeadName: string };
   }>;
   site: { id: number; site: string };
+  boq?: { id: number; boqNo: string | null } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -73,7 +74,7 @@ export default function EditCashbookBudgetPage() {
 		name: data.name,
 		month: data.month,
 		siteId: data.siteId,
-		boqName: data.boqName ?? undefined,
+		boqId: data.boqId ?? undefined,
 		attachCopyUrl: data.attachCopyUrl ?? undefined,
 		approved1Remarks: data.approved1Remarks ?? undefined,
 		remarksForFinalApproval: data.remarksForFinalApproval ?? undefined,

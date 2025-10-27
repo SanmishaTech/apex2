@@ -4,7 +4,7 @@ import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 
-// GET /api/cashbook-budgets?search=&page=1&perPage=10&sort=name&order=desc
+// GET /api/cashbook-budgets?search=&page=1&perPage=10&sort=name&order=desc&month=&siteId=&boqId=
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -13,21 +13,40 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
   const search = searchParams.get("search")?.trim() || "";
+  const month = searchParams.get("month")?.trim() || "";
+  const siteIdParam = searchParams.get("siteId");
+  const boqIdParam = searchParams.get("boqId");
   const sort = (searchParams.get("sort") || "name") as string;
   const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
   // Build dynamic filter with explicit shape
   type CashbookBudgetWhere = {
+    siteId?: number;
+    month?: string;
+    boqId?: number;
     OR?: Array<{
       name?: { contains: string };
-      description?: { contains: string };
     }>;
   };
   const where: CashbookBudgetWhere = {};
+  
+  // Role-based site filtering (if not admin role 1, filter by user's site)
+  // TODO: Implement session-based site filtering based on user role
+  if (siteIdParam) {
+    where.siteId = Number(siteIdParam);
+  }
+  
+  if (month) {
+    where.month = month;
+  }
+  
+  if (boqIdParam) {
+    where.boqId = Number(boqIdParam);
+  }
+  
   if (search) {
     where.OR = [
       { name: { contains: search } },
-      { description: { contains: search } },
     ];
   }
 
@@ -47,14 +66,25 @@ export async function GET(req: NextRequest) {
       month: true,
       totalBudget: true,
       siteId: true,
-      boqName: true,
+      boqId: true,
       attachCopyUrl: true,
       approved1Remarks: true,
       remarksForFinalApproval: true,
+      approvedBy: true,
+      approvedDatetime: true,
+      approvedBudgetAmount: true,
+      approved1By: true,
+      approved1Datetime: true,
+      approved1BudgetAmount: true,
+      acceptedBy: true,
+      acceptedDatetime: true,
       createdAt: true,
       updatedAt: true,
       site: {
         select: { id: true, site: true }
+      },
+      boq: {
+        select: { id: true, boqNo: true }
       },
       _count: {
         select: { budgetItems: true }
@@ -71,11 +101,11 @@ export async function POST(req: NextRequest) {
 
   let body: unknown;
   try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
-  const { name, month, siteId, boqName, attachCopyUrl, approved1Remarks, remarksForFinalApproval, budgetItems } = (body as Partial<{
+  const { name, month, siteId, boqId, attachCopyUrl, approved1Remarks, remarksForFinalApproval, budgetItems } = (body as Partial<{
     name: string;
     month: string;
     siteId: number | string;
-    boqName: string;
+    boqId: number | string | null;
     attachCopyUrl: string;
     approved1Remarks: string;
     remarksForFinalApproval: string;
@@ -95,6 +125,19 @@ export async function POST(req: NextRequest) {
     if (!item.amount || isNaN(Number(item.amount))) return Error('Valid amount is required for all items', 400);
   }
 
+  // Check for duplicate (unique month + siteId + boqId)
+  const existingBudget = await prisma.cashbookBudget.findFirst({
+    where: {
+      month: month.trim(),
+      siteId: Number(siteId),
+      boqId: boqId ? Number(boqId) : null,
+    },
+  });
+  
+  if (existingBudget) {
+    return Error('Budget for this month, site, and BOQ combination already exists', 409);
+  }
+  
   // Calculate total budget from items
   const totalBudget = budgetItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
@@ -104,7 +147,7 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         month: month.trim(),
         siteId: Number(siteId),
-        boqName: boqName?.trim() || null,
+        boqId: boqId ? Number(boqId) : null,
         attachCopyUrl: attachCopyUrl?.trim() || null,
         approved1Remarks: approved1Remarks?.trim() || null,
         remarksForFinalApproval: remarksForFinalApproval?.trim() || null,
@@ -144,12 +187,12 @@ export async function PATCH(req: NextRequest) {
 
   let body: unknown;
   try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
-  const { id, name, month, siteId, boqName, attachCopyUrl, approved1Remarks, remarksForFinalApproval, budgetItems } = (body as Partial<{
+  const { id, name, month, siteId, boqId, attachCopyUrl, approved1Remarks, remarksForFinalApproval, budgetItems } = (body as Partial<{
     id: number | string;
     name: string;
     month: string;
     siteId: number | string;
-    boqName: string;
+    boqId: number | string | null;
     attachCopyUrl: string;
     approved1Remarks: string;
     remarksForFinalApproval: string;
@@ -170,6 +213,20 @@ export async function PATCH(req: NextRequest) {
     if (!item.amount || isNaN(Number(item.amount))) return Error('Valid amount is required for all items', 400);
   }
 
+  // Check for duplicate (unique month + siteId + boqId), excluding current budget
+  const existingBudget = await prisma.cashbookBudget.findFirst({
+    where: {
+      id: { not: Number(id) },
+      month: month.trim(),
+      siteId: Number(siteId),
+      boqId: boqId ? Number(boqId) : null,
+    },
+  });
+  
+  if (existingBudget) {
+    return Error('Budget for this month, site, and BOQ combination already exists', 409);
+  }
+  
   // Calculate total budget from items
   const totalBudget = budgetItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
@@ -180,7 +237,7 @@ export async function PATCH(req: NextRequest) {
         name: name.trim(),
         month: month.trim(),
         siteId: Number(siteId),
-        boqName: boqName?.trim() || null,
+        boqId: boqId ? Number(boqId) : null,
         attachCopyUrl: attachCopyUrl?.trim() || null,
         approved1Remarks: approved1Remarks?.trim() || null,
         remarksForFinalApproval: remarksForFinalApproval?.trim() || null,

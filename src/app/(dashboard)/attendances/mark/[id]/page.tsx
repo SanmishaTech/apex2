@@ -225,13 +225,11 @@ export default function MarkAttendancePage({
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>
-          <>
-          <ClipboardCheck className="w-5 h-5 mr-2" />
-
-Mark Attendance - {data?.site.site || 'Loading...'}
-        
-          </>
-                      </AppCard.Title>
+          <div className="flex items-center">
+            <ClipboardCheck className="w-5 h-5 mr-2" />
+            <span>Mark Attendance - {data?.site.site || 'Loading...'}</span>
+          </div>
+        </AppCard.Title>
         <AppCard.Description>Mark attendance for assigned manpower at this site.</AppCard.Description>
       </AppCard.Header>
       <AppCard.Content>
@@ -278,17 +276,17 @@ Mark Attendance - {data?.site.site || 'Loading...'}
         ) : (
           <div className="space-y-6">
             {/* Attendance Date Display (read-only) */}
-            <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-xl shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                  <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 rounded-lg shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-base font-bold text-blue-900 dark:text-blue-100 mb-2">
+                  <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
                     Marking Attendance For
                   </h4>
-                  <div className="flex items-baseline gap-3 flex-wrap">
-                    <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
                       {new Date(attendanceDate).toLocaleDateString('en-US', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -341,12 +339,12 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                   <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-3 text-left font-medium">Sr No</th>
-                      <th className="px-4 py-3 text-left font-medium">Manpower Name</th>
-                      <th className="px-4 py-3 text-left font-medium">Last Attendance</th>
-                      <th className="px-4 py-3 text-center font-medium">OT</th>
-                      <th className="px-4 py-3 text-center font-medium">Attendance</th>
-                      <th className="px-4 py-3 text-center font-medium">Idle</th>
+                      <th className="px-3 py-2 text-left text-sm font-medium">Sr No</th>
+                      <th className="px-3 py-2 text-left text-sm font-medium">Manpower Name</th>
+                      <th className="px-3 py-2 text-left text-sm font-medium">Last Attendance</th>
+                      <th className="px-3 py-2 text-center text-sm font-medium">OT</th>
+                      <th className="px-3 py-2 text-center text-sm font-medium">Attendance</th>
+                      <th className="px-3 py-2 text-center text-sm font-medium">Idle</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -366,9 +364,9 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                             `border-b ${manpower.isLocked ? 'opacity-60 bg-muted/40 hover:bg-muted/40' : 'hover:bg-muted/30'}`
                           }
                         >
-                          <td className="px-4 py-3">{index + 1}</td>
-                          <td className="px-4 py-3">{fullName}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-sm">{index + 1}</td>
+                          <td className="px-3 py-2 text-sm">{fullName}</td>
+                          <td className="px-3 py-2 text-sm">
                             <div className="flex flex-col gap-1">
                               <span>
                                 {manpower.lastAttendance
@@ -388,7 +386,7 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-2 text-center">
                             <input
                               type="number"
                               step="0.5"
@@ -400,11 +398,11 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-20 px-2 py-1 border border-input bg-background text-foreground rounded text-center"
+                              className="w-16 px-2 py-1 text-sm border border-input bg-background text-foreground rounded text-center"
                               disabled={manpower.isLocked}
                             />
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-2 text-center">
                             <input
                               type="checkbox"
                               checked={manpower.isPresent}
@@ -415,7 +413,7 @@ Mark Attendance - {data?.site.site || 'Loading...'}
                               disabled={manpower.isLocked}
                             />
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-2 text-center">
                             <input
                               type="checkbox"
                               checked={manpower.isIdle}
@@ -448,7 +446,6 @@ Mark Attendance - {data?.site.site || 'Loading...'}
               onClick={handleSave} 
               isLoading={saving} 
               disabled={manpowerData.length === 0}
-              size="lg"
             >
               <Save className="w-4 h-4 mr-2" />
               Save Attendance for {manpowerData.length} Workers
