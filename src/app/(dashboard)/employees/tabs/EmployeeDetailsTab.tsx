@@ -7,6 +7,7 @@ import { FormSection, FormRow } from "@/components/common/app-form";
 import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
 import { ROLES } from "@/config/roles";
+import Image from "next/image";
 
 interface Props {
   control: any;
@@ -78,16 +79,14 @@ export default function EmployeeDetailsTab({
             {/* Show preview if editing and initialSignatureUrl is provided */}
             {!isCreate && initialSignatureUrl && (
               <div className="mt-2">
-                <img
-                  src={
-                    initialSignatureUrl.startsWith("/")
-                      ? `${window.location.origin}${initialSignatureUrl}`
-                      : initialSignatureUrl
-                  }
-                  alt="Signature Preview"
-                  className="h-12 w-44 rounded border"
-                  style={{ objectFit: "contain" }}
-                />
+                <div className="relative h-12 w-44 border rounded overflow-hidden">
+                  <Image
+                    src={initialSignatureUrl}
+                    alt="Signature Preview"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -107,16 +106,14 @@ export default function EmployeeDetailsTab({
             {/* Show preview if editing and initialProfilePicUrl is provided */}
             {!isCreate && initialProfilePicUrl && (
               <div className="mt-2">
-                <img
-                  src={
-                    initialProfilePicUrl.startsWith("/")
-                      ? `${window.location.origin}${initialProfilePicUrl}`
-                      : initialProfilePicUrl
-                  }
-                  alt="Profile Pic Preview"
-                  className="h-16 w-16 rounded-full border"
-                  style={{ objectFit: "cover" }}
-                />
+                <div className="relative h-16 w-16 border rounded-full overflow-hidden">
+                  <Image
+                    src={initialProfilePicUrl}
+                    alt="Profile Pic Preview"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
               </div>
             )}
           </div>
