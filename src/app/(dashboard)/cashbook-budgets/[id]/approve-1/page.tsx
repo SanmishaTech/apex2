@@ -56,7 +56,7 @@ export default function Approve1CashbookBudgetPage() {
       });
       setApproved1Amounts(initial);
     }
-  }, [data, approved1Amounts.length]); // Added approved1Amounts.length to dependency
+  }, [data, Object.keys(approved1Amounts).length]);
 
   if (isLoading) {
     return (
