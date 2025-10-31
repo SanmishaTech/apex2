@@ -17,7 +17,7 @@ import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 
 export interface ManpowerSupplierInitialData {
   id?: number;
-  vendorCode?: string | null;
+  vendorCode?: string; // Auto-generated, always present after creation
   supplierName?: string;
   contactPerson?: string | null;
   representativeName?: string | null;
@@ -50,7 +50,6 @@ export interface ManpowerSupplierFormProps {
 }
 
 const schema = z.object({
-  vendorCode: z.string().optional(),
   supplierName: z.string().min(1, 'Manpower Supplier is required'),
   contactPerson: z.string().min(1, 'Contact Person is required'),
   representativeName: z.string().optional(),
@@ -106,7 +105,6 @@ export function ManpowerSupplierForm({
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues: {
-      vendorCode: initial?.vendorCode ?? '',
       supplierName: initial?.supplierName ?? '',
       contactPerson: initial?.contactPerson ?? '',
       representativeName: initial?.representativeName ?? '',
@@ -139,7 +137,6 @@ export function ManpowerSupplierForm({
     setSubmitting(true);
     try {
       const payload: any = {
-        vendorCode: values.vendorCode?.trim() || undefined,
         supplierName: values.supplierName.trim(),
         contactPerson: values.contactPerson?.trim() || undefined,
         representativeName: values.representativeName?.trim() || undefined,
@@ -193,9 +190,31 @@ export function ManpowerSupplierForm({
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <AppCard.Content>
             <FormSection legend='Basic Details'>
-              <FormRow className='grid-cols-12'>
-                <TextInput control={control} name='vendorCode' label='Vendor Code' placeholder='Vendor code' itemClassName='col-span-6' />
-                <TextInput control={control} name='supplierName' label='Manpower Supplier' placeholder='Supplier name' required itemClassName='col-span-6' />
+              <FormRow className='grid-cols-12 gap-6'>
+                <div className='col-span-12 md:col-span-6 flex flex-col'>
+                  <label className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'>
+                    Vendor Code
+                  </label>
+                  <div
+                    className={`mt-2 flex h-10 items-center rounded-md px-3 text-sm leading-none ${
+                      isCreate
+                        ? 'border border-dashed border-input bg-muted/50 text-muted-foreground'
+                        : 'border border-input bg-muted'
+                    }`}
+                  >
+                    {isCreate
+                      ? 'Auto-generated after creating the supplier.'
+                      : initial?.vendorCode ?? 'Vendor code will be available after saving.'}
+                  </div>
+                </div>
+                <TextInput
+                  control={control}
+                  name='supplierName'
+                  label='Manpower Supplier'
+                  placeholder='Supplier name'
+                  required
+                  itemClassName='col-span-12 md:col-span-6'
+                />
               </FormRow>
               <FormRow className='grid-cols-12'>
                 <TextInput control={control} name='contactPerson' label='Contact Person' placeholder='Contact person' required itemClassName='col-span-6' />

@@ -736,7 +736,7 @@ model Notice {
 // Manpower Supplier master data
 model ManpowerSupplier {
   id                 Int      @id @default(autoincrement())
-  vendorCode         String?
+  vendorCode         String   @unique // Auto-generated, required
   supplierName       String // "Manpower Supplier"
   contactPerson      String?
   representativeName String?

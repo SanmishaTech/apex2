@@ -4,6 +4,30 @@ import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 
+// Auto-generate vendor code in format V-YYMM#### (e.g., V-2510001)
+async function generateVendorCode(): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year (e.g., "25")
+  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month as 2 digits (e.g., "10")
+  const yearMonth = `${year}${month}`; // e.g., "2510"
+  
+  // Count vendors created in the current month
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  
+  const count = await prisma.manpowerSupplier.count({
+    where: {
+      createdAt: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+    },
+  });
+  
+  const nextNumber = (count + 1).toString().padStart(3, '0'); // 3 digits: 001, 002, etc.
+  return `V-${yearMonth}${nextNumber}`;
+}
+
 // GET /api/manpower-suppliers?search=&page=1&perPage=10&sort=supplierName&order=asc
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -91,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   const sanitize = (v: unknown) => (typeof v === 'string' ? v.trim() : v);
   const data = {
-    vendorCode: sanitize(body.vendorCode) || null,
+    // vendorCode is auto-generated, don't accept from request body
     supplierName: sanitize(body.supplierName),
     contactPerson: sanitize(body.contactPerson) || null,
     representativeName: sanitize(body.representativeName) || null,
@@ -121,8 +145,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Generate vendor code
+    const vendorCode = await generateVendorCode();
+    
     const created = await prisma.manpowerSupplier.create({
-      data: data as any,
+      data: {
+        ...data,
+        vendorCode,
+      } as any,
       select: {
         id: true,
         vendorCode: true,
@@ -153,7 +183,11 @@ export async function POST(req: NextRequest) {
       }
     });
     return Success(created, 201);
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.code === 'P2002') {
+      return Error('Vendor code already exists. Please try again.', 409);
+    }
+    console.error('Create manpower supplier error:', e);
     return Error('Failed to create manpower supplier');
   }
 }
@@ -173,7 +207,7 @@ export async function PATCH(req: NextRequest) {
   const maybeSet = (key: string, val: any) => {
     if (val !== undefined) data[key] = typeof val === 'string' ? (val.trim() || null) : val;
   };
-  maybeSet('vendorCode', body.vendorCode);
+  // vendorCode is auto-generated and cannot be updated
   maybeSet('supplierName', body.supplierName);
   maybeSet('contactPerson', body.contactPerson);
   maybeSet('representativeName', body.representativeName);
