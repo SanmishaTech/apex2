@@ -20,7 +20,6 @@ import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { Site, SitesResponse } from '@/types/sites';
-import Link from 'next/link';
 
 type SiteListItem = Site;
 
@@ -31,66 +30,46 @@ export default function SitesPage() {
 		page: 1,
 		perPage: 10,
 		search: '',
-		closed: '',
-		permanentClosed: '',
-		monitor: '',
+		status: '',
 		sort: 'site',
 		order: 'asc',
 	});
-	const { page, perPage, search, closed, permanentClosed, monitor, sort, order } =
-		qp as unknown as {
-			page: number;
-			perPage: number;
-			search: string;
-			closed: string;
-			permanentClosed: string;
-			monitor: string;
-			sort: string;
-			order: 'asc' | 'desc';
-		};
+	const { page, perPage, search, status, sort, order } =
+    qp as unknown as {
+      page: number;
+      perPage: number;
+      search: string;
+      status: string;
+      sort: string;
+      order: 'asc' | 'desc';
+    };
 
 	// Local filter draft state (only applied when clicking Filter)
 	const [searchDraft, setSearchDraft] = useState(search);
-	const [closedDraft, setClosedDraft] = useState(closed);
-	const [permanentClosedDraft, setPermanentClosedDraft] = useState(permanentClosed);
-	const [monitorDraft, setMonitorDraft] = useState(monitor);
+	const [statusDraft, setStatusDraft] = useState(status);
 
 	// Sync drafts when query params change externally (e.g., back navigation)
 	useEffect(() => {
 		setSearchDraft(search);
 	}, [search]);
 	useEffect(() => {
-		setClosedDraft(closed);
-	}, [closed]);
-	useEffect(() => {
-		setPermanentClosedDraft(permanentClosed);
-	}, [permanentClosed]);
-	useEffect(() => {
-		setMonitorDraft(monitor);
-	}, [monitor]);
+		setStatusDraft(status);
+	}, [status]);
 
-	const filtersDirty =
-		searchDraft !== search || 
-		closedDraft !== closed || 
-		permanentClosedDraft !== permanentClosed || 
-		monitorDraft !== monitor;
+	const filtersDirty = searchDraft !== search || statusDraft !== status;
 
 	function applyFilters() {
 		setQp({
 			page: 1,
 			search: searchDraft.trim(),
-			closed: closedDraft,
-			permanentClosed: permanentClosedDraft,
-			monitor: monitorDraft,
+			status: statusDraft,
 		});
 	}
 
 	function resetFilters() {
 		setSearchDraft('');
-		setClosedDraft('');
-		setPermanentClosedDraft('');
-		setMonitorDraft('');
-		setQp({ page: 1, search: '', closed: '', permanentClosed: '', monitor: '' });
+		setStatusDraft('');
+		setQp({ page: 1, search: '', status: '' });
 	}
 
 	const query = useMemo(() => {
@@ -98,13 +77,11 @@ export default function SitesPage() {
 		sp.set('page', String(page));
 		sp.set('perPage', String(perPage));
 		if (search) sp.set('search', search);
-		if (closed) sp.set('closed', closed);
-		if (permanentClosed) sp.set('permanentClosed', permanentClosed);
-		if (monitor) sp.set('monitor', monitor);
+		if (status) sp.set('status', status);
 		if (sort) sp.set('sort', sort);
 		if (order) sp.set('order', order);
 		return `/api/sites?${sp.toString()}`;
-	}, [page, perPage, search, closed, permanentClosed, monitor, sort, order]);
+	}, [page, perPage, search, status, sort, order]);
 
 	const { data, error, isLoading, mutate } = useSWR<SitesResponse>(
 		query,
@@ -138,9 +115,9 @@ export default function SitesPage() {
 							{r.shortName}
 						</div>
 					)}
-					{r.uinNo && (
+					{r.siteCode && (
 						<div className="text-xs text-muted-foreground">
-							UIN: {r.uinNo}
+							Code: {r.siteCode}
 						</div>
 					)}
 				</div>
@@ -200,30 +177,21 @@ export default function SitesPage() {
 			cellClassName: 'max-w-48',
 		},
 		{
-			key: 'status',
-			header: 'Status',
-			accessor: (r) => (
-				<div className="flex flex-col gap-1">
-					<div className="flex items-center gap-2">
-						<StatusBadge active={!r.closed} />
-						{r.closed && <span className="text-xs">Closed</span>}
-					</div>
-					{r.permanentClosed && (
-						<div className="flex items-center gap-1">
-							<div className="h-2 w-2 rounded-full bg-red-500"></div>
-							<span className="text-xs text-red-600">Permanent</span>
-						</div>
-					)}
-					{r.monitor && (
-						<div className="flex items-center gap-1">
-							<div className="h-2 w-2 rounded-full bg-blue-500"></div>
-							<span className="text-xs text-blue-600">Monitor</span>
-						</div>
-					)}
-				</div>
-			),
-			cellClassName: 'whitespace-nowrap',
-		},
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      accessor: (r) => (
+        <StatusBadge
+          status={r.status.toLowerCase()}
+          stylesMap={{
+            ongoing: { label: 'Ongoing', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+            hold: { label: 'Hold', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+            monitor: { label: 'Monitor', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+          }}
+        />
+      ),
+      cellClassName: 'whitespace-nowrap',
+    },
 		{
 			key: 'gstNo',
 			header: 'GST No',
@@ -280,43 +248,24 @@ export default function SitesPage() {
 						containerClassName='w-full'
 					/>
 					<AppSelect
-						value={closedDraft || '__all'}
-						onValueChange={(v) => setClosedDraft(v === '__all' ? '' : v)}
+						value={statusDraft || '__all'}
+						onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}
 						placeholder='Status'
 					>
 						<AppSelect.Item value='__all'>All Statuses</AppSelect.Item>
-						<AppSelect.Item value='false'>Active</AppSelect.Item>
-						<AppSelect.Item value='true'>Closed</AppSelect.Item>
-					</AppSelect>
-					<AppSelect
-						value={permanentClosedDraft || '__all'}
-						onValueChange={(v) => setPermanentClosedDraft(v === '__all' ? '' : v)}
-						placeholder='Permanent Status'
-					>
-						<AppSelect.Item value='__all'>All</AppSelect.Item>
-						<AppSelect.Item value='false'>Not Permanent</AppSelect.Item>
-						<AppSelect.Item value='true'>Permanent Closed</AppSelect.Item>
-					</AppSelect>
-					<AppSelect
-						value={monitorDraft || '__all'}
-						onValueChange={(v) => setMonitorDraft(v === '__all' ? '' : v)}
-						placeholder='Monitor'
-					>
-						<AppSelect.Item value='__all'>All</AppSelect.Item>
-						<AppSelect.Item value='false'>Not Monitored</AppSelect.Item>
-						<AppSelect.Item value='true'>Monitored</AppSelect.Item>
+						<AppSelect.Item value='Ongoing'>Ongoing</AppSelect.Item>
+						<AppSelect.Item value='Hold'>Hold</AppSelect.Item>
+						<AppSelect.Item value='Monitor'>Monitor</AppSelect.Item>
 					</AppSelect>
 					<AppButton
 						size='sm'
 						onClick={applyFilters}
-						disabled={
-							!filtersDirty && !searchDraft && !closedDraft && !permanentClosedDraft && !monitorDraft
-						}
+						disabled={!filtersDirty && !searchDraft && !statusDraft}
 						className='min-w-[84px]'
 					>
 						Filter
 					</AppButton>
-					{(search || closed || permanentClosed || monitor) && (
+					{(search || status) && (
 						<AppButton
 							variant='secondary'
 							size='sm'

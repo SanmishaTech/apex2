@@ -139,7 +139,7 @@ model Company {
 // Site master data for location/branch management
 model Site {
   id        Int     @id @default(autoincrement())
-  uinNo     String?
+  siteCode     String?
   site      String
   shortName String?
 
@@ -148,9 +148,7 @@ model Site {
   company   Company? @relation(fields: [companyId], references: [id])
 
   // Status Flags
-  closed          Boolean @default(false)
-  permanentClosed Boolean @default(false)
-  monitor         Boolean @default(false)
+  status          String 
 
   // File Upload
   attachCopyUrl String?
@@ -215,11 +213,8 @@ model Site {
 
   @@index([site])
   @@index([shortName])
-  @@index([uinNo])
+  @@index([siteCode])
   @@index([companyId])
-  @@index([closed])
-  @@index([permanentClosed])
-  @@index([monitor])
   @@index([stateId])
   @@index([cityId])
   @@map("sites")

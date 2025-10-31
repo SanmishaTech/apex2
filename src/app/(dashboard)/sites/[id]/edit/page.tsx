@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { use } from 'react';
-import useSWR from 'swr';
-import { apiGet } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import SiteForm from '../../site-form';
-import { Site } from '@/types/sites';
+import { use } from "react";
+import useSWR from "swr";
+import { apiGet } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import SiteForm from "../../site-form";
+import { Site } from "@/types/sites";
 
 interface EditSitePageProps {
   params: Promise<{ id: string }>;
@@ -15,13 +15,17 @@ export default function EditSitePage({ params }: EditSitePageProps) {
   const { id } = use(params);
   const siteId = parseInt(id);
 
-  const { data: site, error, isLoading } = useSWR<Site>(
+  const {
+    data: site,
+    error,
+    isLoading,
+  } = useSWR<Site>(
     siteId && !isNaN(siteId) ? `/api/sites/${siteId}` : null,
     apiGet
   );
 
   if (error) {
-    toast.error('Failed to load site data');
+    toast.error("Failed to load site data");
     return (
       <div className="p-6">
         <div className="text-center">
@@ -54,16 +58,14 @@ export default function EditSitePage({ params }: EditSitePageProps) {
 
   return (
     <SiteForm
-      mode='edit'
+      mode="edit"
       initial={{
         id: site.id,
-        uinNo: site.uinNo ?? undefined,
+        siteCode: site.siteCode ?? undefined,
         site: site.site,
         shortName: site.shortName ?? undefined,
         companyId: site.companyId ?? undefined,
-        closed: site.closed,
-        permanentClosed: site.permanentClosed,
-        monitor: site.monitor,
+        status: site.status,
         attachCopyUrl: site.attachCopyUrl ?? undefined,
         contactPerson: site.contactPerson ?? undefined,
         contactNo: site.contactNo ?? undefined,
