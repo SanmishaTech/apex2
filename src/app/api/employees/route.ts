@@ -170,6 +170,14 @@ export async function GET(req: NextRequest) {
               select: {
                 id: true,
                 site: true,
+                shortName: true,
+                company: {
+                  select: {
+                    id: true,
+                    companyName: true,
+                    shortName: true,
+                  },
+                },
               },
             },
           },

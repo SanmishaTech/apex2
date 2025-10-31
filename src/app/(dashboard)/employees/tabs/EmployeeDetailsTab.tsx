@@ -2,7 +2,6 @@
 
 import { AppSelect, ComboboxInput } from "@/components/common";
 import { TextInput } from "@/components/common/text-input";
-import { MultiSelectInput } from "@/components/common/multi-select-input";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
@@ -145,18 +144,7 @@ export default function EmployeeDetailsTab({
               </AppSelect.Item>
             ))}
           </AppSelect>
-          <MultiSelectInput
-            control={control}
-            name="siteId"
-            label="Site"
-            placeholder="Select sites"
-            options={
-              sitesData?.data?.map((site) => ({
-                value: String(site.id),
-                label: site.site,
-              })) || []
-            }
-          />
+          <div />
         </FormRow>
         <FormRow cols={2}>
           <TextInput

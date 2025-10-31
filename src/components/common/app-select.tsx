@@ -12,6 +12,7 @@ import {
   SelectSeparator
 } from '@/components/ui/select';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 // Lightweight shadcn-style Select wrapper (loose typing – no interfaces)
@@ -74,10 +75,10 @@ function BaseAppSelect(props: AppSelectRootProps) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       {label && (
-        <FormLabel>
+        <Label htmlFor={id} className='text-xs font-medium text-muted-foreground'>
           {label}
           {required ? <span className='ml-0.5 text-destructive'>*</span> : null}
-        </FormLabel>
+        </Label>
       )}
       <Select disabled={disabled} value={value} onValueChange={onValueChange} {...rest}>
         <SelectTrigger id={id} className={cn('w-full', triggerClassName)}>
