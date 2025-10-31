@@ -204,21 +204,6 @@ export default function ManpowerTransfersPage() {
         >
           <Eye className="h-4 w-4" />
         </AppButton>
-        {transfer.challanCopyUrl && (
-          <AppButton
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const filename = transfer.challanCopyUrl?.split('/').pop();
-              if (filename) {
-                window.open(`/api/documents/${filename}`, '_blank');
-              }
-            }}
-            title="View challan copy"
-          >
-            <FileText className="h-4 w-4" />
-          </AppButton>
-        )}
         {isPending && canApprove && (
           <>
             <AppButton

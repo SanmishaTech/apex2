@@ -44,7 +44,10 @@ const createRentSchema = z.object({
   accountNo: z.string().optional(),
   accountName: z.string().optional(),
   ifscCode: z.string().optional(),
-  momCopyUrl: z.string().optional(),
+  momCopyUrl: z
+    .any()
+    .refine((val) => !val || val instanceof File, "Invalid file input")
+    .optional(),
 });
 
 // GET - List rents with pagination & search
@@ -55,7 +58,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+    const perPage = Math.min(
+      100,
+      Math.max(1, Number(searchParams.get("perPage")) || 10)
+    );
     const search = searchParams.get("search")?.trim() || "";
     const fromDate = searchParams.get("fromDate")?.trim() || "";
     const toDate = searchParams.get("toDate")?.trim() || "";
@@ -74,7 +80,7 @@ export async function GET(req: NextRequest) {
         { rentType: { rentType: { contains: search } } },
       ];
     }
-    
+
     // Date range filtering
     if (fromDate) {
       where.dueDate = { ...where.dueDate, gte: new Date(fromDate) };
@@ -86,12 +92,14 @@ export async function GET(req: NextRequest) {
     const result = await paginate({
       model: prisma.rent,
       where,
-      orderBy: (sort === 'srNo' ? [
-        { fromDate: order },
-        { toDate: order },
-        { srNo: order },
-        { id: order }
-      ] : { [sort]: order }) as any,
+      orderBy: (sort === "srNo"
+        ? [
+            { fromDate: order },
+            { toDate: order },
+            { srNo: order },
+            { id: order },
+          ]
+        : { [sort]: order }) as any,
       page,
       perPage,
       select: {
@@ -124,18 +132,18 @@ export async function GET(req: NextRequest) {
         momCopyUrl: true,
         createdAt: true,
         updatedAt: true,
-      }
+      },
     });
 
     // Debug: Log pagination result
-    console.log('Rents API Debug:', {
+    console.log("Rents API Debug:", {
       requestedPage: page,
       requestedPerPage: perPage,
       where,
       resultTotal: result.total,
       resultTotalPages: result.totalPages,
       resultDataLength: result.data.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     return Success({
@@ -162,48 +170,56 @@ export async function POST(req: NextRequest) {
     const raw = await req.json();
     const body = normalizeRentPayload(raw);
     const validatedData = createRentSchema.parse(body);
-    
+
     // If both fromDate and toDate are provided, generate monthly records
-    if (validatedData.fromDate && validatedData.toDate && validatedData.rentDay) {
+    if (
+      validatedData.fromDate &&
+      validatedData.toDate &&
+      validatedData.rentDay
+    ) {
       const fromDate = new Date(validatedData.fromDate);
       const toDate = new Date(validatedData.toDate);
       const rentDay = parseInt(validatedData.rentDay);
-      
+
       // Calculate the first due date
-      let dueDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), rentDay);
-      
+      let dueDate = new Date(
+        fromDate.getFullYear(),
+        fromDate.getMonth(),
+        rentDay
+      );
+
       // If the due date is before the from date, move to next month
       if (dueDate < fromDate) {
         dueDate.setMonth(dueDate.getMonth() + 1);
       }
-      
+
       const createdRents: any[] = [];
       let srNo = 1;
-      
+
       // Generate monthly records
       while (dueDate <= toDate) {
-        const rentData: any = { 
+        const rentData: any = {
           ...validatedData,
           fromDate,
           toDate,
           srNo,
           dueDate,
-          status: 'Unpaid',
-          listStatus: null
+          status: "Unpaid",
+          listStatus: null,
         };
-        
+
         // Mark first record
         if (srNo === 1) {
-          rentData.listStatus = 'First';
+          rentData.listStatus = "First";
         }
-        
+
         // Check if this is the last record
         const nextDueDate = new Date(dueDate);
         nextDueDate.setMonth(nextDueDate.getMonth() + 1);
         if (nextDueDate > toDate) {
-          rentData.listStatus = 'Last';
+          rentData.listStatus = "Last";
         }
-        
+
         const created = await prisma.rent.create({
           data: rentData,
           select: {
@@ -236,31 +252,37 @@ export async function POST(req: NextRequest) {
             momCopyUrl: true,
             createdAt: true,
             updatedAt: true,
-          }
+          },
         });
-        
+
         createdRents.push(created);
-        
+
         // Move to next month
         dueDate.setMonth(dueDate.getMonth() + 1);
         srNo++;
       }
-      
-      return Success({ message: `Created ${createdRents.length} monthly rent records`, data: createdRents }, 201);
+
+      return Success(
+        {
+          message: `Created ${createdRents.length} monthly rent records`,
+          data: createdRents,
+        },
+        201
+      );
     } else {
       // Single record creation (backward compatibility)
       const rentData: any = { ...validatedData };
-      if (rentData.fromDate && rentData.fromDate.trim() !== '') {
+      if (rentData.fromDate && rentData.fromDate.trim() !== "") {
         rentData.fromDate = new Date(rentData.fromDate);
       } else {
         delete rentData.fromDate;
       }
-      if (rentData.toDate && rentData.toDate.trim() !== '') {
+      if (rentData.toDate && rentData.toDate.trim() !== "") {
         rentData.toDate = new Date(rentData.toDate);
       } else {
         delete rentData.toDate;
       }
-      
+
       const created = await prisma.rent.create({
         data: rentData,
         select: {
@@ -289,9 +311,9 @@ export async function POST(req: NextRequest) {
           momCopyUrl: true,
           createdAt: true,
           updatedAt: true,
-        }
+        },
       });
-      
+
       return Success(created, 201);
     }
   } catch (error) {

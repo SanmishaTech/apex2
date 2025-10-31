@@ -61,13 +61,13 @@ const cashbookDetailSchema = z.object({
     .refine(val => val !== '__none' && val !== '0' && val !== '', 'Cashbook head is required')
     .transform(val => parseInt(val)),
   description: z.string().optional(),
-  received: z.union([z.string(), z.number(), z.null(), z.undefined()])
+  openingQuantity: z.union([z.string(), z.number(), z.null(), z.undefined()])
     .transform(val => {
       if (!val || val === '' || val === '0') return null;
       return typeof val === 'string' ? parseFloat(val) || null : val;
     })
     .nullable(),
-  expense: z.union([z.string(), z.number(), z.null(), z.undefined()])
+  closingQuantity: z.union([z.string(), z.number(), z.null(), z.undefined()])
     .transform(val => {
       if (!val || val === '' || val === '0') return null;
       return typeof val === 'string' ? parseFloat(val) || null : val;
@@ -104,8 +104,8 @@ type FormData = {
   cashbookDetails: {
     cashbookHeadId: string | number;
     description?: string;
-    received?: string | number | null;
-    expense?: string | number | null;
+    openingQuantity?: string | number | null;
+    closingQuantity?: string | number | null;
   }[];
 };
 
@@ -128,13 +128,13 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
       cashbookDetails: initial?.cashbookDetails?.map(detail => ({
         cashbookHeadId: detail.cashbookHeadId ? String(detail.cashbookHeadId) : '__none',
         description: detail.description || '',
-        received: detail.received || '',
-        expense: detail.expense || '',
+        openingQuantity: detail.openingQuantity || '',
+        closingQuantity: detail.closingQuantity || '',
       })) || [{
         cashbookHeadId: '__none',
         description: '',
-        received: '',
-        expense: '',
+        openingQuantity: '',
+        closingQuantity: '',
       }],
     },
   });
@@ -222,13 +222,13 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
         cashbookDetails: initial.cashbookDetails?.map(detail => ({
           cashbookHeadId: detail.cashbookHeadId ? String(detail.cashbookHeadId) : '__none',
           description: detail.description || '',
-          received: detail.received || '',
-          expense: detail.expense || '',
+          openingQuantity: detail.openingQuantity || '',
+          closingQuantity: detail.closingQuantity || '',
         })) || [{
           cashbookHeadId: '__none',
           description: '',
-          received: '',
-          expense: '',
+          openingQuantity: '',
+          closingQuantity: '',
         }],
       });
     }
@@ -238,8 +238,8 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
     append({
       cashbookHeadId: '__none',
       description: '',
-      received: '',
-      expense: '',
+      openingQuantity: '',
+      closingQuantity: '',
     });
   };
 
@@ -263,8 +263,8 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
         cashbookDetails: transformedData.cashbookDetails.map(detail => ({
           cashbookHeadId: detail.cashbookHeadId,
           description: detail.description || null,
-          received: detail.received,
-          expense: detail.expense,
+          openingQuantity: detail.openingQuantity,
+          closingQuantity: detail.closingQuantity,
         })),
       };
 
@@ -297,8 +297,8 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
           <tr>
             <th className="text-left p-2 font-medium text-sm">Cashbook Head *</th>
             <th className="text-left p-2 font-medium text-sm">Description</th>
-            <th className="text-left p-2 font-medium text-sm">Received</th>
-            <th className="text-left p-2 font-medium text-sm">Expense</th>
+            <th className="text-left p-2 font-medium text-sm">Opening Quantity</th>
+            <th className="text-left p-2 font-medium text-sm">Closing Quantity</th>
             <th className="text-center p-2 font-medium text-sm">Actions</th>
           </tr>
         </thead>
@@ -347,7 +347,7 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
               <td className="p-2">
                 <FormField
                   control={form.control}
-                  name={`cashbookDetails.${index}.received`}
+                  name={`cashbookDetails.${index}.openingQuantity`}
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <FormControl>
@@ -363,7 +363,7 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
               <td className="p-2">
                 <FormField
                   control={form.control}
-                  name={`cashbookDetails.${index}.expense`}
+                  name={`cashbookDetails.${index}.closingQuantity`}
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <FormControl>

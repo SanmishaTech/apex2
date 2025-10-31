@@ -1,24 +1,31 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { AppButton } from '@/components/common';
-import { AppCard } from '@/components/common/app-card';
-import { AppSelect } from '@/components/common/app-select';
-import { TextInput } from '@/components/common/text-input';
-import { FormSection, FormRow } from '@/components/common/app-form';
-import { Input } from '@/components/ui/input';
-import { apiPost, apiPatch, apiGet } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import { formatDateForInput } from '@/lib/locales';
-import useSWR from 'swr';
-import { RENT_DAY_OPTIONS } from '@/types/rents';
-import { UploadInput } from '@/components/common/upload-input';
-import { documentUploadConfig, uploadFile } from '@/lib/upload-config';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AppButton } from "@/components/common";
+import { AppCard } from "@/components/common/app-card";
+import { AppSelect } from "@/components/common/app-select";
+import { TextInput } from "@/components/common/text-input";
+import { FormSection, FormRow } from "@/components/common/app-form";
+import { Input } from "@/components/ui/input";
+import { apiPost, apiPatch, apiGet } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { formatDateForInput } from "@/lib/locales";
+import useSWR from "swr";
+import { RENT_DAY_OPTIONS } from "@/types/rents";
+import { UploadInput } from "@/components/common/upload-input";
+import { documentUploadConfig, uploadFile } from "@/lib/upload-config";
 
 interface SitesResponse {
   data: Array<{ id: number; site: string }>;
@@ -33,76 +40,88 @@ interface RentTypesResponse {
 }
 
 interface BoqsResponse {
-  data: Array<{ id: number; boqNo: string; siteId?: number | null; workName?: string | null }>;
+  data: Array<{
+    id: number;
+    boqNo: string;
+    siteId?: number | null;
+    workName?: string | null;
+  }>;
 }
 
 export interface RentFormProps {
-  mode: 'create' | 'edit';
+  mode: "create" | "edit";
   initial?: any;
   onSuccess?: (result?: unknown) => void;
 }
 
 export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
-  const { backWithScrollRestore } = useScrollRestoration('rents-list');
+  const { backWithScrollRestore } = useScrollRestoration("rents-list");
   const [submitting, setSubmitting] = useState(false);
 
   // Different schemas for add vs edit modes
   const addSchema = z.object({
-    siteId: z.number({ required_error: 'Site is required' }).min(1, 'Site is required'),
-    boqId: z.number({ required_error: 'Bill of Quantity is required' }).min(1, 'Bill of Quantity is required'),
-    rentalCategoryId: z.number({ required_error: 'Rent Category is required' }).min(1, 'Rent Category is required'),
-    rentTypeId: z.number({ required_error: 'Rent Type is required' }).min(1, 'Rent Type is required'),
-    owner: z.string().min(1, 'Owner is required'),
+    siteId: z
+      .number({ required_error: "Site is required" })
+      .min(1, "Site is required"),
+    boqId: z
+      .number({ required_error: "Bill of Quantity is required" })
+      .min(1, "Bill of Quantity is required"),
+    rentalCategoryId: z
+      .number({ required_error: "Rent Category is required" })
+      .min(1, "Rent Category is required"),
+    rentTypeId: z
+      .number({ required_error: "Rent Type is required" })
+      .min(1, "Rent Type is required"),
+    owner: z.string().min(1, "Owner is required"),
     pancardNo: z.string().optional(),
-    rentDay: z.string().min(1, 'Rent Day is required'),
-    fromDate: z.string().min(1, 'From Date is required'),
-    toDate: z.string().min(1, 'To Date is required'),
+    rentDay: z.string().min(1, "Rent Day is required"),
+    fromDate: z.string().min(1, "From Date is required"),
+    toDate: z.string().min(1, "To Date is required"),
     description: z.string().optional(),
-    depositAmount: z.preprocess(
-      (val) => {
-        if (val === '' || val == null) return undefined;
-        return Number(val);
-      },
-      z.number({ required_error: 'Deposit Amount is required' }).min(0, 'Deposit Amount must be 0 or greater')
-    ),
-    rentAmount: z.preprocess(
-      (val) => {
-        if (val === '' || val == null) return undefined;
-        return Number(val);
-      },
-      z.number({ required_error: 'Rent Amount is required' }).min(0, 'Rent Amount must be 0 or greater')
-    ),
+    depositAmount: z.preprocess((val) => {
+      if (val === "" || val == null) return undefined;
+      return Number(val);
+    }, z.number({ required_error: "Deposit Amount is required" }).min(0, "Deposit Amount must be 0 or greater")),
+    rentAmount: z.preprocess((val) => {
+      if (val === "" || val == null) return undefined;
+      return Number(val);
+    }, z.number({ required_error: "Rent Amount is required" }).min(0, "Rent Amount must be 0 or greater")),
     bank: z.string().optional(),
     branch: z.string().optional(),
     accountNo: z.string().optional(),
     accountName: z.string().optional(),
     ifscCode: z.string().optional(),
-    momCopy: z.instanceof(File).optional(),
+    momCopy: z
+      .any()
+      .refine((val) => !val || val instanceof File, "Invalid file input")
+      .optional(),
   });
 
   const editSchema = z.object({
-    siteId: z.number({ required_error: 'Site is required' }).min(1, 'Site is required'),
-    boqId: z.number({ required_error: 'Bill of Quantity is required' }).min(1, 'Bill of Quantity is required'),
-    rentalCategoryId: z.number({ required_error: 'Rent Category is required' }).min(1, 'Rent Category is required'),
-    rentTypeId: z.number({ required_error: 'Rent Type is required' }).min(1, 'Rent Type is required'),
-    owner: z.string().min(1, 'Owner is required'),
+    siteId: z
+      .number({ required_error: "Site is required" })
+      .min(1, "Site is required"),
+    boqId: z
+      .number({ required_error: "Bill of Quantity is required" })
+      .min(1, "Bill of Quantity is required"),
+    rentalCategoryId: z
+      .number({ required_error: "Rent Category is required" })
+      .min(1, "Rent Category is required"),
+    rentTypeId: z
+      .number({ required_error: "Rent Type is required" })
+      .min(1, "Rent Type is required"),
+    owner: z.string().min(1, "Owner is required"),
     pancardNo: z.string().optional(),
-    dueDate: z.string().min(1, 'Due Date is required'),
+    dueDate: z.string().min(1, "Due Date is required"),
     description: z.string().optional(),
-    depositAmount: z.preprocess(
-      (val) => {
-        if (val === '' || val == null) return undefined;
-        return Number(val);
-      },
-      z.number({ required_error: 'Deposit Amount is required' }).min(0, 'Deposit Amount must be 0 or greater')
-    ),
-    rentAmount: z.preprocess(
-      (val) => {
-        if (val === '' || val == null) return undefined;
-        return Number(val);
-      },
-      z.number({ required_error: 'Rent Amount is required' }).min(0, 'Rent Amount must be 0 or greater')
-    ),
+    depositAmount: z.preprocess((val) => {
+      if (val === "" || val == null) return undefined;
+      return Number(val);
+    }, z.number({ required_error: "Deposit Amount is required" }).min(0, "Deposit Amount must be 0 or greater")),
+    rentAmount: z.preprocess((val) => {
+      if (val === "" || val == null) return undefined;
+      return Number(val);
+    }, z.number({ required_error: "Rent Amount is required" }).min(0, "Rent Amount must be 0 or greater")),
     bank: z.string().optional(),
     branch: z.string().optional(),
     accountNo: z.string().optional(),
@@ -110,7 +129,7 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
     ifscCode: z.string().optional(),
   });
 
-  const schema = mode === 'create' ? addSchema : editSchema;
+  const schema = mode === "create" ? addSchema : editSchema;
 
   // Different default values for add vs edit modes
   const getDefaultValues = () => {
@@ -119,30 +138,36 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
       boqId: initial?.boqId ?? null,
       rentalCategoryId: initial?.rentalCategoryId ?? null,
       rentTypeId: initial?.rentTypeId ?? null,
-      owner: initial?.owner ?? '',
-      pancardNo: initial?.pancardNo ?? '',
-      description: initial?.description ?? '',
-      depositAmount: initial?.depositAmount ?? '',
-      rentAmount: initial?.rentAmount ?? '',
-      bank: initial?.bank ?? '',
-      branch: initial?.branch ?? '',
-      accountNo: initial?.accountNo ?? '',
-      accountName: initial?.accountName ?? '',
-      ifscCode: initial?.ifscCode ?? '',
+      owner: initial?.owner ?? "",
+      pancardNo: initial?.pancardNo ?? "",
+      description: initial?.description ?? "",
+      depositAmount: initial?.depositAmount ?? "",
+      rentAmount: initial?.rentAmount ?? "",
+      bank: initial?.bank ?? "",
+      branch: initial?.branch ?? "",
+      accountNo: initial?.accountNo ?? "",
+      accountName: initial?.accountName ?? "",
+      ifscCode: initial?.ifscCode ?? "",
     };
 
-    if (mode === 'create') {
+    if (mode === "create") {
       return {
         ...baseDefaults,
         momCopy: null,
-        rentDay: initial?.rentDay ?? '',
-        fromDate: initial?.fromDate ? formatDateForInput(new Date(initial.fromDate)) : '',
-        toDate: initial?.toDate ? formatDateForInput(new Date(initial.toDate)) : '',
+        rentDay: initial?.rentDay ?? "",
+        fromDate: initial?.fromDate
+          ? formatDateForInput(new Date(initial.fromDate))
+          : "",
+        toDate: initial?.toDate
+          ? formatDateForInput(new Date(initial.toDate))
+          : "",
       };
     } else {
       return {
         ...baseDefaults,
-        dueDate: initial?.dueDate ? formatDateForInput(new Date(initial.dueDate)) : '',
+        dueDate: initial?.dueDate
+          ? formatDateForInput(new Date(initial.dueDate))
+          : "",
       };
     }
   };
@@ -153,25 +178,41 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   });
 
   const { control, handleSubmit, watch, setValue } = form;
-  const selectedSiteId = watch('siteId');
+  const selectedSiteId = watch("siteId");
 
   // Fetch dropdown data
-  const { data: sitesData } = useSWR<SitesResponse>('/api/sites?perPage=100', apiGet);
-  const { data: categoriesData } = useSWR<RentalCategoriesResponse>('/api/rental-categories?perPage=100', apiGet);
-  const { data: typesData } = useSWR<RentTypesResponse>('/api/rent-types?perPage=100', apiGet);
-  const { data: boqsData } = useSWR<BoqsResponse>('/api/boqs?perPage=100', apiGet);
+  const { data: sitesData } = useSWR<SitesResponse>(
+    "/api/sites?perPage=100",
+    apiGet
+  );
+  const { data: categoriesData } = useSWR<RentalCategoriesResponse>(
+    "/api/rental-categories?perPage=100",
+    apiGet
+  );
+  const { data: typesData } = useSWR<RentTypesResponse>(
+    "/api/rent-types?perPage=100",
+    apiGet
+  );
+  const { data: boqsData } = useSWR<BoqsResponse>(
+    "/api/boqs?perPage=100",
+    apiGet
+  );
 
   async function onSubmit(data: any) {
     setSubmitting(true);
     try {
       // Handle file upload only in create mode
       let momCopyUrl = initial?.momCopyUrl || null;
-      if (mode === 'create' && data.momCopy && data.momCopy instanceof File) {
-        const uploadResult = await uploadFile(data.momCopy, 'document', 'rent-mom');
+      if (mode === "create" && data.momCopy && data.momCopy instanceof File) {
+        const uploadResult = await uploadFile(
+          data.momCopy,
+          "document",
+          "rent-mom"
+        );
         if (uploadResult.success) {
           momCopyUrl = uploadResult.filename;
         } else {
-          toast.error(uploadResult.error || 'Failed to upload file');
+          toast.error(uploadResult.error || "Failed to upload file");
           return;
         }
       }
@@ -187,13 +228,15 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
         // Clean up empty strings
         owner: data.owner?.trim() || undefined,
         pancardNo: data.pancardNo?.trim() || undefined,
-        ...(mode === 'create' ? {
-          rentDay: data.rentDay || undefined,
-          fromDate: data.fromDate?.trim() || undefined,
-          toDate: data.toDate?.trim() || undefined,
-        } : {
-          dueDate: data.dueDate?.trim() || undefined,
-        }),
+        ...(mode === "create"
+          ? {
+              rentDay: data.rentDay || undefined,
+              fromDate: data.fromDate?.trim() || undefined,
+              toDate: data.toDate?.trim() || undefined,
+            }
+          : {
+              dueDate: data.dueDate?.trim() || undefined,
+            }),
         description: data.description?.trim() || undefined,
         bank: data.bank?.trim() || undefined,
         branch: data.branch?.trim() || undefined,
@@ -201,20 +244,29 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
         accountName: data.accountName?.trim() || undefined,
         ifscCode: data.ifscCode?.trim() || undefined,
         // Only include momCopyUrl in create mode
-        ...(mode === 'create' ? { momCopyUrl } : {}),
+        ...(mode === "create" ? { momCopyUrl } : {}),
       };
 
-      const result = mode === 'create' 
-        ? await apiPost('/api/rents', cleanData)
-        : await apiPatch(`/api/rents/${initial?.id}`, cleanData);
-      
+      const result =
+        mode === "create"
+          ? await apiPost("/api/rents", cleanData)
+          : await apiPatch(`/api/rents/${initial?.id}`, cleanData);
+
       // Handle response for multiple records creation
-      if (mode === 'create' && result && typeof result === 'object' && 'message' in result && 'data' in result) {
+      if (
+        mode === "create" &&
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        "data" in result
+      ) {
         toast.success(result.message as string);
       } else {
-        toast.success(`Rent ${mode === 'create' ? 'created' : 'updated'} successfully`);
+        toast.success(
+          `Rent ${mode === "create" ? "created" : "updated"} successfully`
+        );
       }
-      
+
       if (onSuccess) onSuccess(result);
       else backWithScrollRestore();
     } catch (error) {
@@ -227,15 +279,28 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>{mode === 'create' ? 'Add New Rent' : 'Edit Rent'}</AppCard.Title>
+        <AppCard.Title>
+          {mode === "create" ? "Add New Rent" : "Edit Rent"}
+        </AppCard.Title>
       </AppCard.Header>
       <AppCard.Content>
         <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <FormSection legend="Basic Details">
               <FormRow cols={2} from="md">
-                <TextInput control={control} name="owner" label="Owner" required placeholder="Enter owner name" />
-                <TextInput control={control} name="pancardNo" label="PAN Card No" placeholder="Enter PAN card number" />
+                <TextInput
+                  control={control}
+                  name="owner"
+                  label="Owner"
+                  required
+                  placeholder="Enter owner name"
+                />
+                <TextInput
+                  control={control}
+                  name="pancardNo"
+                  label="PAN Card No"
+                  placeholder="Enter PAN card number"
+                />
               </FormRow>
               <FormRow cols={2} from="md">
                 <FormField
@@ -243,15 +308,21 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                   name="siteId"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>Site <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Site <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <AppSelect
-                          value={field.value ? String(field.value) : ''}
-                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          value={field.value ? String(field.value) : ""}
+                          onValueChange={(v) =>
+                            field.onChange(v ? parseInt(v) : null)
+                          }
                           placeholder="Select a site"
                         >
                           {sitesData?.data?.map((s: any) => (
-                            <AppSelect.Item key={s.id} value={String(s.id)}>{s.site}</AppSelect.Item>
+                            <AppSelect.Item key={s.id} value={String(s.id)}>
+                              {s.site}
+                            </AppSelect.Item>
                           ))}
                         </AppSelect>
                       </FormControl>
@@ -264,19 +335,29 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                   name="boqId"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>Bill Of Quantity <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Bill Of Quantity <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <AppSelect
-                          value={field.value ? String(field.value) : ''}
-                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          value={field.value ? String(field.value) : ""}
+                          onValueChange={(v) =>
+                            field.onChange(v ? parseInt(v) : null)
+                          }
                           disabled={!selectedSiteId}
                           placeholder="Select BOQ"
                         >
-                          {boqsData?.data?.filter((b: any) => !selectedSiteId || b.siteId === selectedSiteId).map((b: any) => (
-                            <AppSelect.Item key={b.id} value={String(b.id)}>
-                              {b.boqNo}{b.workName ? ` - ${b.workName}` : ''}
-                            </AppSelect.Item>
-                          ))}
+                          {boqsData?.data
+                            ?.filter(
+                              (b: any) =>
+                                !selectedSiteId || b.siteId === selectedSiteId
+                            )
+                            .map((b: any) => (
+                              <AppSelect.Item key={b.id} value={String(b.id)}>
+                                {b.boqNo}
+                                {b.workName ? ` - ${b.workName}` : ""}
+                              </AppSelect.Item>
+                            ))}
                         </AppSelect>
                       </FormControl>
                       <FormMessage />
@@ -288,15 +369,21 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                   name="rentalCategoryId"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>Rent Category <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Rent Category <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <AppSelect
-                          value={field.value ? String(field.value) : ''}
-                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          value={field.value ? String(field.value) : ""}
+                          onValueChange={(v) =>
+                            field.onChange(v ? parseInt(v) : null)
+                          }
                           placeholder="Select rent category"
                         >
                           {categoriesData?.data?.map((c: any) => (
-                            <AppSelect.Item key={c.id} value={String(c.id)}>{c.rentalCategory}</AppSelect.Item>
+                            <AppSelect.Item key={c.id} value={String(c.id)}>
+                              {c.rentalCategory}
+                            </AppSelect.Item>
                           ))}
                         </AppSelect>
                       </FormControl>
@@ -309,15 +396,21 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                   name="rentTypeId"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>Rent Type <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Rent Type <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <AppSelect
-                          value={field.value ? String(field.value) : ''}
-                          onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                          value={field.value ? String(field.value) : ""}
+                          onValueChange={(v) =>
+                            field.onChange(v ? parseInt(v) : null)
+                          }
                           placeholder="Select rent type"
                         >
                           {typesData?.data?.map((t: any) => (
-                            <AppSelect.Item key={t.id} value={String(t.id)}>{t.rentType}</AppSelect.Item>
+                            <AppSelect.Item key={t.id} value={String(t.id)}>
+                              {t.rentType}
+                            </AppSelect.Item>
                           ))}
                         </AppSelect>
                       </FormControl>
@@ -326,7 +419,7 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                   )}
                 />
               </FormRow>
-              {mode === 'create' ? (
+              {mode === "create" ? (
                 // Add Mode: Show rentDay, fromDate, toDate
                 <>
                   <FormRow cols={3} from="md">
@@ -335,15 +428,20 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                       name="rentDay"
                       render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>Rent Day <span className="text-red-500">*</span></FormLabel>
+                          <FormLabel>
+                            Rent Day <span className="text-red-500">*</span>
+                          </FormLabel>
                           <FormControl>
                             <AppSelect
-                              value={field.value || ''}
+                              value={field.value || ""}
                               onValueChange={field.onChange}
                               placeholder="Select rent day"
                             >
                               {RENT_DAY_OPTIONS.map((option) => (
-                                <AppSelect.Item key={option.value} value={option.value}>
+                                <AppSelect.Item
+                                  key={option.value}
+                                  value={option.value}
+                                >
                                   {option.label}
                                 </AppSelect.Item>
                               ))}
@@ -358,7 +456,9 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                       name="fromDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>From Date <span className="text-red-500">*</span></FormLabel>
+                          <FormLabel>
+                            From Date <span className="text-red-500">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} type="date" />
                           </FormControl>
@@ -371,7 +471,9 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                       name="toDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>To Date <span className="text-red-500">*</span></FormLabel>
+                          <FormLabel>
+                            To Date <span className="text-red-500">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} type="date" />
                           </FormControl>
@@ -381,22 +483,52 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                     />
                   </FormRow>
                   <FormRow cols={2} from="md">
-                    <TextInput control={control} name="depositAmount" label="Deposit Amount" required type="number" placeholder="Enter deposit amount" />
-                    <TextInput control={control} name="rentAmount" label="Rent Amount" required type="number" placeholder="Enter rent amount" />
+                    <TextInput
+                      control={control}
+                      name="depositAmount"
+                      label="Deposit Amount"
+                      required
+                      type="number"
+                      placeholder="Enter deposit amount"
+                    />
+                    <TextInput
+                      control={control}
+                      name="rentAmount"
+                      label="Rent Amount"
+                      required
+                      type="number"
+                      placeholder="Enter rent amount"
+                    />
                   </FormRow>
                 </>
               ) : (
                 // Edit Mode: Show dueDate, deposit and rent amounts
                 <>
                   <FormRow cols={3} from="md">
-                    <TextInput control={control} name="depositAmount" label="Deposit Amount" required type="number" placeholder="Enter deposit amount" />
-                    <TextInput control={control} name="rentAmount" label="Rent Amount" required type="number" placeholder="Enter rent amount" />
+                    <TextInput
+                      control={control}
+                      name="depositAmount"
+                      label="Deposit Amount"
+                      required
+                      type="number"
+                      placeholder="Enter deposit amount"
+                    />
+                    <TextInput
+                      control={control}
+                      name="rentAmount"
+                      label="Rent Amount"
+                      required
+                      type="number"
+                      placeholder="Enter rent amount"
+                    />
                     <FormField
                       control={control}
                       name="dueDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Due Date <span className="text-red-500">*</span></FormLabel>
+                          <FormLabel>
+                            Due Date <span className="text-red-500">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} type="date" />
                           </FormControl>
@@ -408,21 +540,51 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                 </>
               )}
               <FormRow cols={1} from="md">
-                <TextInput control={control} name="description" label="Description" placeholder="Enter description" />
+                <TextInput
+                  control={control}
+                  name="description"
+                  label="Description"
+                  placeholder="Enter description"
+                />
               </FormRow>
             </FormSection>
 
             <FormSection legend="Bank Details">
               <FormRow cols={5} from="md">
-                <TextInput control={control} name="bank" label="Bank" placeholder="Enter bank name" />
-                <TextInput control={control} name="branch" label="Branch" placeholder="Enter branch name" />
-                <TextInput control={control} name="accountNo" label="Account No" placeholder="Enter account number" />
-                <TextInput control={control} name="accountName" label="Account Name" placeholder="Enter account holder name" />
-                <TextInput control={control} name="ifscCode" label="IFSC Code" placeholder="Enter IFSC code" />
+                <TextInput
+                  control={control}
+                  name="bank"
+                  label="Bank"
+                  placeholder="Enter bank name"
+                />
+                <TextInput
+                  control={control}
+                  name="branch"
+                  label="Branch"
+                  placeholder="Enter branch name"
+                />
+                <TextInput
+                  control={control}
+                  name="accountNo"
+                  label="Account No"
+                  placeholder="Enter account number"
+                />
+                <TextInput
+                  control={control}
+                  name="accountName"
+                  label="Account Name"
+                  placeholder="Enter account holder name"
+                />
+                <TextInput
+                  control={control}
+                  name="ifscCode"
+                  label="IFSC Code"
+                  placeholder="Enter IFSC code"
+                />
               </FormRow>
             </FormSection>
 
-            {mode === 'create' && (
+            {mode === "create" && (
               <FormSection legend="File Upload">
                 <FormRow cols={1} from="md">
                   <UploadInput
@@ -432,7 +594,11 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                     description="Upload Minutes of Meeting copy (PDF, DOC, etc.)"
                     accept=".pdf,.doc,.docx,.txt"
                     maxSizeBytes={documentUploadConfig.maxSize}
-                    existingUrl={initial?.momCopyUrl ? `/api/documents/${initial.momCopyUrl}` : null}
+                    existingUrl={
+                      initial?.momCopyUrl
+                        ? `/api/documents/${initial.momCopyUrl}`
+                        : null
+                    }
                     showPreview={false}
                   />
                 </FormRow>
@@ -440,15 +606,19 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
             )}
 
             <div className="flex gap-2 justify-end">
-              <AppButton 
-                type="button" 
-                variant="outline" 
+              <AppButton
+                type="button"
+                variant="outline"
                 onClick={backWithScrollRestore}
               >
                 Cancel
               </AppButton>
               <AppButton type="submit" disabled={submitting}>
-                {submitting ? 'Saving...' : (mode === 'create' ? 'Create' : 'Update')}
+                {submitting
+                  ? "Saving..."
+                  : mode === "create"
+                  ? "Create"
+                  : "Update"}
               </AppButton>
             </div>
           </form>

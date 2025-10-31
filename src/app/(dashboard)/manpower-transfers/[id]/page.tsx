@@ -345,25 +345,6 @@ export default function ViewManpowerTransferPage() {
               </FormRow>
             )}
 
-            {transfer.challanCopyUrl && (
-              <FormRow>
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    <FileText className="h-4 w-4 mr-2 inline" />
-                    Challan Copy
-                  </label>
-                  <AppButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(`/api/documents/${transfer.challanCopyUrl?.split('/').pop()}`, '_blank')}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Document
-                  </AppButton>
-                </div>
-              </FormRow>
-            )}
-
             {transfer.remarks && (
               <FormRow>
                 <div className="col-span-2">
