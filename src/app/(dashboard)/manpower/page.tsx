@@ -17,6 +17,8 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
+import { BulkManpowerUploadDialog } from '@/components/common/bulk-manpower-upload-dialog';
+import * as XLSX from 'xlsx';
 
 export type ManpowerListItem = {
   id: number;
@@ -46,6 +48,7 @@ export default function ManpowerPage() {
   const { page, perPage, search, sort, order } = qp as unknown as { page: number; perPage: number; search: string; sort: string; order: 'asc' | 'desc' };
 
   const [searchDraft, setSearchDraft] = useState(search);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   useEffect(() => { setSearchDraft(search); }, [search]);
   const filtersDirty = searchDraft !== search;
 
@@ -91,6 +94,61 @@ export default function ManpowerPage() {
     }
   }
 
+  async function handleExport() {
+    try {
+      // Fetch all manpower without pagination
+      const exportQuery = `/api/manpower?perPage=10000${search ? `&search=${search}` : ''}`;
+      const exportData = await apiGet(exportQuery) as ManpowerResponse;
+      
+      // Prepare data for Excel export
+      const excelData = exportData.data.map((item) => ({
+        'First Name': item.firstName,
+        'Middle Name': item.middleName || '',
+        'Last Name': item.lastName,
+        'Full Name': `${item.firstName}${item.middleName ? ' ' + item.middleName : ''} ${item.lastName}`,
+        'Supplier': item.manpowerSupplier?.supplierName || '',
+        'Mobile Number': item.mobileNumber || '',
+        'Wage': item.wage || '',
+        'Created Date': new Date(item.createdAt).toLocaleDateString(),
+        'Updated Date': new Date(item.updatedAt).toLocaleDateString(),
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      // Set column widths for better readability
+      const colWidths = [
+        { wch: 15 }, // First Name
+        { wch: 15 }, // Middle Name
+        { wch: 15 }, // Last Name
+        { wch: 30 }, // Full Name
+        { wch: 25 }, // Supplier
+        { wch: 15 }, // Mobile Number
+        { wch: 12 }, // Wage
+        { wch: 15 }, // Created Date
+        { wch: 15 }, // Updated Date
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Manpower');
+
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `manpower_export_${dateStr}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`Exported ${exportData.data.length} manpower records`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export manpower');
+    }
+  }
+
   return (
     <AppCard>
       <AppCard.Header>
@@ -113,10 +171,19 @@ export default function ManpowerPage() {
         <FilterBar title='Search'>
           <NonFormTextInput aria-label='Search' placeholder='Search by name, mobile, supplier...' value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} containerClassName='w-full' />
           <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !searchDraft} className='min-w-[84px]'>Filter</AppButton>
+          {can(PERMISSIONS.EDIT_MANPOWER) && (
+            <AppButton variant='outline' size='sm' onClick={() => setUploadDialogOpen(true)} iconName='Upload' className='min-w-[84px]'>Upload</AppButton>
+          )}
+          <AppButton variant='outline' size='sm' onClick={handleExport} iconName='Download' className='min-w-[84px]'>Export</AppButton>
           {search && (
             <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-[84px]'>Reset</AppButton>
           )}
         </FilterBar>
+        <BulkManpowerUploadDialog 
+          open={uploadDialogOpen} 
+          onOpenChange={setUploadDialogOpen}
+          onUploadSuccess={() => mutate()}
+        />
         <DataTable
           columns={columns}
           data={data?.data || []}
