@@ -104,7 +104,6 @@ const createInputSchema = z
   .object({
     name: z.string().min(1, "Employee name is required"),
     departmentId: z.string().optional(),
-    siteId: z.union([z.string(), z.array(z.string())]).optional(),
     resignDate: z.string().optional(),
     // Personal Details
     dateOfBirth: z.string().optional(),
@@ -158,7 +157,6 @@ const createInputSchema = z
 const editInputSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
   departmentId: z.string().optional(),
-  siteId: z.union([z.string(), z.array(z.string())]).optional(),
   resignDate: z.string().optional(),
   // Personal Details
   dateOfBirth: z.string().optional(),
@@ -204,28 +202,6 @@ const createSchema = createInputSchema.transform((data) => ({
     data.departmentId && data.departmentId !== ""
       ? parseInt(data.departmentId)
       : null,
-  siteId: data.siteId
-    ? (() => {
-        if (Array.isArray(data.siteId)) {
-          return data.siteId
-            .map((id) => parseInt(id))
-            .filter((id) => !isNaN(id));
-        } else if (typeof data.siteId === "string") {
-          try {
-            const parsed = JSON.parse(data.siteId);
-            if (Array.isArray(parsed)) {
-              return parsed
-                .map((id) => parseInt(id))
-                .filter((id) => !isNaN(id));
-            }
-            return [parseInt(data.siteId)];
-          } catch {
-            return [parseInt(data.siteId)];
-          }
-        }
-        return null;
-      })()
-    : null,
   stateId: data.stateId && data.stateId !== "" ? parseInt(data.stateId) : null,
   cityId: data.cityId && data.cityId !== "" ? parseInt(data.cityId) : null,
   resignDate:
@@ -291,28 +267,6 @@ const editSchema = editInputSchema.transform((data) => ({
     data.departmentId && data.departmentId !== ""
       ? parseInt(data.departmentId)
       : null,
-  siteId: data.siteId
-    ? (() => {
-        if (Array.isArray(data.siteId)) {
-          return data.siteId
-            .map((id) => parseInt(id))
-            .filter((id) => !isNaN(id));
-        } else if (typeof data.siteId === "string") {
-          try {
-            const parsed = JSON.parse(data.siteId);
-            if (Array.isArray(parsed)) {
-              return parsed
-                .map((id) => parseInt(id))
-                .filter((id) => !isNaN(id));
-            }
-            return [parseInt(data.siteId)];
-          } catch {
-            return [parseInt(data.siteId)];
-          }
-        }
-        return null;
-      })()
-    : null,
   stateId: data.stateId && data.stateId !== "" ? parseInt(data.stateId) : null,
   cityId: data.cityId && data.cityId !== "" ? parseInt(data.cityId) : null,
   resignDate:
@@ -402,16 +356,6 @@ export function EmployeeForm({
     defaultValues: {
       name: initial?.name || "",
       departmentId: initial?.departmentId ? String(initial.departmentId) : "",
-      siteId: (() => {
-        // For edit mode, extract site IDs from siteEmployees
-        if (!mode || mode === "edit") {
-          if (initial?.siteEmployees && initial.siteEmployees.length > 0) {
-            return initial.siteEmployees.map((se) => String(se.siteId));
-          }
-        }
-        // For new employees or create mode, use empty array
-        return [];
-      })(),
       // siteId: [],
       resignDate: initial?.resignDate ? initial.resignDate.split("T")[0] : "",
       // Personal Details
@@ -479,12 +423,6 @@ export function EmployeeForm({
             departmentId: initial.departmentId
               ? String(initial.departmentId)
               : "",
-            siteId: (() => {
-              if (initial.siteEmployees && initial.siteEmployees.length > 0) {
-                return initial.siteEmployees.map((se) => String(se.siteId));
-              }
-              return [];
-            })(),
             resignDate: initial.resignDate
               ? initial.resignDate.split("T")[0]
               : "",
@@ -577,13 +515,6 @@ export function EmployeeForm({
           fd.append("name", data.name);
           if (data.departmentId)
             fd.append("departmentId", String(data.departmentId));
-          if (data.siteId) {
-            if (Array.isArray(data.siteId) && data.siteId.length > 0) {
-              fd.append("siteId", JSON.stringify(data.siteId));
-            } else {
-              fd.append("siteId", String(data.siteId));
-            }
-          }
           if (data.resignDate)
             fd.append("resignDate", data.resignDate.toISOString());
           if (data.dateOfBirth)
@@ -648,7 +579,6 @@ export function EmployeeForm({
         submitData = {
           name: data.name,
           departmentId: data.departmentId || undefined,
-          siteId: data.siteId || undefined,
           resignDate: data.resignDate?.toISOString() || undefined,
           // Personal Details
           dateOfBirth: data.dateOfBirth?.toISOString() || undefined,

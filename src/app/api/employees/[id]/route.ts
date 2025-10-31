@@ -145,6 +145,14 @@ export async function GET(
               select: {
                 id: true,
                 site: true,
+                shortName: true,
+                company: {
+                  select: {
+                    id: true,
+                    companyName: true,
+                    shortName: true,
+                  },
+                },
               },
             },
           },

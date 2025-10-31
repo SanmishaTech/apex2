@@ -40,6 +40,12 @@ export interface Employee {
     site: {
       id: number;
       site: string;
+      shortName?: string | null;
+      company?: {
+        id: number;
+        companyName: string;
+        shortName?: string | null;
+      } | null;
     };
   }[]; // assuming one employee can be linked to multiple siteEmployees
   state?: {
