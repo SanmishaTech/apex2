@@ -1131,8 +1131,8 @@ model CashbookDetail {
   cashbookHeadId Int
   cashbookHead   CashbookHead @relation(fields: [cashbookHeadId], references: [id])
   description    String?      @db.Text
-  received       Decimal?     @db.Decimal(12, 2)
-  expense        Decimal?     @db.Decimal(12, 2)
+  openingQuantity       Decimal?     @db.Decimal(12, 2)
+  closingQuantity        Decimal?     @db.Decimal(12, 2)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1218,7 +1218,6 @@ model ManpowerTransfer {
   toSiteId       Int
   toSite         Site      @relation("ToSiteManpowerTransfers", fields: [toSiteId], references: [id])
   status         String    @default("Pending") // Pending, Accepted, Rejected
-  challanCopyUrl String? // File upload for challan copy
   approvedById   Int? // User who approved/rejected
   approvedBy     User?     @relation("ManpowerTransferApprovals", fields: [approvedById], references: [id])
   approvedAt     DateTime?

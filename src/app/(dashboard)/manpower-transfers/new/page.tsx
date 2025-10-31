@@ -11,7 +11,7 @@ import { AppButton } from '@/components/common/app-button';
 import { FormSection, FormRow } from '@/components/common/app-form';
 import { DataTable } from '@/components/common/data-table';
 import { toast } from 'sonner';
-import { ArrowLeft, Upload, Users, MapPin } from 'lucide-react';
+import { ArrowLeft, Users, MapPin } from 'lucide-react';
 import type { AssignedManpowerForTransfer, CreateManpowerTransferRequest } from '@/types/manpower-transfers';
 import type { Site } from '@/types/sites';
 
@@ -47,12 +47,10 @@ export default function NewManpowerTransferPage() {
     challanDate: new Date().toISOString().split('T')[0],
     fromSiteId: '',
     toSiteId: '',
-    challanCopyUrl: '',
     remarks: '',
   });
 
   const [selectedManpower, setSelectedManpower] = useState<number[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
 
   // Fetch sites
@@ -98,50 +96,6 @@ export default function NewManpowerTransferPage() {
     setSelectedManpower([]);
   };
 
-  // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type and size
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please select a PDF or image file (JPG, PNG)');
-      return;
-    }
-
-    if (file.size > 20 * 1024 * 1024) { // 20MB limit
-      toast.error('File size must be less than 20MB');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const uploadData = new FormData();
-      uploadData.append('file', file);
-      uploadData.append('type', 'document');
-      uploadData.append('prefix', 'challan');
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: uploadData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const result = await response.json();
-      setFormData(prev => ({ ...prev, challanCopyUrl: result.url }));
-      toast.success('File uploaded successfully');
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload file');
-    } finally {
-      setUploading(false);
-    }
-  };
-
   // Handle form submission
   const handleSubmit = async () => {
     // Validation
@@ -166,7 +120,6 @@ export default function NewManpowerTransferPage() {
         challanDate: formData.challanDate,
         fromSiteId: parseInt(formData.fromSiteId),
         toSiteId: parseInt(formData.toSiteId),
-        challanCopyUrl: formData.challanCopyUrl || null,
         remarks: formData.remarks || null,
         manpowerIds: selectedManpower,
       };
@@ -335,30 +288,6 @@ export default function NewManpowerTransferPage() {
                       </option>
                     ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Challan Copy
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    id="challan-upload"
-                  />
-                  <label
-                    htmlFor="challan-upload"
-                    className="flex items-center gap-2 px-3 py-2 border border-input rounded-md bg-background text-foreground cursor-pointer hover:bg-muted transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {uploading ? 'Uploading...' : 'Choose File'}
-                  </label>
-                  {formData.challanCopyUrl && (
-                    <span className="text-sm text-green-600">✓ Uploaded</span>
-                  )}
-                </div>
               </div>
             </FormRow>
 

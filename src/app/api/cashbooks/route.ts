@@ -13,8 +13,8 @@ const createSchema = z.object({
   cashbookDetails: z.array(z.object({
     cashbookHeadId: z.number().min(1, "Cashbook head is required"),
     description: z.string().nullable().optional(),
-    received: z.number().nullable().optional(),
-    expense: z.number().nullable().optional(),
+    openingQuantity: z.number().nullable().optional(),
+    closingQuantity: z.number().nullable().optional(),
   })).min(1, "At least one cashbook detail is required"),
 });
 
@@ -105,8 +105,8 @@ export async function POST(req: NextRequest) {
           create: cashbookDetails.map(detail => ({
             cashbookHeadId: detail.cashbookHeadId,
             description: detail.description,
-            received: detail.received ? parseFloat(detail.received.toString()) : null,
-            expense: detail.expense ? parseFloat(detail.expense.toString()) : null,
+            openingQuantity: detail.openingQuantity ? parseFloat(detail.openingQuantity.toString()) : null,
+            closingQuantity: detail.closingQuantity ? parseFloat(detail.closingQuantity.toString()) : null,
           }))
         }
       },

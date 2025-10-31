@@ -13,8 +13,8 @@ const updateSchema = z.object({
     id: z.number().optional(), // For existing details
     cashbookHeadId: z.number().min(1, "Cashbook head is required"),
     description: z.string().nullable().optional(),
-    received: z.number().nullable().optional(),
-    expense: z.number().nullable().optional(),
+    openingQuantity: z.number().nullable().optional(),
+    closingQuantity: z.number().nullable().optional(),
   })).optional(),
 });
 
@@ -80,8 +80,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         create: cashbookDetails.map(detail => ({
           cashbookHeadId: detail.cashbookHeadId,
           description: detail.description,
-          received: detail.received ? parseFloat(detail.received.toString()) : null,
-          expense: detail.expense ? parseFloat(detail.expense.toString()) : null,
+          openingQuantity: detail.openingQuantity ? parseFloat(detail.openingQuantity.toString()) : null,
+          closingQuantity: detail.closingQuantity ? parseFloat(detail.closingQuantity.toString()) : null,
         }))
       };
     }

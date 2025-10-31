@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
       fromSiteId,
       toSiteId,
       manpowerIds,
-      challanCopyUrl,
       remarks,
     } = body;
 
@@ -223,7 +222,6 @@ export async function POST(request: NextRequest) {
           challanDate: new Date(challanDate),
           fromSiteId,
           toSiteId,
-          challanCopyUrl,
           remarks,
         },
         include: {

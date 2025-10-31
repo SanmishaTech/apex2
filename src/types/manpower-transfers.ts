@@ -28,7 +28,6 @@ export interface ManpowerTransfer {
   toSiteId: number;
   toSite: { id: number; site: string };
   status: 'Pending' | 'Accepted' | 'Rejected';
-  challanCopyUrl?: string | null;
   approvedById?: number | null;
   approvedBy?: { id: number; name: string | null } | null;
   approvedAt?: string | null;
@@ -42,7 +41,6 @@ export interface CreateManpowerTransferRequest {
   challanDate: string; // ISO date string
   fromSiteId: number;
   toSiteId: number;
-  challanCopyUrl?: string | null;
   remarks?: string | null;
   manpowerIds: number[]; // Selected manpower IDs to transfer
 }
