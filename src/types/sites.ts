@@ -1,12 +1,10 @@
 export interface Site {
   id: number;
-  uinNo?: string | null;
+  siteCode?: string | null;
   site: string;
   shortName?: string | null;
   companyId?: number | null;
-  closed: boolean;
-  permanentClosed: boolean;
-  monitor: boolean;
+  status: "Ongoing" | "Hold" | "Monitor";
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
@@ -47,13 +45,11 @@ export interface SitesResponse {
 }
 
 export interface CreateSiteData {
-  uinNo?: string | null;
+  siteCode?: string | null;
   site: string;
   shortName?: string | null;
   companyId?: number | null;
-  closed: boolean;
-  permanentClosed: boolean;
-  monitor: boolean;
+  status: "Ongoing" | "Hold" | "Monitor";
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
@@ -71,13 +67,11 @@ export interface CreateSiteData {
 }
 
 export interface UpdateSiteData {
-  uinNo?: string | null;
+  siteCode?: string | null;
   site?: string;
   shortName?: string | null;
   companyId?: number | null;
-  closed?: boolean;
-  permanentClosed?: boolean;
-  monitor?: boolean;
+  status?: "Ongoing" | "Hold" | "Monitor";
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;

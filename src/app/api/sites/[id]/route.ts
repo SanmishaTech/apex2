@@ -6,16 +6,19 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { validatePAN, validateTAN, validateCIN, validateGST } from "@/lib/tax-validation";
+import {
+  validatePAN,
+  validateTAN,
+  validateCIN,
+  validateGST,
+} from "@/lib/tax-validation";
 
 const updateSchema = z.object({
-  uinNo: z.string().optional().nullable(),
+  siteCode: z.string().optional().nullable(),
   site: z.string().min(1, "Site name is required").optional(),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
-  closed: z.boolean().optional(),
-  permanentClosed: z.boolean().optional(),
-  monitor: z.boolean().optional(),
+  status: z.enum(["Ongoing", "Hold", "Monitor"]).optional(),
   attachCopyUrl: z.string().optional().nullable(),
   contactPerson: z.string().optional().nullable(),
   contactNo: z.string().optional().nullable(),
@@ -26,34 +29,43 @@ const updateSchema = z.object({
   pinCode: z.string().optional().nullable(),
   longitude: z.string().optional().nullable(),
   latitude: z.string().optional().nullable(),
-  panNo: z.string()
+  panNo: z
+    .string()
     .optional()
     .nullable()
     .refine((val) => !val || validatePAN(val), {
-      message: "Invalid PAN format. Format: AAAAA9999A (5 letters + 4 digits + 1 letter)"
+      message:
+        "Invalid PAN format. Format: AAAAA9999A (5 letters + 4 digits + 1 letter)",
     }),
-  gstNo: z.string()
+  gstNo: z
+    .string()
     .optional()
     .nullable()
     .refine((val) => !val || validateGST(val), {
-      message: "Invalid GST format. Format: 99AAAAA9999A9A9"
+      message: "Invalid GST format. Format: 99AAAAA9999A9A9",
     }),
-  tanNo: z.string()
+  tanNo: z
+    .string()
     .optional()
     .nullable()
     .refine((val) => !val || validateTAN(val), {
-      message: "Invalid TAN format. Format: AAAA99999A (4 letters + 5 digits + 1 letter)"
+      message:
+        "Invalid TAN format. Format: AAAA99999A (4 letters + 5 digits + 1 letter)",
     }),
-  cinNo: z.string()
+  cinNo: z
+    .string()
     .optional()
     .nullable()
     .refine((val) => !val || validateCIN(val), {
-      message: "Invalid CIN format. Format: U99999AA9999AAA999999"
+      message: "Invalid CIN format. Format: U99999AA9999AAA999999",
     }),
 });
 
 // GET /api/sites/[id] - Get specific site
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -63,15 +75,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const site = await prisma.site.findUnique({
       where: { id },
-      select: { 
-        id: true, 
-        uinNo: true,
-        site: true, 
+      select: {
+        id: true,
+        siteCode: true,
+        site: true,
         shortName: true,
         companyId: true,
-        closed: true,
-        permanentClosed: true,
-        monitor: true,
+        status: true,
         attachCopyUrl: true,
         contactPerson: true,
         contactNo: true,
@@ -92,25 +102,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           select: {
             id: true,
             companyName: true,
-            shortName: true
-          }
+            shortName: true,
+          },
         },
         state: {
           select: {
             id: true,
-            state: true
-          }
+            state: true,
+          },
         },
         city: {
           select: {
             id: true,
-            city: true
-          }
-        }
-      }
+            city: true,
+          },
+        },
+      },
     });
 
-    if (!site) return NotFound('Site not found');
+    if (!site) return NotFound("Site not found");
     return Success(site);
   } catch (error) {
     console.error("Get site error:", error);
@@ -119,7 +129,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 }
 
 // PATCH /api/sites/[id] - Update specific site
-export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -127,41 +140,43 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid site ID");
 
-    const contentType = req.headers.get('content-type') || '';
+    const contentType = req.headers.get("content-type") || "";
     let siteData: any;
     let attachCopyFile: File | null = null;
 
     // Handle multipart form data for file uploads
-    if (contentType.includes('multipart/form-data')) {
+    if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      attachCopyFile = form.get('attachCopy') as File;
-      
+      attachCopyFile = form.get("attachCopy") as File;
+
       // Extract other form data
       siteData = {
-        uinNo: form.get('uinNo') || undefined,
-        site: form.get('site') || undefined,
-        shortName: form.get('shortName') || undefined,
-        companyId: form.get('companyId') ? Number(form.get('companyId')) : undefined,
-        closed: form.get('closed') !== null ? form.get('closed') === 'true' : undefined,
-        permanentClosed: form.get('permanentClosed') !== null ? form.get('permanentClosed') === 'true' : undefined,
-        monitor: form.get('monitor') !== null ? form.get('monitor') === 'true' : undefined,
-        contactPerson: form.get('contactPerson') || undefined,
-        contactNo: form.get('contactNo') || undefined,
-        addressLine1: form.get('addressLine1') || undefined,
-        addressLine2: form.get('addressLine2') || undefined,
-        stateId: form.get('stateId') ? Number(form.get('stateId')) : undefined,
-        cityId: form.get('cityId') ? Number(form.get('cityId')) : undefined,
-        pinCode: form.get('pinCode') || undefined,
-        longitude: form.get('longitude') || undefined,
-        latitude: form.get('latitude') || undefined,
-        panNo: form.get('panNo') || undefined,
-        gstNo: form.get('gstNo') || undefined,
-        tanNo: form.get('tanNo') || undefined,
-        cinNo: form.get('cinNo') || undefined,
+        siteCode: form.get("siteCode") || undefined,
+        site: form.get("site") || undefined,
+        shortName: form.get("shortName") || undefined,
+        companyId: form.get("companyId")
+          ? Number(form.get("companyId"))
+          : undefined,
+        status: form.get("status") || undefined,
+        contactPerson: form.get("contactPerson") || undefined,
+        contactNo: form.get("contactNo") || undefined,
+        addressLine1: form.get("addressLine1") || undefined,
+        addressLine2: form.get("addressLine2") || undefined,
+        stateId: form.get("stateId") ? Number(form.get("stateId")) : undefined,
+        cityId: form.get("cityId") ? Number(form.get("cityId")) : undefined,
+        pinCode: form.get("pinCode") || undefined,
+        longitude: form.get("longitude") || undefined,
+        latitude: form.get("latitude") || undefined,
+        panNo: form.get("panNo") || undefined,
+        gstNo: form.get("gstNo") || undefined,
+        tanNo: form.get("tanNo") || undefined,
+        cinNo: form.get("cinNo") || undefined,
       };
 
       // Remove undefined values
-      siteData = Object.fromEntries(Object.entries(siteData).filter(([_, v]) => v !== undefined));
+      siteData = Object.fromEntries(
+        Object.entries(siteData).filter(([_, v]) => v !== undefined)
+      );
     } else {
       // Handle JSON data
       siteData = await req.json();
@@ -172,27 +187,34 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (attachCopyFile && attachCopyFile.size > 0) {
       // Validate file size
       if (attachCopyFile.size > 20 * 1024 * 1024) {
-        return Error('Attach copy file too large (max 20MB)', 413);
+        return Error("Attach copy file too large (max 20MB)", 413);
       }
-      
+
       // Get current site to potentially remove old file
       const currentSite = await prisma.site.findUnique({
         where: { id },
-        select: { attachCopyUrl: true }
+        select: { attachCopyUrl: true },
       });
 
       // Generate unique filename and save new file
-      const ext = path.extname(attachCopyFile.name) || '.pdf';
+      const ext = path.extname(attachCopyFile.name) || ".pdf";
       const filename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'uploads', 'sites');
+      const dir = path.join(process.cwd(), "uploads", "sites");
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(path.join(dir, filename), Buffer.from(await attachCopyFile.arrayBuffer()));
+      await fs.writeFile(
+        path.join(dir, filename),
+        Buffer.from(await attachCopyFile.arrayBuffer())
+      );
       attachCopyUrl = `/uploads/sites/${filename}`;
 
       // Clean up old file if it exists
       if (currentSite?.attachCopyUrl) {
         try {
-          const oldFilePath = path.join(process.cwd(), 'public', currentSite.attachCopyUrl);
+          const oldFilePath = path.join(
+            process.cwd(),
+            "public",
+            currentSite.attachCopyUrl
+          );
           await fs.unlink(oldFilePath);
         } catch (error) {
           // Ignore errors when cleaning up old files
@@ -209,15 +231,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const updated = await prisma.site.update({
       where: { id },
       data: validatedData,
-      select: { 
-        id: true, 
-        uinNo: true,
-        site: true, 
+      select: {
+        id: true,
+        siteCode: true,
+        site: true,
         shortName: true,
         companyId: true,
-        closed: true,
-        permanentClosed: true,
-        monitor: true,
+        status: true,
         attachCopyUrl: true,
         contactPerson: true,
         contactNo: true,
@@ -238,22 +258,22 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           select: {
             id: true,
             companyName: true,
-            shortName: true
-          }
+            shortName: true,
+          },
         },
         state: {
           select: {
             id: true,
-            state: true
-          }
+            state: true,
+          },
         },
         city: {
           select: {
             id: true,
-            city: true
-          }
-        }
-      }
+            city: true,
+          },
+        },
+      },
     });
 
     return Success(updated);
@@ -261,15 +281,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    if (error.code === 'P2025') return NotFound('Site not found');
-    if (error.code === 'P2002') return Error('Site already exists', 409);
+    if (error.code === "P2025") return NotFound("Site not found");
+    if (error.code === "P2002") return Error("Site already exists", 409);
     console.error("Update site error:", error);
     return Error("Failed to update site");
   }
 }
 
 // DELETE /api/sites/[id] - Delete specific site
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -280,20 +303,20 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     // Get site to check if file needs to be cleaned up
     const site = await prisma.site.findUnique({
       where: { id },
-      select: { attachCopyUrl: true }
+      select: { attachCopyUrl: true },
     });
 
-    if (!site) return NotFound('Site not found');
+    if (!site) return NotFound("Site not found");
 
     // Delete the site record
     await prisma.site.delete({
-      where: { id }
+      where: { id },
     });
 
     // Clean up file if it exists
     if (site.attachCopyUrl) {
       try {
-        const filePath = path.join(process.cwd(), 'public', site.attachCopyUrl);
+        const filePath = path.join(process.cwd(), "public", site.attachCopyUrl);
         await fs.unlink(filePath);
       } catch (error) {
         // Ignore errors when cleaning up files
@@ -301,9 +324,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       }
     }
 
-    return Success({ message: 'Site deleted successfully' });
+    return Success({ message: "Site deleted successfully" });
   } catch (error: any) {
-    if (error.code === 'P2025') return NotFound('Site not found');
+    if (error.code === "P2025") return NotFound("Site not found");
     console.error("Delete site error:", error);
     return Error("Failed to delete site");
   }

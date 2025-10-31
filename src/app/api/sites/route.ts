@@ -10,13 +10,11 @@ import crypto from "crypto";
 import { validatePAN, validateTAN, validateCIN, validateGST } from "@/lib/tax-validation";
 
 const createSchema = z.object({
-  uinNo: z.string().optional().nullable(),
+  siteCode: z.string().optional().nullable(),
   site: z.string().min(1, "Site name is required"),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
-  closed: z.boolean().default(false),
-  permanentClosed: z.boolean().default(false),
-  monitor: z.boolean().default(false),
+  status: z.enum(["Ongoing", "Hold", "Monitor"]).default("Ongoing"),
   attachCopyUrl: z.string().optional().nullable(),
   contactPerson: z.string().optional().nullable(),
   contactNo: z.string().optional().nullable(),
@@ -53,7 +51,7 @@ const createSchema = z.object({
     }),
 });
 
-// GET /api/sites?search=&closed=true|false&permanentClosed=true|false&monitor=true|false&page=1&perPage=10&sort=site&order=asc
+// GET /api/sites?search=&status=Ongoing|Hold|Monitor&page=1&perPage=10&sort=site&order=asc
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -63,9 +61,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
-    const closedParam = searchParams.get("closed");
-    const permanentClosedParam = searchParams.get("permanentClosed");
-    const monitorParam = searchParams.get("monitor");
+    const statusParam = searchParams.get("status");
     const sort = (searchParams.get("sort") || "site") as string;
     const order = (searchParams.get("order") === "desc" ? "desc" : "asc") as "asc" | "desc";
 
@@ -74,12 +70,10 @@ export async function GET(req: NextRequest) {
       OR?: Array<{
         site?: { contains: string };
         shortName?: { contains: string };
-        uinNo?: { contains: string };
+        siteCode?: { contains: string };
         contactPerson?: { contains: string };
       }>;
-      closed?: boolean;
-      permanentClosed?: boolean;
-      monitor?: boolean;
+      status?: string;
       companyId?: number;
       stateId?: number;
       cityId?: number;
@@ -90,18 +84,12 @@ export async function GET(req: NextRequest) {
       where.OR = [
         { site: { contains: search } },
         { shortName: { contains: search } },
-        { uinNo: { contains: search } },
+        { siteCode: { contains: search } },
         { contactPerson: { contains: search } },
       ];
     }
-    if (closedParam === "true" || closedParam === "false") {
-      where.closed = closedParam === "true";
-    }
-    if (permanentClosedParam === "true" || permanentClosedParam === "false") {
-      where.permanentClosed = permanentClosedParam === "true";
-    }
-    if (monitorParam === "true" || monitorParam === "false") {
-      where.monitor = monitorParam === "true";
+    if (statusParam && ["Ongoing", "Hold", "Monitor"].includes(statusParam)) {
+      where.status = statusParam;
     }
     
     const companyIdParam = searchParams.get("companyId");
@@ -120,7 +108,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Allow listed sortable fields only
-    const sortableFields = new Set(["site", "shortName", "uinNo", "contactPerson", "closed", "permanentClosed", "monitor", "createdAt"]);
+    const sortableFields = new Set(["site", "shortName", "siteCode", "contactPerson", "status", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) 
       ? { [sort]: order } 
       : { site: "asc" };
@@ -133,13 +121,11 @@ export async function GET(req: NextRequest) {
       perPage,
       select: { 
         id: true, 
-        uinNo: true,
+        siteCode: true,
         site: true, 
         shortName: true,
         companyId: true,
-        closed: true,
-        permanentClosed: true,
-        monitor: true,
+        status: true,
         attachCopyUrl: true,
         contactPerson: true,
         contactNo: true,
@@ -207,13 +193,11 @@ export async function POST(req: NextRequest) {
       
       // Extract other form data
       siteData = {
-        uinNo: form.get('uinNo') || null,
-        site: form.get('site'),
+        siteCode: form.get('siteCode') || null,
+        site: form.get('site') || null,
         shortName: form.get('shortName') || null,
         companyId: form.get('companyId') ? Number(form.get('companyId')) : null,
-        closed: form.get('closed') === 'true',
-        permanentClosed: form.get('permanentClosed') === 'true',
-        monitor: form.get('monitor') === 'true',
+        status: form.get('status') || null,
         contactPerson: form.get('contactPerson') || null,
         contactNo: form.get('contactNo') || null,
         addressLine1: form.get('addressLine1') || null,
@@ -257,13 +241,11 @@ export async function POST(req: NextRequest) {
     
     const created = await prisma.site.create({
       data: {
-        uinNo: validatedData.uinNo,
+        siteCode: validatedData.siteCode,
         site: validatedData.site,
         shortName: validatedData.shortName,
         companyId: validatedData.companyId,
-        closed: validatedData.closed,
-        permanentClosed: validatedData.permanentClosed,
-        monitor: validatedData.monitor,
+        status: validatedData.status,
         attachCopyUrl: validatedData.attachCopyUrl,
         contactPerson: validatedData.contactPerson,
         contactNo: validatedData.contactNo,
@@ -281,13 +263,11 @@ export async function POST(req: NextRequest) {
       },
       select: { 
         id: true, 
-        uinNo: true,
+        siteCode: true,
         site: true, 
         shortName: true,
         companyId: true,
-        closed: true,
-        permanentClosed: true,
-        monitor: true,
+        status: true,
         attachCopyUrl: true,
         contactPerson: true,
         contactNo: true,
@@ -301,6 +281,7 @@ export async function POST(req: NextRequest) {
         tanNo: true,
         cinNo: true,
         createdAt: true,
+        updatedAt: true,
         stateId: true,
         cityId: true,
         company: {
