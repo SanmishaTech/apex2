@@ -33,6 +33,11 @@ export interface Employee {
     id: number;
     department: string;
   } | null;
+  employeeDocuments?: {
+    id: number;
+    documentName: string | null;
+    documentUrl: string | null;
+  }[];
   siteEmployees?: {
     id: number;
     siteId: number;

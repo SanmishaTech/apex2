@@ -7,6 +7,7 @@ import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
 import { ROLES } from "@/config/roles";
 import Image from "next/image";
+import { DocumentUploadArray } from "./DocumentUploadArray";
 
 interface Props {
   control: any;
@@ -117,6 +118,10 @@ export default function EmployeeDetailsTab({
             )}
           </div>
         </FormRow>
+      </FormSection>
+
+      <FormSection legend="Employee Documents">
+        <DocumentUploadArray control={control} />
       </FormSection>
 
       <FormSection legend="Employee Information">

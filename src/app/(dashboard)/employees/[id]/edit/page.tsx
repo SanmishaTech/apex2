@@ -47,6 +47,11 @@ export default function EditEmployeePage() {
           : null,
         signatureImage: employee.signatureImage ?? null,
         employeeImage: employee.employeeImage ?? null,
+        employeeDocuments: employee.employeeDocuments?.map((doc) => ({
+          id: doc.id,
+          documentName: doc.documentName,
+          documentUrl: doc.documentUrl,
+        })),
       }}
     />
   );
