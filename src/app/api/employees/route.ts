@@ -202,6 +202,13 @@ export async function POST(req: NextRequest) {
     let parsedData: z.infer<typeof createSchema>;
     let profilePic: File | null = null;
     let signature: File | null = null;
+    let documentFiles: Array<{ file: File; index: number }> = [];
+    let documentMetadata: Array<{
+      id?: number;
+      documentName: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -211,7 +218,7 @@ export async function POST(req: NextRequest) {
       signature = (form.get("signature") as File) || null;
 
       // Map other fields
-      const mapped = {
+      const mapped: any = {
         name: String(form.get("name") || ""),
         departmentId: form.get("departmentId")
           ? Number(form.get("departmentId"))
@@ -295,10 +302,60 @@ export async function POST(req: NextRequest) {
         email: String(form.get("email") || ""),
         password: String(form.get("password") || ""),
       };
+      // Employee documents metadata is sent as JSON string via `employeeDocuments`
+      const documentsJson = form.get("employeeDocuments");
+      if (typeof documentsJson === "string" && documentsJson.trim() !== "") {
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            documentMetadata = parsed
+              .filter((doc: any) => doc && typeof doc === "object")
+              .map((doc: any, index: number) => ({
+                id:
+                  typeof doc.id === "number" && Number.isFinite(doc.id)
+                    ? doc.id
+                    : undefined,
+                documentName: String(doc.documentName || ""),
+                documentUrl:
+                  typeof doc.documentUrl === "string"
+                    ? doc.documentUrl
+                    : undefined,
+                index,
+              }));
+          }
+        } catch (err) {
+          console.warn("Failed to parse employeeDocuments metadata", err);
+        }
+      }
+
+      // Collect uploaded files following naming convention `employeeDocuments[index][documentFile]`
+      form.forEach((value, key) => {
+        const match = key.match(/^employeeDocuments\[(\d+)\]\[documentFile\]$/);
+        if (!match) return;
+        const idx = Number(match[1]);
+        const fileVal = value as unknown;
+        if (fileVal instanceof File) {
+          documentFiles.push({ file: fileVal, index: idx });
+        }
+      });
       parsedData = createSchema.parse(mapped);
     } else {
       const body = await req.json();
       parsedData = createSchema.parse(body);
+      documentMetadata = Array.isArray((body as any)?.employeeDocuments)
+        ? (body as any).employeeDocuments.map((doc: any, index: number) => ({
+            id:
+              typeof doc?.id === "number" && Number.isFinite(doc.id)
+                ? doc.id
+                : undefined,
+            documentName: String(doc?.documentName || ""),
+            documentUrl:
+              typeof doc?.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                ? doc.documentUrl
+                : undefined,
+            index,
+          }))
+        : [];
     }
 
     // Function to persist image file
@@ -319,6 +376,22 @@ export async function POST(req: NextRequest) {
         Buffer.from(await file.arrayBuffer())
       );
       return `/uploads/employees/${folder}/${filename}`;
+    }
+
+    async function saveDocument(file: File) {
+      if (!file || file.size === 0) return null as string | null;
+      if (file.size > 20 * 1024 * 1024) {
+        throw new Error("Document file too large (max 20MB)");
+      }
+      const ext = path.extname(file.name) || path.extname(file.type) || "";
+      const filename = `${Date.now()}-${crypto.randomUUID()}${ext || ""}`;
+      const dir = path.join(process.cwd(), "uploads", "employees", "documents");
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(
+        path.join(dir, filename),
+        Buffer.from(await file.arrayBuffer())
+      );
+      return `/uploads/employees/documents/${filename}`;
     }
 
     const hashedPassword = await bcrypt.hash(parsedData.password, 10);
@@ -420,6 +493,35 @@ export async function POST(req: NextRequest) {
           },
         },
       });
+
+      if (documentMetadata.length > 0) {
+        const documentsToCreate: Array<{ employeeId: number; documentName: string; documentUrl: string } | null> =
+          await Promise.all(
+            documentMetadata.map(async (docMeta) => {
+              let finalUrl = docMeta.documentUrl || null;
+              const matchingFile = documentFiles.find(
+                (entry) => entry.index === docMeta.index
+              );
+              if (matchingFile) {
+                finalUrl = await saveDocument(matchingFile.file);
+              }
+              if (!finalUrl) return null;
+              return {
+                employeeId: employee.id,
+                documentName: docMeta.documentName.trim(),
+                documentUrl: finalUrl,
+              };
+            })
+          );
+
+        const filteredDocs = documentsToCreate.filter((doc): doc is { employeeId: number; documentName: string; documentUrl: string } => {
+          return Boolean(doc && doc.documentName && doc.documentUrl);
+        });
+
+        if (filteredDocs.length > 0) {
+          await tx.employeeDocument.createMany({ data: filteredDocs });
+        }
+      }
 
       // Create SiteEmployee and SiteEmployeeLog records for each selected site
       if (

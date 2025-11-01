@@ -63,6 +63,11 @@ export interface EmployeeFormInitialData {
   // Signature and Profile Picture
   signatureImage?: string | null;
   employeeImage?: string | null;
+  employeeDocuments?: Array<{
+    id?: number;
+    documentName: string | null;
+    documentUrl: string | null;
+  }>;
   // Site Employees (for edit mode)
   siteEmployees?: Array<{
     id: number;
@@ -99,6 +104,19 @@ export interface EmployeeFormProps {
 }
 
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+
+const documentSchema = z.object({
+  id: z.number().optional(),
+  documentName: z.string().min(1, "Document name is required"),
+  documentUrl: z
+    .any()
+    .refine(
+      (val) =>
+        (typeof val === "string" && val.trim() !== "") ||
+        val instanceof File,
+      "Document file is required"
+    ),
+});
 
 const createInputSchema = z
   .object({
@@ -148,6 +166,7 @@ const createInputSchema = z
       .string()
       .min(6, "Confirm password must be at least 6 characters"),
     role: z.enum(ROLE_VALUES).default(ROLES.USER),
+    employeeDocuments: z.array(documentSchema).default([]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -194,6 +213,7 @@ const editInputSchema = z.object({
   balanceSickLeaves: z.string().optional(),
   balancePaidLeaves: z.string().optional(),
   balanceCasualLeaves: z.string().optional(),
+  employeeDocuments: z.array(documentSchema).default([]),
 });
 
 const createSchema = createInputSchema.transform((data) => ({
@@ -349,6 +369,13 @@ export function EmployeeForm({
   );
   const { backWithScrollRestore } = useScrollRestoration("employees-list");
 
+  const initialDocumentValues =
+    initial?.employeeDocuments?.map((doc) => ({
+      id: doc.id,
+      documentName: doc.documentName ?? "",
+      documentUrl: doc.documentUrl ?? "",
+    })) ?? [];
+
   const form = useForm<FormValues>({
     resolver: zodResolver(mode === "create" ? createSchema : editSchema),
     mode: "onChange",
@@ -407,6 +434,7 @@ export function EmployeeForm({
       password: "",
       confirmPassword: "",
       role: "user",
+      employeeDocuments: initialDocumentValues,
     },
   });
 
@@ -461,6 +489,12 @@ export function EmployeeForm({
             reportingSiteAssignedDate: initial.reportingSiteAssignedDate
               ? initial.reportingSiteAssignedDate.split("T")[0]
               : "",
+            employeeDocuments:
+              initial.employeeDocuments?.map((doc) => ({
+                id: doc.id,
+                documentName: doc.documentName ?? "",
+                documentUrl: doc.documentUrl ?? "",
+              })) ?? [],
           },
         },
         { keepDirty: false, keepTouched: false }
@@ -510,7 +544,25 @@ export function EmployeeForm({
       let submitData: Record<string, unknown>;
       if (isCreate) {
         const data = formData as any; // Already transformed by zodResolver(createSchema)
-        if (signatureFile || profilePicFile) {
+        const documents = Array.isArray(data.employeeDocuments)
+          ? data.employeeDocuments
+          : [];
+        const documentMetadata = documents.map((doc: any) => ({
+          id: typeof doc.id === "number" ? doc.id : undefined,
+          documentName: doc.documentName,
+          documentUrl:
+            typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+              ? doc.documentUrl
+              : undefined,
+        }));
+        const hasDocumentFiles = documents.some(
+          (doc: any) => doc?.documentUrl instanceof File
+        );
+        const shouldUseMultipart = Boolean(
+          signatureFile || profilePicFile || hasDocumentFiles
+        );
+
+        if (shouldUseMultipart) {
           const fd = new FormData();
           fd.append("name", data.name);
           if (data.departmentId)
@@ -559,6 +611,31 @@ export function EmployeeForm({
           fd.append("role", data.role);
           if (profilePicFile) fd.append("profilePic", profilePicFile);
           if (signatureFile) fd.append("signature", signatureFile);
+          fd.append("employeeDocuments", JSON.stringify(documentMetadata));
+          documents.forEach((doc: any, idx: number) => {
+            if (doc?.id) {
+              fd.append(`employeeDocuments[${idx}][id]`, String(doc.id));
+            }
+            fd.append(
+              `employeeDocuments[${idx}][documentName]`,
+              doc?.documentName ?? ""
+            );
+            if (doc?.documentUrl instanceof File) {
+              fd.append(
+                `employeeDocuments[${idx}][documentFile]`,
+                doc.documentUrl,
+                doc.documentUrl.name
+              );
+            } else if (
+              typeof doc?.documentUrl === "string" &&
+              doc.documentUrl.trim() !== ""
+            ) {
+              fd.append(
+                `employeeDocuments[${idx}][documentUrl]`,
+                doc.documentUrl
+              );
+            }
+          });
 
           const response = await fetch("/api/employees", {
             method: "POST",
@@ -614,11 +691,29 @@ export function EmployeeForm({
           email: data.email,
           password: data.password,
           role: data.role,
+          employeeDocuments: documentMetadata,
         };
       } else {
         const data = formData as any; // Already transformed by zodResolver(editSchema)
+        const documents = Array.isArray(data.employeeDocuments)
+          ? data.employeeDocuments
+          : [];
+        const documentMetadata = documents.map((doc: any) => ({
+          id: typeof doc.id === "number" ? doc.id : undefined,
+          documentName: doc.documentName,
+          documentUrl:
+            typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+              ? doc.documentUrl
+              : undefined,
+        }));
+        const hasDocumentFiles = documents.some(
+          (doc: any) => doc?.documentUrl instanceof File
+        );
+        const shouldUseMultipart = Boolean(
+          signatureFile || profilePicFile || hasDocumentFiles
+        );
         // If either file is present, use FormData and send PATCH as multipart
-        if (signatureFile || profilePicFile) {
+        if (shouldUseMultipart) {
           const fd = new FormData();
           fd.append("name", data.name);
           if (data.departmentId)
@@ -671,6 +766,31 @@ export function EmployeeForm({
             );
           if (profilePicFile) fd.append("profilePic", profilePicFile);
           if (signatureFile) fd.append("signature", signatureFile);
+          fd.append("employeeDocuments", JSON.stringify(documentMetadata));
+          documents.forEach((doc: any, idx: number) => {
+            if (doc?.id) {
+              fd.append(`employeeDocuments[${idx}][id]`, String(doc.id));
+            }
+            fd.append(
+              `employeeDocuments[${idx}][documentName]`,
+              doc?.documentName ?? ""
+            );
+            if (doc?.documentUrl instanceof File) {
+              fd.append(
+                `employeeDocuments[${idx}][documentFile]`,
+                doc.documentUrl,
+                doc.documentUrl.name
+              );
+            } else if (
+              typeof doc?.documentUrl === "string" &&
+              doc.documentUrl.trim() !== ""
+            ) {
+              fd.append(
+                `employeeDocuments[${idx}][documentUrl]`,
+                doc.documentUrl
+              );
+            }
+          });
 
           // PATCH with multipart/form-data
           if (initial?.id) {
@@ -727,6 +847,7 @@ export function EmployeeForm({
           reportingSiteId: data.reportingSiteId || undefined,
           reportingSiteAssignedDate:
             data.reportingSiteAssignedDate?.toISOString() || undefined,
+          employeeDocuments: documentMetadata,
         };
       }
 
