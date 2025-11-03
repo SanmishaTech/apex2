@@ -162,7 +162,7 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
                       <div className="flex w-full flex-col gap-3 rounded-xl border border-muted bg-muted/20 p-4 md:max-w-sm md:flex-row md:items-center">
                         {isImage(value) ? (
                           <img
-                            src={value.startsWith("/") ? `${window.location.origin}${value}` : value}
+                            src={value.startsWith("http") ? value : `/api${value}`}
                             alt="Document preview"
                             className="h-20 w-20 rounded-lg object-cover"
                           />
@@ -179,7 +179,7 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
                           size="sm"
                           className="w-full justify-center md:w-auto"
                           onClick={() => {
-                            const url = value.startsWith("/") ? `${window.location.origin}${value}` : value;
+                            const url = value.startsWith("http") ? value : `/api${value}`;
                             window.open(url, "_blank");
                           }}
                         >
