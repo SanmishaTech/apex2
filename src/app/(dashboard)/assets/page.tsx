@@ -10,6 +10,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { Pagination } from '@/components/common/pagination';
 import { FilterBar } from '@/components/common';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
+import { AppSelect } from '@/components/common/app-select';
 import { AppButton } from '@/components/common/app-button';
 import { DeleteButton } from '@/components/common/delete-button';
 import { EditButton } from '@/components/common/icon-button';
@@ -22,7 +23,8 @@ import { PERMISSIONS } from '@/config/roles';
 import useSWR from 'swr';
 import { toast } from '@/lib/toast';
 import { apiDelete } from '@/lib/api-client';
-import { Asset, AssetsResponse } from '@/types/assets';
+import { Asset, AssetsResponse, ASSET_STATUS_OPTIONS } from '@/types/assets';
+import { SitesResponse } from '@/types/sites';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -36,37 +38,53 @@ export default function AssetsPage() {
     page: 1,
     perPage: 10,
     search: '',
+    status: '',
+    site: '',
     sort: 'createdAt',
     order: 'desc',
   });
-  const { page, perPage, search, sort, order } = qp as unknown as {
+  const { page, perPage, search, status, site, sort, order } = qp as unknown as {
     page: number;
     perPage: number;
     search: string;
+    status: string;
+    site: string;
     sort: string;
     order: 'asc' | 'desc';
   };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
+  const [statusDraft, setStatusDraft] = useState(status);
+  const [siteDraft, setSiteDraft] = useState(site);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
   }, [search]);
+  useEffect(() => {
+    setStatusDraft(status);
+  }, [status]);
+  useEffect(() => {
+    setSiteDraft(site);
+  }, [site]);
 
-  const filtersDirty = searchDraft !== search;
+  const filtersDirty = searchDraft !== search || statusDraft !== status || siteDraft !== site;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
+      status: statusDraft,
+      site: siteDraft,
     });
   }
 
   function clearFilters() {
     setSearchDraft('');
-    setQp({ page: 1, search: '' });
+    setStatusDraft('');
+    setSiteDraft('');
+    setQp({ page: 1, search: '', status: '', site: '' });
   }
 
   const { can } = usePermissions();
@@ -82,10 +100,18 @@ export default function AssetsPage() {
     sort,
     order,
     ...(search && { search }),
+    ...(status && { status }),
+    ...(site && { currentSiteId: site }),
   });
 
   const { data, error, isLoading, mutate } = useSWR<AssetsResponse>(
     `/api/assets?${queryParams}`,
+    fetcher
+  );
+
+  // Fetch sites for filter dropdown
+  const { data: sitesData } = useSWR<SitesResponse>(
+    '/api/sites?perPage=100',
     fetcher
   );
 
@@ -230,15 +256,39 @@ export default function AssetsPage() {
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName="w-full"
           />
+          <AppSelect
+            value={statusDraft || '__all'}
+            onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}
+            placeholder="Status"
+          >
+            <AppSelect.Item value="__all">All Statuses</AppSelect.Item>
+            {ASSET_STATUS_OPTIONS.map((option) => (
+              <AppSelect.Item key={option.value} value={option.value}>
+                {option.label}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
+          <AppSelect
+            value={siteDraft || '__all'}
+            onValueChange={(v) => setSiteDraft(v === '__all' ? '' : v)}
+            placeholder="Site"
+          >
+            <AppSelect.Item value="__all">All Sites</AppSelect.Item>
+            {sitesData?.data?.map((site) => (
+              <AppSelect.Item key={site.id} value={String(site.id)}>
+                {site.site}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
           <AppButton
             size="sm"
             onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft}
+            disabled={!filtersDirty && !searchDraft && !statusDraft && !siteDraft}
             className="min-w-[84px]"
           >
             Filter
           </AppButton>
-          {search && (
+          {(search || status || site) && (
             <AppButton
               variant="secondary"
               size="sm"
