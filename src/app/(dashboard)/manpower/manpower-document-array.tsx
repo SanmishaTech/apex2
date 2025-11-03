@@ -5,8 +5,10 @@ import { Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Upload, FilePlus2, FileText, Image as ImageIcon, Trash2 } from "lucide-react";
+import Image from "next/image";
 
 interface ManpowerDocumentUploadArrayProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: any;
 }
 
@@ -20,7 +22,6 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
   const createEmptyDocument = () => ({ id: undefined, documentName: "", documentUrl: null });
 
   const isImage = (name: string) => /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(name);
-  const isPdf = (name: string) => /\.pdf$/i.test(name);
 
   return (
     <div className="space-y-4">
@@ -46,7 +47,7 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
       )}
 
       {fields.map((field, index) => (
-        <Fragment key={(field as any).fieldId ?? index}>
+        <Fragment key={(field as Record<string, unknown>).fieldId as string ?? index}>
           <Controller
             control={control}
             name={`manpowerDocuments.${index}.id`}
@@ -161,13 +162,19 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
                     {hasExistingFile && (
                       <div className="flex w-full flex-col gap-3 rounded-xl border border-muted bg-muted/20 p-4 md:max-w-sm md:flex-row md:items-center">
                         {isImage(value) ? (
-                          <img
-                            src={value.startsWith("http") ? value : `/api${value}`}
-                            alt="Document preview"
-                            className="h-20 w-20 rounded-lg object-cover"
-                          />
+                          <div className="relative h-20 w-20">
+                            <Image
+                              src={value.startsWith("http") ? value : `/api${value}`}
+                              alt="Document preview"
+                              fill
+                              className="rounded-lg object-cover"
+                              sizes="80px"
+                            />
+                          </div>
                         ) : (
-                          <FileText className="h-10 w-10 text-muted-foreground" />
+                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="h-10 w-10 text-muted-foreground" />
+                          </div>
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{value.split("/").pop()}</p>
