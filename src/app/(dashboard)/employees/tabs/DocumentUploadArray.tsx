@@ -3,14 +3,9 @@
 import { useFieldArray, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  FileText,
-  Image as ImageIcon,
-  Trash2,
-  Upload,
-  FilePlus2,
-} from "lucide-react";
-import { Fragment } from "react";
+import { FileText, Image as ImageIcon, Trash2, Upload, FilePlus2 } from 'lucide-react';
+import { Fragment } from 'react';
+import Image from 'next/image';
 
 interface DocumentUploadArrayProps {
   control: any;
@@ -192,17 +187,19 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
                     {isExistingFile && (
                       <div className="flex w-full flex-col gap-3 rounded-xl border border-muted bg-muted/20 p-4 md:max-w-sm md:flex-row md:items-center">
                         {isImageFile(value) ? (
-                          <img
-                            src={
-                              value.startsWith("/")
-                                ? `${window.location.origin}${value}`
-                                : value
-                            }
-                            alt="Document preview"
-                            className="h-20 w-20 rounded-lg object-cover"
-                          />
+                          <div className="relative h-20 w-20">
+                            <Image
+                              src={value.startsWith("http") ? value : `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}${value.startsWith("/") ? value : `/${value}`}`}
+                              alt="Document preview"
+                              fill
+                              className="rounded-lg object-contain bg-white p-1"
+                              sizes="80px"
+                            />
+                          </div>
                         ) : (
-                          <FileText className="h-10 w-10 text-muted-foreground" />
+                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="h-10 w-10 text-muted-foreground" />
+                          </div>
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">
@@ -216,11 +213,9 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
                           type="button"
                           variant="secondary"
                           size="sm"
-                          className="w-full justify-center md:w-auto"
+                          className="w-full justify-center md:w-auto mt-2"
                           onClick={() => {
-                            const url = value.startsWith("/")
-                              ? `${window.location.origin}${value}`
-                              : value;
+                            const url = value.startsWith("http") ? value : `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}${value.startsWith("/") ? value : `/${value}`}`;
                             window.open(url, "_blank");
                           }}
                         >
