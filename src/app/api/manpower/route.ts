@@ -132,6 +132,13 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get('content-type') || '';
     let body: any = {};
     let files: Record<string, File | null> = {};
+    let documentFiles: Array<{ file: File; index: number }> = [];
+    let documentMetadata: Array<{
+      id?: number;
+      documentName: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
     if (contentType.includes('multipart/form-data')) {
       const form = await req.formData();
       const get = (k: string) => form.get(k) as string | null;
@@ -166,8 +173,48 @@ export async function POST(req: NextRequest) {
         bankDetails: get('bankDetails'),
         watch: get('watch'),
       };
+
+      const documentsJson = form.get('manpowerDocuments');
+      if (typeof documentsJson === 'string' && documentsJson.trim() !== '') {
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            documentMetadata = parsed
+              .filter((doc: any) => doc && typeof doc === 'object')
+              .map((doc: any, index: number) => ({
+                id: typeof doc.id === 'number' && Number.isFinite(doc.id) ? doc.id : undefined,
+                documentName: String(doc.documentName || ''),
+                documentUrl: typeof doc.documentUrl === 'string' ? doc.documentUrl : undefined,
+                index,
+              }));
+          }
+        } catch (err) {
+          console.warn('Failed to parse manpowerDocuments metadata (POST)', err);
+        }
+      }
+
+      form.forEach((value, key) => {
+        const match = key.match(/^manpowerDocuments\[(\d+)\]\[documentFile\]$/);
+        if (!match) return;
+        const idx = Number(match[1]);
+        const fileVal = value as unknown;
+        if (fileVal instanceof File) {
+          documentFiles.push({ file: fileVal, index: idx });
+        }
+      });
     } else {
       body = await req.json();
+      documentMetadata = Array.isArray((body as any)?.manpowerDocuments)
+        ? (body as any).manpowerDocuments.map((doc: any, index: number) => ({
+            id: typeof doc?.id === 'number' && Number.isFinite(doc.id) ? doc.id : undefined,
+            documentName: String(doc?.documentName || ''),
+            documentUrl:
+              typeof doc?.documentUrl === 'string' && doc.documentUrl.trim() !== ''
+                ? doc.documentUrl
+                : undefined,
+            index,
+          }))
+        : [];
     }
 
     if (!body.firstName || !body.lastName) return ApiError('First and last name are required', 400);
@@ -190,37 +237,75 @@ export async function POST(req: NextRequest) {
       return ApiError(e?.message || 'Invalid document upload', 400);
     }
 
-    const created = await prisma.manpower.create({
-      data: {
-        firstName: String(body.firstName).trim(),
-        middleName: nil(body.middleName) as any,
-        lastName: String(body.lastName).trim(),
-        supplierId: supplierIdNum,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
-        address: nil(body.address) as any,
-        location: nil(body.location) as any,
-        mobileNumber: nil(body.mobileNumber) as any,
-        wage: body.wage ? String(body.wage) as any : null,
-        bank: nil(body.bank) as any,
-        branch: nil(body.branch) as any,
-        accountNumber: nil(body.accountNumber) as any,
-        ifscCode: nil(body.ifscCode) as any,
-        pfNo: nil(body.pfNo) as any,
-        esicNo: nil(body.esicNo) as any,
-        unaNo: nil(body.unaNo) as any,
-        panNumber: nil(body.panNumber) as any,
-        aadharNo: nil(body.aadharNo) as any,
-        voterIdNo: nil(body.voterIdNo) as any,
-        drivingLicenceNo: nil(body.drivingLicenceNo) as any,
-        bankDetails: nil(body.bankDetails) as any,
-        panDocumentUrl,
-        aadharDocumentUrl,
-        voterIdDocumentUrl,
-        drivingLicenceDocumentUrl,
-        bankDetailsDocumentUrl,
-        watch: body.watch === true || body.watch === 'true',
-      },
-      select: { id: true }
+    const created = await prisma.$transaction(async (tx) => {
+      const manpower = await tx.manpower.create({
+        data: {
+          firstName: String(body.firstName).trim(),
+          middleName: nil(body.middleName) as any,
+          lastName: String(body.lastName).trim(),
+          supplierId: supplierIdNum,
+          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+          address: nil(body.address) as any,
+          location: nil(body.location) as any,
+          mobileNumber: nil(body.mobileNumber) as any,
+          wage: body.wage ? String(body.wage) as any : null,
+          bank: nil(body.bank) as any,
+          branch: nil(body.branch) as any,
+          accountNumber: nil(body.accountNumber) as any,
+          ifscCode: nil(body.ifscCode) as any,
+          pfNo: nil(body.pfNo) as any,
+          esicNo: nil(body.esicNo) as any,
+          unaNo: nil(body.unaNo) as any,
+          panNumber: nil(body.panNumber) as any,
+          aadharNo: nil(body.aadharNo) as any,
+          voterIdNo: nil(body.voterIdNo) as any,
+          drivingLicenceNo: nil(body.drivingLicenceNo) as any,
+          bankDetails: nil(body.bankDetails) as any,
+          panDocumentUrl,
+          aadharDocumentUrl,
+          voterIdDocumentUrl,
+          drivingLicenceDocumentUrl,
+          bankDetailsDocumentUrl,
+          watch: body.watch === true || body.watch === 'true',
+        },
+        select: { id: true }
+      });
+
+      if (documentMetadata.length > 0 || documentFiles.length > 0) {
+        const filesByIndex = new Map<number, File>();
+        documentFiles.forEach((entry) => {
+          filesByIndex.set(entry.index, entry.file);
+        });
+
+        const createPayload: Array<{
+          manpowerId: number;
+          documentName: string;
+          documentUrl: string;
+        }> = [];
+
+        for (const docMeta of documentMetadata) {
+          const name = (docMeta.documentName || '').trim();
+          const file = filesByIndex.get(docMeta.index ?? -1);
+          const trimmedUrl = docMeta.documentUrl?.trim();
+          let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+          if (file) {
+            const saved = await saveDoc(file, 'manpower-doc');
+            finalUrl = saved ?? undefined;
+          }
+          if (!name || !finalUrl) continue;
+          createPayload.push({
+            manpowerId: manpower.id,
+            documentName: name,
+            documentUrl: finalUrl,
+          });
+        }
+
+        if (createPayload.length > 0) {
+          await tx.manpowerDocument.createMany({ data: createPayload });
+        }
+      }
+
+      return manpower;
     });
     return Success(created, 201);
   } catch (e) {
@@ -236,6 +321,14 @@ export async function PATCH(req: NextRequest) {
     const contentType = req.headers.get('content-type') || '';
     let body: any = {};
     let files: Record<string, File | null> = {};
+    let documentFiles: Array<{ file: File; index: number }> = [];
+    let documentMetadata: Array<{
+      id?: number;
+      documentName?: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
+    let documentsProvided = false;
     if (contentType.includes('multipart/form-data')) {
       const form = await req.formData();
       const get = (k: string) => form.get(k) as string | null;
@@ -271,8 +364,51 @@ export async function PATCH(req: NextRequest) {
         bankDetails: get('bankDetails'),
         watch: get('watch'),
       };
+
+      documentsProvided = form.has('manpowerDocuments');
+      const documentsJson = form.get('manpowerDocuments');
+      if (typeof documentsJson === 'string' && documentsJson.trim() !== '') {
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            documentMetadata = parsed
+              .filter((doc: any) => doc && typeof doc === 'object')
+              .map((doc: any, index: number) => ({
+                id: typeof doc.id === 'number' && Number.isFinite(doc.id) ? doc.id : undefined,
+                documentName:
+                  typeof doc.documentName === 'string' ? doc.documentName : undefined,
+                documentUrl:
+                  typeof doc.documentUrl === 'string' ? doc.documentUrl : undefined,
+                index,
+              }));
+          }
+        } catch (err) {
+          console.warn('Failed to parse manpowerDocuments metadata (PATCH)', err);
+        }
+      }
+
+      form.forEach((value, key) => {
+        const match = key.match(/^manpowerDocuments\[(\d+)\]\[documentFile\]$/);
+        if (!match) return;
+        const idx = Number(match[1]);
+        const fileVal = value as unknown;
+        if (fileVal instanceof File) {
+          documentFiles.push({ file: fileVal, index: idx });
+        }
+      });
     } else {
       body = await req.json();
+      documentsProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'manpowerDocuments');
+      documentMetadata = Array.isArray((body as any)?.manpowerDocuments)
+        ? (body as any).manpowerDocuments.map((doc: any, index: number) => ({
+            id: typeof doc?.id === 'number' && Number.isFinite(doc.id) ? doc.id : undefined,
+            documentName:
+              typeof doc?.documentName === 'string' ? doc.documentName : undefined,
+            documentUrl:
+              typeof doc?.documentUrl === 'string' ? doc.documentUrl : undefined,
+            index,
+          }))
+        : [];
     }
     const id = Number(body.id);
     if (!id || Number.isNaN(id)) return ApiError('id is required', 400);
@@ -313,10 +449,83 @@ export async function PATCH(req: NextRequest) {
       return ApiError(e?.message || 'Invalid document upload', 400);
     }
 
-    if (!Object.keys(data).length) return ApiError('Nothing to update', 400);
+    const hasDocumentOperations =
+      documentsProvided || documentMetadata.length > 0 || documentFiles.length > 0;
+
+    if (!Object.keys(data).length && !hasDocumentOperations) return ApiError('Nothing to update', 400);
 
     try {
-      const updated = await prisma.manpower.update({ where: { id }, data, select: { id: true } });
+      const updated = await prisma.$transaction(async (tx) => {
+        const manpower = await tx.manpower.update({ where: { id }, data, select: { id: true } });
+
+        if (hasDocumentOperations) {
+          const filesByIndex = new Map<number, File>();
+          documentFiles.forEach((entry) => {
+            filesByIndex.set(entry.index, entry.file);
+          });
+
+          const incomingById = new Map<number, { documentName?: string; documentUrl?: string }>();
+          const toCreate: Array<{ manpowerId: number; documentName: string; documentUrl: string }> = [];
+          const toDelete: number[] = [];
+
+          const existingDocs = await tx.manpowerDocument.findMany({
+            where: { manpowerId: id },
+            select: { id: true },
+          });
+          const existingIds = new Set(existingDocs.map((doc) => doc.id));
+
+          for (const docMeta of documentMetadata) {
+            const name = docMeta.documentName?.trim() || '';
+            const file = filesByIndex.get(docMeta.index ?? -1);
+            const trimmedUrl = docMeta.documentUrl?.trim();
+            let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+            if (file) {
+              const uploaded = await saveDoc(file, 'manpower-doc');
+              finalUrl = uploaded ?? undefined;
+            }
+
+            if (docMeta.id && existingIds.has(docMeta.id)) {
+              if (!name || !finalUrl) {
+                toDelete.push(docMeta.id);
+                continue;
+              }
+              incomingById.set(docMeta.id, { documentName: name, documentUrl: finalUrl });
+            } else {
+              if (!name || !finalUrl) continue;
+              toCreate.push({ manpowerId: id, documentName: name, documentUrl: finalUrl });
+            }
+          }
+
+          const incomingIds = new Set(incomingById.keys());
+          for (const existingId of existingIds) {
+            if (!incomingIds.has(existingId)) {
+              toDelete.push(existingId);
+            }
+          }
+
+          if (toCreate.length > 0) {
+            await tx.manpowerDocument.createMany({ data: toCreate });
+          }
+
+          for (const docId of incomingById.keys()) {
+            const payload = incomingById.get(docId);
+            if (!payload) continue;
+            await tx.manpowerDocument.update({
+              where: { id: docId },
+              data: {
+                documentName: payload.documentName,
+                documentUrl: payload.documentUrl,
+              },
+            });
+          }
+
+          if (toDelete.length > 0) {
+            await tx.manpowerDocument.deleteMany({ where: { id: { in: toDelete } } });
+          }
+        }
+
+        return manpower;
+      });
       return Success(updated);
     } catch (e: any) {
       if (e?.code === 'P2025') return ApiError('Manpower record not found', 404);

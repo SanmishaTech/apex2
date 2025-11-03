@@ -43,8 +43,52 @@ const updateRentSchema = z.object({
   accountNo: z.string().optional(),
   accountName: z.string().optional(),
   ifscCode: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  utrNumber: z.string().optional().nullable(),
+  chequeNumber: z.string().optional().nullable(),
+  chequeDate: z.string().optional().nullable(),
+  bankDetails: z.string().optional().nullable(),
+  paymentDate: z.string().optional().nullable(),
   momCopyUrl: z.string().optional(),
 }).partial();
+
+const rentSelectFields = {
+  id: true,
+  siteId: true,
+  site: { select: { id: true, site: true } },
+  boqId: true,
+  boq: { select: { id: true, boqNo: true } },
+  rentalCategoryId: true,
+  rentalCategory: { select: { id: true, rentalCategory: true } },
+  rentTypeId: true,
+  rentType: { select: { id: true, rentType: true } },
+  owner: true,
+  pancardNo: true,
+  rentDay: true,
+  fromDate: true,
+  toDate: true,
+  description: true,
+  depositAmount: true,
+  rentAmount: true,
+  srNo: true,
+  listStatus: true,
+  dueDate: true,
+  status: true,
+  bank: true,
+  branch: true,
+  accountNo: true,
+  accountName: true,
+  ifscCode: true,
+  paymentMethod: true,
+  utrNumber: true,
+  chequeNumber: true,
+  chequeDate: true,
+  bankDetails: true,
+  paymentDate: true,
+  momCopyUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 // GET - Get single rent by ID
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -58,37 +102,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const rent = await prisma.rent.findUnique({
       where: { id },
-      select: {
-        id: true,
-        siteId: true,
-        site: { select: { id: true, site: true } },
-        boqId: true,
-        boq: { select: { id: true, boqNo: true } },
-        rentalCategoryId: true,
-        rentalCategory: { select: { id: true, rentalCategory: true } },
-        rentTypeId: true,
-        rentType: { select: { id: true, rentType: true } },
-        owner: true,
-        pancardNo: true,
-        rentDay: true,
-        fromDate: true,
-        toDate: true,
-        description: true,
-        depositAmount: true,
-        rentAmount: true,
-        srNo: true,
-        listStatus: true,
-        dueDate: true,
-        status: true,
-        bank: true,
-        branch: true,
-        accountNo: true,
-        accountName: true,
-        ifscCode: true,
-        momCopyUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+      select: rentSelectFields as any,
     });
 
     if (!rent) return NotFound("Rent not found");
@@ -131,41 +145,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } else if (updateData.dueDate === '') {
       updateData.dueDate = null; // Set to null to clear the date field
     }
+    if (updateData.chequeDate && updateData.chequeDate.trim() !== '') {
+      updateData.chequeDate = new Date(updateData.chequeDate);
+    } else if (updateData.chequeDate === '' || updateData.chequeDate === null) {
+      updateData.chequeDate = null;
+    }
+    if (updateData.paymentDate && updateData.paymentDate.trim() !== '') {
+      updateData.paymentDate = new Date(updateData.paymentDate);
+    } else if (updateData.paymentDate === '' || updateData.paymentDate === null) {
+      updateData.paymentDate = null;
+    }
 
     const updated = await prisma.rent.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        siteId: true,
-        site: { select: { id: true, site: true } },
-        boqId: true,
-        boq: { select: { id: true, boqNo: true } },
-        rentalCategoryId: true,
-        rentalCategory: { select: { id: true, rentalCategory: true } },
-        rentTypeId: true,
-        rentType: { select: { id: true, rentType: true } },
-        owner: true,
-        pancardNo: true,
-        rentDay: true,
-        fromDate: true,
-        toDate: true,
-        description: true,
-        depositAmount: true,
-        rentAmount: true,
-        srNo: true,
-        listStatus: true,
-        dueDate: true,
-        status: true,
-        bank: true,
-        branch: true,
-        accountNo: true,
-        accountName: true,
-        ifscCode: true,
-        momCopyUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+      select: rentSelectFields as any,
     });
 
     return Success(updated);

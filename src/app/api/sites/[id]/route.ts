@@ -18,7 +18,7 @@ const updateSchema = z.object({
   site: z.string().min(1, "Site name is required").optional(),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
-  status: z.enum(["Ongoing", "Hold", "Monitor"]).optional(),
+  status: z.enum(["Ongoing", "Hold", "Closed"]).optional(),
   attachCopyUrl: z.string().optional().nullable(),
   contactPerson: z.string().optional().nullable(),
   contactNo: z.string().optional().nullable(),

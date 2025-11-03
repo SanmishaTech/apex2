@@ -50,6 +50,44 @@ const createRentSchema = z.object({
     .optional(),
 });
 
+const rentSelectFields = {
+  id: true,
+  siteId: true,
+  site: { select: { id: true, site: true } },
+  boqId: true,
+  boq: { select: { id: true, boqNo: true } },
+  rentalCategoryId: true,
+  rentalCategory: { select: { id: true, rentalCategory: true } },
+  rentTypeId: true,
+  rentType: { select: { id: true, rentType: true } },
+  owner: true,
+  pancardNo: true,
+  rentDay: true,
+  fromDate: true,
+  toDate: true,
+  description: true,
+  depositAmount: true,
+  rentAmount: true,
+  srNo: true,
+  listStatus: true,
+  dueDate: true,
+  status: true,
+  paymentMethod: true,
+  utrNumber: true,
+  chequeNumber: true,
+  chequeDate: true,
+  bankDetails: true,
+  paymentDate: true,
+  bank: true,
+  branch: true,
+  accountNo: true,
+  accountName: true,
+  ifscCode: true,
+  momCopyUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 // GET - List rents with pagination & search
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -102,37 +140,7 @@ export async function GET(req: NextRequest) {
         : { [sort]: order }) as any,
       page,
       perPage,
-      select: {
-        id: true,
-        siteId: true,
-        site: { select: { id: true, site: true } },
-        boqId: true,
-        boq: { select: { id: true, boqNo: true } },
-        rentalCategoryId: true,
-        rentalCategory: { select: { id: true, rentalCategory: true } },
-        rentTypeId: true,
-        rentType: { select: { id: true, rentType: true } },
-        owner: true,
-        pancardNo: true,
-        rentDay: true,
-        fromDate: true,
-        toDate: true,
-        description: true,
-        depositAmount: true,
-        rentAmount: true,
-        srNo: true,
-        listStatus: true,
-        dueDate: true,
-        status: true,
-        bank: true,
-        branch: true,
-        accountNo: true,
-        accountName: true,
-        ifscCode: true,
-        momCopyUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: rentSelectFields as any,
     });
 
     // Debug: Log pagination result
@@ -206,6 +214,12 @@ export async function POST(req: NextRequest) {
           dueDate,
           status: "Unpaid",
           listStatus: null,
+          paymentMethod: null,
+          utrNumber: null,
+          chequeNumber: null,
+          chequeDate: null,
+          bankDetails: null,
+          paymentDate: null,
         };
 
         // Mark first record
@@ -222,37 +236,7 @@ export async function POST(req: NextRequest) {
 
         const created = await prisma.rent.create({
           data: rentData,
-          select: {
-            id: true,
-            siteId: true,
-            site: { select: { id: true, site: true } },
-            boqId: true,
-            boq: { select: { id: true, boqNo: true } },
-            rentalCategoryId: true,
-            rentalCategory: { select: { id: true, rentalCategory: true } },
-            rentTypeId: true,
-            rentType: { select: { id: true, rentType: true } },
-            owner: true,
-            pancardNo: true,
-            rentDay: true,
-            fromDate: true,
-            toDate: true,
-            description: true,
-            depositAmount: true,
-            rentAmount: true,
-            srNo: true,
-            listStatus: true,
-            dueDate: true,
-            status: true,
-            bank: true,
-            branch: true,
-            accountNo: true,
-            accountName: true,
-            ifscCode: true,
-            momCopyUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
+          select: rentSelectFields as any,
         });
 
         createdRents.push(created);
@@ -271,7 +255,16 @@ export async function POST(req: NextRequest) {
       );
     } else {
       // Single record creation (backward compatibility)
-      const rentData: any = { ...validatedData };
+      const rentData: any = {
+        ...validatedData,
+        status: "Unpaid",
+        paymentMethod: null,
+        utrNumber: null,
+        chequeNumber: null,
+        chequeDate: null,
+        bankDetails: null,
+        paymentDate: null,
+      };
       if (rentData.fromDate && rentData.fromDate.trim() !== "") {
         rentData.fromDate = new Date(rentData.fromDate);
       } else {
@@ -285,33 +278,7 @@ export async function POST(req: NextRequest) {
 
       const created = await prisma.rent.create({
         data: rentData,
-        select: {
-          id: true,
-          siteId: true,
-          site: { select: { id: true, site: true } },
-          boqId: true,
-          boq: { select: { id: true, boqNo: true } },
-          rentalCategoryId: true,
-          rentalCategory: { select: { id: true, rentalCategory: true } },
-          rentTypeId: true,
-          rentType: { select: { id: true, rentType: true } },
-          owner: true,
-          pancardNo: true,
-          rentDay: true,
-          fromDate: true,
-          toDate: true,
-          description: true,
-          depositAmount: true,
-          rentAmount: true,
-          bank: true,
-          branch: true,
-          accountNo: true,
-          accountName: true,
-          ifscCode: true,
-          momCopyUrl: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: rentSelectFields as any,
       });
 
       return Success(created, 201);

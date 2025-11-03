@@ -14,7 +14,7 @@ const createSchema = z.object({
   site: z.string().min(1, "Site name is required"),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
-  status: z.enum(["Ongoing", "Hold", "Monitor"]).default("Ongoing"),
+  status: z.enum(["Ongoing", "Hold", "Closed"]).default("Ongoing"),
   attachCopyUrl: z.string().optional().nullable(),
   contactPerson: z.string().optional().nullable(),
   contactNo: z.string().optional().nullable(),
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
         { contactPerson: { contains: search } },
       ];
     }
-    if (statusParam && ["Ongoing", "Hold", "Monitor"].includes(statusParam)) {
+    if (statusParam && ["Ongoing", "Hold", "Closed"].includes(statusParam)) {
       where.status = statusParam;
     }
     

@@ -35,6 +35,7 @@ type CashbookBudgetData = {
     cashbookHeadId: number;
     description: string | null;
     amount: number;
+    date: string | null;
     approvedAmount: number | null;
     approved1Amount: number | null;
     cashbookHead: { id: number; cashbookHeadName: string };
@@ -122,6 +123,7 @@ export default function ViewCashbookBudgetPage() {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Cashbook Head</th>
                     <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Description</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Date</th>
                     <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Budget Amount</th>
                     {data.approvedBy && (
                       <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Approved Amount</th>
@@ -136,6 +138,7 @@ export default function ViewCashbookBudgetPage() {
                     <tr key={item.id} className="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 print:hover:bg-white">
                       <td className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">{item.cashbookHead.cashbookHeadName}</td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.description || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.date ? formatDate(item.date) : '-'}</td>
                       <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
                         ₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
@@ -154,7 +157,7 @@ export default function ViewCashbookBudgetPage() {
                 </tbody>
                 <tfoot className="bg-gray-100 dark:bg-gray-800 font-bold print:bg-gray-200">
                   <tr>
-                    <td colSpan={2} className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">Total</td>
+                    <td colSpan={3} className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">Total</td>
                     <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
                       ₹{Number(data.totalBudget).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>

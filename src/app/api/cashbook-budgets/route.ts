@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     attachCopyUrl: string;
     approved1Remarks: string;
     remarksForFinalApproval: string;
-    budgetItems: Array<{ cashbookHeadId: number | string; description: string; amount: string; }>;
+    budgetItems: Array<{ cashbookHeadId: number | string; description: string; amount: string; date?: string | null; }>;
   }>) || {};
 
   if (!name?.trim()) return Error('Budget name is required', 400);
@@ -123,6 +123,9 @@ export async function POST(req: NextRequest) {
   for (const item of budgetItems) {
     if (!item.cashbookHeadId) return Error('Cashbook head is required for all items', 400);
     if (!item.amount || isNaN(Number(item.amount))) return Error('Valid amount is required for all items', 400);
+    if (item.date && !Number.isFinite(Date.parse(item.date))) {
+      return Error('Invalid date provided for some budget items', 400);
+    }
   }
 
   // Check for duplicate (unique month + siteId + boqId)
@@ -157,6 +160,7 @@ export async function POST(req: NextRequest) {
             cashbookHeadId: Number(item.cashbookHeadId),
             description: item.description?.trim() || null,
             amount: Number(item.amount),
+            date: item.date ? new Date(item.date) : null,
           }))
         }
       },
@@ -196,7 +200,7 @@ export async function PATCH(req: NextRequest) {
     attachCopyUrl: string;
     approved1Remarks: string;
     remarksForFinalApproval: string;
-    budgetItems: Array<{ id?: number; cashbookHeadId: number | string; description: string; amount: string; }>;
+    budgetItems: Array<{ id?: number; cashbookHeadId: number | string; description: string; amount: string; date?: string | null; }>;
   }>) || {};
 
   if (!id) return Error('Budget id required', 400);
@@ -248,6 +252,7 @@ export async function PATCH(req: NextRequest) {
             cashbookHeadId: Number(item.cashbookHeadId),
             description: item.description?.trim() || null,
             amount: Number(item.amount),
+            date: item.date ? new Date(item.date) : null,
           }))
         }
       },

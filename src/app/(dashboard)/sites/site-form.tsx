@@ -27,7 +27,7 @@ import {
   validateGST,
 } from "@/lib/tax-validation";
 
-const STATUS_OPTIONS = ["Ongoing", "Hold", "Monitor"] as const;
+const STATUS_OPTIONS = ["Ongoing", "Hold", "Closed"] as const;
 
 export interface SiteFormInitialData {
   id?: number;

@@ -148,7 +148,7 @@ model Site {
   company   Company? @relation(fields: [companyId], references: [id])
 
   // Status Flags
-  status          String 
+  status          String //Ongoing,Hold,Closed
 
   // File Upload
   attachCopyUrl String?
@@ -824,7 +824,7 @@ model Manpower {
   transferItems ManpowerTransferItem[]
   attendances   Attendance[]           @relation("ManpowerAttendances")
   paySlips      PaySlip[]
-
+  manpowerDocuments     ManpowerDocument[]
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
@@ -934,6 +934,7 @@ model CashbookBudgetItem {
   cashbookHead    CashbookHead   @relation(fields: [cashbookHeadId], references: [id])
   description     String?        @db.Text
   amount          Decimal        @db.Decimal(12, 2)
+  date            DateTime?    
   approvedAmount  Decimal?       @db.Decimal(12, 2)
   approved1Amount Decimal?       @db.Decimal(12, 2)
   createdAt       DateTime       @default(now())
@@ -1071,6 +1072,13 @@ model Rent {
   accountNo   String?
   accountName String?
   ifscCode    String?
+
+  paymentMethod  String?
+  utrNumber  String?
+  chequeNumber String?
+  chequeDate DateTime?
+  bankDetails String?
+  paymentDate DateTime?
 
   // File Upload
   momCopyUrl String? // MOM Copy file path
@@ -1444,4 +1452,18 @@ model EmployeeDocument {
 
   @@index([employeeId])
   @@map("employee_documents")
+}
+
+model ManpowerDocument {
+  id           Int      @id @default(autoincrement())
+  manpowerId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Cascade)
+
+  @@index([manpowerId])
+  @@map("manpower_documents")
 }

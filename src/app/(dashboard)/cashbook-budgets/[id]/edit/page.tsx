@@ -24,6 +24,7 @@ type CashbookBudgetResponse = {
     cashbookHeadId: number;
     description: string;
     amount: string;
+    date: string | null;
     cashbookHead: { id: number; cashbookHeadName: string };
   }>;
   site: { id: number; site: string };
@@ -83,6 +84,7 @@ export default function EditCashbookBudgetPage() {
 			cashbookHeadId: item.cashbookHeadId,
 			description: item.description,
 			amount: item.amount,
+			date: item.date,
 			cashbookHead: item.cashbookHead,
 		})),
 	};
