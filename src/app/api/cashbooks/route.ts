@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
+    const isVoucher = searchParams.get("isVoucher")?.trim() || "";
     const sort = (searchParams.get("sort") || "voucherDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
@@ -38,6 +39,13 @@ export async function GET(req: NextRequest) {
         { site: { site: { contains: search } } },
         { boq: { boqNo: { contains: search } } },
       ];
+    }
+
+    // Filter by voucher attachment
+    if (isVoucher === "yes") {
+      where.attachVoucherCopyUrl = { not: null };
+    } else if (isVoucher === "no") {
+      where.attachVoucherCopyUrl = null;
     }
 
     // Allow listed sortable fields only

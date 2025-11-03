@@ -6,6 +6,7 @@ import { apiGet, apiDelete } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
+import { AppSelect } from '@/components/common/app-select';
 import { FilterBar } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -25,28 +26,32 @@ export default function CashbooksPage() {
     page: 1,
     perPage: 10,
     search: '',
+    isVoucher: '',
     sort: 'voucherDate',
     order: 'desc',
   });
-  const { page, perPage, search, sort, order } = qp;
+  const { page, perPage, search, isVoucher, sort, order } = qp;
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
+  const [isVoucherDraft, setIsVoucherDraft] = useState(isVoucher);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
-  }, [search]);
+    setIsVoucherDraft(isVoucher);
+  }, [search, isVoucher]);
 
-  const filtersDirty = searchDraft !== search;
+  const filtersDirty = searchDraft !== search || isVoucherDraft !== isVoucher;
 
   function applyFilters() {
-    setQp({ page: 1, search: searchDraft.trim() });
+    setQp({ page: 1, search: searchDraft.trim(), isVoucher: isVoucherDraft });
   }
 
   function resetFilters() {
     setSearchDraft('');
-    setQp({ page: 1, search: '' });
+    setIsVoucherDraft('');
+    setQp({ page: 1, search: '', isVoucher: '' });
   }
 
   const query = useMemo(() => {
@@ -54,10 +59,11 @@ export default function CashbooksPage() {
     sp.set('page', String(page));
     sp.set('perPage', String(perPage));
     if (search) sp.set('search', search);
+    if (isVoucher) sp.set('isVoucher', isVoucher);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
     return `/api/cashbooks?${sp.toString()}`;
-  }, [page, perPage, search, sort, order]);
+  }, [page, perPage, search, isVoucher, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<CashbooksResponse>(
     query,
@@ -194,17 +200,26 @@ export default function CashbooksPage() {
             placeholder="Search cashbooks..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            containerClassName="w-full"
+            containerClassName="flex-1"
           />
+          <AppSelect
+            value={isVoucherDraft || '__all'}
+            onValueChange={(v) => setIsVoucherDraft(v === '__all' ? '' : v)}
+            placeholder='Is Voucher'
+          >
+            <AppSelect.Item value='__all'>All Records</AppSelect.Item>
+            <AppSelect.Item value='yes'>Have Attached</AppSelect.Item>
+            <AppSelect.Item value='no'>Not Attached</AppSelect.Item>
+          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft}
+            disabled={!filtersDirty && !searchDraft && !isVoucherDraft}
             className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {search && (
+          {(search || isVoucher) && (
             <AppButton
               variant='secondary'
               size='sm'
