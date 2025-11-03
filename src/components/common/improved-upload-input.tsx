@@ -130,7 +130,7 @@ export function ImprovedUploadInput({
       // @ts-expect-error relaxed typing
       control={control}
       name={name}
-      render={({ field: { onChange, value } }) => (
+      render={({ field: { onChange } }) => (
         <FormItem className={itemClassName}>
           <FormLabel>
             {label}{required ? <span className="ml-0.5 text-destructive">*</span> : null}

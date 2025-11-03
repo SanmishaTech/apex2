@@ -8,6 +8,7 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 
 interface DocumentUploadArrayProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: any;
 }
 
@@ -21,10 +22,9 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
   // Helper for new doc object with id undefined
   const newDoc = () => ({ id: undefined, documentName: "", documentUrl: null });
 
-  // Helper to check if file is image or pdf
+  // Helper to check if file is image
   const isImageFile = (name: string) =>
     /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(name);
-  const isPdfFile = (name: string) => /\.pdf$/i.test(name);
 
   return (
     <div className="space-y-4">
@@ -50,7 +50,7 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
       )}
 
       {fields.map((field, idx) => (
-        <Fragment key={(field as any).fieldId ?? idx}>
+        <Fragment key={(field as Record<string, unknown>).fieldId as string ?? idx}>
           <Controller
             control={control}
             name={`employeeDocuments.${idx}.id`}
