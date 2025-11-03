@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
+    const status = searchParams.get("status")?.trim() || "";
     const assetGroupId = searchParams.get("assetGroupId");
     const assetCategoryId = searchParams.get("assetCategoryId");
     const transferStatus = searchParams.get("transferStatus");
@@ -48,6 +49,9 @@ export async function GET(req: NextRequest) {
         { assetGroup: { assetGroupName: { contains: search } } },
         { assetCategory: { category: { contains: search } } },
       ];
+    }
+    if (status) {
+      where.status = status;
     }
     if (assetGroupId) {
       where.assetGroupId = parseInt(assetGroupId);

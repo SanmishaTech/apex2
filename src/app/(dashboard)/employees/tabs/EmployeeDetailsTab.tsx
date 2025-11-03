@@ -81,7 +81,7 @@ export default function EmployeeDetailsTab({
               <div className="mt-2">
                 <div className="relative h-12 w-44 border rounded overflow-hidden">
                   <Image
-                    src={initialSignatureUrl}
+                    src={initialSignatureUrl.startsWith("http") ? initialSignatureUrl : `/api${initialSignatureUrl}`}
                     alt="Signature Preview"
                     fill
                     className="object-contain"
@@ -108,7 +108,7 @@ export default function EmployeeDetailsTab({
               <div className="mt-2">
                 <div className="relative h-16 w-16 border rounded-full overflow-hidden">
                   <Image
-                    src={initialProfilePicUrl}
+                    src={initialProfilePicUrl.startsWith("http") ? initialProfilePicUrl : `/api${initialProfilePicUrl}`}
                     alt="Profile Pic Preview"
                     fill
                     className="object-cover"

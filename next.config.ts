@@ -4,6 +4,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'localhost',
+      },
+    ],
     unoptimized: process.env.NODE_ENV === 'development'
   },
   eslint: {

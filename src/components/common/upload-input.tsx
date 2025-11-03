@@ -127,9 +127,9 @@ export function UploadInput({ control, name, label, description, accept, disable
                 // Existing file preview/link
                 /\.(png|jpe?g|webp|gif|svg)$/i.test(existingUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={existingUrl} alt='Existing' width={previewWidth} height={previewHeight} className='rounded border inline-block' />
+                  <img src={existingUrl.startsWith('http') ? existingUrl : `/api${existingUrl}`} alt='Existing' width={previewWidth} height={previewHeight} className='rounded border inline-block' />
                 ) : (
-                  <a href={existingUrl} target='_blank' rel='noreferrer' className='text-xs text-muted-foreground underline'>
+                  <a href={existingUrl.startsWith('http') ? existingUrl : `/api${existingUrl}`} target='_blank' rel='noreferrer' className='text-xs text-muted-foreground underline'>
                     View existing file
                   </a>
                 )

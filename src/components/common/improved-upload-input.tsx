@@ -186,7 +186,7 @@ export function ImprovedUploadInput({
                 // Existing file preview
                 /\.(png|jpe?g|webp|gif)$/i.test(uploadedUrl) ? (
                   <Image
-                    src={uploadedUrl}
+                    src={uploadedUrl.startsWith('http') ? uploadedUrl : `/api${uploadedUrl}`}
                     alt="Uploaded"
                     width={previewWidth}
                     height={previewHeight}
@@ -194,7 +194,7 @@ export function ImprovedUploadInput({
                   />
                 ) : (
                   <a
-                    href={uploadedUrl}
+                    href={uploadedUrl.startsWith('http') ? uploadedUrl : `/api${uploadedUrl}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs text-muted-foreground underline"

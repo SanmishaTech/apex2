@@ -6,6 +6,7 @@ import { apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
+import { AppSelect } from '@/components/common/app-select';
 import { FilterBar } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -283,6 +284,25 @@ export default function CashbookBudgetsPage() {
 						onChange={(e) => setSearchDraft(e.target.value)}
 						containerClassName='flex-1'
 					/>
+					<AppSelect
+						value={monthDraft || '__all'}
+						onValueChange={(v) => setMonthDraft(v === '__all' ? '' : v)}
+						placeholder='Month'
+					>
+						<AppSelect.Item value='__all'>All Months</AppSelect.Item>
+						<AppSelect.Item value='January'>January</AppSelect.Item>
+						<AppSelect.Item value='February'>February</AppSelect.Item>
+						<AppSelect.Item value='March'>March</AppSelect.Item>
+						<AppSelect.Item value='April'>April</AppSelect.Item>
+						<AppSelect.Item value='May'>May</AppSelect.Item>
+						<AppSelect.Item value='June'>June</AppSelect.Item>
+						<AppSelect.Item value='July'>July</AppSelect.Item>
+						<AppSelect.Item value='August'>August</AppSelect.Item>
+						<AppSelect.Item value='September'>September</AppSelect.Item>
+						<AppSelect.Item value='October'>October</AppSelect.Item>
+						<AppSelect.Item value='November'>November</AppSelect.Item>
+						<AppSelect.Item value='December'>December</AppSelect.Item>
+					</AppSelect>
 					<AppButton
 						size='sm'
 						onClick={applyFilters}
