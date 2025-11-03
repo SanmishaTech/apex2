@@ -26,6 +26,7 @@ import type { CreateCashbookRequest, Cashbook, CashbookDetail } from '@/types/ca
 interface Boq {
   id: number;
   boqNo?: string;
+  workOrderNo?: string;
 }
 
 interface BoqsResponse {
@@ -478,7 +479,9 @@ export function CashbookForm({ mode, initial, onSuccess, redirectOnSuccess = '/c
                           <AppSelect.Item value="__none">Select BOQ</AppSelect.Item>
                           {boqsData?.data?.map((boq) => (
                             <AppSelect.Item key={boq.id} value={boq.id.toString()}>
-                              {boq.boqNo || `BOQ ${boq.id}`}
+                              {boq.boqNo && boq.workOrderNo 
+                                ? `${boq.boqNo} - ${boq.workOrderNo}` 
+                                : boq.boqNo || boq.workOrderNo || `BOQ ${boq.id}`}
                             </AppSelect.Item>
                           ))}
                         </AppSelect>
