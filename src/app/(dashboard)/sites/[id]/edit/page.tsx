@@ -80,6 +80,7 @@ export default function EditSitePage({ params }: EditSitePageProps) {
         gstNo: site.gstNo ?? undefined,
         tanNo: site.tanNo ?? undefined,
         cinNo: site.cinNo ?? undefined,
+        siteContactPersons: site.siteContactPersons ?? undefined,
       }}
     />
   );

@@ -34,6 +34,22 @@ export interface Site {
     id: number;
     city: string;
   } | null;
+  siteContactPersons?: Array<{
+    id: number;
+    siteId: number;
+    name: string;
+    contactNo: string;
+    email: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+}
+
+export interface ContactPerson {
+  id?: number;
+  name: string;
+  contactNo: string;
+  email?: string | null;
 }
 
 export interface SitesResponse {
