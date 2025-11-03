@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,7 @@ import { City } from "@/types/cities";
 import { Company } from "@/types/companies";
 import useSWR, { mutate } from "swr";
 import Image from "next/image";
+import { Plus, X, Trash2 } from "lucide-react";
 import {
   validatePAN,
   validateTAN,
@@ -29,6 +30,25 @@ import {
 
 const STATUS_OPTIONS = ["Ongoing", "Hold", "Closed"] as const;
 
+// Define the full contact person type from the database
+export interface SiteContactPerson {
+  id: number;
+  siteId: number;
+  name: string;
+  contactNo: string;
+  email: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Define the form's contact person type
+export interface ContactPerson {
+  id?: number;
+  name: string;
+  contactNo: string;
+  email?: string;
+}
+
 export interface SiteFormInitialData {
   id?: number;
   siteCode?: string;
@@ -37,11 +57,14 @@ export interface SiteFormInitialData {
   companyId?: number;
   status?: (typeof STATUS_OPTIONS)[number];
   attachCopyUrl?: string;
+  contactPersons?: ContactPerson[];
+  siteContactPersons?: SiteContactPerson[];
+  // Keeping these for backward compatibility
   contactPerson?: string;
   contactNo?: string;
   addressLine1?: string;
   addressLine2?: string;
-  stateId?: number;
+  stateId?: number | null;
   cityId?: number;
   pinCode?: string;
   longitude?: string;
@@ -74,23 +97,42 @@ export function SiteForm({
   );
 
   const schema = z.object({
-    siteCode: z.string().optional(),
+    siteCode: z.string().optional().nullable(),
     site: z.string().min(1, "Site name is required"),
-    shortName: z.string().optional(),
+    shortName: z.string().optional().nullable(),
     companyId: z.number().optional().nullable(),
-    status: z.enum(STATUS_OPTIONS),
-    contactPerson: z.string().optional(),
-    contactNo: z.string().optional(),
-    addressLine1: z.string().optional(),
-    addressLine2: z.string().optional(),
+    status: z.enum(STATUS_OPTIONS, {
+      required_error: "Status is required",
+    }),
+    contactPersons: z
+      .array(
+        z.object({
+          id: z.number().optional(),
+          name: z.string().min(1, "Name is required"),
+          contactNo: z
+            .string()
+            .regex(/^\d{10}$/, "Contact number must be exactly 10 digits"),
+          email: z
+            .string()
+            .email("Invalid email address")
+            .optional()
+            .or(z.literal("")),
+        })
+      )
+      .min(1, {
+        message: "At least one contact person is required",
+      }),
+    addressLine1: z.string().optional().nullable(),
+    addressLine2: z.string().optional().nullable(),
     stateId: z.number().optional().nullable(),
     cityId: z.number().optional().nullable(),
-    pinCode: z.string().optional(),
-    longitude: z.string().optional(),
-    latitude: z.string().optional(),
+    pinCode: z.string().optional().nullable(),
+    longitude: z.string().optional().nullable(),
+    latitude: z.string().optional().nullable(),
     panNo: z
       .string()
       .optional()
+      .nullable()
       .refine((val) => !val || validatePAN(val), {
         message:
           "Invalid PAN format. Format: AAAAA9999A (5 letters + 4 digits + 1 letter)",
@@ -98,12 +140,14 @@ export function SiteForm({
     gstNo: z
       .string()
       .optional()
+      .nullable()
       .refine((val) => !val || validateGST(val), {
-        message: "Invalid GST format. Format: 27ABCDE1234F1Z5",
+        message: "Invalid GST format. Format: 99AAAAA9999A9A9",
       }),
     tanNo: z
       .string()
       .optional()
+      .nullable()
       .refine((val) => !val || validateTAN(val), {
         message:
           "Invalid TAN format. Format: AAAA99999A (4 letters + 5 digits + 1 letter)",
@@ -111,6 +155,7 @@ export function SiteForm({
     cinNo: z
       .string()
       .optional()
+      .nullable()
       .refine((val) => !val || validateCIN(val), {
         message: "Invalid CIN format. Format: U99999AA9999AAA999999",
       }),
@@ -118,30 +163,62 @@ export function SiteForm({
 
   type FormValues = z.infer<typeof schema>;
 
-  const form = useForm<FormValues>({
+  const defaultContactPersons = initial?.siteContactPersons?.length
+    ? initial.siteContactPersons.map((person) => ({
+        id: person.id,
+        name: person.name,
+        contactNo: person.contactNo,
+        email: person.email || "",
+      }))
+    : initial?.contactPersons?.length
+    ? initial.contactPersons.map((person) => ({
+        id: person.id,
+        name: person.name,
+        contactNo: person.contactNo,
+        email: person.email || "",
+      }))
+    : initial?.contactPerson
+    ? [
+        {
+          name: initial.contactPerson,
+          contactNo: initial.contactNo || "",
+          email: "",
+        },
+      ]
+    : [{ name: "", contactNo: "", email: "" }];
+
+  const defaultValues: FormValues = {
+    siteCode: initial?.siteCode || "",
+    site: initial?.site || "",
+    shortName: initial?.shortName || "",
+    companyId: initial?.companyId ?? null,
+    status: initial?.status || "Ongoing",
+    contactPersons: defaultContactPersons,
+    addressLine1: initial?.addressLine1 || "",
+    addressLine2: initial?.addressLine2 || "",
+    stateId: initial?.stateId ?? null,
+    cityId: initial?.cityId ?? null,
+    pinCode: initial?.pinCode || "",
+    longitude: initial?.longitude || "",
+    latitude: initial?.latitude || "",
+    panNo: initial?.panNo || "",
+    gstNo: initial?.gstNo || "",
+    tanNo: initial?.tanNo || "",
+    cinNo: initial?.cinNo || "",
+  };
+
+  // Initialize form with empty values
+  const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     mode: "onChange",
     reValidateMode: "onChange",
-    defaultValues: {
-      siteCode: initial?.siteCode ?? "",
-      site: initial?.site ?? "",
-      shortName: initial?.shortName ?? "",
-      companyId: initial?.companyId ?? null,
-      status: initial?.status ?? "Ongoing",
-      contactPerson: initial?.contactPerson ?? "",
-      contactNo: initial?.contactNo ?? "",
-      addressLine1: initial?.addressLine1 ?? "",
-      addressLine2: initial?.addressLine2 ?? "",
-      stateId: initial?.stateId ?? null,
-      cityId: initial?.cityId ?? null,
-      pinCode: initial?.pinCode ?? "",
-      longitude: initial?.longitude ?? "",
-      latitude: initial?.latitude ?? "",
-      panNo: initial?.panNo ?? "",
-      gstNo: initial?.gstNo ?? "",
-      tanNo: initial?.tanNo ?? "",
-      cinNo: initial?.cinNo ?? "",
-    },
+    shouldUnregister: false,
+    defaultValues,
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "contactPersons",
   });
 
   const { control, handleSubmit, watch, setValue } = form;
@@ -149,6 +226,17 @@ export function SiteForm({
   const selectedStateId = watch("stateId");
   const selectedCompanyId = watch("companyId");
   const isCreate = mode === "create";
+
+  // Debug form state
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      console.log("Form values:", value);
+      console.log("Form errors:", form.formState.errors);
+      console.log("Form isValid:", form.formState.isValid);
+      console.log("Form isDirty:", form.formState.isDirty);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Fetch companies for dropdown
   const { data: companiesData } = useSWR<{ data: Company[] }>(
@@ -218,112 +306,65 @@ export function SiteForm({
     setPreviewUrl(null);
   }
 
-  async function onSubmit(formData: FormValues) {
-    setSubmitting(true);
+  const onSubmit = async (data: z.infer<typeof schema>) => {
     try {
-      let result: unknown;
+      setSubmitting(true);
 
-      if (attachCopyFile) {
-        // Use FormData for file upload with fetch API
-        const formDataPayload = new FormData();
-        if (formData.siteCode)
-          formDataPayload.append("siteCode", formData.siteCode);
-        formDataPayload.append("site", formData.site);
-        if (formData.shortName)
-          formDataPayload.append("shortName", formData.shortName);
-        if (formData.companyId)
-          formDataPayload.append("companyId", formData.companyId.toString());
-        formDataPayload.append("status", formData.status);
-        if (formData.contactPerson)
-          formDataPayload.append("contactPerson", formData.contactPerson);
-        if (formData.contactNo)
-          formDataPayload.append("contactNo", formData.contactNo);
-        if (formData.addressLine1)
-          formDataPayload.append("addressLine1", formData.addressLine1);
-        if (formData.addressLine2)
-          formDataPayload.append("addressLine2", formData.addressLine2);
-        if (formData.stateId)
-          formDataPayload.append("stateId", formData.stateId.toString());
-        if (formData.cityId)
-          formDataPayload.append("cityId", formData.cityId.toString());
-        if (formData.pinCode)
-          formDataPayload.append("pinCode", formData.pinCode);
-        if (formData.longitude)
-          formDataPayload.append("longitude", formData.longitude);
-        if (formData.latitude)
-          formDataPayload.append("latitude", formData.latitude);
-        if (formData.panNo) formDataPayload.append("panNo", formData.panNo);
-        if (formData.gstNo) formDataPayload.append("gstNo", formData.gstNo);
-        if (formData.tanNo) formDataPayload.append("tanNo", formData.tanNo);
-        if (formData.cinNo) formDataPayload.append("cinNo", formData.cinNo);
-        formDataPayload.append("attachCopy", attachCopyFile);
+      const formData = new FormData();
 
-        const endpoint =
-          mode === "create" ? "/api/sites" : `/api/sites/${initial?.id}`;
+      // Convert contactPersons to JSON string and add to formData
+      if (data.contactPersons && data.contactPersons.length > 0) {
+        formData.append("contactPersons", JSON.stringify(data.contactPersons));
+      }
 
-        const response = await fetch(endpoint, {
-          method: mode === "create" ? "POST" : "PATCH",
-          body: formDataPayload,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || `HTTP ${response.status}: Failed to save site`
-          );
+      // Add all other form fields to formData
+      Object.entries(data).forEach(([key, value]) => {
+        if (key !== "contactPersons" && value !== null && value !== undefined) {
+          formData.append(key, value.toString());
         }
+      });
 
-        result = await response.json();
-      } else {
-        // Use JSON payload with custom API client
-        const payload = {
-          siteCode: formData.siteCode || null,
-          site: formData.site,
-          shortName: formData.shortName || null,
-          companyId: formData.companyId || null,
-          status: formData.status,
-          contactPerson: formData.contactPerson || null,
-          contactNo: formData.contactNo || null,
-          addressLine1: formData.addressLine1 || null,
-          addressLine2: formData.addressLine2 || null,
-          stateId: formData.stateId || null,
-          cityId: formData.cityId || null,
-          pinCode: formData.pinCode || null,
-          longitude: formData.longitude || null,
-          latitude: formData.latitude || null,
-          panNo: formData.panNo || null,
-          gstNo: formData.gstNo || null,
-          tanNo: formData.tanNo || null,
-          cinNo: formData.cinNo || null,
-        };
-
-        result =
-          mode === "create"
-            ? await apiPost("/api/sites", payload)
-            : await apiPatch(`/api/sites/${initial?.id}`, payload);
+      // Add file if present
+      if (attachCopyFile) {
+        formData.append("attachCopy", attachCopyFile);
       }
 
-      // Invalidate SWR cache to ensure fresh data
-      if (mode === "edit" && initial?.id) {
-        // Invalidate the specific site cache
-        mutate(`/api/sites/${initial.id}`);
+      let result;
+      if (mode === "create") {
+        result = await apiPost("/api/sites", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else if (initial?.id) {
+        result = await apiPatch(`/api/sites/${initial.id}`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
       }
-      // Invalidate the sites list cache
-      mutate("/api/sites");
 
       toast.success(
         mode === "create"
           ? "Site created successfully"
           : "Site updated successfully"
       );
-      onSuccess?.(result);
-      router.push(redirectOnSuccess);
-    } catch (err) {
-      toast.error((err as Error).message || "Failed to save site");
+
+      if (onSuccess) {
+        onSuccess(result);
+      } else {
+        router.push("/sites");
+      }
+    } catch (error: any) {
+      console.error("Error saving site:", error);
+      toast.error(
+        error.response?.data?.message ||
+          `Failed to ${mode === "create" ? "create" : "update"} site`
+      );
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Form {...form}>
@@ -401,7 +442,9 @@ export function SiteForm({
                   </label>
                   <AppSelect
                     value={statusValue}
-                    onValueChange={(v) => setValue("status", v as typeof statusValue)}
+                    onValueChange={(v) =>
+                      setValue("status", v as typeof statusValue)
+                    }
                     placeholder="Select status"
                   >
                     {STATUS_OPTIONS.map((status) => (
@@ -489,22 +532,61 @@ export function SiteForm({
               </div>
             </FormSection>
 
-            {/* Contact Person Details */}
-            <FormSection legend="Contact Person Details">
-              <FormRow cols={2}>
-                <TextInput
-                  control={control}
-                  name="contactPerson"
-                  label="Contact Person"
-                  placeholder="Enter contact person name"
-                />
-                <TextInput
-                  control={control}
-                  name="contactNo"
-                  label="Contact No"
-                  placeholder="Enter contact number"
-                />
-              </FormRow>
+            {/* Contact Persons */}
+            <FormSection legend="Contact Persons">
+              <div className="space-y-4">
+                {fields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="space-y-4 p-4 border rounded-lg relative"
+                  >
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                        title="Remove contact person"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <FormRow cols={3}>
+                      <TextInput
+                        control={control}
+                        name={`contactPersons.${index}.name`}
+                        label="Name"
+                        placeholder="Enter name"
+                      />
+                      <TextInput
+                        control={control}
+                        name={`contactPersons.${index}.contactNo`}
+                        label="Contact No"
+                        type="number"
+                        placeholder="Enter contact number"
+                      />
+                      <TextInput
+                        control={control}
+                        name={`contactPersons.${index}.email`}
+                        label="Email (Optional)"
+                        placeholder="Enter email"
+                        type="email"
+                      />
+                    </FormRow>
+                  </div>
+                ))}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      append({ name: "", contactNo: "", email: "" })
+                    }
+                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Another Contact Person
+                  </button>
+                </div>
+              </div>
             </FormSection>
 
             {/* Address Details */}
@@ -636,14 +718,17 @@ export function SiteForm({
             >
               Cancel
             </AppButton>
-            <AppButton
-              type="submit"
-              iconName={isCreate ? "Plus" : "Save"}
-              isLoading={submitting}
-              disabled={submitting || !form.formState.isValid}
-            >
-              {isCreate ? "Create Site" : "Save Changes"}
-            </AppButton>
+            <div className="space-y-2">
+              <AppButton
+                type="submit"
+                iconName={isCreate ? "Plus" : "Save"}
+                isLoading={submitting}
+                disabled={submitting}
+                className="min-w-[150px]"
+              >
+                {isCreate ? "Create Site" : "Save Changes"}
+              </AppButton>
+            </div>
           </AppCard.Footer>
         </form>
       </AppCard>

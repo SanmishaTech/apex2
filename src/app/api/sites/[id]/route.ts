@@ -117,6 +117,7 @@ export async function GET(
             city: true,
           },
         },
+        siteContactPersons: true,
       },
     });
 
@@ -143,6 +144,14 @@ export async function PATCH(
     const contentType = req.headers.get("content-type") || "";
     let siteData: any;
     let attachCopyFile: File | null = null;
+    let contactPersonsPayload:
+      | Array<{
+          id?: number;
+          name: string;
+          contactNo: string;
+          email?: string | null;
+        }>
+      | undefined;
 
     // Handle multipart form data for file uploads
     if (contentType.includes("multipart/form-data")) {
@@ -173,13 +182,23 @@ export async function PATCH(
         cinNo: form.get("cinNo") || undefined,
       };
 
-      // Remove undefined values
+      const contactPersonsRaw = form.get("contactPersons") as string | null;
+      if (contactPersonsRaw) {
+        contactPersonsPayload = JSON.parse(contactPersonsRaw.toString());
+      }
+
       siteData = Object.fromEntries(
-        Object.entries(siteData).filter(([_, v]) => v !== undefined)
+        Object.entries(siteData).filter(([_, value]) => value !== undefined)
       );
     } else {
       // Handle JSON data
       siteData = await req.json();
+      if (Array.isArray(siteData?.contactPersons)) {
+        contactPersonsPayload = siteData.contactPersons;
+      }
+      if ("contactPersons" in siteData) {
+        delete siteData.contactPersons;
+      }
     }
 
     // Handle file upload if present
@@ -228,52 +247,158 @@ export async function PATCH(
       attachCopyUrl,
     });
 
-    const updated = await prisma.site.update({
-      where: { id },
-      data: validatedData,
-      select: {
-        id: true,
-        siteCode: true,
-        site: true,
-        shortName: true,
-        companyId: true,
-        status: true,
-        attachCopyUrl: true,
-        contactPerson: true,
-        contactNo: true,
-        addressLine1: true,
-        addressLine2: true,
-        pinCode: true,
-        longitude: true,
-        latitude: true,
-        panNo: true,
-        gstNo: true,
-        tanNo: true,
-        cinNo: true,
-        createdAt: true,
-        updatedAt: true,
-        stateId: true,
-        cityId: true,
-        company: {
-          select: {
-            id: true,
-            companyName: true,
-            shortName: true,
+    const contactPersonsSchema = z.array(
+      z.object({
+        id: z.number().optional(),
+        name: z.string().min(1),
+        contactNo: z.string().min(1),
+        email: z
+          .union([z.string().email(), z.literal(""), z.null()])
+          .optional(),
+      })
+    );
+
+    const contactPersons = contactPersonsPayload
+      ? contactPersonsSchema.parse(contactPersonsPayload)
+      : undefined;
+
+    const siteUpdateData = validatedData;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.site.update({
+        where: { id },
+        data: siteUpdateData,
+        select: {
+          id: true,
+          siteCode: true,
+          site: true,
+          shortName: true,
+          companyId: true,
+          status: true,
+          attachCopyUrl: true,
+          contactPerson: true,
+          contactNo: true,
+          addressLine1: true,
+          addressLine2: true,
+          pinCode: true,
+          longitude: true,
+          latitude: true,
+          panNo: true,
+          gstNo: true,
+          tanNo: true,
+          cinNo: true,
+          createdAt: true,
+          updatedAt: true,
+          stateId: true,
+          cityId: true,
+          company: {
+            select: {
+              id: true,
+              companyName: true,
+              shortName: true,
+            },
+          },
+          state: {
+            select: {
+              id: true,
+              state: true,
+            },
           },
         },
-        state: {
-          select: {
-            id: true,
-            state: true,
+      });
+
+      if (!contactPersons) {
+        await tx.siteContactPerson.deleteMany({ where: { siteId: id } });
+      } else {
+        const existing = await tx.siteContactPerson.findMany({
+          where: { siteId: id },
+          select: { id: true },
+        });
+
+        const incomingIds = contactPersons
+          .map((person) => person.id)
+          .filter((pid): pid is number => typeof pid === "number");
+
+        const toDelete = existing
+          .map((p) => p.id)
+          .filter((existingId) => !incomingIds.includes(existingId));
+
+        if (toDelete.length) {
+          await tx.siteContactPerson.deleteMany({
+            where: { id: { in: toDelete } },
+          });
+        }
+
+        for (const person of contactPersons) {
+          if (person.id) {
+            await tx.siteContactPerson.update({
+              where: { id: person.id },
+              data: {
+                name: person.name,
+                contactNo: person.contactNo,
+                email: person.email || null,
+              },
+            });
+          } else {
+            await tx.siteContactPerson.create({
+              data: {
+                siteId: id,
+                name: person.name,
+                contactNo: person.contactNo,
+                email: person.email || null,
+              },
+            });
+          }
+        }
+      }
+
+      return tx.site.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          siteCode: true,
+          site: true,
+          shortName: true,
+          companyId: true,
+          status: true,
+          attachCopyUrl: true,
+          contactPerson: true,
+          contactNo: true,
+          addressLine1: true,
+          addressLine2: true,
+          pinCode: true,
+          longitude: true,
+          latitude: true,
+          panNo: true,
+          gstNo: true,
+          tanNo: true,
+          cinNo: true,
+          createdAt: true,
+          updatedAt: true,
+          stateId: true,
+          cityId: true,
+          company: {
+            select: {
+              id: true,
+              companyName: true,
+              shortName: true,
+            },
           },
-        },
-        city: {
-          select: {
-            id: true,
-            city: true,
+          state: {
+            select: {
+              id: true,
+              state: true,
+            },
           },
+          city: {
+            select: {
+              id: true,
+              city: true,
+            },
+          },
+          siteContactPersons: true,
         },
-      },
+      });
     });
 
     return Success(updated);

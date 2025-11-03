@@ -153,9 +153,7 @@ model Site {
   // File Upload
   attachCopyUrl String?
 
-  // Contact Person Details
-  contactPerson String?
-  contactNo     String?
+
 
   // Address Details
   addressLine1 String?
@@ -210,6 +208,7 @@ model Site {
   dailyProgresses       DailyProgress[]
   siteEmployees        SiteEmployee[]
   siteEmployeeLogs     SiteEmployeeLog[]
+  siteContactPersons   SiteContactPerson[]
 
   @@index([site])
   @@index([shortName])
@@ -1466,4 +1465,19 @@ model ManpowerDocument {
 
   @@index([manpowerId])
   @@map("manpower_documents")
+}
+
+model SiteContactPerson {
+  id           Int      @id @default(autoincrement())
+  siteId       Int     
+  name String
+  contactNo String?
+  email String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  site    Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@map("site_contact_persons")
 }

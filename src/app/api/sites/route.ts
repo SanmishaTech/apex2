@@ -16,8 +16,13 @@ const createSchema = z.object({
   companyId: z.number().optional().nullable(),
   status: z.enum(["Ongoing", "Hold", "Closed"]).default("Ongoing"),
   attachCopyUrl: z.string().optional().nullable(),
-  contactPerson: z.string().optional().nullable(),
-  contactNo: z.string().optional().nullable(),
+  contactPersons: z.array(
+    z.object({
+      name: z.string().min(1, "Name is required"),
+      contactNo: z.string().min(1, "Contact number is required"),
+      email: z.string().email("Invalid email address").optional().or(z.literal(""))
+    })
+  ).min(1, "At least one contact person is required"),
   addressLine1: z.string().optional().nullable(),
   addressLine2: z.string().optional().nullable(),
   stateId: z.number().optional().nullable(),
@@ -71,7 +76,14 @@ export async function GET(req: NextRequest) {
         site?: { contains: string };
         shortName?: { contains: string };
         siteCode?: { contains: string };
-        contactPerson?: { contains: string };
+        siteContactPersons?: {
+          some: {
+            OR: [
+              { name: { contains: string } },
+              { contactNo: { contains: string } }
+            ]
+          }
+        };
       }>;
       status?: string;
       companyId?: number;
@@ -85,7 +97,16 @@ export async function GET(req: NextRequest) {
         { site: { contains: search } },
         { shortName: { contains: search } },
         { siteCode: { contains: search } },
-        { contactPerson: { contains: search } },
+        {
+          siteContactPersons: {
+            some: {
+              OR: [
+                { name: { contains: search } },
+                { contactNo: { contains: search } }
+              ]
+            }
+          }
+        },
       ];
     }
     if (statusParam && ["Ongoing", "Hold", "Closed"].includes(statusParam)) {
@@ -108,7 +129,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Allow listed sortable fields only
-    const sortableFields = new Set(["site", "shortName", "siteCode", "contactPerson", "status", "createdAt"]);
+    const sortableFields = new Set(["site", "shortName", "siteCode", "status", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) 
       ? { [sort]: order } 
       : { site: "asc" };
@@ -132,35 +153,26 @@ export async function GET(req: NextRequest) {
         addressLine1: true,
         addressLine2: true,
         pinCode: true,
-        longitude: true,
-        latitude: true,
-        panNo: true,
-        gstNo: true,
-        tanNo: true,
-        cinNo: true,
-        createdAt: true,
-        updatedAt: true,
-        stateId: true,
-        cityId: true,
         company: {
           select: {
             id: true,
             companyName: true,
-            shortName: true
-          }
+            shortName: true,
+          },
         },
         state: {
           select: {
             id: true,
-            state: true
-          }
+            state: true,
+          },
         },
         city: {
           select: {
             id: true,
-            city: true
-          }
+            city: true,
+          },
         },
+        siteContactPersons: true,
         _count: {
           select: {
             assignedManpower: true
@@ -191,15 +203,28 @@ export async function POST(req: NextRequest) {
       const form = await req.formData();
       attachCopyFile = form.get('attachCopy') as File;
       
-      // Extract other form data
+      // Extract all form data
+      const formData = Object.fromEntries(form.entries());
+      
+      // Handle contact persons
+      let contactPersonsData: Array<{name: string, contactNo: string, email?: string}> = [];
+      const contactPersonsValue = form.get('contactPersons');
+      if (contactPersonsValue && typeof contactPersonsValue === 'string') {
+        try {
+          contactPersonsData = JSON.parse(contactPersonsValue);
+        } catch (e) {
+          console.error('Error parsing contact persons:', e);
+        }
+      }
+
+      // Prepare site data
       siteData = {
         siteCode: form.get('siteCode') || null,
         site: form.get('site') || null,
         shortName: form.get('shortName') || null,
         companyId: form.get('companyId') ? Number(form.get('companyId')) : null,
         status: form.get('status') || null,
-        contactPerson: form.get('contactPerson') || null,
-        contactNo: form.get('contactNo') || null,
+        contactPersons: contactPersonsData,
         addressLine1: form.get('addressLine1') || null,
         addressLine2: form.get('addressLine2') || null,
         stateId: form.get('stateId') ? Number(form.get('stateId')) : null,
@@ -219,7 +244,7 @@ export async function POST(req: NextRequest) {
 
     // Handle file upload if present
     let attachCopyUrl: string | null = null;
-    if (attachCopyFile && attachCopyFile.size > 0) {
+    if (attachCopyFile && 'size' in attachCopyFile && attachCopyFile.size > 0) {
       // Validate file size
       if (attachCopyFile.size > 20 * 1024 * 1024) {
         return ApiError('Attach copy file too large (max 20MB)', 413);
@@ -239,74 +264,95 @@ export async function POST(req: NextRequest) {
       attachCopyUrl,
     });
     
-    const created = await prisma.site.create({
-      data: {
-        siteCode: validatedData.siteCode,
-        site: validatedData.site,
-        shortName: validatedData.shortName,
-        companyId: validatedData.companyId,
-        status: validatedData.status,
-        attachCopyUrl: validatedData.attachCopyUrl,
-        contactPerson: validatedData.contactPerson,
-        contactNo: validatedData.contactNo,
-        addressLine1: validatedData.addressLine1,
-        addressLine2: validatedData.addressLine2,
-        stateId: validatedData.stateId,
-        cityId: validatedData.cityId,
-        pinCode: validatedData.pinCode,
-        longitude: validatedData.longitude,
-        latitude: validatedData.latitude,
-        panNo: validatedData.panNo,
-        gstNo: validatedData.gstNo,
-        tanNo: validatedData.tanNo,
-        cinNo: validatedData.cinNo,
-      },
-      select: { 
-        id: true, 
-        siteCode: true,
-        site: true, 
-        shortName: true,
-        companyId: true,
-        status: true,
-        attachCopyUrl: true,
-        contactPerson: true,
-        contactNo: true,
-        addressLine1: true,
-        addressLine2: true,
-        pinCode: true,
-        longitude: true,
-        latitude: true,
-        panNo: true,
-        gstNo: true,
-        tanNo: true,
-        cinNo: true,
-        createdAt: true,
-        updatedAt: true,
-        stateId: true,
-        cityId: true,
-        company: {
-          select: {
-            id: true,
-            companyName: true,
-            shortName: true
-          }
+    // Create the site
+    // Use a transaction to ensure both site and contact persons are created together
+    const result = await prisma.$transaction(async (prisma) => {
+      // Create the site
+      const site = await prisma.site.create({
+        data: {
+          siteCode: validatedData.siteCode,
+          site: validatedData.site,
+          shortName: validatedData.shortName,
+          companyId: validatedData.companyId,
+          status: validatedData.status,
+          attachCopyUrl: validatedData.attachCopyUrl,
+          addressLine1: validatedData.addressLine1,
+          addressLine2: validatedData.addressLine2,
+          stateId: validatedData.stateId,
+          cityId: validatedData.cityId,
+          pinCode: validatedData.pinCode,
+          longitude: validatedData.longitude,
+          latitude: validatedData.latitude,
+          panNo: validatedData.panNo,
+          gstNo: validatedData.gstNo,
+          tanNo: validatedData.tanNo,
+          cinNo: validatedData.cinNo,
         },
-        state: {
-          select: {
-            id: true,
-            state: true
-          }
-        },
-        city: {
-          select: {
-            id: true,
-            city: true
-          }
+        include: {
+          company: {
+            select: {
+              id: true,
+              companyName: true,
+              shortName: true
+            }
+          },
+          state: {
+            select: {
+              id: true,
+              state: true
+            }
+          },
+          city: {
+            select: {
+              id: true,
+              city: true
+            }
+          },
+          siteContactPersons: true
         }
+      });
+      
+      // Create contact persons
+      if (validatedData.contactPersons?.length) {
+        await prisma.siteContactPerson.createMany({
+          data: validatedData.contactPersons.map(person => ({
+            siteId: site.id,
+            name: person.name,
+            contactNo: person.contactNo,
+            email: person.email || null
+          }))
+        });
       }
+      
+      // Fetch the site with all its relations
+      return await prisma.site.findUnique({
+        where: { id: site.id },
+        include: {
+          company: {
+            select: {
+              id: true,
+              companyName: true,
+              shortName: true
+            }
+          },
+          state: {
+            select: {
+              id: true,
+              state: true
+            }
+          },
+          city: {
+            select: {
+              id: true,
+              city: true
+            }
+          },
+          siteContactPersons: true
+        }
+      });
     });
     
-    return Success(created, 201);
+    return Success(result, 201);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
