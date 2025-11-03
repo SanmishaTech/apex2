@@ -7,8 +7,33 @@ import { apiGet, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
-import { formatDate } from '@/lib/locales';
+import { AppSelect } from '@/components/common/app-select';
+import { formatDate, formatDateForInput } from '@/lib/locales';
 import type { Rent } from '@/types/rents';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
+const PAYMENT_METHOD_OPTIONS = ['Cash', 'UPI', 'Bank'] as const;
+type PaymentMethodOption = typeof PAYMENT_METHOD_OPTIONS[number];
+type PaymentFormState = {
+  paymentMethod: '' | PaymentMethodOption;
+  utrNumber: string;
+  chequeNumber: string;
+  chequeDate: string;
+  bankDetails: string;
+};
+
+function createEmptyPaymentForm(): PaymentFormState {
+  return {
+    paymentMethod: '',
+    utrNumber: '',
+    chequeNumber: '',
+    chequeDate: '',
+    bankDetails: '',
+  };
+}
 
 export default function ViewRentPage() {
   useProtectPage();
@@ -20,9 +45,15 @@ export default function ViewRentPage() {
   const [rent, setRent] = useState<Rent | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<PaymentFormState>(createEmptyPaymentForm);
 
   const qs = searchParams ? searchParams.toString() : '';
   const backUrl = qs ? `/rents?${qs}` : '/rents';
+
+  const selectedPaymentMethod = paymentForm.paymentMethod;
+  const showUtrField = selectedPaymentMethod === 'UPI';
+  const showBankFields = selectedPaymentMethod === 'Bank';
 
   useEffect(() => {
     async function fetchData() {
@@ -38,12 +69,83 @@ export default function ViewRentPage() {
     if (id) fetchData();
   }, [id]);
 
-  const handleUpdateStatus = async () => {
+  const resetPaymentForm = () => {
+    setPaymentForm(createEmptyPaymentForm());
+  };
+
+  const openPaymentDialog = () => {
+    if (rent) {
+      const initialMethod = rent.paymentMethod && PAYMENT_METHOD_OPTIONS.includes(rent.paymentMethod as PaymentMethodOption)
+        ? (rent.paymentMethod as PaymentMethodOption)
+        : '';
+      setPaymentForm({
+        paymentMethod: initialMethod,
+        utrNumber: rent.utrNumber ?? '',
+        chequeNumber: rent.chequeNumber ?? '',
+        chequeDate: rent.chequeDate ? formatDateForInput(new Date(rent.chequeDate)) : '',
+        bankDetails: rent.bankDetails ?? '',
+      });
+    } else {
+      resetPaymentForm();
+    }
+    setPaymentDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    if (updating) return;
+    setPaymentDialogOpen(false);
+    resetPaymentForm();
+  };
+
+  const handleSubmitPayment = async () => {
+    if (!selectedPaymentMethod) {
+      toast.error('Payment method is required');
+      return;
+    }
+
+    if (selectedPaymentMethod === 'UPI' && !paymentForm.utrNumber.trim()) {
+      toast.error('UTR number is required for UPI payments');
+      return;
+    }
+
+    if (selectedPaymentMethod === 'Bank') {
+      if (!paymentForm.chequeNumber.trim()) {
+        toast.error('Cheque number is required for bank payments');
+        return;
+      }
+      if (!paymentForm.chequeDate) {
+        toast.error('Cheque date is required for bank payments');
+        return;
+      }
+      if (!paymentForm.bankDetails.trim()) {
+        toast.error('Bank details are required for bank payments');
+        return;
+      }
+    }
+
     setUpdating(true);
     try {
-      await apiPatch(`/api/rents/${id}/update-status`, { status: 'Paid' });
+      await apiPatch(`/api/rents/${id}/update-status`, {
+        status: 'Paid',
+        paymentMethod: selectedPaymentMethod,
+        utrNumber:
+          showUtrField && paymentForm.utrNumber.trim()
+            ? paymentForm.utrNumber.trim()
+            : undefined,
+        chequeNumber:
+          showBankFields && paymentForm.chequeNumber.trim()
+            ? paymentForm.chequeNumber.trim()
+            : undefined,
+        chequeDate: showBankFields ? paymentForm.chequeDate || undefined : undefined,
+        bankDetails:
+          showBankFields && paymentForm.bankDetails.trim()
+            ? paymentForm.bankDetails.trim()
+            : undefined,
+      });
       toast.success('Rent marked as paid');
-      // Redirect to the rents list with highlight parameter
+      setPaymentDialogOpen(false);
+      resetPaymentForm();
+      setUpdating(false);
       const redirectUrl = qs ? `/rents?${qs}&highlight=${id}` : `/rents?highlight=${id}`;
       router.push(redirectUrl);
     } catch (error) {
@@ -95,6 +197,7 @@ export default function ViewRentPage() {
   }
 
   return (
+    <>
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Rent Registration Details</AppCard.Title>
@@ -175,16 +278,30 @@ export default function ViewRentPage() {
               <span className="text-muted-foreground text-sm">No document attached</span>
             )}
           </div>
+
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-3">Payment Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InfoField label="Payment Method" value={rent.paymentMethod} />
+              <InfoField label="Payment Date" value={rent.paymentDate ? formatDate(rent.paymentDate) : undefined} />
+              <InfoField label="UTR Number" value={rent.utrNumber} />
+              <InfoField label="Cheque Number" value={rent.chequeNumber} />
+              <InfoField label="Cheque Date" value={rent.chequeDate ? formatDate(rent.chequeDate) : undefined} />
+              <div className="md:col-span-2 lg:col-span-4">
+                <InfoField label="Bank Details" value={rent.bankDetails} />
+              </div>
+            </div>
+          </div>
         </div>
       </AppCard.Content>
       <AppCard.Footer className='justify-end gap-2'>
         {rent.status !== 'Paid' && (
           <AppButton
-            onClick={handleUpdateStatus}
+            onClick={openPaymentDialog}
             disabled={updating}
             variant='default'
           >
-            {updating ? 'Updating...' : 'Paid'}
+            {updating ? 'Processing...' : 'Pay'}
           </AppButton>
         )}
         <AppButton
@@ -196,6 +313,100 @@ export default function ViewRentPage() {
         </AppButton>
       </AppCard.Footer>
     </AppCard>
+
+    <Dialog open={paymentDialogOpen} onOpenChange={(open) => (open ? setPaymentDialogOpen(true) : handleDialogClose())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Record Payment</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className='space-y-2'>
+            <Label htmlFor='paymentMethod'>Payment Method</Label>
+            <AppSelect
+              value={paymentForm.paymentMethod || undefined}
+              onValueChange={(value) =>
+                setPaymentForm((prev) => ({
+                  ...prev,
+                  paymentMethod: (value as PaymentMethodOption) || '',
+                  utrNumber: value === 'UPI' ? prev.utrNumber : '',
+                  chequeNumber: value === 'Bank' ? prev.chequeNumber : '',
+                  chequeDate: value === 'Bank' ? prev.chequeDate : '',
+                  bankDetails: value === 'Bank' ? prev.bankDetails : '',
+                }))
+              }
+              placeholder='Select payment method'
+              required
+            >
+              {PAYMENT_METHOD_OPTIONS.map((option) => (
+                <AppSelect.Item key={option} value={option}>
+                  {option}
+                </AppSelect.Item>
+              ))}
+            </AppSelect>
+          </div>
+          {(showUtrField || showBankFields) && (
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {showUtrField && (
+                <div className='space-y-2'>
+                  <Label htmlFor='utrNumber'>UTR Number</Label>
+                  <Input
+                    id='utrNumber'
+                    value={paymentForm.utrNumber}
+                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, utrNumber: e.target.value }))}
+                    placeholder='Enter UTR number'
+                    required
+                  />
+                </div>
+              )}
+              {showBankFields && (
+                <>
+                  <div className='space-y-2'>
+                    <Label htmlFor='chequeNumber'>Cheque Number</Label>
+                    <Input
+                      id='chequeNumber'
+                      value={paymentForm.chequeNumber}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, chequeNumber: e.target.value }))}
+                      placeholder='Enter cheque number'
+                      required
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='chequeDate'>Cheque Date</Label>
+                    <Input
+                      id='chequeDate'
+                      type='date'
+                      value={paymentForm.chequeDate}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, chequeDate: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className='space-y-2 md:col-span-2'>
+                    <Label htmlFor='bankDetails'>Bank Details</Label>
+                    <Textarea
+                      id='bankDetails'
+                      value={paymentForm.bankDetails}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankDetails: e.target.value }))}
+                      placeholder='Enter relevant bank details'
+                      rows={3}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <AppButton variant='secondary' type='button' onClick={handleDialogClose} disabled={updating}>
+            Cancel
+          </AppButton>
+          <AppButton type='button' onClick={handleSubmitPayment} disabled={updating}>
+            {updating ? 'Saving...' : 'Confirm Payment'}
+          </AppButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

@@ -81,8 +81,10 @@ export default function InternalDashboard() {
       sortable: false,
       accessor: (r) => (
         <div className="flex items-center gap-2">
-          <StatusBadge active={!r.closed} />
-          {r.closed && <span className="text-xs">Closed</span>}
+          <StatusBadge active={r.status === "Ongoing"} />
+          {r.status !== "Ongoing" && (
+            <span className="text-xs">{r.status}</span>
+          )}
         </div>
       ),
       cellClassName: "whitespace-nowrap",

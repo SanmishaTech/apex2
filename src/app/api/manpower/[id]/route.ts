@@ -1,17 +1,20 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { Success, Error as ApiError } from '@/lib/api-response';
-import { guardApiAccess } from '@/lib/access-guard';
-import fs from 'fs/promises';
-import path from 'path';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Success, Error as ApiError } from "@/lib/api-response";
+import { guardApiAccess } from "@/lib/access-guard";
+import fs from "fs/promises";
+import path from "path";
 
 // GET /api/manpower/:id
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return ApiError('Invalid id', 400);
+  if (Number.isNaN(idNum)) return ApiError("Invalid id", 400);
   try {
     const rec = await prisma.manpower.findUnique({
       where: { id: idNum },
@@ -46,22 +49,33 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         watch: true,
         createdAt: true,
         updatedAt: true,
-      }
+        manpowerDocuments: {
+          select: {
+            id: true,
+            documentName: true,
+            documentUrl: true,
+          },
+          orderBy: { id: "asc" },
+        },
+      },
     });
-    if (!rec) return ApiError('Not found', 404);
+    if (!rec) return ApiError("Not found", 404);
     return Success(rec);
   } catch {
-    return ApiError('Failed to fetch manpower');
+    return ApiError("Failed to fetch manpower");
   }
 }
 
 // DELETE /api/manpower/:id
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return ApiError('Invalid id', 400);
+  if (Number.isNaN(idNum)) return ApiError("Invalid id", 400);
   try {
     // Fetch URLs before delete so we can remove files from disk
     const rec = await prisma.manpower.findUnique({
@@ -84,15 +98,15 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       rec?.voterIdDocumentUrl,
       rec?.drivingLicenceDocumentUrl,
       rec?.bankDetailsDocumentUrl,
-    ].filter((u): u is string => typeof u === 'string' && !!u);
+    ].filter((u): u is string => typeof u === "string" && !!u);
 
     for (const url of urls) {
       try {
         // Only allow deletion under /uploads/manpower
-        if (!url.startsWith('/uploads/manpower/')) continue;
-        const rel = url.replace(/^\//, ''); // remove leading slash
+        if (!url.startsWith("/uploads/manpower/")) continue;
+        const rel = url.replace(/^\//, ""); // remove leading slash
         const abs = path.join(process.cwd(), rel);
-        const safeBase = path.join(process.cwd(), 'uploads', 'manpower');
+        const safeBase = path.join(process.cwd(), "uploads", "manpower");
         const normalized = path.normalize(abs);
         if (!normalized.startsWith(safeBase)) continue; // safety check
         await fs.unlink(normalized).catch(() => {});
@@ -103,7 +117,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     return Success({ id: idNum });
   } catch (e: any) {
-    if (e?.code === 'P2025') return ApiError('Not found', 404);
-    return ApiError('Failed to delete manpower');
+    if (e?.code === "P2025") return ApiError("Not found", 404);
+    return ApiError("Failed to delete manpower");
   }
 }

@@ -186,7 +186,7 @@ export default function SitesPage() {
           stylesMap={{
             ongoing: { label: 'Ongoing', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
             hold: { label: 'Hold', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-            monitor: { label: 'Monitor', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+            closed: { label: 'Closed', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
           }}
         />
       ),
@@ -255,7 +255,7 @@ export default function SitesPage() {
 						<AppSelect.Item value='__all'>All Statuses</AppSelect.Item>
 						<AppSelect.Item value='Ongoing'>Ongoing</AppSelect.Item>
 						<AppSelect.Item value='Hold'>Hold</AppSelect.Item>
-						<AppSelect.Item value='Monitor'>Monitor</AppSelect.Item>
+						<AppSelect.Item value='Closed'>Closed</AppSelect.Item>
 					</AppSelect>
 					<AppButton
 						size='sm'

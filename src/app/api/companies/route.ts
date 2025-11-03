@@ -53,8 +53,13 @@ export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
+  const { searchParams } = new URL(req.url);
+  const variant = searchParams.get("variant");
+  if (variant === "dropdown") {
+    return handleDropdown(req);
+  }
+
   try {
-    const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
     const search = searchParams.get("search")?.trim() || "";
@@ -150,42 +155,33 @@ export async function GET(req: NextRequest) {
 }
 
 // Helper to support lightweight dropdown lists without pagination metadata
-async function listCompaniesForDropdown(req: NextRequest) {
-  const auth = await guardApiAccess(req);
-  if (auth.ok === false) return auth.response;
+async function handleDropdown(req: NextRequest) {
+  const searchParams = new URL(req.url).searchParams;
+  const perPage = Math.min(1000, Math.max(1, Number(searchParams.get("perPage")) || 1000));
+  const search = searchParams.get("search")?.trim() ?? "";
 
-  try {
-    const searchParams = new URL(req.url).searchParams;
-    const perPage = Math.min(1000, Math.max(1, Number(searchParams.get('perPage')) || 1000));
-    const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
+  const where = search
+    ? {
+        OR: [
+          { companyName: { contains: search } },
+          { shortName: { contains: search } },
+        ],
+      }
+    : undefined;
 
-    const where = search
-      ? {
-          OR: [
-            { companyName: { contains: search } },
-            { shortName: { contains: search} },
-          ],
-        }
-      : undefined;
+  const companies = await prisma.company.findMany({
+    where,
+    select: {
+      id: true,
+      companyName: true,
+      shortName: true,
+    },
+    orderBy: { companyName: "asc" },
+    take: perPage,
+  });
 
-    const companies = await prisma.company.findMany({
-      where,
-      select: {
-        id: true,
-        companyName: true,
-        shortName: true,
-      },
-      orderBy: { companyName: 'asc' },
-      take: perPage,
-    });
-
-    return Success({ data: companies });
-  } catch (error) {
-    return ApiError('Failed to retrieve companies.');
-  }
+  return Success({ data: companies });
 }
-
-export const GETDropdown = listCompaniesForDropdown;
 
 // POST /api/companies - Create new company
 export async function POST(req: NextRequest) {
