@@ -189,7 +189,7 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
                         {isImageFile(value) ? (
                           <div className="relative h-20 w-20">
                             <Image
-                              src={value.startsWith("http") ? value : `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}${value.startsWith("/") ? value : `/${value}`}`}
+                              src={value.startsWith("http") ? value : `/api${value}`}
                               alt="Document preview"
                               fill
                               className="rounded-lg object-contain bg-white p-1"
@@ -215,7 +215,7 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
                           size="sm"
                           className="w-full justify-center md:w-auto mt-2"
                           onClick={() => {
-                            const url = value.startsWith("http") ? value : `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}${value.startsWith("/") ? value : `/${value}`}`;
+                            const url = value.startsWith("http") ? value : `/api${value}`;
                             window.open(url, "_blank");
                           }}
                         >
