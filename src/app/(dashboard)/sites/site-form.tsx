@@ -59,6 +59,14 @@ export interface SiteFormInitialData {
   attachCopyUrl?: string;
   contactPersons?: ContactPerson[];
   siteContactPersons?: SiteContactPerson[];
+  deliveryAddresses?: Array<{
+    id?: number;
+    addressLine1?: string;
+    addressLine2?: string;
+    stateId?: number | null;
+    cityId?: number | null;
+    pinCode?: string;
+  }>;
   // Keeping these for backward compatibility
   contactPerson?: string;
   contactNo?: string;
@@ -107,7 +115,7 @@ export function SiteForm({
     contactPersons: z
       .array(
         z.object({
-          id: z.number().optional(),
+          id: z.union([z.number(), z.string()]).optional(),
           name: z.string().min(1, "Name is required"),
           contactNo: z
             .string()
@@ -122,6 +130,18 @@ export function SiteForm({
       .min(1, {
         message: "At least one contact person is required",
       }),
+    deliveryAddresses: z
+      .array(
+        z.object({
+          id: z.union([z.number(), z.string()]).optional(),
+          addressLine1: z.string().optional().nullable(),
+          addressLine2: z.string().optional().nullable(),
+          stateId: z.number().optional().nullable(),
+          cityId: z.number().optional().nullable(),
+          pinCode: z.string().optional().nullable(),
+        })
+      )
+      .min(1, { message: "At least one delivery address is required" }),
     addressLine1: z.string().optional().nullable(),
     addressLine2: z.string().optional().nullable(),
     stateId: z.number().optional().nullable(),
@@ -205,6 +225,17 @@ export function SiteForm({
     gstNo: initial?.gstNo || "",
     tanNo: initial?.tanNo || "",
     cinNo: initial?.cinNo || "",
+    deliveryAddresses: initial?.deliveryAddresses
+      ? initial.deliveryAddresses
+      : [
+          {
+            addressLine1: initial?.addressLine1 || "",
+            addressLine2: initial?.addressLine2 || "",
+            stateId: initial?.stateId ?? null,
+            cityId: initial?.cityId ?? null,
+            pinCode: initial?.pinCode || "",
+          },
+        ],
   };
 
   // Initialize form with empty values
@@ -216,12 +247,27 @@ export function SiteForm({
     defaultValues,
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const {
+    fields: contactFields,
+    append: appendContact,
+    remove: removeContactRow,
+  } = useFieldArray({
     control: form.control,
     name: "contactPersons",
+    keyName: "fieldId",
   });
 
-  const { control, handleSubmit, watch, setValue } = form;
+  const {
+    fields: addressFields,
+    append: appendAddress,
+    remove: removeAddressRow,
+  } = useFieldArray({
+    control: form.control,
+    name: "deliveryAddresses",
+    keyName: "fieldId",
+  });
+
+  const { control, handleSubmit, watch, setValue, register, unregister } = form;
   const statusValue = watch("status");
   const selectedStateId = watch("stateId");
   const selectedCompanyId = watch("companyId");
@@ -253,13 +299,12 @@ export function SiteForm({
   const states = statesData?.data || [];
 
   // Fetch cities for dropdown based on selected state
-  const { data: citiesData } = useSWR<{ data: City[] }>(
-    selectedStateId
-      ? `/api/cities?perPage=100&stateId=${selectedStateId}`
-      : null,
+  // Fetch all cities once and filter per-address locally to avoid hook-in-loop issues
+  const { data: allCitiesData } = useSWR<{ data: City[] }>(
+    "/api/cities?perPage=100",
     apiGet
   );
-  const cities = citiesData?.data || [];
+  const cities = allCitiesData?.data || [];
 
   // Reset city when state changes
   useEffect(() => {
@@ -306,20 +351,76 @@ export function SiteForm({
     setPreviewUrl(null);
   }
 
+  function handleRemoveContact(index: number) {
+    unregister(`contactPersons.${index}` as const);
+    removeContactRow(index);
+  }
+
+  function handleRemoveAddress(index: number) {
+    unregister(`deliveryAddresses.${index}` as const);
+    removeAddressRow(index);
+  }
+
   const onSubmit = async (data: z.infer<typeof schema>) => {
     try {
       setSubmitting(true);
 
+      const normalizeId = (value: unknown): number | undefined => {
+        if (typeof value === "number" && !Number.isNaN(value)) {
+          return value;
+        }
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (trimmed === "") return undefined;
+          const parsed = Number(trimmed);
+          if (!Number.isNaN(parsed)) {
+            return parsed;
+          }
+        }
+        return undefined;
+      };
+
+      const normalizedContactPersons = data.contactPersons?.map((person) => {
+        return {
+          ...person,
+          id: normalizeId(person.id),
+        };
+      });
+
+      const normalizedDeliveryAddresses = data.deliveryAddresses?.map((addr) => {
+        return {
+          ...addr,
+          id: normalizeId(addr.id),
+        };
+      });
+
       const formData = new FormData();
 
       // Convert contactPersons to JSON string and add to formData
-      if (data.contactPersons && data.contactPersons.length > 0) {
-        formData.append("contactPersons", JSON.stringify(data.contactPersons));
+      if (normalizedContactPersons && normalizedContactPersons.length > 0) {
+        formData.append(
+          "contactPersons",
+          JSON.stringify(normalizedContactPersons)
+        );
+      }
+
+      // Convert deliveryAddresses to JSON string and add to formData
+      if (
+        normalizedDeliveryAddresses &&
+        normalizedDeliveryAddresses.length > 0
+      ) {
+        formData.append(
+          "deliveryAddresses",
+          JSON.stringify(normalizedDeliveryAddresses)
+        );
+        // Note: delivery addresses are persisted separately. We do not copy them
+        // into the top-level site address fields automatically.
       }
 
       // Add all other form fields to formData
       Object.entries(data).forEach(([key, value]) => {
-        if (key !== "contactPersons" && value !== null && value !== undefined) {
+        if (key === "contactPersons" || key === "deliveryAddresses") return;
+        if (value !== null && value !== undefined) {
           formData.append(key, value.toString());
         }
       });
@@ -356,6 +457,7 @@ export function SiteForm({
         router.push("/sites");
       }
     } catch (error: any) {
+      console.error("Site form submission error", error, form.formState.errors);
       console.error("Error saving site:", error);
       toast.error(
         error.response?.data?.message ||
@@ -457,6 +559,99 @@ export function SiteForm({
               </FormRow>
             </FormSection>
 
+            {/* Site Address */}
+            <FormSection legend="Site Address">
+              <FormRow cols={1}>
+                <TextInput
+                  control={control}
+                  name="addressLine1"
+                  label="Address Line 1"
+                  placeholder="Enter site address line 1"
+                />
+              </FormRow>
+
+              <FormRow cols={1}>
+                <TextInput
+                  control={control}
+                  name="addressLine2"
+                  label="Address Line 2"
+                  placeholder="Enter site address line 2"
+                />
+              </FormRow>
+
+              <FormRow cols={3}>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    State
+                  </label>
+                  <AppSelect
+                    value={selectedStateId ? String(selectedStateId) : "__none"}
+                    onValueChange={(v) =>
+                      setValue("stateId", v === "__none" ? null : Number(v))
+                    }
+                    placeholder="Select state"
+                  >
+                    <AppSelect.Item value="__none">Select State</AppSelect.Item>
+                    {states.map((state) => (
+                      <AppSelect.Item
+                        key={state.id}
+                        value={state.id.toString()}
+                      >
+                        {state.state}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">City</label>
+                  <AppSelect
+                    value={watch("cityId") ? String(watch("cityId")) : "__none"}
+                    onValueChange={(v) =>
+                      setValue("cityId", v === "__none" ? null : Number(v))
+                    }
+                    placeholder="Select city"
+                    disabled={!selectedStateId}
+                  >
+                    <AppSelect.Item value="__none">Select City</AppSelect.Item>
+                    {cities
+                      .filter((c: any) => c.stateId === selectedStateId)
+                      .map((city: any) => (
+                        <AppSelect.Item
+                          key={city.id}
+                          value={city.id.toString()}
+                        >
+                          {city.city}
+                        </AppSelect.Item>
+                      ))}
+                  </AppSelect>
+                </div>
+
+                <TextInput
+                  control={control}
+                  maxLength={6}
+                  name="pinCode"
+                  label="Pin Code"
+                  placeholder="Enter pin code"
+                />
+              </FormRow>
+
+              <FormRow cols={2}>
+                <TextInput
+                  control={control}
+                  name="longitude"
+                  label="Longitude"
+                  placeholder="Enter longitude"
+                />
+                <TextInput
+                  control={control}
+                  name="latitude"
+                  label="Latitude"
+                  placeholder="Enter latitude"
+                />
+              </FormRow>
+            </FormSection>
+
             {/* Attach Copy Upload */}
             <FormSection legend="Attach Copy">
               <div className="space-y-4">
@@ -535,21 +730,31 @@ export function SiteForm({
             {/* Contact Persons */}
             <FormSection legend="Contact Persons">
               <div className="space-y-4">
-                {fields.map((field, index) => (
+                {contactFields.map((field, index) => (
                   <div
-                    key={field.id}
+                    key={field.fieldId}
                     className="space-y-4 p-4 border rounded-lg relative"
                   >
                     {index > 0 && (
                       <button
                         type="button"
-                        onClick={() => remove(index)}
+                        onClick={() => handleRemoveContact(index)}
                         className="absolute top-2 right-2 text-red-500 hover:text-red-700"
                         title="Remove contact person"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
+                    {/* Preserve DB id for contact person so PATCH can match existing rows.
+                        react-hook-form's useFieldArray injects an internal `id` on each
+                        field which would overwrite any DB id if we read `field.id`.
+                        Use the original `initial` payload's id for the index so we
+                        send the real DB id back to the server. */}
+                    <input
+                      type="hidden"
+                      {...register(`contactPersons.${index}.id` as const)}
+                      defaultValue={field.id ?? ""}
+                    />
                     <FormRow cols={3}>
                       <TextInput
                         control={control}
@@ -578,7 +783,12 @@ export function SiteForm({
                   <button
                     type="button"
                     onClick={() =>
-                      append({ name: "", contactNo: "", email: "" })
+                      appendContact({
+                        id: undefined,
+                        name: "",
+                        contactNo: "",
+                        email: "",
+                      })
                     }
                     className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
                   >
@@ -589,91 +799,156 @@ export function SiteForm({
               </div>
             </FormSection>
 
-            {/* Address Details */}
-            <FormSection legend="Address Details">
-              <FormRow cols={1}>
-                <TextInput
-                  control={control}
-                  name="addressLine1"
-                  label="Address Line 1"
-                  placeholder="Enter address line 1"
-                />
-              </FormRow>
-              <FormRow cols={1}>
-                <TextInput
-                  control={control}
-                  name="addressLine2"
-                  label="Address Line 2"
-                  placeholder="Enter address line 2"
-                />
-              </FormRow>
-              <FormRow cols={3}>
+            {/* Delivery Addresses: dynamic list (at least 1) */}
+            <FormSection legend="Delivery Addresses">
+              <div className="space-y-4">
+                {addressFields.map((addr, idx) => {
+                  const addrStateId = watch(`deliveryAddresses.${idx}.stateId`);
+                  const addrCityId = watch(`deliveryAddresses.${idx}.cityId`);
+                  const cityOptions = cities.filter(
+                    (c: any) => c.stateId === addrStateId
+                  );
+
+                  return (
+                    <div
+                      key={addr.fieldId}
+                      className="p-4 border rounded-lg relative"
+                    >
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddress(idx)}
+                          className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                          title="Remove delivery address"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* keep DB id in a hidden field so PATCH can reference existing delivery addresses.
+                          use the original `initial.deliveryAddresses` id because useFieldArray
+                          adds its own internal `id` property on `addr` which is NOT the DB id */}
+                      <input
+                        type="hidden"
+                        {...register(`deliveryAddresses.${idx}.id` as const)}
+                        defaultValue={addr.id ?? ""}
+                      />
+                      <div className="text-sm font-medium mb-2">
+                        Delivery Address {idx + 1}
+                      </div>
+
+                      <FormRow cols={1}>
+                        <TextInput
+                          control={control}
+                          name={`deliveryAddresses.${idx}.addressLine1`}
+                          label="Address Line 1"
+                          placeholder="Enter address line 1"
+                        />
+                      </FormRow>
+
+                      <FormRow cols={1}>
+                        <TextInput
+                          control={control}
+                          name={`deliveryAddresses.${idx}.addressLine2`}
+                          label="Address Line 2"
+                          placeholder="Enter address line 2"
+                        />
+                      </FormRow>
+
+                      <FormRow cols={3}>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            State
+                          </label>
+                          <AppSelect
+                            value={addrStateId ? String(addrStateId) : "__none"}
+                            onValueChange={(v) =>
+                              setValue(
+                                `deliveryAddresses.${idx}.stateId` as any,
+                                v === "__none" ? null : Number(v)
+                              )
+                            }
+                            placeholder="Select state"
+                          >
+                            <AppSelect.Item value="__none">
+                              Select State
+                            </AppSelect.Item>
+                            {states.map((state) => (
+                              <AppSelect.Item
+                                key={state.id}
+                                value={state.id.toString()}
+                              >
+                                {state.state}
+                              </AppSelect.Item>
+                            ))}
+                          </AppSelect>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            City
+                          </label>
+                          <AppSelect
+                            value={addrCityId ? String(addrCityId) : "__none"}
+                            onValueChange={(v) =>
+                              setValue(
+                                `deliveryAddresses.${idx}.cityId` as any,
+                                v === "__none" ? null : Number(v)
+                              )
+                            }
+                            placeholder="Select city"
+                            disabled={!addrStateId}
+                          >
+                            <AppSelect.Item value="__none">
+                              Select City
+                            </AppSelect.Item>
+                            {cityOptions.map((city: any) => (
+                              <AppSelect.Item
+                                key={city.id}
+                                value={city.id.toString()}
+                              >
+                                {city.city}
+                              </AppSelect.Item>
+                            ))}
+                          </AppSelect>
+                        </div>
+
+                        <TextInput
+                          control={control}
+                          maxLength={6}
+                          name={`deliveryAddresses.${idx}.pinCode`}
+                          label="Pin Code"
+                          placeholder="Enter pin code"
+                        />
+                      </FormRow>
+
+                      <FormRow cols={2}>
+                        {/* Delivery addresses do not store longitude/latitude (these are part of the site's primary address if used) */}
+                      </FormRow>
+                    </div>
+                  );
+                })}
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    State
-                  </label>
-                  <AppSelect
-                    value={
-                      selectedStateId ? selectedStateId.toString() : "__none"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      appendAddress({
+                        id: undefined,
+                        addressLine1: "",
+                        addressLine2: "",
+                        stateId: null,
+                        cityId: null,
+                        pinCode: "",
+                      })
                     }
-                    onValueChange={(v) =>
-                      setValue("stateId", v === "__none" ? null : Number(v))
-                    }
-                    placeholder="Select state"
+                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
                   >
-                    <AppSelect.Item value="__none">Select State</AppSelect.Item>
-                    {states.map((state) => (
-                      <AppSelect.Item
-                        key={state.id}
-                        value={state.id.toString()}
-                      >
-                        {state.state}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Another Delivery Address
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">City</label>
-                  <AppSelect
-                    value={
-                      watch("cityId") ? watch("cityId")!.toString() : "__none"
-                    }
-                    onValueChange={(v) =>
-                      setValue("cityId", v === "__none" ? null : Number(v))
-                    }
-                    placeholder="Select city"
-                    disabled={!selectedStateId}
-                  >
-                    <AppSelect.Item value="__none">Select City</AppSelect.Item>
-                    {cities.map((city) => (
-                      <AppSelect.Item key={city.id} value={city.id.toString()}>
-                        {city.city}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-                <TextInput
-                  control={control}
-                  maxLength={6}
-                  name="pinCode"
-                  label="Pin Code"
-                  placeholder="Enter pin code"
-                />
-              </FormRow>
-              <FormRow cols={2}>
-                <TextInput
-                  control={control}
-                  name="longitude"
-                  label="Longitude"
-                  placeholder="Enter longitude"
-                />
-                <TextInput
-                  control={control}
-                  name="latitude"
-                  label="Latitude"
-                  placeholder="Enter latitude"
-                />
-              </FormRow>
+              </div>
             </FormSection>
 
             {/* Other Details */}

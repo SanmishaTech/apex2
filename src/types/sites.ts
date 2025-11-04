@@ -43,6 +43,17 @@ export interface Site {
     createdAt: string;
     updatedAt: string;
   }>;
+  siteDeliveryAddresses?: Array<{
+    id: number;
+    siteId: number;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    stateId?: number | null;
+    cityId?: number | null;
+    pinCode?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 }
 
 export interface ContactPerson {
@@ -54,10 +65,10 @@ export interface ContactPerson {
 
 export interface SitesResponse {
   data: Site[];
-  page: number; 
-  perPage: number; 
-  total: number; 
-  totalPages: number; 
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface CreateSiteData {

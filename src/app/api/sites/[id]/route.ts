@@ -20,8 +20,19 @@ const updateSchema = z.object({
   companyId: z.number().optional().nullable(),
   status: z.enum(["Ongoing", "Hold", "Closed"]).optional(),
   attachCopyUrl: z.string().optional().nullable(),
-  contactPerson: z.string().optional().nullable(),
-  contactNo: z.string().optional().nullable(),
+  // legacy top-level contactPerson/contactNo removed (we use siteContactPersons array)
+  deliveryAddresses: z
+    .array(
+      z.object({
+        id: z.number().optional(),
+        addressLine1: z.string().optional().nullable(),
+        addressLine2: z.string().optional().nullable(),
+        stateId: z.number().optional().nullable(),
+        cityId: z.number().optional().nullable(),
+        pinCode: z.string().optional().nullable(),
+      })
+    )
+    .optional(),
   addressLine1: z.string().optional().nullable(),
   addressLine2: z.string().optional().nullable(),
   stateId: z.number().optional().nullable(),
@@ -83,8 +94,6 @@ export async function GET(
         companyId: true,
         status: true,
         attachCopyUrl: true,
-        contactPerson: true,
-        contactNo: true,
         addressLine1: true,
         addressLine2: true,
         pinCode: true,
@@ -118,6 +127,7 @@ export async function GET(
           },
         },
         siteContactPersons: true,
+        siteDeliveryAddresses: true,
       },
     });
 
@@ -152,6 +162,7 @@ export async function PATCH(
           email?: string | null;
         }>
       | undefined;
+    let deliveryAddressesPayload: any[] | undefined;
 
     // Handle multipart form data for file uploads
     if (contentType.includes("multipart/form-data")) {
@@ -167,8 +178,7 @@ export async function PATCH(
           ? Number(form.get("companyId"))
           : undefined,
         status: form.get("status") || undefined,
-        contactPerson: form.get("contactPerson") || undefined,
-        contactNo: form.get("contactNo") || undefined,
+        // legacy top-level contactPerson/contactNo omitted
         addressLine1: form.get("addressLine1") || undefined,
         addressLine2: form.get("addressLine2") || undefined,
         stateId: form.get("stateId") ? Number(form.get("stateId")) : undefined,
@@ -183,8 +193,14 @@ export async function PATCH(
       };
 
       const contactPersonsRaw = form.get("contactPersons") as string | null;
+      const deliveryAddressesRaw = form.get("deliveryAddresses") as
+        | string
+        | null;
       if (contactPersonsRaw) {
         contactPersonsPayload = JSON.parse(contactPersonsRaw.toString());
+      }
+      if (deliveryAddressesRaw) {
+        deliveryAddressesPayload = JSON.parse(deliveryAddressesRaw.toString());
       }
 
       siteData = Object.fromEntries(
@@ -196,9 +212,12 @@ export async function PATCH(
       if (Array.isArray(siteData?.contactPersons)) {
         contactPersonsPayload = siteData.contactPersons;
       }
-      if ("contactPersons" in siteData) {
-        delete siteData.contactPersons;
+      if (Array.isArray(siteData?.deliveryAddresses)) {
+        // deliveryAddresses in JSON payload - handle similar to contactPersons
+        deliveryAddressesPayload = siteData.deliveryAddresses;
       }
+      if ("contactPersons" in siteData) delete siteData.contactPersons;
+      if ("deliveryAddresses" in siteData) delete siteData.deliveryAddresses;
     }
 
     // Handle file upload if present
@@ -262,6 +281,25 @@ export async function PATCH(
       ? contactPersonsSchema.parse(contactPersonsPayload)
       : undefined;
 
+    // parse delivery addresses payload if present
+    const deliveryAddressesSchema = z.array(
+      z.object({
+        id: z.number().optional(),
+        addressLine1: z.string().optional().nullable(),
+        addressLine2: z.string().optional().nullable(),
+        stateId: z.number().optional().nullable(),
+        cityId: z.number().optional().nullable(),
+        pinCode: z.string().optional().nullable(),
+      })
+    );
+
+    let deliveryAddresses: z.infer<typeof deliveryAddressesSchema> | undefined;
+    if (typeof deliveryAddressesPayload !== "undefined") {
+      deliveryAddresses = deliveryAddressesSchema.parse(
+        deliveryAddressesPayload || []
+      );
+    }
+
     const siteUpdateData = validatedData;
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -276,8 +314,7 @@ export async function PATCH(
           companyId: true,
           status: true,
           attachCopyUrl: true,
-          contactPerson: true,
-          contactNo: true,
+          // legacy top-level contact fields omitted
           addressLine1: true,
           addressLine2: true,
           pinCode: true,
@@ -304,6 +341,7 @@ export async function PATCH(
               state: true,
             },
           },
+          siteDeliveryAddresses: true,
         },
       });
 
@@ -316,29 +354,41 @@ export async function PATCH(
         });
 
         const incomingIds = contactPersons
-          .map((person) => person.id)
-          .filter((pid): pid is number => typeof pid === "number");
+          .map((person) => {
+            if (typeof person.id === "string") return Number(person.id);
+            return person.id;
+          })
+          .filter(
+            (pid): pid is number =>
+              typeof pid === "number" && !Number.isNaN(pid)
+          );
 
         const toDelete = existing
           .map((p) => p.id)
           .filter((existingId) => !incomingIds.includes(existingId));
 
-        if (toDelete.length) {
-          await tx.siteContactPerson.deleteMany({
-            where: { id: { in: toDelete } },
-          });
-        }
-
+        // 1) Update existing and create new ones from incoming list
         for (const person of contactPersons) {
           if (person.id) {
-            await tx.siteContactPerson.update({
-              where: { id: person.id },
+            // Update by id and siteId; if not found, create new
+            const updateResult = await tx.siteContactPerson.updateMany({
+              where: { id: person.id, siteId: id },
               data: {
                 name: person.name,
                 contactNo: person.contactNo,
                 email: person.email || null,
               },
             });
+            if (updateResult.count === 0) {
+              await tx.siteContactPerson.create({
+                data: {
+                  siteId: id,
+                  name: person.name,
+                  contactNo: person.contactNo,
+                  email: person.email || null,
+                },
+              });
+            }
           } else {
             await tx.siteContactPerson.create({
               data: {
@@ -349,6 +399,80 @@ export async function PATCH(
               },
             });
           }
+        }
+
+        // 2) Delete any removed contacts
+        if (toDelete.length) {
+          await tx.siteContactPerson.deleteMany({
+            where: { id: { in: toDelete } },
+          });
+        }
+      }
+      // Handle delivery addresses
+      if (typeof deliveryAddresses === "undefined") {
+        // If not provided, remove all existing delivery addresses
+        await tx.siteDeliveryAddress.deleteMany({ where: { siteId: id } });
+      } else {
+        const existingAddrs = await tx.siteDeliveryAddress.findMany({
+          where: { siteId: id },
+          select: { id: true },
+        });
+        const incomingIds = deliveryAddresses
+          .map((d) => {
+            if (typeof d.id === "string") return Number(d.id);
+            return d.id;
+          })
+          .filter(
+            (v): v is number => typeof v === "number" && !Number.isNaN(v)
+          );
+        const toDelete = existingAddrs
+          .map((e) => e.id)
+          .filter((eid) => !incomingIds.includes(eid));
+
+        // 1) Update existing and create new ones from incoming list
+        for (const addr of deliveryAddresses) {
+          if (addr.id) {
+            const updateResult = await tx.siteDeliveryAddress.updateMany({
+              where: { id: addr.id, siteId: id },
+              data: {
+                addressLine1: addr.addressLine1 || null,
+                addressLine2: addr.addressLine2 || null,
+                stateId: addr.stateId ?? null,
+                cityId: addr.cityId ?? null,
+                pinCode: addr.pinCode || null,
+              },
+            });
+            if (updateResult.count === 0) {
+              await tx.siteDeliveryAddress.create({
+                data: {
+                  siteId: id,
+                  addressLine1: addr.addressLine1 || null,
+                  addressLine2: addr.addressLine2 || null,
+                  stateId: addr.stateId ?? null,
+                  cityId: addr.cityId ?? null,
+                  pinCode: addr.pinCode || null,
+                },
+              });
+            }
+          } else {
+            await tx.siteDeliveryAddress.create({
+              data: {
+                siteId: id,
+                addressLine1: addr.addressLine1 || null,
+                addressLine2: addr.addressLine2 || null,
+                stateId: addr.stateId ?? null,
+                cityId: addr.cityId ?? null,
+                pinCode: addr.pinCode || null,
+              },
+            });
+          }
+        }
+
+        // 2) Delete any addresses not present in incoming list
+        if (toDelete.length) {
+          await tx.siteDeliveryAddress.deleteMany({
+            where: { id: { in: toDelete } },
+          });
         }
       }
 
@@ -362,8 +486,6 @@ export async function PATCH(
           companyId: true,
           status: true,
           attachCopyUrl: true,
-          contactPerson: true,
-          contactNo: true,
           addressLine1: true,
           addressLine2: true,
           pinCode: true,
@@ -397,6 +519,7 @@ export async function PATCH(
             },
           },
           siteContactPersons: true,
+          siteDeliveryAddresses: true,
         },
       });
     });

@@ -81,6 +81,16 @@ export default function EditSitePage({ params }: EditSitePageProps) {
         tanNo: site.tanNo ?? undefined,
         cinNo: site.cinNo ?? undefined,
         siteContactPersons: site.siteContactPersons ?? undefined,
+        deliveryAddresses: site.siteDeliveryAddresses
+          ? site.siteDeliveryAddresses.map((a) => ({
+              id: a.id,
+              addressLine1: a.addressLine1 ?? "",
+              addressLine2: a.addressLine2 ?? "",
+              stateId: a.stateId ?? null,
+              cityId: a.cityId ?? null,
+              pinCode: a.pinCode ?? "",
+            }))
+          : undefined,
       }}
     />
   );

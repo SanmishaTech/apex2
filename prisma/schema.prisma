@@ -86,6 +86,7 @@ model City {
   employees        Employee[]
   billingAddresses BillingAddress[]
   vendors          Vendor[]
+  siteDeliveryAddresses SiteDeliveryAddress[]
 
   @@map("cities")
 }
@@ -209,7 +210,8 @@ model Site {
   siteEmployees        SiteEmployee[]
   siteEmployeeLogs     SiteEmployeeLog[]
   siteContactPersons   SiteContactPerson[]
-
+  siteDeliveryAddresses SiteDeliveryAddress[]
+  
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
@@ -391,6 +393,7 @@ model State {
   employees        Employee[]
   billingAddresses BillingAddress[]
   vendors          Vendor[]
+  siteDeliveryAddresses SiteDeliveryAddress[]
 
   @@map("states")
 }
@@ -1498,4 +1501,25 @@ model SiteContactPerson {
 
   @@index([siteId])
   @@map("site_contact_persons")
+}
+
+
+model SiteDeliveryAddress {
+  id           Int      @id @default(autoincrement())
+  siteId       Int     
+  addressLine1 String?
+  addressLine2 String?
+  stateId      Int?
+  cityId       Int?
+  pinCode      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  site    Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  state              State?      @relation(fields: [stateId], references: [id])
+  city               City?       @relation(fields: [cityId], references: [id])
+  @@index([siteId])
+  @@index([stateId])
+  @@index([cityId])
+  @@map("site_delivery_addresses")
 }
