@@ -53,6 +53,8 @@ export interface ManpowerInitialData {
     id?: number;
     documentName?: string | null;
     documentUrl?: string | null;
+    _isNew?: boolean;
+    _tempId?: string;
   }>;
 }
 
@@ -63,6 +65,7 @@ export interface ManpowerFormProps {
   redirectOnSuccess?: string; // default '/manpower'
 }
 
+// Base schema for validation
 const documentSchema = z.object({
   id: z.number().optional(),
   documentName: z.string().min(1, "Document name is required"),
@@ -74,6 +77,13 @@ const documentSchema = z.object({
       "Document file is required"
     ),
 });
+
+// Extended type for form values that includes internal fields
+type DocumentFormValue = z.infer<typeof documentSchema> & {
+  _isNew?: boolean;
+  _tempId?: string;
+  documentUrl: any; // Keep the any type from the schema
+};
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -121,13 +131,17 @@ export default function ManpowerForm({
   const [submitting, setSubmitting] = useState(false);
   const { backWithScrollRestore } = useScrollRestoration("manpower-list");
 
-  type FormValues = z.infer<typeof schema>;
-  const initialDocumentValues =
+  type FormValues = Omit<z.infer<typeof schema>, 'manpowerDocuments'> & {
+    manpowerDocuments: DocumentFormValue[];
+  };
+
+  const initialDocumentValues: DocumentFormValue[] =
     initial?.manpowerDocuments?.map((doc) => ({
       id: doc.id,
-      documentName: doc.documentName ?? "",
-      documentUrl: doc.documentUrl ?? "",
-    })) ?? [];
+      documentName: doc.documentName || "",
+      documentUrl: doc.documentUrl || "",
+      _isNew: false,
+    })) || [];
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: "onChange",
@@ -183,20 +197,21 @@ export default function ManpowerForm({
       const documentMetadata = documents
         .map((doc) => {
           // Only include id if it's a valid positive number (existing document)
-          const isExistingDoc = typeof doc.id === 'number' && doc.id > 0 && !doc._isNew;
-          
+          const isExistingDoc = typeof doc.id === "number" && doc.id > 0;
+
           const metadata: any = {
             documentName: doc.documentName || "",
             documentUrl: (() => {
               if (doc.documentUrl instanceof File) {
                 return doc.documentUrl;
               }
-              return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+              return typeof doc.documentUrl === "string" &&
+                doc.documentUrl.trim() !== ""
                 ? doc.documentUrl
                 : undefined;
             })(),
           };
-          
+
           // Only include id for existing documents (positive IDs)
           if (isExistingDoc) {
             metadata.id = doc.id;
@@ -204,10 +219,10 @@ export default function ManpowerForm({
             // For new documents, use the temp ID for tracking during this session
             metadata._tempId = doc._tempId;
           }
-          
+
           return metadata;
         })
-        .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
+        .filter((doc) => doc.documentName && doc.documentUrl); // Filter out incomplete documents
       fd.append("firstName", values.firstName.trim());
       if (values.middleName) fd.append("middleName", values.middleName.trim());
       fd.append("lastName", values.lastName.trim());
