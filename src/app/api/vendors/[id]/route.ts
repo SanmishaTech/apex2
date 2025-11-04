@@ -34,6 +34,13 @@ const updateSchema = z.object({
   serviceTaxNumber: z.string().optional().nullable(),
   stateCode: z.string().optional().nullable(),
   itemCategoryIds: z.array(z.number()).optional().nullable(),
+  bankAccounts: z.array(z.object({
+    bank: z.string().optional().nullable(),
+    branch: z.string().optional().nullable(),
+    branchCode: z.string().optional().nullable(),
+    accountNumber: z.string().optional().nullable(),
+    ifscCode: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 // GET /api/vendors/[id] - Get single vendor
@@ -80,6 +87,16 @@ export async function GET(
         cinNumber: true,
         serviceTaxNumber: true,
         stateCode: true,
+        bankAccounts: {
+          select: {
+            id: true,
+            bank: true,
+            branch: true,
+            branchCode: true,
+            accountNumber: true,
+            ifscCode: true,
+          }
+        },
         itemCategories: {
           select: {
             itemCategory: {
@@ -122,71 +139,117 @@ export async function PATCH(
       return Error("No valid fields to update", 400);
     }
 
-    // Extract itemCategoryIds from updateData for separate handling
-    const { itemCategoryIds, ...vendorData } = updateData;
+    // Extract itemCategoryIds and bankAccounts from updateData for separate handling
+    const { itemCategoryIds, bankAccounts, ...vendorData } = updateData;
     
-    // Prepare update data with item categories relationship
-    const updatePayload: any = {
-      ...vendorData,
-    };
-    
-    // Handle item categories relationship if provided
-    if (itemCategoryIds !== undefined) {
-      updatePayload.itemCategories = {
-        deleteMany: {}, // Delete all existing relationships
-        create: itemCategoryIds && itemCategoryIds.length > 0 ? 
-          itemCategoryIds.map(categoryId => ({
-            itemCategoryId: categoryId
-          })) : []
+    // Use transaction to handle vendor and bank accounts update
+    const updated = await prisma.$transaction(async (tx) => {
+      // Prepare update data with item categories relationship
+      const updatePayload: any = {
+        ...vendorData,
       };
-    }
-    
-    const updated = await prisma.vendor.update({
-      where: { id },
-      data: updatePayload,
-      select: {
-        id: true,
-        vendorName: true,
-        contactPerson: true,
-        addressLine1: true,
-        addressLine2: true,
-        stateId: true,
-        cityId: true,
-        pincode: true,
-        mobile1: true,
-        mobile2: true,
-        email: true,
-        alternateEmail1: true,
-        alternateEmail2: true,
-        alternateEmail3: true,
-        alternateEmail4: true,
-        landline1: true,
-        landline2: true,
-        bank: true,
-        branch: true,
-        branchCode: true,
-        accountNumber: true,
-        ifscCode: true,
-        panNumber: true,
-        vatTinNumber: true,
-        cstTinNumber: true,
-        gstNumber: true,
-        cinNumber: true,
-        serviceTaxNumber: true,
-        stateCode: true,
-        itemCategories: {
-          select: {
-            itemCategory: {
-              select: {
-                id: true,
-                itemCategory: true,
+      
+      // Handle item categories relationship if provided
+      if (itemCategoryIds !== undefined) {
+        updatePayload.itemCategories = {
+          deleteMany: {}, // Delete all existing relationships
+          create: itemCategoryIds && itemCategoryIds.length > 0 ? 
+            itemCategoryIds.map(categoryId => ({
+              itemCategoryId: categoryId
+            })) : []
+        };
+      }
+      
+      // Update vendor
+      const vendor = await tx.vendor.update({
+        where: { id },
+        data: updatePayload,
+      });
+      
+      // Handle bank accounts if provided
+      if (bankAccounts !== undefined) {
+        // Delete existing bank accounts
+        await tx.vendorBankAccount.deleteMany({
+          where: { vendorId: id }
+        });
+        
+        // Create new bank accounts (limit to 3)
+        if (bankAccounts && bankAccounts.length > 0) {
+          const validBankAccounts = bankAccounts.slice(0, 3).filter((acc: any) => 
+            acc.bank || acc.branch || acc.branchCode || acc.accountNumber || acc.ifscCode
+          );
+          if (validBankAccounts.length > 0) {
+            await tx.vendorBankAccount.createMany({
+              data: validBankAccounts.map((acc: any) => ({
+                vendorId: id,
+                bank: acc.bank,
+                branch: acc.branch,
+                branchCode: acc.branchCode,
+                accountNumber: acc.accountNumber,
+                ifscCode: acc.ifscCode,
+              }))
+            });
+          }
+        }
+      }
+      
+      // Return updated vendor with all relationships
+      return await tx.vendor.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          vendorName: true,
+          contactPerson: true,
+          addressLine1: true,
+          addressLine2: true,
+          stateId: true,
+          cityId: true,
+          pincode: true,
+          mobile1: true,
+          mobile2: true,
+          email: true,
+          alternateEmail1: true,
+          alternateEmail2: true,
+          alternateEmail3: true,
+          alternateEmail4: true,
+          landline1: true,
+          landline2: true,
+          bank: true,
+          branch: true,
+          branchCode: true,
+          accountNumber: true,
+          ifscCode: true,
+          panNumber: true,
+          vatTinNumber: true,
+          cstTinNumber: true,
+          gstNumber: true,
+          cinNumber: true,
+          serviceTaxNumber: true,
+          stateCode: true,
+          bankAccounts: {
+            select: {
+              id: true,
+              bank: true,
+              branch: true,
+              branchCode: true,
+              accountNumber: true,
+              ifscCode: true,
+            }
+          },
+          itemCategories: {
+            select: {
+              itemCategory: {
+                select: {
+                  id: true,
+                  itemCategory: true,
+                }
               }
             }
-          }
-        },
-        createdAt: true,
-        updatedAt: true,
-      }
+          },
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
     });
 
     return Success(updated);

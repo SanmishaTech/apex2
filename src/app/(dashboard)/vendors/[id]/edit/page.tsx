@@ -1,7 +1,8 @@
 'use client';
 
 import { use } from 'react';
-import useSWR from 'swr';
+import { useRouter } from 'next/navigation';
+import useSWR, { mutate } from 'swr';
 import { apiGet } from '@/lib/api-client';
 import { VendorForm } from '../../vendor-form';
 import { AppCard } from '@/components/common';
@@ -12,6 +13,7 @@ type VendorEditPageProps = {
 
 export default function VendorEditPage({ params }: VendorEditPageProps) {
   const { id } = use(params);
+  const router = useRouter();
   const { data: vendor, error, isLoading } = useSWR(`/api/vendors/${id}`, apiGet) as { data: any, error: any, isLoading: boolean };
 
   if (isLoading) {
@@ -69,7 +71,15 @@ export default function VendorEditPage({ params }: VendorEditPageProps) {
     serviceTaxNumber: vendor.serviceTaxNumber,
     stateCode: vendor.stateCode,
     itemCategoryIds: vendor.itemCategories?.map((ic: any) => ic.itemCategory.id) || [],
+    bankAccounts: vendor.bankAccounts || [],
   };
 
-  return <VendorForm mode='edit' initial={initialData} />;
+  const handleSuccess = async () => {
+    // Revalidate the cache to get fresh data
+    await mutate(`/api/vendors/${id}`);
+    // Navigate to vendors list
+    router.push('/vendors');
+  };
+
+  return <VendorForm mode='edit' initial={initialData} onSuccess={handleSuccess} />;
 }

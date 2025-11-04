@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { Form } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,6 +16,14 @@ import { apiGet, apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 
 // Types
+type BankAccountData = {
+  bank?: string;
+  branch?: string;
+  branchCode?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+};
+
 type VendorFormInitialData = {
   id?: number;
   vendorName: string;
@@ -47,6 +55,7 @@ type VendorFormInitialData = {
   serviceTaxNumber?: string;
   stateCode?: string;
   itemCategoryIds?: number[];
+  bankAccounts?: BankAccountData[];
 };
 
 type VendorFormProps = {
@@ -86,6 +95,13 @@ const inputSchema = z.object({
   serviceTaxNumber: z.string().optional(),
   stateCode: z.string().regex(/^[0-9]{2}$/, 'State code must be 2 digits').optional().or(z.literal('')),
   itemCategoryIds: z.array(z.string()).optional(),
+  bankAccounts: z.array(z.object({
+    bank: z.string().optional(),
+    branch: z.string().optional(),
+    branchCode: z.string().optional(),
+    accountNumber: z.string().optional(),
+    ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format').optional().or(z.literal('')),
+  })).optional(),
 });
 
 type RawFormValues = z.infer<typeof inputSchema>;
@@ -122,6 +138,15 @@ function toSubmitPayload(data: RawFormValues) {
     serviceTaxNumber: data.serviceTaxNumber?.trim() || null,
     stateCode: data.stateCode?.trim() || null,
     itemCategoryIds: data.itemCategoryIds ? data.itemCategoryIds.map(id => parseInt(id)) : null,
+    bankAccounts: data.bankAccounts ? data.bankAccounts.filter(acc => 
+      acc.bank || acc.branch || acc.branchCode || acc.accountNumber || acc.ifscCode
+    ).map(acc => ({
+      bank: acc.bank?.trim() || null,
+      branch: acc.branch?.trim() || null,
+      branchCode: acc.branchCode?.trim() || null,
+      accountNumber: acc.accountNumber?.trim() || null,
+      ifscCode: acc.ifscCode?.trim() || null,
+    })) : null,
   };
 }
 
@@ -161,10 +186,15 @@ export function VendorForm({ mode, initial, onSuccess, redirectOnSuccess }: Vend
       serviceTaxNumber: initial?.serviceTaxNumber ?? '',
       stateCode: initial?.stateCode ?? '',
       itemCategoryIds: initial?.itemCategoryIds ? initial.itemCategoryIds.map(id => String(id)) : [],
+      bankAccounts: initial?.bankAccounts && initial.bankAccounts.length > 0 ? initial.bankAccounts : [],
     },
   });
 
   const { control, handleSubmit, watch, setValue } = form;
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'bankAccounts',
+  });
   const selectedStateId = watch('stateId');
 
   // Fetch states for dropdown
@@ -455,7 +485,7 @@ export function VendorForm({ mode, initial, onSuccess, redirectOnSuccess }: Vend
               </FormRow>
             </FormSection>
 
-            <FormSection legend={<span className='text-base font-semibold'>Banking Information</span>}>
+            <FormSection legend={<span className='text-base font-semibold'>Banking Information (Primary Account)</span>}>
               {/* Row 9: Bank Details - First Row */}
               <FormRow cols={2} from='md'>
                 <TextInput 
@@ -505,6 +535,110 @@ export function VendorForm({ mode, initial, onSuccess, redirectOnSuccess }: Vend
                   spanFrom='md' 
                 />
               </FormRow>
+            </FormSection>
+
+            <FormSection legend={<span className='text-base font-semibold'>Additional Bank Accounts</span>}>
+              <div className='flex justify-between items-center mb-6 pb-3 border-b'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-sm font-medium text-gray-700'>
+                    {fields.length === 0 
+                      ? 'You can add up to 3 additional bank accounts.' 
+                      : `Bank Accounts Added:`}
+                  </span>
+                  {fields.length > 0 && (
+                    <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800'>
+                      {fields.length} of 3
+                    </span>
+                  )}
+                </div>
+                {fields.length < 3 && (
+                  <AppButton
+                    type='button'
+                    variant='default'
+                    size='sm'
+                    onClick={() => append({ bank: '', branch: '', branchCode: '', accountNumber: '', ifscCode: '' })}
+                    iconName='Plus'
+                  >
+                    Add Bank Account
+                  </AppButton>
+                )}
+              </div>
+              {fields.length === 0 && (
+                <div className='text-center py-8 text-gray-500 text-sm'>
+                  No additional bank accounts added yet.
+                </div>
+              )}
+              <div className='space-y-4'>
+                {fields.map((field, index) => (
+                  <div key={field.id} className='border border-gray-200 rounded-lg p-5 bg-gray-50 hover:bg-gray-100 transition-colors'>
+                    <div className='flex justify-between items-center mb-4'>
+                      <div className='flex items-center gap-2'>
+                        <div className='w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-semibold'>
+                          {index + 1}
+                        </div>
+                        <h4 className='font-semibold text-base text-gray-800'>Bank Account {index + 1}</h4>
+                      </div>
+                      <AppButton
+                        type='button'
+                        variant='destructive'
+                        size='sm'
+                        onClick={() => remove(index)}
+                        iconName='Trash2'
+                      >
+                        Remove
+                      </AppButton>
+                    </div>
+                    <div className='space-y-4'>
+                      <FormRow cols={2} from='md'>
+                        <TextInput 
+                          control={control} 
+                          name={`bankAccounts.${index}.bank`}
+                          label='Bank' 
+                          placeholder='Enter bank name'
+                          span={1} 
+                          spanFrom='md' 
+                        />
+                        <TextInput 
+                          control={control} 
+                          name={`bankAccounts.${index}.branch`}
+                          label='Branch' 
+                          placeholder='Enter branch name'
+                          span={1} 
+                          spanFrom='md' 
+                        />
+                      </FormRow>
+                      <FormRow cols={3} from='md'>
+                      <TextInput 
+                        control={control} 
+                        name={`bankAccounts.${index}.branchCode`}
+                        label='Branch Code' 
+                        placeholder='Enter branch code'
+                        span={1} 
+                        spanFrom='md' 
+                      />
+                      <TextInput 
+                        control={control} 
+                        name={`bankAccounts.${index}.accountNumber`}
+                        label='Account Number' 
+                        placeholder='Enter account number'
+                        span={1} 
+                        spanFrom='md' 
+                      />
+                      <TextInput 
+                        control={control} 
+                        name={`bankAccounts.${index}.ifscCode`}
+                        label='IFSC Code' 
+                        placeholder='e.g., SBIN0001234'
+                        maxLength={11}
+                        className='uppercase'
+                        span={1} 
+                        spanFrom='md' 
+                      />
+                      </FormRow>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </FormSection>
 
             <FormSection legend={<span className='text-base font-semibold'>Tax Information</span>}>

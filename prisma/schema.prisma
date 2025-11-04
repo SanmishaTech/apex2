@@ -588,9 +588,10 @@ model Vendor {
   cstTinNumber     String?
   gstNumber        String?
   cinNumber        String?
-  serviceTaxNumber String?
+  serviceTaxNumber  String?
   stateCode        String?
   itemCategories   VendorItemCategory[]
+  bankAccounts     VendorBankAccount[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
@@ -615,6 +616,23 @@ model VendorItemCategory {
   @@index([vendorId])
   @@index([itemCategoryId])
   @@map("vendor_item_categories")
+}
+
+// Vendor Bank Accounts (multiple bank accounts per vendor, max 3)
+model VendorBankAccount {
+  id            Int      @id @default(autoincrement())
+  vendorId      Int
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bank          String?
+  branch        String?
+  branchCode    String?
+  accountNumber String?
+  ifscCode      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([vendorId])
+  @@map("vendor_bank_accounts")
 }
 
 // Bill of Quantity (BOQ)
