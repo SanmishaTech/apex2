@@ -19,8 +19,17 @@ export function DocumentUploadArray({ control }: DocumentUploadArrayProps) {
     keyName: "fieldId",
   });
 
-  // Helper for new doc object with id undefined
-  const newDoc = () => ({ id: undefined, documentName: "", documentUrl: null });
+  // Helper for new doc object with a temporary negative ID to avoid conflicts
+  const newDoc = () => {
+    const tempId = -Date.now(); // Generate a unique negative ID for new documents
+    return {
+      id: tempId, // Use a temporary negative ID for new documents
+      documentName: "",
+      documentUrl: null,
+      _isNew: true,
+      _tempId: tempId // Store the temp ID for reference
+    };
+  };
 
   // Helper to check if file is image
   const isImageFile = (name: string) =>

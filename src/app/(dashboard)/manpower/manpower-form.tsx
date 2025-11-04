@@ -180,14 +180,34 @@ export default function ManpowerForm({
       // Always multipart for simplicity
       const fd = new FormData();
       const documents = values.manpowerDocuments || [];
-      const documentMetadata = documents.map((doc) => ({
-        id: typeof doc.id === "number" ? doc.id : undefined,
-        documentName: doc.documentName,
-        documentUrl:
-          typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
-            ? doc.documentUrl
-            : undefined,
-      }));
+      const documentMetadata = documents
+        .map((doc) => {
+          // Only include id if it's a valid positive number (existing document)
+          const isExistingDoc = typeof doc.id === 'number' && doc.id > 0 && !doc._isNew;
+          
+          const metadata: any = {
+            documentName: doc.documentName || "",
+            documentUrl: (() => {
+              if (doc.documentUrl instanceof File) {
+                return doc.documentUrl;
+              }
+              return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                ? doc.documentUrl
+                : undefined;
+            })(),
+          };
+          
+          // Only include id for existing documents (positive IDs)
+          if (isExistingDoc) {
+            metadata.id = doc.id;
+          } else if (doc._isNew && doc._tempId) {
+            // For new documents, use the temp ID for tracking during this session
+            metadata._tempId = doc._tempId;
+          }
+          
+          return metadata;
+        })
+        .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
       fd.append("firstName", values.firstName.trim());
       if (values.middleName) fd.append("middleName", values.middleName.trim());
       fd.append("lastName", values.lastName.trim());

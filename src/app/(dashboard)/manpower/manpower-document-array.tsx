@@ -19,7 +19,16 @@ export function ManpowerDocumentUploadArray({ control }: ManpowerDocumentUploadA
     keyName: "fieldId",
   });
 
-  const createEmptyDocument = () => ({ id: undefined, documentName: "", documentUrl: null });
+  const createEmptyDocument = () => {
+    const tempId = -Date.now(); // Generate a unique negative ID for new documents
+    return {
+      id: tempId, // Use a temporary negative ID for new documents
+      documentName: "",
+      documentUrl: null,
+      _isNew: true, // Flag to track new documents
+      _tempId: tempId // Store the temp ID for reference
+    };
+  };
 
   const isImage = (name: string) => /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(name);
 
