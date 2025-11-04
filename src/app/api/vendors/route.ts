@@ -114,6 +114,13 @@ const createSchema = z.object({
   serviceTaxNumber: z.string().optional().nullable(),
   stateCode: z.string().optional().nullable(),
   itemCategoryIds: z.array(z.number()).optional().nullable(),
+  bankAccounts: z.array(z.object({
+    bank: z.string().optional().nullable(),
+    branch: z.string().optional().nullable(),
+    branchCode: z.string().optional().nullable(),
+    accountNumber: z.string().optional().nullable(),
+    ifscCode: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 // POST /api/vendors - Create new vendor
@@ -125,8 +132,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = createSchema.parse(body);
     
-    // Extract itemCategoryIds from validated data
-    const { itemCategoryIds, ...vendorData } = validatedData;
+    // Extract itemCategoryIds and bankAccounts from validated data
+    const { itemCategoryIds, bankAccounts, ...vendorData } = validatedData;
     
     // Create vendor and handle item categories relationship
     const created = await prisma.$transaction(async (tx) => {
@@ -134,6 +141,25 @@ export async function POST(req: NextRequest) {
       const vendor = await tx.vendor.create({
         data: vendorData as any,
       });
+      
+      // Create bank accounts if provided (limit to 3)
+      if (bankAccounts && bankAccounts.length > 0) {
+        const validBankAccounts = bankAccounts.slice(0, 3).filter((acc: any) => 
+          acc.bank || acc.branch || acc.branchCode || acc.accountNumber || acc.ifscCode
+        );
+        if (validBankAccounts.length > 0) {
+          await tx.vendorBankAccount.createMany({
+            data: validBankAccounts.map((acc: any) => ({
+              vendorId: vendor.id,
+              bank: acc.bank,
+              branch: acc.branch,
+              branchCode: acc.branchCode,
+              accountNumber: acc.accountNumber,
+              ifscCode: acc.ifscCode,
+            }))
+          });
+        }
+      }
       
       // TODO: Create item category relationships if provided
       // Temporarily disabled due to Prisma client issues
@@ -179,6 +205,16 @@ export async function POST(req: NextRequest) {
           cinNumber: true,
           serviceTaxNumber: true,
           stateCode: true,
+          bankAccounts: {
+            select: {
+              id: true,
+              bank: true,
+              branch: true,
+              branchCode: true,
+              accountNumber: true,
+              ifscCode: true,
+            }
+          },
           // TODO: Re-enable after fixing Prisma client issues
           // itemCategories: {
           //   select: {
@@ -239,6 +275,13 @@ const updateSchema = z.object({
   serviceTaxNumber: z.string().optional().nullable(),
   stateCode: z.string().optional().nullable(),
   itemCategoryIds: z.array(z.number()).optional().nullable(),
+  bankAccounts: z.array(z.object({
+    bank: z.string().optional().nullable(),
+    branch: z.string().optional().nullable(),
+    branchCode: z.string().optional().nullable(),
+    accountNumber: z.string().optional().nullable(),
+    ifscCode: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 // PATCH /api/vendors - Update multiple vendors (bulk update)
