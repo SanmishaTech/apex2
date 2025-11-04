@@ -106,16 +106,12 @@ export interface EmployeeFormProps {
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 
 const documentSchema = z.object({
-  id: z.number().optional(),
+  id: z.union([z.number(), z.undefined()]).optional(),
   documentName: z.string().min(1, "Document name is required"),
-  documentUrl: z
-    .any()
-    .refine(
-      (val) =>
-        (typeof val === "string" && val.trim() !== "") ||
-        val instanceof File,
-      "Document file is required"
-    ),
+  documentUrl: z.any().refine(
+    (val) => (typeof val === "string" && val.trim() !== "") || val instanceof File,
+    "Document file is required"
+  ),
 });
 
 const createInputSchema = z
@@ -547,14 +543,32 @@ export function EmployeeForm({
         const documents = Array.isArray(data.employeeDocuments)
           ? data.employeeDocuments
           : [];
-        const documentMetadata = documents.map((doc: any) => ({
-          id: typeof doc.id === "number" ? doc.id : undefined,
-          documentName: doc.documentName,
-          documentUrl:
-            typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
-              ? doc.documentUrl
-              : undefined,
-        }));
+        
+        // Process document metadata for new employee
+        const documentMetadata = documents
+          .map((doc: any) => {
+            // For new employees, we never include an ID for new documents
+            const metadata: any = {
+              documentName: doc.documentName || "",
+              documentUrl: (() => {
+                if (doc.documentUrl instanceof File) {
+                  return doc.documentUrl;
+                }
+                return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                  ? doc.documentUrl
+                  : undefined;
+              })(),
+            };
+            
+            // Only include temp ID for tracking during this session
+            if (doc._isNew && doc._tempId) {
+              metadata._tempId = doc._tempId;
+            }
+            
+            return metadata;
+          })
+          .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
+          
         const hasDocumentFiles = documents.some(
           (doc: any) => doc?.documentUrl instanceof File
         );
@@ -698,14 +712,37 @@ export function EmployeeForm({
         const documents = Array.isArray(data.employeeDocuments)
           ? data.employeeDocuments
           : [];
-        const documentMetadata = documents.map((doc: any) => ({
-          id: typeof doc.id === "number" ? doc.id : undefined,
-          documentName: doc.documentName,
-          documentUrl:
-            typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
-              ? doc.documentUrl
-              : undefined,
-        }));
+        
+        // Process document metadata for employee update
+        const documentMetadata = documents
+          .map((doc: any) => {
+            // Only include id if it's a valid positive number (existing document)
+            const isExistingDoc = typeof doc.id === 'number' && doc.id > 0 && !doc._isNew;
+            
+            const metadata: any = {
+              documentName: doc.documentName || "",
+              documentUrl: (() => {
+                if (doc.documentUrl instanceof File) {
+                  return doc.documentUrl;
+                }
+                return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                  ? doc.documentUrl
+                  : undefined;
+              })(),
+            };
+            
+            // Only include id for existing documents (positive IDs)
+            if (isExistingDoc) {
+              metadata.id = doc.id;
+            } else if (doc._isNew && doc._tempId) {
+              // For new documents, use the temp ID for tracking during this session
+              metadata._tempId = doc._tempId;
+            }
+            
+            return metadata;
+          })
+          .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
+          
         const hasDocumentFiles = documents.some(
           (doc: any) => doc?.documentUrl instanceof File
         );
