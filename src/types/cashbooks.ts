@@ -23,8 +23,8 @@ export interface CashbookDetail {
   cashbookHeadId: number;
   cashbookHead?: CashbookHead;
   description?: string | null;
-  openingQuantity?: number | null;
-  closingQuantity?: number | null;
+  openingBalance?: number | null;
+  closingBalance?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -59,8 +59,8 @@ export interface CreateCashbookRequest {
   cashbookDetails: Array<{
     cashbookHeadId: number;
     description?: string | null;
-    openingQuantity?: number | null;
-    closingQuantity?: number | null;
+    openingBalance?: number | null;
+    closingBalance?: number | null;
   }>;
 }
 
@@ -69,7 +69,7 @@ export interface UpdateCashbookRequest extends Partial<CreateCashbookRequest> {
     id?: number;
     cashbookHeadId: number;
     description?: string | null;
-    openingQuantity?: number | null;
-    closingQuantity?: number | null;
+    openingBalance?: number | null;
+    closingBalance?: number | null;
   }>;
 }
