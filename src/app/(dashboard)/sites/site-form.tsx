@@ -88,6 +88,7 @@ export interface SiteFormProps {
   initial?: SiteFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string;
+  mutate?: () => Promise<any>;
 }
 
 export function SiteForm({
@@ -95,6 +96,7 @@ export function SiteForm({
   initial,
   onSuccess,
   redirectOnSuccess = "/sites",
+  mutate,
 }: SiteFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -387,12 +389,14 @@ export function SiteForm({
         };
       });
 
-      const normalizedDeliveryAddresses = data.deliveryAddresses?.map((addr) => {
-        return {
-          ...addr,
-          id: normalizeId(addr.id),
-        };
-      });
+      const normalizedDeliveryAddresses = data.deliveryAddresses?.map(
+        (addr) => {
+          return {
+            ...addr,
+            id: normalizeId(addr.id),
+          };
+        }
+      );
 
       const formData = new FormData();
 
@@ -450,6 +454,11 @@ export function SiteForm({
           ? "Site created successfully"
           : "Site updated successfully"
       );
+
+      // Invalidate and revalidate the cache
+      if (mutate) {
+        await mutate();
+      }
 
       if (onSuccess) {
         onSuccess(result);

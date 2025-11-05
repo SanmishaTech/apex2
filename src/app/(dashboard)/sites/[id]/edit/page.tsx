@@ -1,41 +1,40 @@
 "use client";
 
-import { use } from "react";
+import { useMemo } from "react";
+import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
-import SiteForm from "../../site-form";
+import SiteForm from "@/app/(dashboard)/sites/site-form";
 import { Site } from "@/types/sites";
 
-interface EditSitePageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function EditSitePage({ params }: EditSitePageProps) {
-  const { id } = use(params);
-  const siteId = parseInt(id);
+export default function EditSitePage() {
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
+  const siteId = id ? parseInt(id) : null;
 
   const {
     data: site,
     error,
     isLoading,
+    mutate,
   } = useSWR<Site>(
     siteId && !isNaN(siteId) ? `/api/sites/${siteId}` : null,
     apiGet
   );
 
   if (error) {
-    toast.error("Failed to load site data");
+    toast.error((error as Error).message || "Failed to load site");
     return (
       <div className="p-6">
-        <div className="text-center">
-          <p className="text-destructive">Failed to load site data</p>
+        <div className="text-center text-muted-foreground">
+          Failed to load site. Please try again.
         </div>
       </div>
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !site) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -46,19 +45,10 @@ export default function EditSitePage({ params }: EditSitePageProps) {
     );
   }
 
-  if (!site) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <p className="text-muted-foreground">Site not found</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <SiteForm
       mode="edit"
+      mutate={mutate}
       initial={{
         id: site.id,
         siteCode: site.siteCode ?? undefined,
@@ -92,6 +82,7 @@ export default function EditSitePage({ params }: EditSitePageProps) {
             }))
           : undefined,
       }}
+      redirectOnSuccess="/sites"
     />
   );
 }
