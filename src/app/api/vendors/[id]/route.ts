@@ -35,6 +35,7 @@ const updateSchema = z.object({
   stateCode: z.string().optional().nullable(),
   itemCategoryIds: z.array(z.number()).optional().nullable(),
   bankAccounts: z.array(z.object({
+    id: z.union([z.number(), z.string()]).optional(),
     bank: z.string().optional().nullable(),
     branch: z.string().optional().nullable(),
     branchCode: z.string().optional().nullable(),
@@ -141,6 +142,32 @@ export async function PATCH(
 
     // Extract itemCategoryIds and bankAccounts from updateData for separate handling
     const { itemCategoryIds, bankAccounts, ...vendorData } = updateData;
+
+    const normalizeId = (value: unknown): number | undefined => {
+      if (typeof value === 'number' && !Number.isNaN(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === '') return undefined;
+        const parsed = Number(trimmed);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+      return undefined;
+    };
+
+    const normalizedBankAccounts = Array.isArray(bankAccounts)
+      ? bankAccounts.map((acc) => ({
+          id: normalizeId((acc as { id?: unknown }).id),
+          bank: acc.bank ?? null,
+          branch: acc.branch ?? null,
+          branchCode: acc.branchCode ?? null,
+          accountNumber: acc.accountNumber ?? null,
+          ifscCode: acc.ifscCode ?? null,
+        }))
+      : undefined;
     
     // Use transaction to handle vendor and bank accounts update
     const updated = await prisma.$transaction(async (tx) => {
@@ -167,29 +194,63 @@ export async function PATCH(
       });
       
       // Handle bank accounts if provided
-      if (bankAccounts !== undefined) {
-        // Delete existing bank accounts
-        await tx.vendorBankAccount.deleteMany({
-          where: { vendorId: id }
+      if (Array.isArray(normalizedBankAccounts)) {
+        // Get existing bank accounts
+        const existingAccounts = await tx.vendorBankAccount.findMany({
+          where: { vendorId: id },
+          select: { id: true }
         });
         
-        // Create new bank accounts (limit to 3)
-        if (bankAccounts && bankAccounts.length > 0) {
-          const validBankAccounts = bankAccounts.slice(0, 3).filter((acc: any) => 
-            acc.bank || acc.branch || acc.branchCode || acc.accountNumber || acc.ifscCode
-          );
-          if (validBankAccounts.length > 0) {
-            await tx.vendorBankAccount.createMany({
-              data: validBankAccounts.map((acc: any) => ({
-                vendorId: id,
-                bank: acc.bank,
-                branch: acc.branch,
-                branchCode: acc.branchCode,
-                accountNumber: acc.accountNumber,
-                ifscCode: acc.ifscCode,
-              }))
-            });
-          }
+        const existingIds = existingAccounts.map(acc => acc.id);
+        const incomingIds = normalizedBankAccounts
+          .map(acc => acc.id)
+          .filter((acc): acc is number => typeof acc === 'number');
+        
+        // Find IDs to delete (existing but not in incoming)
+        const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+        
+        // Delete accounts that are not in the incoming payload
+        if (idsToDelete.length > 0) {
+          await tx.vendorBankAccount.deleteMany({
+            where: { id: { in: idsToDelete } }
+          });
+        }
+        
+        // Process each bank account in the payload
+        if (normalizedBankAccounts.length > 0) {
+          await Promise.all(normalizedBankAccounts.map(async (acc) => {
+            // Filter out empty accounts (all fields empty except possibly id)
+            const hasData = acc.bank || acc.branch || acc.branchCode || 
+                           acc.accountNumber || acc.ifscCode;
+            
+            if (!hasData) return;
+            
+            if (typeof acc.id === 'number' && existingIds.includes(acc.id)) {
+              // Update existing account
+              return tx.vendorBankAccount.update({
+                where: { id: acc.id },
+                data: {
+                  bank: acc.bank,
+                  branch: acc.branch,
+                  branchCode: acc.branchCode,
+                  accountNumber: acc.accountNumber,
+                  ifscCode: acc.ifscCode,
+                }
+              });
+            } else {
+              // Create new account
+              return tx.vendorBankAccount.create({
+                data: {
+                  vendorId: id,
+                  bank: acc.bank,
+                  branch: acc.branch,
+                  branchCode: acc.branchCode,
+                  accountNumber: acc.accountNumber,
+                  ifscCode: acc.ifscCode,
+                }
+              });
+            }
+          }));
         }
       }
       
@@ -214,16 +275,16 @@ export async function PATCH(
           alternateEmail4: true,
           landline1: true,
           landline2: true,
-          bank: true,
-          branch: true,
-          branchCode: true,
-          accountNumber: true,
-          ifscCode: true,
           panNumber: true,
           vatTinNumber: true,
           cstTinNumber: true,
           gstNumber: true,
           cinNumber: true,
+          bank: true,
+          branch: true,
+          branchCode: true,
+          accountNumber: true,
+          ifscCode: true,
           serviceTaxNumber: true,
           stateCode: true,
           bankAccounts: {
@@ -234,7 +295,8 @@ export async function PATCH(
               branchCode: true,
               accountNumber: true,
               ifscCode: true,
-            }
+            },
+            orderBy: { id: 'asc' }
           },
           itemCategories: {
             select: {
@@ -253,16 +315,9 @@ export async function PATCH(
     });
 
     return Success(updated);
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return BadRequest(error.errors);
-    }
-    if (error.code === 'P2025') return NotFound('Vendor not found');
-    if (error.code === 'P2002') {
-      return Error('Vendor with this name already exists', 409);
-    }
-    console.error("Update vendor error:", error);
-    return Error("Failed to update vendor");
+  } catch (err) {
+    console.error('Error updating vendor:', err);
+    return Error('Failed to update vendor', 500);
   }
 }
 

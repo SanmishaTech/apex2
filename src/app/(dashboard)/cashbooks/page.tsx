@@ -1,34 +1,34 @@
-'use client';
+"use client";
 
-import useSWR from 'swr';
-import { useMemo, useState, useEffect } from 'react';
-import { apiGet, apiDelete } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import { Pagination } from '@/components/common/pagination';
-import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { AppSelect } from '@/components/common/app-select';
-import { FilterBar } from '@/components/common';
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
-import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { DeleteButton } from '@/components/common/delete-button';
-import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS } from '@/config/roles';
-import { formatDate } from '@/lib/locales';
-import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import Link from 'next/link';
-import { EditButton } from '@/components/common/icon-button';
-import type { Cashbook, CashbooksResponse } from '@/types/cashbooks';
+import useSWR from "swr";
+import { useMemo, useState, useEffect } from "react";
+import { apiGet, apiDelete } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import { Pagination } from "@/components/common/pagination";
+import { NonFormTextInput } from "@/components/common/non-form-text-input";
+import { AppSelect } from "@/components/common/app-select";
+import { FilterBar } from "@/components/common";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import { DataTable, SortState, Column } from "@/components/common/data-table";
+import { DeleteButton } from "@/components/common/delete-button";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { formatDate } from "@/lib/locales";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import Link from "next/link";
+import { EditButton } from "@/components/common/icon-button";
+import type { Cashbook, CashbooksResponse } from "@/types/cashbooks";
 
 export default function CashbooksPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
-    search: '',
-    isVoucher: '',
-    sort: 'voucherDate',
-    order: 'desc',
+    search: "",
+    isVoucher: "",
+    sort: "voucherDate",
+    order: "desc",
   });
   const { page, perPage, search, isVoucher, sort, order } = qp;
 
@@ -49,19 +49,19 @@ export default function CashbooksPage() {
   }
 
   function resetFilters() {
-    setSearchDraft('');
-    setIsVoucherDraft('');
-    setQp({ page: 1, search: '', isVoucher: '' });
+    setSearchDraft("");
+    setIsVoucherDraft("");
+    setQp({ page: 1, search: "", isVoucher: "" });
   }
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
-    sp.set('page', String(page));
-    sp.set('perPage', String(perPage));
-    if (search) sp.set('search', search);
-    if (isVoucher) sp.set('isVoucher', isVoucher);
-    if (sort) sp.set('sort', sort);
-    if (order) sp.set('order', order);
+    sp.set("page", String(page));
+    sp.set("perPage", String(perPage));
+    if (search) sp.set("search", search);
+    if (isVoucher) sp.set("isVoucher", isVoucher);
+    if (sort) sp.set("sort", sort);
+    if (order) sp.set("order", order);
     return `/api/cashbooks?${sp.toString()}`;
   }, [page, perPage, search, isVoucher, sort, order]);
 
@@ -70,73 +70,61 @@ export default function CashbooksPage() {
     apiGet
   );
 
-  const { pushWithScrollSave } = useScrollRestoration('cashbooks-list');
+  const { pushWithScrollSave } = useScrollRestoration("cashbooks-list");
   const { can } = usePermissions();
 
   async function handleDelete(id: string) {
     try {
       await apiDelete(`/api/cashbooks/${id}`);
-      toast.success('Cashbook deleted successfully');
+      toast.success("Cashbook deleted successfully");
       mutate(); // Refresh the data
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete cashbook');
+      console.error("Delete error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete cashbook"
+      );
     }
   }
 
   function toggleSort(field: string) {
     if (sort === field) {
-      const newOrder = order === 'asc' ? 'desc' : 'asc';
+      const newOrder = order === "asc" ? "desc" : "asc";
       setQp({ order: newOrder });
     } else {
-      setQp({ sort: field, order: 'asc' });
+      setQp({ sort: field, order: "asc" });
     }
   }
 
-  const sortState: SortState = { field: sort, order: order as 'asc' | 'desc' };
+  const sortState: SortState = { field: sort, order: order as "asc" | "desc" };
 
   const columns: Column<Cashbook>[] = [
     {
-      key: 'voucherNo',
-      header: 'Voucher No',
+      key: "voucherNo",
+      header: "Voucher No",
       sortable: true,
       accessor: (cashbook) => (
-        <div className="font-medium">
-          {cashbook.voucherNo || 'N/A'}
-        </div>
+        <div className="font-medium">{cashbook.voucherNo || "N/A"}</div>
       ),
     },
     {
-      key: 'voucherDate',
-      header: 'Voucher Date',
+      key: "voucherDate",
+      header: "Voucher Date",
       sortable: true,
-      accessor: (cashbook) => (
-        <div>
-          {formatDate(cashbook.voucherDate)}
-        </div>
-      ),
+      accessor: (cashbook) => <div>{formatDate(cashbook.voucherDate)}</div>,
     },
     {
-      key: 'site',
-      header: 'Site',
-      accessor: (cashbook) => (
-        <div>
-          {cashbook.site?.site || 'N/A'}
-        </div>
-      ),
+      key: "site",
+      header: "Site",
+      accessor: (cashbook) => <div>{cashbook.site?.site || "N/A"}</div>,
     },
     {
-      key: 'boq',
-      header: 'BOQ',
-      accessor: (cashbook) => (
-        <div>
-          {cashbook.boq?.boqNo || 'N/A'}
-        </div>
-      ),
+      key: "boq",
+      header: "BOQ",
+      accessor: (cashbook) => <div>{cashbook.boq?.boqNo || "N/A"}</div>,
     },
     {
-      key: 'details',
-      header: 'Details Count',
+      key: "details",
+      header: "Details Count",
       accessor: (cashbook) => (
         <div className="text-center">
           {cashbook.cashbookDetails?.length || 0} items
@@ -144,8 +132,8 @@ export default function CashbooksPage() {
       ),
     },
     {
-      key: 'createdAt',
-      header: 'Created At',
+      key: "createdAt",
+      header: "Created At",
       sortable: true,
       accessor: (cashbook) => (
         <div className="text-sm text-muted-foreground">
@@ -154,7 +142,6 @@ export default function CashbooksPage() {
       ),
     },
   ];
-
 
   if (error) {
     return (
@@ -180,11 +167,11 @@ export default function CashbooksPage() {
           </div>
           <AppCard.Action>
             {can(PERMISSIONS.CREATE_CASHBOOKS) && (
-              <AppButton 
-                size='sm' 
-                iconName='Plus' 
-                type='button'
-                onClick={() => pushWithScrollSave('/cashbooks/new')}
+              <AppButton
+                size="sm"
+                iconName="Plus"
+                type="button"
+                onClick={() => pushWithScrollSave("/cashbooks/new")}
               >
                 Add Cashbook
               </AppButton>
@@ -194,37 +181,39 @@ export default function CashbooksPage() {
       </AppCard.Header>
 
       <AppCard.Content>
-        <FilterBar title='Search & Filter'>
+        <FilterBar title="Search & Filter">
           <NonFormTextInput
-            aria-label='Search cashbooks'
+            aria-label="Search cashbooks"
             placeholder="Search cashbooks..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName="flex-1"
           />
           <AppSelect
-            value={isVoucherDraft || '__all'}
-            onValueChange={(v) => setIsVoucherDraft(v === '__all' ? '' : v)}
-            placeholder='Is Voucher'
+            value={isVoucherDraft || "__all"}
+            onValueChange={(v) => setIsVoucherDraft(v === "__all" ? "" : v)}
+            placeholder="Is Voucher"
           >
-            <AppSelect.Item value='__all'>All Records</AppSelect.Item>
-            <AppSelect.Item value='yes'>Have Attached</AppSelect.Item>
-            <AppSelect.Item value='no'>Not Attached</AppSelect.Item>
+            <AppSelect.Item value="__all">
+              File Attachment Status
+            </AppSelect.Item>
+            <AppSelect.Item value="yes">With Attachment</AppSelect.Item>
+            <AppSelect.Item value="no">Without Attachment</AppSelect.Item>
           </AppSelect>
           <AppButton
-            size='sm'
+            size="sm"
             onClick={applyFilters}
             disabled={!filtersDirty && !searchDraft && !isVoucherDraft}
-            className='min-w-[84px]'
+            className="min-w-[84px]"
           >
             Filter
           </AppButton>
           {(search || isVoucher) && (
             <AppButton
-              variant='secondary'
-              size='sm'
+              variant="secondary"
+              size="sm"
               onClick={resetFilters}
-              className='min-w-[84px]'
+              className="min-w-[84px]"
             >
               Reset
             </AppButton>
@@ -239,23 +228,30 @@ export default function CashbooksPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(cashbook) => {
-            if (!can(PERMISSIONS.EDIT_CASHBOOKS) && !can(PERMISSIONS.DELETE_CASHBOOKS))
+            if (
+              !can(PERMISSIONS.EDIT_CASHBOOKS) &&
+              !can(PERMISSIONS.DELETE_CASHBOOKS)
+            )
               return null;
             return (
-              <div className='flex'>
+              <div className="flex">
                 {can(PERMISSIONS.EDIT_CASHBOOKS) && (
-                  <EditButton 
-                    tooltip='Edit Cashbook' 
-                    aria-label='Edit Cashbook'
-                    onClick={() => pushWithScrollSave(`/cashbooks/${cashbook.id}/edit`)}
+                  <EditButton
+                    tooltip="Edit Cashbook"
+                    aria-label="Edit Cashbook"
+                    onClick={() =>
+                      pushWithScrollSave(`/cashbooks/${cashbook.id}/edit`)
+                    }
                   />
                 )}
                 {can(PERMISSIONS.DELETE_CASHBOOKS) && (
                   <DeleteButton
                     onDelete={() => handleDelete(String(cashbook.id))}
-                    itemLabel='cashbook'
-                    title='Delete cashbook?'
-                    description={`This will permanently remove cashbook voucher ${cashbook.voucherNo || cashbook.id}. This action cannot be undone.`}
+                    itemLabel="cashbook"
+                    title="Delete cashbook?"
+                    description={`This will permanently remove cashbook voucher ${
+                      cashbook.voucherNo || cashbook.id
+                    }. This action cannot be undone.`}
                   />
                 )}
               </div>
