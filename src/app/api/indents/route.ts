@@ -8,30 +8,30 @@ import { z } from "zod";
 
 const indentItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
-  closingStock: z
-    .coerce
-    .number()
-    .min(0, "Closing stock must be non-negative")
-    .max(9999999999.99, "Closing stock must be <= 9,999,999,999.99"),
-  unitId: z.coerce.number().min(1, "Unit is required"),
   remark: z.string().optional(),
   indentQty: z
     .coerce
     .number()
     .min(0, "Indent quantity must be non-negative")
     .max(9999999999.99, "Indent quantity must be <= 9,999,999,999.99"),
-  approvedQty: z
+  approved1Qty: z
     .coerce
     .number()
     .min(0, "Approved quantity must be non-negative")
     .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
     .optional(),
-  deliveryDate: z.string().transform((val) => new Date(val)),
+  approved2Qty: z
+    .coerce
+    .number()
+    .min(0, "Approved quantity must be non-negative")
+    .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
+    .optional(),
 });
 
 const createSchema = z.object({
   indentDate: z.string().transform((val) => new Date(val)),
-  siteId: z.coerce.number().optional(),
+  deliveryDate: z.string().transform((val) => new Date(val)),
+  siteId: z.coerce.number().min(1, "Site is required"),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).min(1, "At least one item is required"),
 });
@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
         id: true,
         indentNo: true,
         indentDate: true,
+        deliveryDate: true,
         siteId: true,
         approvalStatus: true,
         suspended: true,
@@ -112,14 +113,9 @@ export async function GET(req: NextRequest) {
               },
             },
             indentQty: true,
-            approvedQty: true,
-            unitId: true,
-            unit: {
-              select: {
-                id: true,
-                unitName: true,
-              },
-            },
+            approved1Qty: true,
+            approved2Qty: true,
+            remark: true,
           },
         },
       },
@@ -153,17 +149,23 @@ export async function POST(req: NextRequest) {
     const indentNo = await generateIndentNo();
 
     const result = await prisma.$transaction(async (tx) => {
+      const indentData: Prisma.IndentUncheckedCreateInput = {
+        indentNo,
+        indentDate: parsedData.indentDate,
+        deliveryDate: parsedData.deliveryDate,
+        remarks: parsedData.remarks || null,
+        createdById: auth.user.id,
+        updatedById: auth.user.id,
+        siteId: parsedData.siteId,
+      };
+
       const indent = await tx.indent.create({
-        data: {
-          indentNo,
-          indentDate: parsedData.indentDate,
-          siteId: parsedData.siteId || null,
-          remarks: parsedData.remarks || null,
-        },
+        data: indentData,
         select: {
           id: true,
           indentNo: true,
           indentDate: true,
+          deliveryDate: true,
           siteId: true,
           approvalStatus: true,
           remarks: true,
@@ -183,13 +185,12 @@ export async function POST(req: NextRequest) {
       const itemsData: Prisma.IndentItemCreateManyInput[] = parsedData.indentItems.map(item => ({
         indentId,
         itemId: item.itemId,
-        closingStock: item.closingStock,
-        unitId: item.unitId,
         remark: item.remark || null,
         indentQty: item.indentQty,
-        approvedQty: item.approvedQty ?? null,
-        deliveryDate: item.deliveryDate,
+        approved1Qty: item.approved1Qty ?? 0,
+        approved2Qty: item.approved2Qty ?? 0,
       }));
+
       await tx.indentItem.createMany({
         data: itemsData,
       });
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest) {
           id: true,
           indentNo: true,
           indentDate: true,
+          deliveryDate: true,
           siteId: true,
           approvalStatus: true,
           remarks: true,
@@ -223,18 +225,10 @@ export async function POST(req: NextRequest) {
                   item: true,
                 },
               },
-              approvedQty: true,
-              closingStock: true,
-              unitId: true,
-              unit: {
-                select: {
-                  id: true,
-                  unitName: true,
-                },
-              },
               remark: true,
               indentQty: true,
-              deliveryDate: true,
+              approved1Qty: true,
+              approved2Qty: true,
             },
           },
         } as any,
