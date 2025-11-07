@@ -6,24 +6,24 @@ export interface IndentItem {
     itemCode: string;
     item: string;
   };
-  closingStock: number;
-  unitId?: number;
-  unit?: {
-    id: number;
-    unitName: string;
-  };
   remark?: string;
   indentQty: number;
-  approvedQty?: number;
-  deliveryDate: string;
+  approved1Qty?: number;
+  approved2Qty?: number;
 }
 
 export interface Indent {
   id: number;
   indentNo?: string;
   indentDate: string;
+  deliveryDate: string;
   siteId?: number;
-  approvalStatus?: 'DRAFT' | 'APPROVED_1' | 'APPROVED_2' | 'COMPLETED';
+  approvalStatus?:
+    | "DRAFT"
+    | "APPROVED_LEVEL_1"
+    | "APPROVED_LEVEL_2"
+    | "COMPLETED"
+    | "SUSPENDED";
   suspended?: boolean;
   remarks?: string;
   createdAt: string;
@@ -47,36 +47,35 @@ export interface IndentsResponse {
 
 export interface CreateIndentRequest {
   indentDate: string;
+  deliveryDate: string;
   siteId?: number;
   remarks?: string;
   indentItems: {
     itemId: number;
-    closingStock: number;
-    unitId: number;
     remark?: string;
     indentQty: number;
-    deliveryDate: string;
+    approved1Qty?: number;
+    approved2Qty?: number;
   }[];
 }
 
 // For status updates from index page
 export interface UpdateIndentStatusRequest {
-  statusAction: 'approve1' | 'approve2' | 'complete' | 'suspend' | 'unsuspend';
+  statusAction: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
 }
 
 export interface UpdateIndentRequest {
   indentDate?: string;
+  deliveryDate?: string;
   siteId?: number;
   remarks?: string;
   indentItems?: {
     id?: number;
     itemId: number;
-    closingStock: number;
-    unitId: number;
     remark?: string;
     indentQty: number;
-    approvedQty?: number;
-    deliveryDate: string;
+    approved1Qty?: number;
+    approved2Qty?: number;
   }[];
 }
 

@@ -1,44 +1,56 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  NotFound,
+} from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 
 const indentItemSchema = z.object({
   id: z.number().optional(), // For existing items
   itemId: z.coerce.number().min(1, "Item is required"),
-  // MySQL DECIMAL(12,2) max is 9,999,999,999.99
-  closingStock: z
-    .coerce
-    .number()
-    .min(0, "Closing stock must be non-negative")
-    .max(9999999999.99, "Closing stock must be <= 9,999,999,999.99"),
-  unitId: z.coerce.number().min(1, "Unit is required"),
   remark: z.string().optional(),
-  indentQty: z
-    .coerce
+  indentQty: z.coerce
     .number()
     .min(0, "Indent quantity must be non-negative")
     .max(9999999999.99, "Indent quantity must be <= 9,999,999,999.99"),
-  approvedQty: z
-    .coerce
+  approved1Qty: z.coerce
     .number()
     .min(0, "Approved quantity must be non-negative")
     .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
     .optional(),
-  deliveryDate: z.string().transform((val) => new Date(val)),
+  approved2Qty: z.coerce
+    .number()
+    .min(0, "Approved quantity must be non-negative")
+    .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
+    .optional(),
 });
 
 const updateSchema = z.object({
-  indentDate: z.string().transform((val) => new Date(val)).optional(),
+  indentDate: z
+    .string()
+    .transform((val) => new Date(val))
+    .optional(),
+  deliveryDate: z
+    .string()
+    .transform((val) => new Date(val))
+    .optional(),
   siteId: z.number().optional(),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).optional(),
-  statusAction: z.enum(['approve1', 'approve2', 'complete', 'suspend', 'unsuspend']).optional(),
+  statusAction: z
+    .enum(["approve1", "approve2", "complete", "suspend", "unsuspend"])
+    .optional(),
 });
 
 // GET /api/indents/[id] - Get single indent
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -56,6 +68,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         approvalStatus: true,
         suspended: true,
         remarks: true,
+        deliveryDate: true,
         createdAt: true,
         updatedAt: true,
         site: {
@@ -73,23 +86,22 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 id: true,
                 itemCode: true,
                 item: true,
-              },
-            },
-            closingStock: true,
-            unitId: true,
-            unit: {
-              select: {
-                id: true,
-                unitName: true,
+                unitId: true,
+                unit: {
+                  select: {
+                    id: true,
+                    unitName: true,
+                  },
+                },
               },
             },
             remark: true,
             indentQty: true,
-            approvedQty: true,
-            deliveryDate: true,
+            approved1Qty: true,
+            approved2Qty: true,
           },
           orderBy: {
-            id: 'asc',
+            id: "asc",
           },
         },
       } as any,
@@ -104,7 +116,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 }
 
 // PATCH /api/indents/[id] - Update indent
-export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
@@ -138,42 +153,67 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           select: { approvalStatus: true } as any,
         });
         if (!current) {
-          throw new Error('BAD_REQUEST: Indent not found');
+          throw new Error("BAD_REQUEST: Indent not found");
         }
         const now = new Date();
-        if (statusAction === 'approve1') {
-          if (current.approvalStatus !== 'DRAFT') {
-            throw new Error('BAD_REQUEST: Only DRAFT can be approved (level 1)');
+        if (statusAction === "approve1") {
+          if (current.approvalStatus !== "DRAFT") {
+            throw new Error(
+              "BAD_REQUEST: Only DRAFT can be approved (level 1)"
+            );
           }
           await tx.indent.update({
             where: { id },
-            data: { approvalStatus: 'APPROVED_1', approved1ById: auth.user.id, approved1At: now } as any,
+            data: {
+              approvalStatus: "APPROVED_LEVEL_1",
+              approved1ById: auth.user.id,
+              approved1At: now,
+            } as any,
           });
-        } else if (statusAction === 'approve2') {
-          if (current.approvalStatus !== 'APPROVED_1') {
-            throw new Error('BAD_REQUEST: Only level 1 approved can be approved (level 2)');
+        } else if (statusAction === "approve2") {
+          if (current.approvalStatus !== "APPROVED_LEVEL_1") {
+            throw new Error(
+              "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+            );
           }
           await tx.indent.update({
             where: { id },
-            data: { approvalStatus: 'APPROVED_2', approved2ById: auth.user.id, approved2At: now } as any,
+            data: {
+              approvalStatus: "APPROVED_LEVEL_2",
+              approved2ById: auth.user.id,
+              approved2At: now,
+            } as any,
           });
-        } else if (statusAction === 'complete') {
-          if (current.approvalStatus !== 'APPROVED_2') {
-            throw new Error('BAD_REQUEST: Only level 2 approved can be completed');
+        } else if (statusAction === "complete") {
+          if (current.approvalStatus !== "APPROVED_LEVEL_2") {
+            throw new Error(
+              "BAD_REQUEST: Only level 2 approved can be completed"
+            );
           }
           await tx.indent.update({
             where: { id },
-            data: { approvalStatus: 'COMPLETED', completedById: auth.user.id, completedAt: now } as any,
+            data: {
+              approvalStatus: "COMPLETED",
+              completedById: auth.user.id,
+              completedAt: now,
+            } as any,
           });
-        } else if (statusAction === 'suspend') {
-          if (current.approvalStatus === 'COMPLETED') {
-            throw new Error('BAD_REQUEST: Completed indent cannot be suspended');
+        } else if (statusAction === "suspend") {
+          if (current.approvalStatus === "COMPLETED") {
+            throw new Error(
+              "BAD_REQUEST: Completed indent cannot be suspended"
+            );
           }
           await tx.indent.update({
             where: { id },
-            data: { suspended: true, suspendedById: auth.user.id, suspendedAt: now },
+            data: {
+              approvalStatus: "SUSPENDED",
+              suspended: true,
+              suspendedById: auth.user.id,
+              suspendedAt: now,
+            },
           });
-        } else if (statusAction === 'unsuspend') {
+        } else if (statusAction === "unsuspend") {
           await tx.indent.update({
             where: { id },
             data: { suspended: false },
@@ -182,32 +222,56 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       }
 
       // If updating items during an approval-type action (non-suspend), ensure approvedQty is provided
-      if (statusAction && statusAction !== 'suspend' && Array.isArray(indentItems)) {
-        const missing = indentItems.some((it: any) => it.approvedQty == null || Number.isNaN(it.approvedQty));
+      if (
+        statusAction &&
+        statusAction !== "suspend" &&
+        Array.isArray(indentItems)
+      ) {
+        const missing = indentItems.some((it: any) => {
+          if (statusAction === "approve1") {
+            return it.approved1Qty == null || Number.isNaN(it.approved1Qty);
+          }
+          if (statusAction === "approve2") {
+            return it.approved2Qty == null || Number.isNaN(it.approved2Qty);
+          }
+          return false;
+        });
         if (missing) {
-          throw new Error('BAD_REQUEST: Approved quantity is required for all items');
+          throw new Error(
+            "BAD_REQUEST: Approved quantity is required for all items"
+          );
         }
       }
 
       if (indentItems && indentItems.length > 0) {
-        // Delete existing items
-        await tx.indentItem.deleteMany({
-          where: { indentId: id },
-        });
+        for (const item of indentItems) {
+          if (!item.id) continue; // skip any item without ID
 
-        // Create new items
-        await tx.indentItem.createMany({
-          data: indentItems.map((item: any) => ({
-            indentId: id,
-            itemId: item.itemId!,
-            closingStock: item.closingStock,
-            unitId: item.unitId!,
-            remark: item.remark || null,
-            indentQty: item.indentQty,
-            approvedQty: item.approvedQty ?? null,
-            deliveryDate: item.deliveryDate,
-          })),
-        });
+          const existingItem = await tx.indentItem.findFirst({
+            where: { id: item.id, indentId: id },
+            select: { id: true },
+          });
+
+          if (existingItem) {
+            await tx.indentItem.update({
+              where: { id: existingItem.id },
+              data: {
+                remark: item.remark ?? null,
+                indentQty: item.indentQty,
+                approved1Qty:
+                  item.approved1Qty !== undefined
+                    ? item.approved1Qty
+                    : undefined,
+                approved2Qty:
+                  item.approved2Qty !== undefined
+                    ? item.approved2Qty
+                    : undefined,
+                updatedAt: new Date(),
+              },
+            });
+          }
+          // else skip silently — do not create new items
+        }
       }
 
       // Fetch updated indent with items
@@ -217,6 +281,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           id: true,
           indentNo: true,
           indentDate: true,
+          deliveryDate: true,
           siteId: true,
           approvalStatus: true,
           remarks: true,
@@ -232,15 +297,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
             select: {
               id: true,
               item: true,
-              closingStock: true,
-              unit: true,
               remark: true,
               indentQty: true,
-              approvedQty: true,
-              deliveryDate: true,
+              approved1Qty: true,
+              approved2Qty: true,
             },
             orderBy: {
-              id: 'asc',
+              id: "asc",
             },
           },
         } as any,
@@ -255,8 +318,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return BadRequest(error.errors);
     }
     if (error.code === "P2025") return NotFound("Indent not found");
-    if (typeof error?.message === 'string' && error.message.startsWith('BAD_REQUEST:')) {
-      return BadRequest(error.message.replace('BAD_REQUEST: ', ''));
+    if (
+      typeof error?.message === "string" &&
+      error.message.startsWith("BAD_REQUEST:")
+    ) {
+      return BadRequest(error.message.replace("BAD_REQUEST: ", ""));
     }
     console.error("Update indent error:", error);
     return ApiError("Failed to update indent");
@@ -264,7 +330,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 }
 
 // DELETE /api/indents/[id] - Delete indent
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
