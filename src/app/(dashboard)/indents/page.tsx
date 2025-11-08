@@ -606,9 +606,11 @@ export default function IndentsPage() {
                       <th className="text-left p-3">Unit</th>
                       <th className="text-left p-3">Indent Qty</th>
                       <th className="text-left p-3">
-                        {approvalAction === 'approve1' ? 'Approve 1 Qty' : 'Approved 1 Qty'}
+                        {approvalAction === "approve1"
+                          ? "Approve 1 Qty"
+                          : "Approved 1 Qty"}
                       </th>
-                      {approvalAction === 'approve2' && (
+                      {approvalAction === "approve2" && (
                         <th className="text-left p-3">Approve 2 Qty</th>
                       )}
                       <th className="text-left p-3">Remark</th>
@@ -627,7 +629,7 @@ export default function IndentsPage() {
                           {Number(it.indentQty || 0).toFixed(2)}
                         </td>
                         <td className="p-3 whitespace-nowrap">
-                          {approvalAction === 'approve1' ? (
+                          {approvalAction === "approve1" ? (
                             <Input
                               type="number"
                               step="0.01"
@@ -646,7 +648,7 @@ export default function IndentsPage() {
                             Number(it.approved1Qty || 0).toFixed(2)
                           )}
                         </td>
-                        {approvalAction === 'approve2' && (
+                        {approvalAction === "approve2" && (
                           <td className="p-3 whitespace-nowrap">
                             <Input
                               type="number"
@@ -656,7 +658,12 @@ export default function IndentsPage() {
                               required
                               value={
                                 itemEdits[it.id]?.approved2Qty ??
-                                Number(it.approved2Qty ?? it.approved1Qty ?? it.indentQty ?? 0)
+                                Number(
+                                  it.approved2Qty ??
+                                    it.approved1Qty ??
+                                    it.indentQty ??
+                                    0
+                                )
                               }
                               onChange={(e) =>
                                 setEdit(it.id, "approved2Qty", e.target.value)
