@@ -1,10 +1,35 @@
 // Application navigation tree definition. Items filtered at runtime based on user permissions.
 // Keeps UI structure & required permissions centralized (avoid scattering nav logic).
- import { PERMISSIONS } from '@/config/roles';
- 
-import { LayoutDashboard, Users, Settings, MapPin, Map, Building2, Warehouse, Briefcase, Folder, UserCheck, Receipt, Megaphone, Database, TrendingUp, Calculator, FileText, Package, Building, Home, ArrowRightLeft, UserPlus, ArrowUpDown, ClipboardCheck, Edit3, FileBarChart } from 'lucide-react';
-import type { ComponentType } from 'react';
- 
+import { PERMISSIONS } from "@/config/roles";
+
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  MapPin,
+  Map,
+  Building2,
+  Warehouse,
+  Briefcase,
+  Folder,
+  UserCheck,
+  Receipt,
+  Megaphone,
+  Database,
+  TrendingUp,
+  Calculator,
+  FileText,
+  Package,
+  Building,
+  Home,
+  ArrowRightLeft,
+  UserPlus,
+  ArrowUpDown,
+  ClipboardCheck,
+  Edit3,
+  FileBarChart,
+} from "lucide-react";
+import type { ComponentType } from "react";
 
 export type NavLeafItem = {
   type?: "item";
@@ -143,8 +168,8 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.EDIT_ATTENDANCES,
       },
       {
-        title: 'Payslips',
-        href: '/payslips',
+        title: "Payslips",
+        href: "/payslips",
         icon: Receipt,
         permission: PERMISSIONS.READ_PAYSLIPS,
       },
@@ -174,18 +199,18 @@ export const NAV_ITEMS: NavItem[] = [
           },
           {
             type: "group",
-            title: 'Manpower Reports',
+            title: "Manpower Reports",
             icon: FileBarChart,
             children: [
               {
-                title: 'Attendance Reports',
-                href: '/attendance-reports',
+                title: "Attendance Reports",
+                href: "/attendance-reports",
                 icon: ClipboardCheck,
                 permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
               },
               {
-                title: 'Manpower Attendance Summary',
-                href: '/attendance-reports/summary',
+                title: "Manpower Attendance Summary",
+                href: "/attendance-reports/summary",
                 icon: FileText,
                 permission: PERMISSIONS.VIEW_ATTENDANCE_REPORTS,
               },
@@ -277,6 +302,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/indents",
         icon: FileText,
         permission: PERMISSIONS.READ_INDENTS,
+      },
+      {
+        title: "Purchase Orders",
+        href: "/purchase-orders",
+        icon: FileText,
+        permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
       {
         title: "Units",
@@ -383,7 +414,6 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-
 
   {
     type: "group",
