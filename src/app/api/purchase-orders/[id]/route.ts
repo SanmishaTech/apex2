@@ -7,6 +7,7 @@ import {
   NotFound,
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const purchaseOrderItemSchema = z.object({
@@ -81,6 +82,12 @@ const updateSchema = z.object({
   totalCgstAmount: z.coerce.number().optional(),
   totalSgstAmount: z.coerce.number().optional(),
   totalIgstAmount: z.coerce.number().optional(),
+  transitInsuranceStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  transitInsuranceAmount: z.string().nullable().optional(),
+  pfStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  pfCharges: z.string().nullable().optional(),
+  gstReverseStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  gstReverseAmount: z.string().nullable().optional(),
 });
 
 // GET /api/purchase-orders/[id] - Get single purchase order
@@ -115,9 +122,16 @@ export async function GET(
         paymentTermsInDays: true,
         deliverySchedule: true,
         amount: true,
+        amountInWords: true,
         totalCgstAmount: true,
         totalSgstAmount: true,
         totalIgstAmount: true,
+        transitInsuranceStatus: true,
+        transitInsuranceAmount: true,
+        pfStatus: true,
+        pfCharges: true,
+        gstReverseStatus: true,
+        gstReverseAmount: true,
         approvalStatus: true,
         isSuspended: true,
         isComplete: true,
@@ -288,6 +302,10 @@ export async function PATCH(
           }
         }
 
+        if (typeof poData.amount === "number") {
+          updateData.amountInWords = amountInWords(poData.amount);
+        }
+
         // Always update the updatedAt and updatedById
         updateData.updatedAt = new Date();
         updateData.updatedById = auth.user.id;
@@ -383,9 +401,16 @@ export async function PATCH(
           paymentTermsInDays: true,
           deliverySchedule: true,
           amount: true,
+          amountInWords: true,
           totalCgstAmount: true,
           totalSgstAmount: true,
           totalIgstAmount: true,
+          transitInsuranceStatus: true,
+          transitInsuranceAmount: true,
+          pfStatus: true,
+          pfCharges: true,
+          gstReverseStatus: true,
+          gstReverseAmount: true,
           approvalStatus: true,
           isSuspended: true,
           isComplete: true,

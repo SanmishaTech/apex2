@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { Resolver, DeepPartial } from "react-hook-form";
 import {
@@ -97,6 +97,7 @@ type PurchaseOrderItem = {
 };
 
 type PurchaseOrderFormInitialData = {
+  id?: number;
   purchaseOrderNo?: string;
   purchaseOrderDate?: string;
   deliveryDate?: string;
@@ -113,6 +114,12 @@ type PurchaseOrderFormInitialData = {
   poStatus?: "HOLD" | null;
   paymentTermsInDays?: number | null;
   deliverySchedule?: string | null;
+  transitInsuranceStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
+  transitInsuranceAmount?: string | null;
+  pfStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
+  pfCharges?: string | null;
+  gstReverseStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
+  gstReverseAmount?: string | null;
   purchaseOrderItems?: PurchaseOrderItem[];
 };
 
@@ -235,6 +242,21 @@ const createInputSchema = z.object({
       return typeof val === "string" ? parseInt(val) : val;
     }),
   deliverySchedule: z.string().optional(),
+  transitInsuranceStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
+  transitInsuranceAmount: z.string().nullable().optional(),
+  pfStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
+  pfCharges: z.string().nullable().optional(),
+  gstReverseStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
+  gstReverseAmount: z.string().nullable().optional(),
   purchaseOrderItems: z
     .array(purchaseOrderItemSchema)
     .min(1, "At least one item is required"),
@@ -301,6 +323,12 @@ export function PurchaseOrderForm({
     poStatus: initial?.poStatus ?? null,
     paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
     deliverySchedule: initial?.deliverySchedule || "",
+    transitInsuranceStatus: initial?.transitInsuranceStatus ?? null,
+    transitInsuranceAmount: initial?.transitInsuranceAmount ?? null,
+    pfStatus: initial?.pfStatus ?? null,
+    pfCharges: initial?.pfCharges ?? null,
+    gstReverseStatus: initial?.gstReverseStatus ?? null,
+    gstReverseAmount: initial?.gstReverseAmount ?? null,
     purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
       ...item,
       disAmt: item.disAmt || 0,
@@ -344,6 +372,12 @@ export function PurchaseOrderForm({
   const siteDeliveryAddressValue = form.watch("siteDeliveryAddressId");
   const paymentTermValue = form.watch("paymentTermId");
   const poStatusValue = form.watch("poStatus");
+  const transitInsuranceStatus = form.watch("transitInsuranceStatus");
+  const transitInsuranceAmount = form.watch("transitInsuranceAmount");
+  const pfStatus = form.watch("pfStatus");
+  const pfCharges = form.watch("pfCharges");
+  const gstReverseStatus = form.watch("gstReverseStatus");
+  const gstReverseAmount = form.watch("gstReverseAmount");
   const { errors } = form.formState;
   const isCreate = mode === "create";
 
@@ -427,7 +461,7 @@ export function PurchaseOrderForm({
   const computedItems = items.map((item) => computeItemMetrics(item));
 
   // Calculate totals with proper type safety and number formatting
-  const totals = computedItems.reduce(
+  const itemTotals = computedItems.reduce(
     (acc, item) => ({
       amount: roundTo2(acc.amount + item.amount),
       cgstAmt: roundTo2(acc.cgstAmt + item.cgstAmt),
@@ -445,6 +479,34 @@ export function PurchaseOrderForm({
       taxableAmount: 0,
     }
   );
+
+  // Calculate additional charges to add to total
+  const transitInsuranceNumericAmount =
+    transitInsuranceStatus === null && transitInsuranceAmount
+      ? toNumber(transitInsuranceAmount)
+      : 0;
+
+  const pfChargesNumericAmount =
+    pfStatus === null && pfCharges ? toNumber(pfCharges) : 0;
+
+  const gstReverseNumericAmount =
+    gstReverseStatus === null && gstReverseAmount
+      ? toNumber(gstReverseAmount)
+      : 0;
+
+  // Final totals including all additional charges
+  const totals = {
+    ...itemTotals,
+    transitInsuranceAmount: transitInsuranceNumericAmount,
+    pfChargesAmount: pfChargesNumericAmount,
+    gstReverseAmount: gstReverseNumericAmount,
+    amount: roundTo2(
+      itemTotals.amount +
+        transitInsuranceNumericAmount +
+        pfChargesNumericAmount +
+        gstReverseNumericAmount
+    ),
+  };
 
   // Handle vendor change to update billing addresses
   // Add a new empty item row
@@ -515,6 +577,27 @@ export function PurchaseOrderForm({
         }
       );
 
+      // Add additional charges to total if they are numeric values
+      const transitInsuranceNumeric =
+        data.transitInsuranceStatus === null && data.transitInsuranceAmount
+          ? toNumber(data.transitInsuranceAmount)
+          : 0;
+
+      const pfChargesNumeric =
+        data.pfStatus === null && data.pfCharges ? toNumber(data.pfCharges) : 0;
+
+      const gstReverseNumeric =
+        data.gstReverseStatus === null && data.gstReverseAmount
+          ? toNumber(data.gstReverseAmount)
+          : 0;
+
+      const finalAmount = roundTo2(
+        headerTotals.amount +
+          transitInsuranceNumeric +
+          pfChargesNumeric +
+          gstReverseNumeric
+      );
+
       const payload = {
         ...data,
         siteId: data.siteId ? Number(data.siteId) : null,
@@ -530,7 +613,13 @@ export function PurchaseOrderForm({
           ? Number(data.paymentTermsInDays)
           : null,
         poStatus: data.poStatus ?? null,
-        amount: headerTotals.amount,
+        transitInsuranceStatus: data.transitInsuranceStatus || null,
+        transitInsuranceAmount: data.transitInsuranceAmount || null,
+        pfStatus: data.pfStatus || null,
+        pfCharges: data.pfCharges || null,
+        gstReverseStatus: data.gstReverseStatus || null,
+        gstReverseAmount: data.gstReverseAmount || null,
+        amount: finalAmount,
         totalCgstAmount: headerTotals.totalCgstAmount,
         totalSgstAmount: headerTotals.totalSgstAmount,
         totalIgstAmount: headerTotals.totalIgstAmount,
@@ -563,6 +652,59 @@ export function PurchaseOrderForm({
       setIsSubmitting(false);
     }
   };
+
+  // Handle transit insurance status change
+  useEffect(() => {
+    if (
+      transitInsuranceStatus === "EXCLUSIVE" ||
+      transitInsuranceStatus === "INCLUSIVE" ||
+      transitInsuranceStatus === "NOT_APPLICABLE"
+    ) {
+      form.setValue("transitInsuranceAmount", transitInsuranceStatus);
+    } else if (
+      transitInsuranceStatus === null &&
+      transitInsuranceAmount &&
+      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(
+        transitInsuranceAmount
+      )
+    ) {
+      form.setValue("transitInsuranceAmount", null);
+    }
+  }, [transitInsuranceStatus, form]);
+
+  // Handle pf status change
+  useEffect(() => {
+    if (
+      pfStatus === "EXCLUSIVE" ||
+      pfStatus === "INCLUSIVE" ||
+      pfStatus === "NOT_APPLICABLE"
+    ) {
+      form.setValue("pfCharges", pfStatus);
+    } else if (
+      pfStatus === null &&
+      pfCharges &&
+      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(pfCharges)
+    ) {
+      form.setValue("pfCharges", null);
+    }
+  }, [pfStatus, form]);
+
+  // Handle gst reverse status change
+  useEffect(() => {
+    if (
+      gstReverseStatus === "EXCLUSIVE" ||
+      gstReverseStatus === "INCLUSIVE" ||
+      gstReverseStatus === "NOT_APPLICABLE"
+    ) {
+      form.setValue("gstReverseAmount", gstReverseStatus);
+    } else if (
+      gstReverseStatus === null &&
+      gstReverseAmount &&
+      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(gstReverseAmount)
+    ) {
+      form.setValue("gstReverseAmount", null);
+    }
+  }, [gstReverseStatus, form]);
 
   // Handle vendor change
   const onVendorChange = (value: string) => {
@@ -879,9 +1021,9 @@ export function PurchaseOrderForm({
 
             {/* Items Table */}
             <FormSection legend="Items">
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-auto divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="overflow-x-auto rounded-md border border-border bg-card">
+                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700">
+                  <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Item
@@ -912,7 +1054,7 @@ export function PurchaseOrderForm({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
                     {fields.map((field, index) => (
                       <tr key={field.fieldId ?? index}>
                         <td className="px-4 py-3 align-top">
@@ -942,7 +1084,10 @@ export function PurchaseOrderForm({
                                       );
 
                                       // Update rate if item is selected
-                                      if (value !== "__none" && itemOptions.length) {
+                                      if (
+                                        value !== "__none" &&
+                                        itemOptions.length
+                                      ) {
                                         const selectedItem = itemOptions.find(
                                           (item) => item.id.toString() === value
                                         );
@@ -958,7 +1103,12 @@ export function PurchaseOrderForm({
                                     }}
                                     placeholder="Select Item"
                                   >
-                                    <AppSelect.Item key={`item-placeholder-${field.fieldId ?? index}`} value="__none">
+                                    <AppSelect.Item
+                                      key={`item-placeholder-${
+                                        field.fieldId ?? index
+                                      }`}
+                                      value="__none"
+                                    >
                                       Select Item
                                     </AppSelect.Item>
                                     {itemOptions.map((item) => (
@@ -1202,27 +1352,202 @@ export function PurchaseOrderForm({
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-gray-50">
+                  <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-3 text-sm font-medium text-gray-900"
+                        className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
                         Subtotal
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.taxableAmount)}
+                      </td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="flex justify-end items-center gap-4">
+                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+                            Transit Insurance
+                          </span>
+                          <AppSelect
+                            className="w-44"
+                            triggerClassName="h-9"
+                            value={
+                              transitInsuranceStatus
+                                ? transitInsuranceStatus
+                                : "__none"
+                            }
+                            onValueChange={(value) => {
+                              const next =
+                                value === "__none"
+                                  ? null
+                                  : (value as
+                                      | "EXCLUSIVE"
+                                      | "INCLUSIVE"
+                                      | "NOT_APPLICABLE");
+                              form.setValue("transitInsuranceStatus", next);
+                            }}
+                            placeholder="Select Status"
+                          >
+                            <AppSelect.Item
+                              key="transit-insurance-none"
+                              value="__none"
+                            >
+                              None
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="transit-insurance-exclusive"
+                              value="EXCLUSIVE"
+                            >
+                              Exclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="transit-insurance-inclusive"
+                              value="INCLUSIVE"
+                            >
+                              Inclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="transit-insurance-not-applicable"
+                              value="NOT_APPLICABLE"
+                            >
+                              Not Applicable
+                            </AppSelect.Item>
+                          </AppSelect>
+                          <FormField
+                            control={form.control}
+                            name="transitInsuranceAmount"
+                            render={({ field }) => (
+                              <FormItem className="w-40">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={
+                                      field.value === null ||
+                                      field.value === undefined
+                                        ? ""
+                                        : String(field.value)
+                                    }
+                                    onChange={(event) => {
+                                      field.onChange(event.target.value);
+                                    }}
+                                    type={
+                                      transitInsuranceStatus === null
+                                        ? "number"
+                                        : "text"
+                                    }
+                                    placeholder={
+                                      transitInsuranceStatus === null
+                                        ? "Enter amount"
+                                        : "Auto-filled"
+                                    }
+                                    disabled={transitInsuranceStatus !== null}
+                                    className="h-9 text-right"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
+                        {formatAmount(totals.transitInsuranceAmount)}
+                      </td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="flex justify-end items-center gap-4">
+                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+                            Transport Charges
+                          </span>
+                          <AppSelect
+                            className="w-44"
+                            triggerClassName="h-9"
+                            value={pfStatus ? pfStatus : "__none"}
+                            onValueChange={(value) => {
+                              const next =
+                                value === "__none"
+                                  ? null
+                                  : (value as
+                                      | "EXCLUSIVE"
+                                      | "INCLUSIVE"
+                                      | "NOT_APPLICABLE");
+                              form.setValue("pfStatus", next);
+                            }}
+                            placeholder="Select Status"
+                          >
+                            <AppSelect.Item key="pf-none" value="__none">
+                              None
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="pf-exclusive"
+                              value="EXCLUSIVE"
+                            >
+                              Exclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="pf-inclusive"
+                              value="INCLUSIVE"
+                            >
+                              Inclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="pf-not-applicable"
+                              value="NOT_APPLICABLE"
+                            >
+                              Not Applicable
+                            </AppSelect.Item>
+                          </AppSelect>
+                          <FormField
+                            control={form.control}
+                            name="pfCharges"
+                            render={({ field }) => (
+                              <FormItem className="w-40">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={
+                                      field.value === null ||
+                                      field.value === undefined
+                                        ? ""
+                                        : String(field.value)
+                                    }
+                                    onChange={(event) => {
+                                      field.onChange(event.target.value);
+                                    }}
+                                    type={pfStatus === null ? "number" : "text"}
+                                    placeholder={
+                                      pfStatus === null
+                                        ? "Enter amount"
+                                        : "Auto-filled"
+                                    }
+                                    disabled={pfStatus !== null}
+                                    className="h-9 text-right"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
+                        {formatAmount(totals.pfChargesAmount)}
                       </td>
                       <td></td>
                     </tr>
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-1 text-sm font-medium text-gray-700"
+                        className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         Discount
                       </td>
-                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700">
+                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.disAmt)}
                       </td>
                       <td></td>
@@ -1230,11 +1555,11 @@ export function PurchaseOrderForm({
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-1 text-sm font-medium text-gray-700"
+                        className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         CGST
                       </td>
-                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700">
+                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.cgstAmt)}
                       </td>
                       <td></td>
@@ -1242,11 +1567,11 @@ export function PurchaseOrderForm({
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-1 text-sm font-medium text-gray-700"
+                        className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         SGST
                       </td>
-                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700">
+                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.sgstAmt)}
                       </td>
                       <td></td>
@@ -1254,23 +1579,114 @@ export function PurchaseOrderForm({
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-1 text-sm font-medium text-gray-700"
+                        className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         IGST
                       </td>
-                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700">
+                      <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.igstAmt)}
+                      </td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="flex justify-end items-center gap-4">
+                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+                            GST Reverse Charge
+                          </span>
+                          <AppSelect
+                            className="w-44"
+                            triggerClassName="h-9"
+                            value={
+                              gstReverseStatus ? gstReverseStatus : "__none"
+                            }
+                            onValueChange={(value) => {
+                              const next =
+                                value === "__none"
+                                  ? null
+                                  : (value as
+                                      | "EXCLUSIVE"
+                                      | "INCLUSIVE"
+                                      | "NOT_APPLICABLE");
+                              form.setValue("gstReverseStatus", next);
+                            }}
+                            placeholder="Select Status"
+                          >
+                            <AppSelect.Item
+                              key="gst-reverse-none"
+                              value="__none"
+                            >
+                              None
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="gst-reverse-exclusive"
+                              value="EXCLUSIVE"
+                            >
+                              Exclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="gst-reverse-inclusive"
+                              value="INCLUSIVE"
+                            >
+                              Inclusive
+                            </AppSelect.Item>
+                            <AppSelect.Item
+                              key="gst-reverse-not-applicable"
+                              value="NOT_APPLICABLE"
+                            >
+                              Not Applicable
+                            </AppSelect.Item>
+                          </AppSelect>
+                          <FormField
+                            control={form.control}
+                            name="gstReverseAmount"
+                            render={({ field }) => (
+                              <FormItem className="w-40">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={
+                                      field.value === null ||
+                                      field.value === undefined
+                                        ? ""
+                                        : String(field.value)
+                                    }
+                                    onChange={(event) => {
+                                      field.onChange(event.target.value);
+                                    }}
+                                    type={
+                                      gstReverseStatus === null
+                                        ? "number"
+                                        : "text"
+                                    }
+                                    placeholder={
+                                      gstReverseStatus === null
+                                        ? "Enter amount"
+                                        : "Auto-filled"
+                                    }
+                                    disabled={gstReverseStatus !== null}
+                                    className="h-9 text-right"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
+                        {formatAmount(totals.gstReverseAmount)}
                       </td>
                       <td></td>
                     </tr>
                     <tr>
                       <td
                         colSpan={7}
-                        className="text-right px-4 py-3 text-base font-bold text-gray-900 border-t border-gray-200"
+                        className="text-right px-4 py-3 text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200"
                       >
                         Total Amount
                       </td>
-                      <td className="px-4 py-3 text-right text-base font-bold text-gray-900 border-t border-gray-200">
+                      <td className="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200">
                         {formatAmount(totals.amount)}
                       </td>
                       <td className="border-t border-gray-200"></td>

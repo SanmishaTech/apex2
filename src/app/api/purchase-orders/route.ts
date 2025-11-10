@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
+import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const purchaseOrderItemSchema = z.object({
@@ -62,6 +63,12 @@ const createSchema = z.object({
   terms: z.string().optional(),
   poStatus: z.enum(["HOLD"]).optional().nullable(),
   paymentTermsInDays: z.coerce.number().optional(),
+  transitInsuranceStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  transitInsuranceAmount: z.string().nullable().optional(),
+  pfStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  pfCharges: z.string().nullable().optional(),
+  gstReverseStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  gstReverseAmount: z.string().nullable().optional(),
   deliverySchedule: z.string().optional(),
   amount: z.coerce.number(),
   totalCgstAmount: z.coerce.number(),
@@ -217,6 +224,7 @@ export async function GET(req: NextRequest) {
         quotationNo: true,
         quotationDate: true,
         amount: true,
+        amountInWords: true,
         approvalStatus: true,
         isSuspended: true,
         isComplete: true,
@@ -297,13 +305,18 @@ export async function POST(req: NextRequest) {
         paymentTermId: parsedData.paymentTermId || null,
         quotationNo: parsedData.quotationNo,
         quotationDate: parsedData.quotationDate,
-        transport: parsedData.transport || null,
-        note: parsedData.note || null,
+        transitInsuranceStatus: parsedData.transitInsuranceStatus || null,
+        transitInsuranceAmount: parsedData.transitInsuranceAmount || null,
+        pfStatus: parsedData.pfStatus || null,
+        pfCharges: parsedData.pfCharges || null,
+        gstReverseStatus: parsedData.gstReverseStatus || null,
+        gstReverseAmount: parsedData.gstReverseAmount || null,
         terms: parsedData.terms || null,
         poStatus: parsedData.poStatus ?? null,
         paymentTermsInDays: parsedData.paymentTermsInDays || null,
         deliverySchedule: parsedData.deliverySchedule || null,
         amount: parsedData.amount,
+        amountInWords: amountInWords(parsedData.amount),
         totalCgstAmount: parsedData.totalCgstAmount,
         totalSgstAmount: parsedData.totalSgstAmount,
         totalIgstAmount: parsedData.totalIgstAmount,
@@ -334,6 +347,7 @@ export async function POST(req: NextRequest) {
           paymentTermsInDays: true,
           deliverySchedule: true,
           amount: true,
+          amountInWords: true,
           approvalStatus: true,
           isSuspended: true,
           isComplete: true,
@@ -426,6 +440,7 @@ export async function POST(req: NextRequest) {
           totalCgstAmount: true,
           totalSgstAmount: true,
           totalIgstAmount: true,
+          amountInWords: true,
           approvalStatus: true,
           isSuspended: true,
           isComplete: true,
