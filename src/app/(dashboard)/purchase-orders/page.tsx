@@ -248,6 +248,12 @@ export default function PurchaseOrdersPage() {
   const [remarks, setRemarks] = useState("");
 
   const openApproval = (id: number, key: "approve1" | "approve2" | "complete" | "suspend") => {
+    // Navigate to approval page for approve1
+    if (key === "approve1") {
+      pushWithScrollSave(`/purchase-orders/${id}/approve1`);
+      return;
+    }
+    // For other actions, show the dialog
     setStatusAction({ action: key, po: data?.data.find(p => p.id === id) || null });
   };
 
@@ -490,9 +496,7 @@ export default function PurchaseOrdersPage() {
                             return actions.map((a) => (
                               <DropdownMenuItem
                                 key={a.key}
-                                onSelect={() =>
-                                  setStatusAction({ action: a.key, po })
-                                }
+                                onSelect={() => openApproval(po.id, a.key)}
                               >
                                 {a.label}
                               </DropdownMenuItem>

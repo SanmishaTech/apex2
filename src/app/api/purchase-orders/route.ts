@@ -63,11 +63,20 @@ const createSchema = z.object({
   terms: z.string().optional(),
   poStatus: z.enum(["HOLD"]).optional().nullable(),
   paymentTermsInDays: z.coerce.number().optional(),
-  transitInsuranceStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  transitInsuranceStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   transitInsuranceAmount: z.string().nullable().optional(),
-  pfStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  pfStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   pfCharges: z.string().nullable().optional(),
-  gstReverseStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  gstReverseStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   gstReverseAmount: z.string().nullable().optional(),
   deliverySchedule: z.string().optional(),
   amount: z.coerce.number(),
@@ -108,7 +117,8 @@ function getFinancialYearInfo(rawDate: Date) {
   const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0, 0)); // 1 April (00:00 UTC)
   const endDate = new Date(Date.UTC(endYear, 3, 0, 23, 59, 59, 999)); // 31 March (23:59 UTC)
 
-  const formatYear = (y: number) => normalizeYear(y).toString().slice(-2).padStart(2, "0");
+  const formatYear = (y: number) =>
+    normalizeYear(y).toString().slice(-2).padStart(2, "0");
   const financialYearLabel = `${formatYear(startYear)}-${formatYear(endYear)}`;
 
   return {
@@ -122,9 +132,8 @@ async function generatePONumber(
   tx: Prisma.TransactionClient,
   purchaseOrderDate: Date
 ): Promise<string> {
-  const { startDate, endDate, financialYearLabel } = getFinancialYearInfo(
-    purchaseOrderDate
-  );
+  const { startDate, endDate, financialYearLabel } =
+    getFinancialYearInfo(purchaseOrderDate);
 
   const prefix = `${COMPANY_CODE}/${financialYearLabel}/`;
 
@@ -400,6 +409,7 @@ export async function POST(req: NextRequest) {
         itemId: item.itemId,
         remark: item.remark || null,
         qty: item.qty,
+        orderedQty: item.qty,
         rate: item.rate,
         discountPercent: item.discountPercent,
         disAmt: item.disAmt,

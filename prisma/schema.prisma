@@ -1677,9 +1677,4 @@ model PurchaseOrderDetail {
   @@map("purchase_order_details")
 }
 
-// 1)Store amount in in words in table.
-// 2)Add Transport Charges status and amount.
-// 3)Add Transit Insurance status and amount.
-// 4)Add GST Reverse Charge status and amount.
-// 5) fix items add ui and dark mode color.
-// 6) add approval functionality.after checking carefull;u.
+
