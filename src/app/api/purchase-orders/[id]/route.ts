@@ -18,6 +18,24 @@ const purchaseOrderItemSchema = z.object({
     .number()
     .min(0.0001, "Quantity must be greater than 0")
     .max(9999999999.9999, "Quantity must be <= 9,999,999,999.9999"),
+  orderedQty: z.coerce
+    .number()
+    .min(0, "Ordered quantity must be non-negative")
+    .max(9999999999.9999, "Ordered quantity must be <= 9,999,999,999.9999")
+    .optional()
+    .nullable(),
+  approved1Qty: z.coerce
+    .number()
+    .min(0, "Approved quantity must be non-negative")
+    .max(9999999999.9999, "Approved quantity must be <= 9,999,999,999.9999")
+    .optional()
+    .nullable(),
+  approved2Qty: z.coerce
+    .number()
+    .min(0, "Approved quantity must be non-negative")
+    .max(9999999999.9999, "Approved quantity must be <= 9,999,999,999.9999")
+    .optional()
+    .nullable(),
   rate: z.coerce
     .number()
     .min(0, "Rate must be non-negative")
@@ -82,11 +100,20 @@ const updateSchema = z.object({
   totalCgstAmount: z.coerce.number().optional(),
   totalSgstAmount: z.coerce.number().optional(),
   totalIgstAmount: z.coerce.number().optional(),
-  transitInsuranceStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  transitInsuranceStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   transitInsuranceAmount: z.string().nullable().optional(),
-  pfStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  pfStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   pfCharges: z.string().nullable().optional(),
-  gstReverseStatus: z.enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"]).nullable().optional(),
+  gstReverseStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
   gstReverseAmount: z.string().nullable().optional(),
 });
 
@@ -147,14 +174,15 @@ export async function GET(
         vendor: {
           select: {
             id: true,
-            name: true,
+            vendorName: true,
           },
         },
         billingAddress: {
           select: {
             id: true,
-            name: true,
-            address: true,
+            companyName: true,
+            addressLine1: true,
+            city: true,
           },
         },
         siteDeliveryAddress: {
@@ -165,12 +193,24 @@ export async function GET(
             cityId: true,
             stateId: true,
             pinCode: true,
+            city: {
+              select: {
+                id: true,
+                city: true,
+              },
+            },
+            state: {
+              select: {
+                id: true,
+                state: true,
+              },
+            },
           },
         },
         paymentTerm: {
           select: {
             id: true,
-            name: true,
+            paymentTerm: true,
           },
         },
         purchaseOrderDetails: {
@@ -194,6 +234,9 @@ export async function GET(
             },
             remark: true,
             qty: true,
+            orderedQty: true,
+            approved1Qty: true,
+            approved2Qty: true,
             rate: true,
             discountPercent: true,
             disAmt: true,
@@ -267,6 +310,7 @@ export async function PATCH(
               );
             }
             updateData.approvalStatus = "APPROVED_LEVEL_1";
+            updateData.isApproved1 = true;
             updateData.approved1ById = auth.user.id;
             updateData.approved1At = now;
           } else if (statusAction === "approve2") {
@@ -276,6 +320,7 @@ export async function PATCH(
               );
             }
             updateData.approvalStatus = "APPROVED_LEVEL_2";
+            updateData.isApproved2 = true;
             updateData.approved2ById = auth.user.id;
             updateData.approved2At = now;
           } else if (statusAction === "complete") {
@@ -334,6 +379,9 @@ export async function PATCH(
             itemId: item.itemId,
             remark: item.remark || null,
             qty: item.qty,
+            orderedQty: item.orderedQty ?? null,
+            approved1Qty: item.approved1Qty ?? null,
+            approved2Qty: item.approved2Qty ?? null,
             rate: item.rate,
             discountPercent: item.discountPercent || 0,
             cgstPercent: item.cgstPercent || 0,
@@ -444,6 +492,18 @@ export async function PATCH(
               cityId: true,
               stateId: true,
               pinCode: true,
+              city: {
+                select: {
+                  id: true,
+                  city: true,
+                },
+              },
+              state: {
+                select: {
+                  id: true,
+                  state: true,
+                },
+              },
             },
           },
           paymentTerm: {
@@ -473,6 +533,9 @@ export async function PATCH(
               },
               remark: true,
               qty: true,
+              orderedQty: true,
+              approved1Qty: true,
+              approved2Qty: true,
               rate: true,
               discountPercent: true,
               disAmt: true,
