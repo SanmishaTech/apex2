@@ -23,7 +23,7 @@ function toFixed2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function amountInWords(num: number): string {
+export function amountInWords(num: number): string {
   // Simple en words generator (non-Indian format). Good enough for now.
   // For full Indian numbering (Lakh/Crore), enhance later if needed.
   const a = ["","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
