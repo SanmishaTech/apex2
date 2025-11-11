@@ -313,6 +313,8 @@ export async function POST(req: NextRequest) {
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,
         paymentTermId: parsedData.paymentTermId || null,
         quotationNo: parsedData.quotationNo,
+        note: parsedData.note || null,
+        transport: parsedData.transport || null,
         quotationDate: parsedData.quotationDate,
         transitInsuranceStatus: parsedData.transitInsuranceStatus || null,
         transitInsuranceAmount: parsedData.transitInsuranceAmount || null,

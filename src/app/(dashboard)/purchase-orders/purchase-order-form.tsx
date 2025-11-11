@@ -130,6 +130,7 @@ export interface PurchaseOrderFormProps {
   initial?: PurchaseOrderFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/purchase-orders'
+  mutate?: () => Promise<any>;
 }
 
 const purchaseOrderItemSchema = z.object({
@@ -278,6 +279,7 @@ export function PurchaseOrderForm({
   initial,
   onSuccess,
   redirectOnSuccess = "/purchase-orders",
+  mutate,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -319,63 +321,95 @@ export function PurchaseOrderForm({
     apiGet
   );
 
-  // Initialize form with proper types
-  const defaultValues: DeepPartial<FormData> = {
-    purchaseOrderNo: initial?.purchaseOrderNo || "",
-    purchaseOrderDate:
-      initial?.purchaseOrderDate || format(new Date(), "yyyy-MM-dd"),
-    deliveryDate: initial?.deliveryDate || "",
-    siteId: initial?.siteId ?? 0,
-    vendorId: initial?.vendorId ?? 0,
-    billingAddressId: initial?.billingAddressId ?? 0,
-    siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
-    paymentTermId: initial?.paymentTermId ?? 0,
-    quotationNo: initial?.quotationNo || "",
-    quotationDate: initial?.quotationDate || format(new Date(), "yyyy-MM-dd"),
-    transport: initial?.transport || "",
-    note: initial?.note || "",
-    terms: initial?.terms || "",
-    poStatus: initial?.poStatus ?? null,
-    paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
-    deliverySchedule: initial?.deliverySchedule || "",
-    transitInsuranceStatus: initial?.transitInsuranceStatus ?? null,
-    transitInsuranceAmount: initial?.transitInsuranceAmount ?? null,
-    pfStatus: initial?.pfStatus ?? null,
-    pfCharges: initial?.pfCharges ?? null,
-    gstReverseStatus: initial?.gstReverseStatus ?? null,
-    gstReverseAmount: initial?.gstReverseAmount ?? null,
-    purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
-      ...item,
-      approved1Qty: isApprovalMode
-        ? item.approved1Qty ?? item.qty
-        : item.approved1Qty,
-      disAmt: item.disAmt || 0,
-      cgstAmt: item.cgstAmt || 0,
-      sgstAmt: item.sgstAmt || 0,
-      igstAmt: item.igstAmt || 0,
-      amount: item.amount || 0,
-    })) || [
-      {
-        itemId: 0,
-        qty: 1,
-        rate: 0,
-        discountPercent: 0,
-        cgstPercent: 0,
-        sgstPercent: 0,
-        igstPercent: 0,
-        amount: 0,
-        disAmt: 0,
-        cgstAmt: 0,
-        sgstAmt: 0,
-        igstAmt: 0,
-      },
-    ],
+  const formatDateField = (
+    value?: string | null,
+    fallback?: string
+  ): string => {
+    if (!value) {
+      return fallback ?? "";
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return format(parsed, "yyyy-MM-dd");
+    }
+    return value.slice(0, 10) || fallback || "";
   };
+
+  // Initialize form with proper types
+  const defaultValues = useMemo<DeepPartial<FormData>>(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return {
+      purchaseOrderNo: initial?.purchaseOrderNo ?? "",
+      purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
+      deliveryDate: formatDateField(initial?.deliveryDate),
+      siteId: initial?.siteId ?? 0,
+      vendorId: initial?.vendorId ?? 0,
+      billingAddressId: initial?.billingAddressId ?? 0,
+      siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
+      paymentTermId: initial?.paymentTermId ?? 0,
+      quotationNo: initial?.quotationNo ?? "",
+      quotationDate: formatDateField(initial?.quotationDate, today),
+      transport: initial?.transport ?? "",
+      note: initial?.note ?? "",
+      terms: initial?.terms ?? "",
+      poStatus: initial?.poStatus ?? null,
+      paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
+      deliverySchedule: initial?.deliverySchedule ?? "",
+      transitInsuranceStatus: initial?.transitInsuranceStatus ?? null,
+      transitInsuranceAmount: initial?.transitInsuranceAmount ?? null,
+      pfStatus: initial?.pfStatus ?? null,
+      pfCharges: initial?.pfCharges ?? null,
+      gstReverseStatus: initial?.gstReverseStatus ?? null,
+      gstReverseAmount: initial?.gstReverseAmount ?? null,
+      purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
+        ...item,
+        approved1Qty: isApprovalMode
+          ? item.approved1Qty ?? item.qty
+          : item.approved1Qty,
+        disAmt: item.disAmt || 0,
+        cgstAmt: item.cgstAmt || 0,
+        sgstAmt: item.sgstAmt || 0,
+        igstAmt: item.igstAmt || 0,
+        amount: item.amount || 0,
+      })) || [
+        {
+          itemId: 0,
+          qty: 1,
+          rate: 0,
+          discountPercent: 0,
+          cgstPercent: 0,
+          sgstPercent: 0,
+          igstPercent: 0,
+          amount: 0,
+          disAmt: 0,
+          cgstAmt: 0,
+          sgstAmt: 0,
+          igstAmt: 0,
+        },
+      ],
+    };
+  }, [initial, isApprovalMode]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(createInputSchema) as unknown as Resolver<FormData>,
     defaultValues,
   });
+
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
+
+  // useEffect(() => {
+  //   if (isApprovalMode && typeof defaultValues.poStatus !== "undefined") {
+  //     form.setValue("poStatus", defaultValues.poStatus ?? null, {
+  //       shouldDirty: false,
+  //       shouldTouch: false,
+  //     });
+  //   }
+  // }, [defaultValues.poStatus, form, isApprovalMode]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -565,11 +599,12 @@ export function PurchaseOrderForm({
       const normalizedItems = data.purchaseOrderItems.map((item, index) => {
         const metrics = computeItemMetrics(item);
         const originalItem = initial?.purchaseOrderItems?.[index];
+        const approvedQty = metrics.qty;
 
         const baseItem = {
           itemId: Number(item.itemId),
           remark: item.remark?.trim() ? item.remark.trim() : null,
-          qty: isApprovalMode ? originalItem?.qty ?? item.qty : metrics.qty,
+          qty: isApprovalMode ? approvedQty : metrics.qty,
           rate: metrics.rate,
           discountPercent: metrics.discountPercent,
           cgstPercent: metrics.cgstPercent,
@@ -587,8 +622,13 @@ export function PurchaseOrderForm({
           return {
             ...baseItem,
             id: originalItem?.id,
-            orderedQty: originalItem?.qty ?? item.qty,
-            approved1Qty: item.approved1Qty,
+            orderedQty:
+              originalItem?.qty ??
+              toNumber(item.qty) ??
+              originalItem?.orderedQty ??
+              undefined,
+            approved1Qty: approvedQty,
+            qty: approvedQty,
           };
         }
 
@@ -684,6 +724,9 @@ export function PurchaseOrderForm({
       toast.success(successMessage);
 
       // Handle success
+      if (mutate) {
+        await mutate();
+      }
       if (onSuccess) {
         onSuccess(result);
       } else if (redirectOnSuccess) {
@@ -920,6 +963,7 @@ export function PurchaseOrderForm({
                       form.setValue("billingAddressId", next);
                     }}
                     placeholder="Select Billing Address"
+                    disabled={isApprovalMode}
                   >
                     <AppSelect.Item key="billing-none" value="__none">
                       Select Billing Address
@@ -929,7 +973,7 @@ export function PurchaseOrderForm({
                         key={address.id}
                         value={address.id.toString()}
                       >
-                        {`${address.companyName}, ${address.city}`}
+                        {`${address.companyName}, ${address.city.city}`}
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
@@ -958,7 +1002,7 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", next);
                     }}
                     placeholder="Select Delivery Address"
-                    disabled={!siteValue || siteValue <= 0}
+                    disabled={isApprovalMode}
                   >
                     <AppSelect.Item key="delivery-none" value="__none">
                       {siteValue
@@ -1006,6 +1050,7 @@ export function PurchaseOrderForm({
                       form.setValue("paymentTermId", next);
                     }}
                     placeholder="Select Payment Term"
+                    disabled={isApprovalMode}
                   >
                     <AppSelect.Item key="payment-term-none" value="__none">
                       Select Payment Term
@@ -1024,6 +1069,7 @@ export function PurchaseOrderForm({
                   label="Quotation No."
                   placeholder="Enter quotation number"
                   required
+                  disabled={isApprovalMode}
                 />
                 <TextInput
                   control={form.control}
@@ -1031,6 +1077,7 @@ export function PurchaseOrderForm({
                   label="Quotation Date"
                   type="date"
                   required
+                  disabled={isApprovalMode}
                 />
               </FormRow>
             </FormSection>
@@ -1048,6 +1095,10 @@ export function PurchaseOrderForm({
                   name="paymentTermsInDays"
                   label="Payment Terms (Days)"
                   type="number"
+                  placeholder="Enter payment term in days"
+                  min={0}
+                  max={999}
+                  disabled={isApprovalMode}
                 />
                 <TextareaInput
                   control={form.control}
@@ -1055,6 +1106,7 @@ export function PurchaseOrderForm({
                   label="Delivery Schedule"
                   rows={2}
                   span={1}
+                  disabled={isApprovalMode}
                 />
               </FormRow>
             </FormSection>
@@ -1253,12 +1305,15 @@ export function PurchaseOrderForm({
                         </td>
                         {isApprovalMode && (
                           <td className="px-4 py-3 text-right font-medium align-top">
-                            {formatAmount(
+                            {toNumber(
                               initial?.purchaseOrderItems?.[index]
                                 ?.orderedQty ??
                                 initial?.purchaseOrderItems?.[index]?.qty ??
                                 0
-                            )}
+                            ).toLocaleString("en-IN", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
                           </td>
                         )}
                         <td className="px-4 py-3 align-top">
