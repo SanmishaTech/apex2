@@ -80,7 +80,7 @@ const updateSchema = z.object({
   vendorId: z.number().optional(),
   billingAddressId: z.number().optional(),
   siteDeliveryAddressId: z.number().optional(),
-  paymentTermId: z.number().optional(),
+  paymentTermId: z.number().nullable().optional(),
   quotationNo: z.string().optional(),
   quotationDate: z
     .string()
@@ -141,6 +141,7 @@ export async function GET(
         billingAddressId: true,
         siteDeliveryAddressId: true,
         paymentTermId: true,
+        poStatus: true,
         quotationNo: true,
         quotationDate: true,
         transport: true,

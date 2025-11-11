@@ -1678,3 +1678,10 @@ model PurchaseOrderDetail {
 }
 
 
+//in approval 1 form check if all fields are getting field by default or not and fix it.
+//check same in items details with the calculation.
+//after approval 1. apply same in approval 2.
+//create add form from indent list.
+// 5) fix items add ui and dark mode color.
+
+// in approval add budget validatioon from sir.
