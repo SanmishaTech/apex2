@@ -426,9 +426,34 @@ export async function POST(req: NextRequest) {
         amount: item.amount,
       }));
 
-      await tx.purchaseOrderDetail.createMany({
-        data: itemsData,
-      });
+      const createdPODetails = await Promise.all(
+        itemsData.map(async (itemData) => {
+          return await tx.purchaseOrderDetail.create({
+            data: itemData,
+          });
+        })
+      );
+
+      // If this PO is created from an indent, update the indent items with purchase order detail IDs
+      if (parsedData.indentId) {
+        const indentItems = await tx.indentItem.findMany({
+          where: { indentId: parsedData.indentId },
+          orderBy: { id: 'asc' }
+        });
+
+        // Match indent items with PO details by itemId and update the purchaseOrderDetailId
+        for (let i = 0; i < createdPODetails.length && i < indentItems.length; i++) {
+          const poDetail = createdPODetails[i];
+          const indentItem = indentItems.find(item => item.itemId === poDetail.itemId);
+          
+          if (indentItem) {
+            await tx.indentItem.update({
+              where: { id: indentItem.id },
+              data: { purchaseOrderDetailId: poDetail.id }
+            });
+          }
+        }
+      }
 
       // Fetch the created PO with items
       const poWithItems = await tx.purchaseOrder.findUnique({

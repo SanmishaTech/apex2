@@ -5,6 +5,11 @@ export interface IndentItem {
     id: number;
     itemCode: string;
     item: string;
+    unitId?: number;
+    unit?: {
+      id: number;
+      unitName: string;
+    };
   };
   remark?: string;
   indentQty: number;
