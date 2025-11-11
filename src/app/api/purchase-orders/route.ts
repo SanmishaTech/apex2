@@ -239,6 +239,8 @@ export async function GET(req: NextRequest) {
         isComplete: true,
         poStatus: true,
         note: true,
+        remarks: true,
+        billStatus: true,
         createdAt: true,
         updatedAt: true,
         site: {

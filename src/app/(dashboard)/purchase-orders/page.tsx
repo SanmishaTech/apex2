@@ -57,6 +57,8 @@ type PurchaseOrder = {
   approvalStatus: string;
   isSuspended: boolean;
   isComplete: boolean;
+  remarks?: string;
+  billStatus?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -167,11 +169,11 @@ export default function PurchaseOrdersPage() {
     s?: string,
     isSuspended?: boolean
   ): Array<{
-    key: "approve1" | "approve2" | "complete" | "suspend";
+    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
     label: string;
   }> {
     const baseActions: Array<{
-      key: "approve1" | "approve2" | "complete" | "suspend";
+      key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
       label: string;
     }> = [];
 
@@ -206,6 +208,11 @@ export default function PurchaseOrdersPage() {
         break;
 
       case "SUSPENDED":
+        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+          baseActions.push({ key: "unsuspend", label: "Unsuspend" });
+        }
+        break;
+
       case "COMPLETED":
       default:
         return [];
@@ -246,11 +253,21 @@ export default function PurchaseOrdersPage() {
     po: PurchaseOrder | null;
   }>({ action: "", po: null });
   const [remarks, setRemarks] = useState("");
+  const [showRemarkDialog, setShowRemarkDialog] = useState(false);
+  const [poForRemark, setPoForRemark] = useState<PurchaseOrder | null>(null);
+  const [remarkText, setRemarkText] = useState("");
+  const [showBillStatusDialog, setShowBillStatusDialog] = useState(false);
+  const [poForBillStatus, setPoForBillStatus] = useState<PurchaseOrder | null>(null);
+  const [billStatusText, setBillStatusText] = useState("");
 
-  const openApproval = (id: number, key: "approve1" | "approve2" | "complete" | "suspend") => {
-    // Navigate to approval page for approve1
+  const openApproval = (id: number, key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend") => {
+    // Navigate to approval page for approve1 and approve2
     if (key === "approve1") {
       pushWithScrollSave(`/purchase-orders/${id}/approve1`);
+      return;
+    }
+    if (key === "approve2") {
+      pushWithScrollSave(`/purchase-orders/${id}/approve2`);
       return;
     }
     // For other actions, show the dialog
@@ -260,6 +277,18 @@ export default function PurchaseOrdersPage() {
   const handleDeleteClick = (po: PurchaseOrder) => {
     setPoToDelete(po);
     setShowDeleteConfirm(true);
+  };
+
+  const handleRemarkClick = (po: PurchaseOrder) => {
+    setPoForRemark(po);
+    setRemarkText(po.remarks || "");
+    setShowRemarkDialog(true);
+  };
+
+  const handleBillStatusClick = (po: PurchaseOrder) => {
+    setPoForBillStatus(po);
+    setBillStatusText(po.billStatus || "");
+    setShowBillStatusDialog(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -293,6 +322,44 @@ export default function PurchaseOrdersPage() {
     } finally {
       setStatusAction({ action: "", po: null });
       setRemarks("");
+    }
+  };
+
+  const handleRemarkSubmit = async () => {
+    if (!poForRemark) return;
+
+    try {
+      await apiPatch(`/api/purchase-orders/${poForRemark.id}`, {
+        remarks: remarkText,
+      });
+
+      toast.success("Remark updated successfully");
+      mutate();
+    } catch (error) {
+      toast.error("Failed to update remark");
+    } finally {
+      setShowRemarkDialog(false);
+      setPoForRemark(null);
+      setRemarkText("");
+    }
+  };
+
+  const handleBillStatusSubmit = async () => {
+    if (!poForBillStatus) return;
+
+    try {
+      await apiPatch(`/api/purchase-orders/${poForBillStatus.id}`, {
+        billStatus: billStatusText,
+      });
+
+      toast.success("Bill status updated successfully");
+      mutate();
+    } catch (error) {
+      toast.error("Failed to update bill status");
+    } finally {
+      setShowBillStatusDialog(false);
+      setPoForBillStatus(null);
+      setBillStatusText("");
     }
   };
 
@@ -394,11 +461,11 @@ export default function PurchaseOrdersPage() {
               />
               <AppSelect
                 label="Site"
-                value={siteDraft}
-                onValueChange={setSiteDraft}
+                value={siteDraft || "__none"}
+                onValueChange={(v) => setSiteDraft(v === "__none" ? "" : v)}
                 placeholder="All Sites"
               >
-                <AppSelect.Item value={undefined}>All Sites</AppSelect.Item>
+                <AppSelect.Item value="__none">All Sites</AppSelect.Item>
                 {sites.map((s) => (
                   <AppSelect.Item key={s.id} value={s.id.toString()}>
                     {s.site}
@@ -407,11 +474,11 @@ export default function PurchaseOrdersPage() {
               </AppSelect>
               <AppSelect
                 label="Vendor"
-                value={vendorDraft}
-                onValueChange={setVendorDraft}
+                value={vendorDraft || "__none"}
+                onValueChange={(v) => setVendorDraft(v === "__none" ? "" : v)}
                 placeholder="All Vendors"
               >
-                <AppSelect.Item value={undefined}>All Vendors</AppSelect.Item>
+                <AppSelect.Item value="__none">All Vendors</AppSelect.Item>
                 {vendors.map((v) => (
                   <AppSelect.Item key={v.id} value={v.id.toString()}>
                     {v.vendorName}
@@ -484,6 +551,16 @@ export default function PurchaseOrdersPage() {
                             }
                           >
                             Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleRemarkClick(po)}
+                          >
+                            Add Remark
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleBillStatusClick(po)}
+                          >
+                            Bill Status
                           </DropdownMenuItem>
                           {(() => {
                             const actions = getAvailableActions(
@@ -569,12 +646,21 @@ export default function PurchaseOrdersPage() {
                 Are you sure you want to {statusAction.action} purchase order{" "}
                 <strong>{statusAction.po?.purchaseOrderNo}</strong>?
               </p>
-              <Textarea
-                placeholder="Remarks (optional)"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={3}
-              />
+              {(statusAction.action === "suspend" || statusAction.action === "complete") && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ Warning: This action cannot be reverted.
+                  </p>
+                </div>
+              )}
+              {statusAction.action !== "suspend" && statusAction.action !== "complete" && (
+                <Textarea
+                  placeholder="Remarks (optional)"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={3}
+                />
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -590,6 +676,98 @@ export default function PurchaseOrdersPage() {
               {statusAction.action === "complete" && "Mark as Complete"}
               {statusAction.action === "suspend" && "Suspend"}
               {statusAction.action === "unsuspend" && "Unsuspend"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showRemarkDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowRemarkDialog(false);
+            setPoForRemark(null);
+            setRemarkText("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Remark</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <p>
+                Add remark for purchase order{" "}
+                <strong>{poForRemark?.purchaseOrderNo}</strong>
+              </p>
+              <Textarea
+                placeholder="Enter remark..."
+                value={remarkText}
+                onChange={(e) => setRemarkText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRemarkDialog(false);
+                setPoForRemark(null);
+                setRemarkText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRemarkSubmit}>
+              Save Remark
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showBillStatusDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowBillStatusDialog(false);
+            setPoForBillStatus(null);
+            setBillStatusText("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bill Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <p>
+                Update bill status for purchase order{" "}
+                <strong>{poForBillStatus?.purchaseOrderNo}</strong>
+              </p>
+              <Textarea
+                placeholder="Enter bill status..."
+                value={billStatusText}
+                onChange={(e) => setBillStatusText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBillStatusDialog(false);
+                setPoForBillStatus(null);
+                setBillStatusText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBillStatusSubmit}>
+              Save Bill Status
             </Button>
           </DialogFooter>
         </DialogContent>

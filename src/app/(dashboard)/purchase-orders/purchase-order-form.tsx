@@ -59,7 +59,10 @@ type Vendor = {
 type BillingAddress = {
   id: number;
   companyName: string;
-  city: string;
+  city?: {
+    id: number;
+    city: string;
+  } | null;
 };
 
 type PaymentTerm = {
@@ -86,6 +89,7 @@ type PurchaseOrderItem = {
   qty: number;
   orderedQty?: number | null;
   approved1Qty?: number | null;
+  approved2Qty?: number | null;
   rate: number;
   discountPercent: number;
   disAmt: number;
@@ -152,6 +156,11 @@ const purchaseOrderItemSchema = z.object({
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
     .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
     .optional(),
+  approved2Qty: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
+    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+    .optional(),
   rate: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
@@ -192,6 +201,41 @@ const purchaseOrderItemSchema = z.object({
         .min(0, "IGST % must be non-negative")
         .max(100, "IGST % must be <= 100")
     ),
+  disAmt: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (val === null || typeof val === "undefined" || val === "") return 0;
+      return typeof val === "string" ? parseFloat(val) || 0 : val;
+    }),
+  cgstAmt: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (val === null || typeof val === "undefined" || val === "") return 0;
+      return typeof val === "string" ? parseFloat(val) || 0 : val;
+    }),
+  sgstAmt: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (val === null || typeof val === "undefined" || val === "") return 0;
+      return typeof val === "string" ? parseFloat(val) || 0 : val;
+    }),
+  igstAmt: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (val === null || typeof val === "undefined" || val === "") return 0;
+      return typeof val === "string" ? parseFloat(val) || 0 : val;
+    }),
+  amount: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (val === null || typeof val === "undefined" || val === "") return 0;
+      return typeof val === "string" ? parseFloat(val) || 0 : val;
+    }),
 });
 
 const createInputSchema = z.object({
@@ -368,7 +412,10 @@ export function PurchaseOrderForm({
         ...item,
         approved1Qty: isApprovalMode
           ? item.approved1Qty ?? item.qty
-          : item.approved1Qty,
+          : item.approved1Qty ?? undefined,
+        approved2Qty: isApproval2
+          ? item.approved2Qty ?? item.approved1Qty ?? item.qty
+          : item.approved2Qty ?? undefined,
         disAmt: item.disAmt || 0,
         cgstAmt: item.cgstAmt || 0,
         sgstAmt: item.sgstAmt || 0,
@@ -478,8 +525,10 @@ export function PurchaseOrderForm({
   };
 
   const computeItemMetrics = (item: PurchaseOrderItemFormValue) => {
-    // In approval mode, use approved1Qty for calculations, otherwise use qty
-    const qty = isApprovalMode
+    // In approval mode, use approved qty for calculations
+    const qty = isApproval2
+      ? toNumber(item.approved2Qty)
+      : isApproval1
       ? toNumber(item.approved1Qty)
       : toNumber(item.qty);
     const rate = toNumber(item.rate);
@@ -618,7 +667,7 @@ export function PurchaseOrderForm({
         };
 
         // Add approval-specific fields
-        if (isApprovalMode) {
+        if (isApproval1) {
           return {
             ...baseItem,
             id: originalItem?.id,
@@ -628,6 +677,18 @@ export function PurchaseOrderForm({
               originalItem?.orderedQty ??
               undefined,
             approved1Qty: approvedQty,
+            qty: approvedQty,
+          };
+        }
+
+        if (isApproval2) {
+          return {
+            ...baseItem,
+            id: originalItem?.id,
+            orderedQty:
+              originalItem?.orderedQty ?? originalItem?.qty ?? undefined,
+            approved1Qty: originalItem?.approved1Qty ?? undefined,
+            approved2Qty: approvedQty,
             qty: approvedQty,
           };
         }
@@ -973,7 +1034,9 @@ export function PurchaseOrderForm({
                         key={address.id}
                         value={address.id.toString()}
                       >
-                        {`${address.companyName}, ${address.city.city}`}
+                        {`${address.companyName}, ${
+                          address.city?.city ?? ""
+                        }`.trim()}
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
@@ -1106,7 +1169,6 @@ export function PurchaseOrderForm({
                   label="Delivery Schedule"
                   rows={2}
                   span={1}
-                  disabled={isApprovalMode}
                 />
               </FormRow>
             </FormSection>
@@ -1143,8 +1205,17 @@ export function PurchaseOrderForm({
                           Ordered Qty
                         </th>
                       )}
+                      {isApproval2 && (
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Approved 1 Qty
+                        </th>
+                      )}
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {isApprovalMode ? "Approved Qty" : "Qty"}
+                        {isApproval2
+                          ? "Approved 2 Qty"
+                          : isApproval1
+                          ? "Approved 1 Qty"
+                          : "Qty"}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
@@ -1261,7 +1332,7 @@ export function PurchaseOrderForm({
                                       >
                                         <AppSelect.Item
                                           key={`item-placeholder-${
-                                            field.fieldId ?? index
+                                            field.name ?? index
                                           }`}
                                           value="__none"
                                         >
@@ -1316,11 +1387,24 @@ export function PurchaseOrderForm({
                             })}
                           </td>
                         )}
+                        {isApproval2 && (
+                          <td className="px-4 py-3 text-right font-medium align-top">
+                            {toNumber(
+                              initial?.purchaseOrderItems?.[index]
+                                ?.approved1Qty ?? 0
+                            ).toLocaleString("en-IN", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                          </td>
+                        )}
                         <td className="px-4 py-3 align-top">
                           {isApprovalMode ? (
                             <FormField
                               control={form.control}
-                              name={`purchaseOrderItems.${index}.approved1Qty`}
+                              name={`purchaseOrderItems.${index}.${
+                                isApproval2 ? "approved2Qty" : "approved1Qty"
+                              }`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
                                   <FormControl>
