@@ -30,6 +30,7 @@ import type { ItemsResponse } from "@/types/items";
 import type { CreateIndentRequest, IndentItem } from "@/types/indents";
 
 export interface IndentFormInitialData {
+  id?: number;
   indentNo?: string;
   indentDate?: string;
   deliveryDate?: string;

@@ -102,7 +102,10 @@ export default function IndentsPage() {
     key: "approve1" | "approve2" | "complete" | "suspend";
     label: string;
   }[] {
-    const baseActions = [];
+    const baseActions: {
+      key: "approve1" | "approve2" | "complete" | "suspend";
+      label: string;
+    }[] = [];
 
     switch (s) {
       case "DRAFT":
@@ -346,6 +349,14 @@ export default function IndentsPage() {
     }
   }, [confirmCompleteId, mutate]);
 
+  const handleGeneratePO = useCallback(async (indentId: number) => {
+    try {
+      pushWithScrollSave(`/purchase-orders/new?indentId=${indentId}`);
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to generate purchase order");
+    }
+  }, [pushWithScrollSave]);
+
   const MAX_DEC = 9999999999.99; // MySQL DECIMAL(12,2)
   const clampDec = (n: number) => Math.min(Math.max(0, n), MAX_DEC);
   const setEdit = useCallback(
@@ -530,20 +541,34 @@ export default function IndentsPage() {
                           variant="secondary"
                           disabled={
                             indent.suspended ||
-                            indent.approvalStatus === "SUSPENDED" ||
-                            indent.approvalStatus === "COMPLETED"
+                            indent.approvalStatus === "SUSPENDED"
                           }
                         >
-                          Status
+                          Actions
                         </AppButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
+                          (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+                            indent.approvalStatus === "COMPLETED") &&
+                          !indent.suspended && (
+                            <DropdownMenuItem
+                              onSelect={() => handleGeneratePO(indent.id)}
+                            >
+                              Generate PO
+                            </DropdownMenuItem>
+                          )}
                         {(() => {
                           const actions = getAvailableActions(
                             indent.approvalStatus,
                             indent.suspended
                           );
-                          if (actions.length === 0) {
+                          const showGenerate =
+                            can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
+                            (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+                              indent.approvalStatus === "COMPLETED") &&
+                            !indent.suspended;
+                          if (actions.length === 0 && !showGenerate) {
                             return (
                               <div className="px-2 py-1.5 text-sm text-muted-foreground">
                                 No actions available

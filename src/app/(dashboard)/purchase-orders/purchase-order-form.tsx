@@ -132,6 +132,7 @@ type PurchaseOrderFormInitialData = {
 export interface PurchaseOrderFormProps {
   mode: "create" | "edit" | "approval1" | "approval2";
   initial?: PurchaseOrderFormInitialData | null;
+  indentId?: number;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/purchase-orders'
   mutate?: () => Promise<any>;
@@ -321,6 +322,7 @@ type FormData = z.infer<typeof createInputSchema> & {
 export function PurchaseOrderForm({
   mode,
   initial,
+  indentId,
   onSuccess,
   redirectOnSuccess = "/purchase-orders",
   mutate,
@@ -365,6 +367,23 @@ export function PurchaseOrderForm({
     apiGet
   );
 
+  // Fetch indent data if indentId is provided
+  const { data: indentData } = useSWR<{
+    id: number;
+    siteId: number;
+    site: { id: number; site: string };
+    indentItems: Array<{
+      id: number;
+      itemId: number;
+      item: Item;
+      approved2Qty: number;
+      remark?: string;
+    }>;
+  }>(
+    indentId ? `/api/indents/${indentId}` : null,
+    apiGet
+  );
+
   const formatDateField = (
     value?: string | null,
     fallback?: string
@@ -385,6 +404,50 @@ export function PurchaseOrderForm({
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
+    
+    // If we have indent data, use it to pre-populate the form
+    if (indentData && isCreate) {
+      return {
+        purchaseOrderNo: "",
+        purchaseOrderDate: today,
+        deliveryDate: "",
+        siteId: indentData.siteId,
+        vendorId: 0,
+        billingAddressId: 0,
+        siteDeliveryAddressId: 0,
+        paymentTermId: 0,
+        quotationNo: "",
+        quotationDate: today,
+        transport: "",
+        note: "",
+        terms: "",
+        poStatus: null,
+        paymentTermsInDays: 0,
+        deliverySchedule: "",
+        transitInsuranceStatus: null,
+        transitInsuranceAmount: null,
+        pfStatus: null,
+        pfCharges: null,
+        gstReverseStatus: null,
+        gstReverseAmount: null,
+        purchaseOrderItems: indentData.indentItems.map((indentItem) => ({
+          itemId: indentItem.itemId,
+          qty: indentItem.approved2Qty || 1,
+          rate: 0,
+          discountPercent: 0,
+          cgstPercent: 0,
+          sgstPercent: 0,
+          igstPercent: 0,
+          amount: 0,
+          disAmt: 0,
+          cgstAmt: 0,
+          sgstAmt: 0,
+          igstAmt: 0,
+          remark: indentItem.remark || "",
+        })),
+      };
+    }
+    
     return {
       purchaseOrderNo: initial?.purchaseOrderNo ?? "",
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
@@ -438,7 +501,7 @@ export function PurchaseOrderForm({
         },
       ],
     };
-  }, [initial, isApprovalMode]);
+  }, [initial, isApprovalMode, indentData, isCreate]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(createInputSchema) as unknown as Resolver<FormData>,
@@ -758,6 +821,8 @@ export function PurchaseOrderForm({
         totalSgstAmount: headerTotals.totalSgstAmount,
         totalIgstAmount: headerTotals.totalIgstAmount,
         purchaseOrderItems: normalizedItems,
+        // Include indentId if creating PO from indent
+        ...(indentId && mode === "create" ? { indentId } : {}),
       };
 
       // Add statusAction for approval modes
