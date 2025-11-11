@@ -363,6 +363,27 @@ export default function PurchaseOrdersPage() {
     }
   };
 
+  const handlePrint = useCallback(async (po: PurchaseOrder) => {
+    try {
+      const res = await fetch(`/api/purchase-orders/${po.id}/print`);
+      if (!res.ok) {
+        throw new Error("Failed to download purchase order PDF");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `purchase-order-${po.purchaseOrderNo}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to download purchase order PDF");
+    }
+  }, [toast]);
+
   const columns: Column<PurchaseOrder>[] = [
     {
       key: "purchaseOrderNo",
@@ -561,6 +582,9 @@ export default function PurchaseOrdersPage() {
                             onClick={() => handleBillStatusClick(po)}
                           >
                             Bill Status
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrint(po)}>
+                            Print
                           </DropdownMenuItem>
                           {(() => {
                             const actions = getAvailableActions(
