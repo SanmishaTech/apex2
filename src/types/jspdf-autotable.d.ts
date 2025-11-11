@@ -50,6 +50,7 @@ declare module 'jspdf-autotable' {
     foot?: (string | CellDef)[][];
     startY?: number;
     margin?: number;
+    theme?: 'striped' | 'grid' | 'plain';
     styles?: Partial<Styles>;
     headStyles?: Partial<Styles>;
     bodyStyles?: Partial<Styles>;

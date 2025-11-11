@@ -329,6 +329,7 @@ export function PurchaseOrderForm({
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Mode flags
   const isCreate = mode === "create";
@@ -337,6 +338,33 @@ export function PurchaseOrderForm({
   const isApproval2 = mode === "approval2";
   const isApprovalMode = isApproval1 || isApproval2;
   const isReadOnly = isApprovalMode;
+
+  const purchaseOrderId = initial?.id;
+
+  const handleDownload = async () => {
+    if (!purchaseOrderId) return;
+    setIsDownloading(true);
+    try {
+      const res = await fetch(`/api/purchase-orders/${purchaseOrderId}/print`);
+      if (!res.ok) {
+        throw new Error("Failed to download purchase order");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `purchase-order-${purchaseOrderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to download purchase order PDF");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   type ApiListResponse<T> = {
     data: T[];
@@ -372,6 +400,7 @@ export function PurchaseOrderForm({
     id: number;
     siteId: number;
     site: { id: number; site: string };
+    deliveryDate?: string | null;
     indentItems: Array<{
       id: number;
       itemId: number;
@@ -1018,7 +1047,7 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", 0);
                     }}
                     placeholder="Select Site"
-                    disabled={isApprovalMode || (indentId && isCreate)}
+                    disabled={isApprovalMode || (!!indentId && isCreate)}
                   >
                     <AppSelect.Item key="site-none" value="__none">
                       Select Site
@@ -2080,6 +2109,17 @@ export function PurchaseOrderForm({
             </FormSection>
           </AppCard.Content>
           <AppCard.Footer className="justify-end gap-3">
+            {purchaseOrderId && (
+              <AppButton
+                type="button"
+                variant="outline"
+                iconName="Printer"
+                disabled={isDownloading}
+                onClick={handleDownload}
+              >
+                {isDownloading ? "Preparing PDF..." : "Print"}
+              </AppButton>
+            )}
             <AppButton
               type="button"
               variant="secondary"
