@@ -9,7 +9,7 @@ import { AppCard } from "@/components/common/app-card";
 import type { PurchaseOrder } from "@/types/purchase-orders";
 import { PurchaseOrderForm } from "../../purchase-order-form";
 
-export default function PurchaseOrderApprove1Page() {
+export default function PurchaseOrderApprove2Page() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id ? parseInt(params.id as string, 10) : null;
@@ -98,6 +98,7 @@ export default function PurchaseOrderApprove1Page() {
           qty: detail.qty,
           orderedQty: detail.orderedQty,
           approved1Qty: detail.approved1Qty,
+          approved2Qty: detail.approved2Qty,
           rate: detail.rate,
           discountPercent: detail.discountPercent,
           disAmt: detail.disAmt,
@@ -143,7 +144,7 @@ export default function PurchaseOrderApprove1Page() {
 
   return (
     <PurchaseOrderForm
-      mode="approval1"
+      mode="approval2"
       initial={initialData}
       mutate={mutate}
       onSuccess={() => router.push("/purchase-orders")}

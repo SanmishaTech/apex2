@@ -115,6 +115,8 @@ const updateSchema = z.object({
     .nullable()
     .optional(),
   gstReverseAmount: z.string().nullable().optional(),
+  remarks: z.string().nullable().optional(),
+  billStatus: z.string().nullable().optional(),
 });
 
 // GET /api/purchase-orders/[id] - Get single purchase order
@@ -295,7 +297,12 @@ export async function PATCH(
         if (statusAction) {
           const current: any = await tx.purchaseOrder.findUnique({
             where: { id },
-            select: { approvalStatus: true } as any,
+            select: { 
+              approvalStatus: true,
+              isApproved1: true,
+              isApproved2: true,
+              isComplete: true
+            } as any,
           });
 
           if (!current) {
@@ -340,11 +347,22 @@ export async function PATCH(
                 "BAD_REQUEST: Completed purchase order cannot be suspended"
               );
             }
+            updateData.approvalStatus = "SUSPENDED";
             updateData.isSuspended = true;
             updateData.suspendedById = auth.user.id;
             updateData.suspendedAt = now;
           } else if (statusAction === "unsuspend") {
             updateData.isSuspended = false;
+            // Restore the correct approval status based on approval flags
+            if (current.isComplete) {
+              updateData.approvalStatus = "COMPLETED";
+            } else if (current.isApproved2) {
+              updateData.approvalStatus = "APPROVED_LEVEL_2";
+            } else if (current.isApproved1) {
+              updateData.approvalStatus = "APPROVED_LEVEL_1";
+            } else {
+              updateData.approvalStatus = "DRAFT";
+            }
           }
         }
 

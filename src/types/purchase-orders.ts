@@ -125,7 +125,13 @@ export interface PurchaseOrder {
   suspendedAt?: string | null;
   completedAt?: string | null;
   revision?: number | null;
-
+  poStatus: string | null | undefined;
+  transitInsuranceStatus: string | null | undefined;
+  transitInsuranceAmount: number | null | undefined | string;
+  pfStatus: string | null | undefined;
+  pfCharges: number | null | undefined | string;
+  gstReverseStatus: string | null | undefined;
+  gstReverseAmount: number | null | undefined | string;
   // Relations
   site: Site;
   vendor: Vendor;

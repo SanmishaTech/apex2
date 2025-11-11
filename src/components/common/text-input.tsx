@@ -12,6 +12,7 @@ export interface TextInputProps {
 	control: unknown; // relaxed typing
 	name: string;
 	label: string;
+	min?: number;
 	max?: number;
 	maxLength?: number;
 	type?: string;
@@ -36,6 +37,7 @@ export function TextInput({
 	control,
 	name,
 	label,
+	min,
 	max,
 	maxLength,
 	type = 'text',
@@ -86,6 +88,7 @@ export function TextInput({
 								placeholder={placeholder}
 								autoComplete={autoComplete}
 								disabled={disabled}
+								min={min}
 								max={max}
 								maxLength={maxLength}
 								pattern={pattern}
