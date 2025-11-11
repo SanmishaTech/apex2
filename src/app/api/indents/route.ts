@@ -9,19 +9,16 @@ import { z } from "zod";
 const indentItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
   remark: z.string().optional(),
-  indentQty: z
-    .coerce
+  indentQty: z.coerce
     .number()
     .min(0, "Indent quantity must be non-negative")
     .max(9999999999.99, "Indent quantity must be <= 9,999,999,999.99"),
-  approved1Qty: z
-    .coerce
+  approved1Qty: z.coerce
     .number()
     .min(0, "Approved quantity must be non-negative")
     .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
     .optional(),
-  approved2Qty: z
-    .coerce
+  approved2Qty: z.coerce
     .number()
     .min(0, "Approved quantity must be non-negative")
     .max(9999999999.99, "Approved quantity must be <= 9,999,999,999.99")
@@ -33,13 +30,15 @@ const createSchema = z.object({
   deliveryDate: z.string().transform((val) => new Date(val)),
   siteId: z.coerce.number().min(1, "Site is required"),
   remarks: z.string().optional(),
-  indentItems: z.array(indentItemSchema).min(1, "At least one item is required"),
+  indentItems: z
+    .array(indentItemSchema)
+    .min(1, "At least one item is required"),
 });
 
 // Auto-generate indent number
 async function generateIndentNo(): Promise<string> {
   const count = await prisma.indent.count();
-  const nextNumber = (count + 1).toString().padStart(5, '0');
+  const nextNumber = (count + 1).toString().padStart(5, "0");
   return `IND-${nextNumber}`;
 }
 
@@ -51,21 +50,26 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+    const perPage = Math.min(
+      100,
+      Math.max(1, Number(searchParams.get("perPage")) || 10)
+    );
     const search = searchParams.get("search")?.trim() || "";
     const siteFilter = searchParams.get("site") || "";
     const sort = (searchParams.get("sort") || "indentDate") as string;
-    const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+    const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
+      | "asc"
+      | "desc";
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { indentNo: { contains: search } },
         { remarks: { contains: search } },
       ];
     }
-    
+
     if (siteFilter) {
       const siteId = parseInt(siteFilter);
       if (!isNaN(siteId)) {
@@ -105,6 +109,7 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             itemId: true,
+            purchaseOrderDetailId: true,
             item: {
               select: {
                 id: true,
@@ -182,14 +187,15 @@ export async function POST(req: NextRequest) {
 
       // Create indent items
       const indentId: number = indent.id;
-      const itemsData: Prisma.IndentItemCreateManyInput[] = parsedData.indentItems.map(item => ({
-        indentId,
-        itemId: item.itemId,
-        remark: item.remark || null,
-        indentQty: item.indentQty,
-        approved1Qty: item.approved1Qty ?? 0,
-        approved2Qty: item.approved2Qty ?? 0,
-      }));
+      const itemsData: Prisma.IndentItemCreateManyInput[] =
+        parsedData.indentItems.map((item) => ({
+          indentId,
+          itemId: item.itemId,
+          remark: item.remark || null,
+          indentQty: item.indentQty,
+          approved1Qty: item.approved1Qty ?? 0,
+          approved2Qty: item.approved2Qty ?? 0,
+        }));
 
       await tx.indentItem.createMany({
         data: itemsData,
@@ -242,8 +248,8 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    if (error.code === 'P2002') {
-      return ApiError('Indent number already exists', 409);
+    if (error.code === "P2002") {
+      return ApiError("Indent number already exists", 409);
     }
     console.error("Create indent error:", error);
     return ApiError("Failed to create indent");

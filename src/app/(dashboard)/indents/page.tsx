@@ -228,12 +228,22 @@ export default function IndentsPage() {
       cellClassName: "whitespace-nowrap",
     },
     {
-      key: "itemsCount",
-      header: "Items",
+      key: "completedItems",
+      header: "Completed Items",
       sortable: false,
       className: "text-center",
       cellClassName: "text-center text-muted-foreground",
-      accessor: (r) => r.indentItems?.length || 0,
+      accessor: (r) => {
+        const items = r.indentItems ?? [];
+        const total = items.length;
+        const completed = items.reduce((count, item) => {
+          return item.purchaseOrderDetailId !== null &&
+            item.purchaseOrderDetailId !== undefined
+            ? count + 1
+            : count;
+        }, 0);
+        return `${completed}/${total}`;
+      },
     },
     {
       key: "createdAt",
@@ -349,13 +359,18 @@ export default function IndentsPage() {
     }
   }, [confirmCompleteId, mutate]);
 
-  const handleGeneratePO = useCallback(async (indentId: number) => {
-    try {
-      pushWithScrollSave(`/purchase-orders/new?indentId=${indentId}`);
-    } catch (e) {
-      toast.error((e as Error).message || "Failed to generate purchase order");
-    }
-  }, [pushWithScrollSave]);
+  const handleGeneratePO = useCallback(
+    async (indentId: number) => {
+      try {
+        pushWithScrollSave(`/purchase-orders/new?indentId=${indentId}`);
+      } catch (e) {
+        toast.error(
+          (e as Error).message || "Failed to generate purchase order"
+        );
+      }
+    },
+    [pushWithScrollSave]
+  );
 
   const MAX_DEC = 9999999999.99; // MySQL DECIMAL(12,2)
   const clampDec = (n: number) => Math.min(Math.max(0, n), MAX_DEC);
@@ -548,26 +563,49 @@ export default function IndentsPage() {
                         </AppButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
-                          (indent.approvalStatus === "APPROVED_LEVEL_2" ||
-                            indent.approvalStatus === "COMPLETED") &&
-                          !indent.suspended && (
+                        {(() => {
+                          const items = indent.indentItems ?? [];
+                          const completedCount = items.filter(
+                            (item) =>
+                              item.purchaseOrderDetailId !== null &&
+                              item.purchaseOrderDetailId !== undefined
+                          ).length;
+                          const allItemsCompleted =
+                            items.length > 0 && completedCount === items.length;
+                          const canGeneratePo =
+                            can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
+                            (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+                              indent.approvalStatus === "COMPLETED") &&
+                            !indent.suspended &&
+                            !allItemsCompleted;
+
+                          return canGeneratePo ? (
                             <DropdownMenuItem
                               onSelect={() => handleGeneratePO(indent.id)}
                             >
                               Generate PO
                             </DropdownMenuItem>
-                          )}
+                          ) : null;
+                        })()}
                         {(() => {
                           const actions = getAvailableActions(
                             indent.approvalStatus,
                             indent.suspended
                           );
+                          const items = indent.indentItems ?? [];
+                          const completedCount = items.filter(
+                            (item) =>
+                              item.purchaseOrderDetailId !== null &&
+                              item.purchaseOrderDetailId !== undefined
+                          ).length;
+                          const allItemsCompleted =
+                            items.length > 0 && completedCount === items.length;
                           const showGenerate =
                             can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
                             (indent.approvalStatus === "APPROVED_LEVEL_2" ||
                               indent.approvalStatus === "COMPLETED") &&
-                            !indent.suspended;
+                            !indent.suspended &&
+                            !allItemsCompleted;
                           if (actions.length === 0 && !showGenerate) {
                             return (
                               <div className="px-2 py-1.5 text-sm text-muted-foreground">

@@ -378,11 +378,9 @@ export function PurchaseOrderForm({
       item: Item;
       approved2Qty: number;
       remark?: string;
+      purchaseOrderDetailId?: number | null;
     }>;
-  }>(
-    indentId ? `/api/indents/${indentId}` : null,
-    apiGet
-  );
+  }>(indentId ? `/api/indents/${indentId}` : null, apiGet);
 
   const formatDateField = (
     value?: string | null,
@@ -404,13 +402,13 @@ export function PurchaseOrderForm({
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
-    
+
     // If we have indent data, use it to pre-populate the form
     if (indentData && isCreate) {
       return {
         purchaseOrderNo: "",
         purchaseOrderDate: today,
-        deliveryDate: "",
+        deliveryDate: formatDateField(indentData.deliveryDate),
         siteId: indentData.siteId,
         vendorId: 0,
         billingAddressId: 0,
@@ -430,24 +428,26 @@ export function PurchaseOrderForm({
         pfCharges: null,
         gstReverseStatus: null,
         gstReverseAmount: null,
-        purchaseOrderItems: indentData.indentItems.map((indentItem) => ({
-          itemId: indentItem.itemId,
-          qty: indentItem.approved2Qty || 1,
-          rate: 0,
-          discountPercent: 0,
-          cgstPercent: 0,
-          sgstPercent: 0,
-          igstPercent: 0,
-          amount: 0,
-          disAmt: 0,
-          cgstAmt: 0,
-          sgstAmt: 0,
-          igstAmt: 0,
-          remark: indentItem.remark || "",
-        })),
+        purchaseOrderItems: indentData.indentItems
+          .filter((indentItem) => indentItem.purchaseOrderDetailId === null || indentItem.purchaseOrderDetailId === undefined)
+          .map((indentItem) => ({
+            itemId: indentItem.itemId,
+            qty: indentItem.approved2Qty || 1,
+            rate: 0,
+            discountPercent: 0,
+            cgstPercent: 0,
+            sgstPercent: 0,
+            igstPercent: 0,
+            amount: 0,
+            disAmt: 0,
+            cgstAmt: 0,
+            sgstAmt: 0,
+            igstAmt: 0,
+            remark: indentItem.remark || "",
+          })),
       };
     }
-    
+
     return {
       purchaseOrderNo: initial?.purchaseOrderNo ?? "",
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
@@ -1018,7 +1018,7 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", 0);
                     }}
                     placeholder="Select Site"
-                    disabled={isApprovalMode}
+                    disabled={isApprovalMode || (indentId && isCreate)}
                   >
                     <AppSelect.Item key="site-none" value="__none">
                       Select Site
@@ -1259,49 +1259,49 @@ export function PurchaseOrderForm({
             {/* Items Table */}
             <FormSection legend="Items">
               <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700">
+                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700 text-xs">
                   <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
                         Item
                       </th>
                       {isApprovalMode && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                           Ordered Qty
                         </th>
                       )}
                       {isApproval2 && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                           Approved 1 Qty
                         </th>
                       )}
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         {isApproval2
                           ? "Approved 2 Qty"
                           : isApproval1
                           ? "Approved 1 Qty"
                           : "Qty"}
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         Rate
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         Disc. %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         CGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         SGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         IGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
                       {!isApprovalMode && (
-                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -1310,10 +1310,10 @@ export function PurchaseOrderForm({
                   <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
                     {fields.map((field, index) => (
                       <tr key={field.fieldId ?? index}>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           {isApprovalMode ? (
                             <>
-                              <div className="font-medium">
+                              <div className="text-sm font-medium">
                                 {initial?.purchaseOrderItems?.[index]?.item
                                   ?.itemCode
                                   ? `${initial.purchaseOrderItems[index].item.itemCode} - ${initial.purchaseOrderItems[index].item.item}`
@@ -1335,7 +1335,7 @@ export function PurchaseOrderForm({
                                         {...field}
                                         placeholder="Remark"
                                         value={field.value || ""}
-                                        className="text-xs"
+                                        className="h-8 text-xs"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1349,9 +1349,10 @@ export function PurchaseOrderForm({
                                 control={form.control}
                                 name={`purchaseOrderItems.${index}.itemId`}
                                 render={({ field }) => (
-                                  <FormItem className="space-y-1">
+                                  <FormItem className="space-y-1 w-48">
                                     <FormControl>
                                       <AppSelect
+                                        className="w-full"
                                         value={
                                           field.value && field.value > 0
                                             ? field.value.toString()
@@ -1394,6 +1395,21 @@ export function PurchaseOrderForm({
                                           }
                                         }}
                                         placeholder="Select Item"
+                                        disabled={
+                                          !!(
+                                            indentId &&
+                                            isCreate &&
+                                            indentData &&
+                                            index <
+                                              indentData.indentItems.filter(
+                                                (item) => 
+                                                  item.purchaseOrderDetailId === null || 
+                                                  item.purchaseOrderDetailId === undefined
+                                              ).length
+                                          )
+                                        }
+                                        triggerClassName="h-8 text-xs w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                                        contentClassName="text-xs overflow-hidden"
                                       >
                                         <AppSelect.Item
                                           key={`item-placeholder-${
@@ -1440,7 +1456,7 @@ export function PurchaseOrderForm({
                           )}
                         </td>
                         {isApprovalMode && (
-                          <td className="px-4 py-3 text-right font-medium align-top">
+                          <td className="px-3 py-2 text-right font-medium align-top text-xs">
                             {toNumber(
                               initial?.purchaseOrderItems?.[index]
                                 ?.orderedQty ??
@@ -1453,7 +1469,7 @@ export function PurchaseOrderForm({
                           </td>
                         )}
                         {isApproval2 && (
-                          <td className="px-4 py-3 text-right font-medium align-top">
+                          <td className="px-3 py-2 text-right font-medium align-top text-xs">
                             {toNumber(
                               initial?.purchaseOrderItems?.[index]
                                 ?.approved1Qty ?? 0
@@ -1463,7 +1479,7 @@ export function PurchaseOrderForm({
                             })}
                           </td>
                         )}
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           {isApprovalMode ? (
                             <FormField
                               control={form.control}
@@ -1487,7 +1503,7 @@ export function PurchaseOrderForm({
                                             : parseFloat(value) || 0
                                         );
                                       }}
-                                      className="text-right w-24"
+                                      className="h-8 text-xs text-right w-24"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1515,7 +1531,7 @@ export function PurchaseOrderForm({
                                             : parseFloat(value) || 0
                                         );
                                       }}
-                                      className="text-right w-24"
+                                      className="h-8 text-xs text-right w-24"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1524,7 +1540,7 @@ export function PurchaseOrderForm({
                             />
                           )}
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.rate`}
@@ -1545,7 +1561,7 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-28"
+                                    className="h-8 text-xs text-right w-28"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1553,7 +1569,7 @@ export function PurchaseOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.discountPercent`}
@@ -1575,7 +1591,7 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="h-8 text-xs text-right w-20"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1583,7 +1599,7 @@ export function PurchaseOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.cgstPercent`}
@@ -1605,7 +1621,7 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="h-8 text-xs text-right w-20"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1617,7 +1633,7 @@ export function PurchaseOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.sgstPercent`}
@@ -1639,7 +1655,7 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="h-8 text-xs text-right w-20"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1651,7 +1667,7 @@ export function PurchaseOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-3 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.igstPercent`}
@@ -1673,7 +1689,7 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="h-8 text-xs text-right w-20"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1685,11 +1701,11 @@ export function PurchaseOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium align-top">
+                        <td className="px-3 py-2 text-right font-medium align-top">
                           {formatAmount(computedItems[index]?.amount)}
                         </td>
                         {!isApprovalMode && (
-                          <td className="px-3 py-3 text-right text-sm font-medium align-top">
+                          <td className="px-2 py-2 text-right font-medium align-top">
                             <Button
                               type="button"
                               variant="ghost"
@@ -1707,7 +1723,7 @@ export function PurchaseOrderForm({
                   <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
                         Subtotal
@@ -1718,7 +1734,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -1813,7 +1829,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -1897,18 +1913,18 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         Discount
                       </td>
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
-                        {formatAmount(totals.disAmt)}
+                        -{formatAmount(totals.disAmt)}
                       </td>
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         CGST
@@ -1919,7 +1935,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         SGST
@@ -1930,7 +1946,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         IGST
@@ -1941,7 +1957,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -2034,7 +2050,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 8 : 8}
                         className="text-right px-4 py-3 text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200"
                       >
                         Total Amount

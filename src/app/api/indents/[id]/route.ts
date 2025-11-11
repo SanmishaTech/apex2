@@ -81,6 +81,7 @@ export async function GET(
           select: {
             id: true,
             itemId: true,
+            purchaseOrderDetailId: true,
             item: {
               select: {
                 id: true,
@@ -296,6 +297,8 @@ export async function PATCH(
           indentItems: {
             select: {
               id: true,
+              itemId: true,
+              purchaseOrderDetailId: true,
               item: true,
               remark: true,
               indentQty: true,
