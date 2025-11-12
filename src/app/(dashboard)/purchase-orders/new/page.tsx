@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 
 export default function NewPurchaseOrderPage() {
   const searchParams = useSearchParams();
-  const indentId = searchParams.get("indentId");
+  const indentIdParam = searchParams?.get("indentId");
+  const indentId = indentIdParam ? parseInt(indentIdParam, 10) : undefined;
 
-  return <PurchaseOrderForm mode="create" indentId={indentId ? parseInt(indentId) : undefined} />;
+  return <PurchaseOrderForm mode="create" indentId={indentId} />;
 }

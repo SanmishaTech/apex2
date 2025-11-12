@@ -100,6 +100,7 @@ type PurchaseOrderItem = {
   igstPercent: number;
   igstAmt: number;
   amount: number;
+  isFromIndent?: boolean;
 };
 
 type PurchaseOrderFormInitialData = {
@@ -138,106 +139,127 @@ export interface PurchaseOrderFormProps {
   mutate?: () => Promise<any>;
 }
 
-const purchaseOrderItemSchema = z.object({
-  itemId: z
-    .union([z.string(), z.number()])
-    .transform((val) => String(val))
-    .refine(
-      (val) => val !== "__none" && val !== "0" && val !== "",
-      "Item is required"
-    )
-    .transform((val) => parseInt(val)),
-  remark: z.string().optional(),
-  qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Quantity must be greater than 0")),
-  approved1Qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
-    .optional(),
-  approved2Qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
-    .optional(),
-  rate: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0, "Rate must be non-negative")),
-  discountPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "Discount % must be non-negative")
-        .max(100, "Discount % must be <= 100")
-    ),
-  cgstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "CGST % must be non-negative")
-        .max(100, "CGST % must be <= 100")
-    ),
-  sgstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "SGST % must be non-negative")
-        .max(100, "SGST % must be <= 100")
-    ),
-  igstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "IGST % must be non-negative")
-        .max(100, "IGST % must be <= 100")
-    ),
-  disAmt: z
-    .union([z.string(), z.number(), z.null()])
-    .optional()
-    .transform((val) => {
-      if (val === null || typeof val === "undefined" || val === "") return 0;
-      return typeof val === "string" ? parseFloat(val) || 0 : val;
-    }),
-  cgstAmt: z
-    .union([z.string(), z.number(), z.null()])
-    .optional()
-    .transform((val) => {
-      if (val === null || typeof val === "undefined" || val === "") return 0;
-      return typeof val === "string" ? parseFloat(val) || 0 : val;
-    }),
-  sgstAmt: z
-    .union([z.string(), z.number(), z.null()])
-    .optional()
-    .transform((val) => {
-      if (val === null || typeof val === "undefined" || val === "") return 0;
-      return typeof val === "string" ? parseFloat(val) || 0 : val;
-    }),
-  igstAmt: z
-    .union([z.string(), z.number(), z.null()])
-    .optional()
-    .transform((val) => {
-      if (val === null || typeof val === "undefined" || val === "") return 0;
-      return typeof val === "string" ? parseFloat(val) || 0 : val;
-    }),
-  amount: z
-    .union([z.string(), z.number(), z.null()])
-    .optional()
-    .transform((val) => {
-      if (val === null || typeof val === "undefined" || val === "") return 0;
-      return typeof val === "string" ? parseFloat(val) || 0 : val;
-    }),
-});
+const purchaseOrderItemSchema = z
+  .object({
+    itemId: z
+      .union([z.string(), z.number()])
+      .transform((val) => String(val))
+      .refine(
+        (val) => val !== "__none" && val !== "0" && val !== "",
+        "Item is required"
+      )
+      .transform((val) => parseInt(val)),
+    remark: z.string().optional(),
+    qty: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(z.number().min(0.0001, "Quantity must be greater than 0")),
+    approved1Qty: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+      .optional(),
+    approved2Qty: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+      .optional(),
+    rate: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(z.number().min(0, "Rate must be non-negative")),
+    discountPercent: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(
+        z
+          .number()
+          .min(0, "Discount % must be non-negative")
+          .max(100, "Discount % must be <= 100")
+      ),
+    cgstPercent: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(
+        z
+          .number()
+          .min(0, "CGST % must be non-negative")
+          .max(100, "CGST % must be <= 100")
+      ),
+    sgstPercent: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(
+        z
+          .number()
+          .min(0, "SGST % must be non-negative")
+          .max(100, "SGST % must be <= 100")
+      ),
+    igstPercent: z
+      .union([z.string(), z.number()])
+      .transform((val) =>
+        typeof val === "string" ? parseFloat(val) || 0 : val
+      )
+      .pipe(
+        z
+          .number()
+          .min(0, "IGST % must be non-negative")
+          .max(100, "IGST % must be <= 100")
+      ),
+    disAmt: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || typeof val === "undefined" || val === "") return 0;
+        return typeof val === "string" ? parseFloat(val) || 0 : val;
+      }),
+    cgstAmt: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || typeof val === "undefined" || val === "") return 0;
+        return typeof val === "string" ? parseFloat(val) || 0 : val;
+      }),
+    sgstAmt: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || typeof val === "undefined" || val === "") return 0;
+        return typeof val === "string" ? parseFloat(val) || 0 : val;
+      }),
+    igstAmt: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || typeof val === "undefined" || val === "") return 0;
+        return typeof val === "string" ? parseFloat(val) || 0 : val;
+      }),
+    amount: z
+      .union([z.string(), z.number(), z.null()])
+      .optional()
+      .transform((val) => {
+        if (val === null || typeof val === "undefined" || val === "") return 0;
+        return typeof val === "string" ? parseFloat(val) || 0 : val;
+      }),
+  })
+  .extend({
+    isFromIndent: z.boolean().optional(),
+    indentItemId: z.number().optional(),
+  });
 
 const createInputSchema = z.object({
   purchaseOrderDate: z.string().min(1, "PO date is required"),
@@ -291,7 +313,9 @@ const createInputSchema = z.object({
     .union([z.string(), z.number()])
     .optional()
     .transform((val) => {
-      if (!val || val === "") return undefined;
+      if (val === null || typeof val === "undefined" || val === "") {
+        return undefined;
+      }
       return typeof val === "string" ? parseInt(val) : val;
     }),
   deliverySchedule: z.string().optional(),
@@ -458,7 +482,11 @@ export function PurchaseOrderForm({
         gstReverseStatus: null,
         gstReverseAmount: null,
         purchaseOrderItems: indentData.indentItems
-          .filter((indentItem) => indentItem.purchaseOrderDetailId === null || indentItem.purchaseOrderDetailId === undefined)
+          .filter(
+            (indentItem) =>
+              indentItem.purchaseOrderDetailId === null ||
+              indentItem.purchaseOrderDetailId === undefined
+          )
           .map((indentItem) => ({
             itemId: indentItem.itemId,
             qty: indentItem.approved2Qty || 1,
@@ -473,6 +501,8 @@ export function PurchaseOrderForm({
             sgstAmt: 0,
             igstAmt: 0,
             remark: indentItem.remark || "",
+            isFromIndent: true,
+            indentItemId: indentItem.id,
           })),
       };
     }
@@ -513,6 +543,9 @@ export function PurchaseOrderForm({
         sgstAmt: item.sgstAmt || 0,
         igstAmt: item.igstAmt || 0,
         amount: item.amount || 0,
+        isFromIndent: false,
+        indentItemId: undefined,
+        remark: item.remark ?? "",
       })) || [
         {
           itemId: 0,
@@ -527,6 +560,9 @@ export function PurchaseOrderForm({
           cgstAmt: 0,
           sgstAmt: 0,
           igstAmt: 0,
+          remark: "",
+          isFromIndent: false,
+          indentItemId: undefined,
         },
       ],
     };
@@ -719,13 +755,33 @@ export function PurchaseOrderForm({
       cgstAmt: 0,
       sgstAmt: 0,
       igstAmt: 0,
+      remark: "",
+      isFromIndent: false,
+      indentItemId: undefined,
     });
   };
 
   // Remove an item row
   const removeItem = (index: number) => {
-    if (fields.length > 1) {
-      remove(index);
+    const wasSingleRow = fields.length === 1;
+    remove(index);
+    if (wasSingleRow) {
+      append({
+        itemId: 0,
+        qty: 1,
+        rate: 0,
+        discountPercent: 0,
+        cgstPercent: 0,
+        sgstPercent: 0,
+        igstPercent: 0,
+        amount: 0,
+        disAmt: 0,
+        cgstAmt: 0,
+        sgstAmt: 0,
+        igstAmt: 0,
+        remark: "",
+        indentItemId: undefined,
+      });
     }
   };
 
@@ -738,13 +794,15 @@ export function PurchaseOrderForm({
 
       // Prepare the payload
       const normalizedItems = data.purchaseOrderItems.map((item, index) => {
+        const indentItemId =
+          typeof item.indentItemId === "number" ? item.indentItemId : undefined;
         const metrics = computeItemMetrics(item);
         const originalItem = initial?.purchaseOrderItems?.[index];
         const approvedQty = metrics.qty;
 
         const baseItem = {
           itemId: Number(item.itemId),
-          remark: item.remark?.trim() ? item.remark.trim() : null,
+          remark: item.remark?.trim() ?? "",
           qty: isApprovalMode ? approvedQty : metrics.qty,
           rate: metrics.rate,
           discountPercent: metrics.discountPercent,
@@ -756,6 +814,7 @@ export function PurchaseOrderForm({
           sgstAmt: metrics.sgstAmt,
           igstAmt: metrics.igstAmt,
           amount: metrics.amount,
+          indentItemId,
         };
 
         // Add approval-specific fields
@@ -835,9 +894,11 @@ export function PurchaseOrderForm({
           ? Number(data.siteDeliveryAddressId)
           : null,
         paymentTermId: data.paymentTermId ? Number(data.paymentTermId) : null,
-        paymentTermsInDays: data.paymentTermsInDays
-          ? Number(data.paymentTermsInDays)
-          : null,
+        paymentTermsInDays:
+          data.paymentTermsInDays !== undefined &&
+          data.paymentTermsInDays !== null
+            ? Number(data.paymentTermsInDays)
+            : undefined,
         poStatus: data.poStatus ?? null,
         transitInsuranceStatus: data.transitInsuranceStatus || null,
         transitInsuranceAmount: data.transitInsuranceAmount || null,
@@ -1428,13 +1489,7 @@ export function PurchaseOrderForm({
                                           !!(
                                             indentId &&
                                             isCreate &&
-                                            indentData &&
-                                            index <
-                                              indentData.indentItems.filter(
-                                                (item) => 
-                                                  item.purchaseOrderDetailId === null || 
-                                                  item.purchaseOrderDetailId === undefined
-                                              ).length
+                                            items?.[index]?.isFromIndent
                                           )
                                         }
                                         triggerClassName="h-8 text-xs w-full overflow-hidden text-ellipsis whitespace-nowrap"
@@ -2109,7 +2164,7 @@ export function PurchaseOrderForm({
             </FormSection>
           </AppCard.Content>
           <AppCard.Footer className="justify-end gap-3">
-            {purchaseOrderId && (
+            {/* {purchaseOrderId && (
               <AppButton
                 type="button"
                 variant="outline"
@@ -2119,7 +2174,7 @@ export function PurchaseOrderForm({
               >
                 {isDownloading ? "Preparing PDF..." : "Print"}
               </AppButton>
-            )}
+            )} */}
             <AppButton
               type="button"
               variant="secondary"

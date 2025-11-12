@@ -236,7 +236,10 @@ export default function PurchaseOrdersPage() {
   );
 
   // Fetch sites for filter
-  const { data: sitesData } = useSWR<SitesResponse>("/api/sites?perPage=1000", apiGet);
+  const { data: sitesData } = useSWR<SitesResponse>(
+    "/api/sites?perPage=1000",
+    apiGet
+  );
   const sites = sitesData?.data || [];
 
   // Fetch vendors for filter
@@ -257,10 +260,15 @@ export default function PurchaseOrdersPage() {
   const [poForRemark, setPoForRemark] = useState<PurchaseOrder | null>(null);
   const [remarkText, setRemarkText] = useState("");
   const [showBillStatusDialog, setShowBillStatusDialog] = useState(false);
-  const [poForBillStatus, setPoForBillStatus] = useState<PurchaseOrder | null>(null);
+  const [poForBillStatus, setPoForBillStatus] = useState<PurchaseOrder | null>(
+    null
+  );
   const [billStatusText, setBillStatusText] = useState("");
 
-  const openApproval = (id: number, key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend") => {
+  const openApproval = (
+    id: number,
+    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend"
+  ) => {
     // Navigate to approval page for approve1 and approve2
     if (key === "approve1") {
       pushWithScrollSave(`/purchase-orders/${id}/approve1`);
@@ -271,7 +279,10 @@ export default function PurchaseOrdersPage() {
       return;
     }
     // For other actions, show the dialog
-    setStatusAction({ action: key, po: data?.data.find(p => p.id === id) || null });
+    setStatusAction({
+      action: key,
+      po: data?.data.find((p) => p.id === id) || null,
+    });
   };
 
   const handleDeleteClick = (po: PurchaseOrder) => {
@@ -363,26 +374,29 @@ export default function PurchaseOrdersPage() {
     }
   };
 
-  const handlePrint = useCallback(async (po: PurchaseOrder) => {
-    try {
-      const res = await fetch(`/api/purchase-orders/${po.id}/print`);
-      if (!res.ok) {
-        throw new Error("Failed to download purchase order PDF");
+  const handlePrint = useCallback(
+    async (po: PurchaseOrder) => {
+      try {
+        const res = await fetch(`/api/purchase-orders/${po.id}/print`);
+        if (!res.ok) {
+          throw new Error("Failed to download purchase order PDF");
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `purchase-order-${po.purchaseOrderNo}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to download purchase order PDF");
       }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `purchase-order-${po.purchaseOrderNo}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to download purchase order PDF");
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   const columns: Column<PurchaseOrder>[] = [
     {
@@ -568,7 +582,9 @@ export default function PurchaseOrdersPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() =>
-                              pushWithScrollSave(`/purchase-orders/${po.id}/edit`)
+                              pushWithScrollSave(
+                                `/purchase-orders/${po.id}/edit`
+                              )
                             }
                           >
                             Edit
@@ -583,9 +599,9 @@ export default function PurchaseOrdersPage() {
                           >
                             Bill Status
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePrint(po)}>
+                          {/* <DropdownMenuItem onClick={() => handlePrint(po)}>
                             Print
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                           {(() => {
                             const actions = getAvailableActions(
                               po.approvalStatus,
@@ -603,14 +619,14 @@ export default function PurchaseOrdersPage() {
                               </DropdownMenuItem>
                             ));
                           })()}
-                          {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
+                          {/* {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => handleDeleteClick(po)}
                             >
                               Delete
                             </DropdownMenuItem>
-                          )}
+                          )} */}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -670,21 +686,23 @@ export default function PurchaseOrdersPage() {
                 Are you sure you want to {statusAction.action} purchase order{" "}
                 <strong>{statusAction.po?.purchaseOrderNo}</strong>?
               </p>
-              {(statusAction.action === "suspend" || statusAction.action === "complete") && (
+              {(statusAction.action === "suspend" ||
+                statusAction.action === "complete") && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                   <p className="text-sm text-yellow-800 font-medium">
                     ⚠️ Warning: This action cannot be reverted.
                   </p>
                 </div>
               )}
-              {statusAction.action !== "suspend" && statusAction.action !== "complete" && (
-                <Textarea
-                  placeholder="Remarks (optional)"
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows={3}
-                />
-              )}
+              {statusAction.action !== "suspend" &&
+                statusAction.action !== "complete" && (
+                  <Textarea
+                    placeholder="Remarks (optional)"
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows={3}
+                  />
+                )}
             </div>
           </div>
           <DialogFooter>
@@ -744,9 +762,7 @@ export default function PurchaseOrdersPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleRemarkSubmit}>
-              Save Remark
-            </Button>
+            <Button onClick={handleRemarkSubmit}>Save Remark</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -790,9 +806,7 @@ export default function PurchaseOrdersPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleBillStatusSubmit}>
-              Save Bill Status
-            </Button>
+            <Button onClick={handleBillStatusSubmit}>Save Bill Status</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
