@@ -43,6 +43,7 @@ const purchaseOrderItemSchema = z.object({
   sgstAmt: z.coerce.number(),
   igstAmt: z.coerce.number(),
   amount: z.coerce.number(),
+  indentItemId: z.coerce.number().optional(),
 });
 
 const createSchema = z.object({
@@ -436,21 +437,40 @@ export async function POST(req: NextRequest) {
 
       // If this PO is created from an indent, update the indent items with purchase order detail IDs
       if (parsedData.indentId) {
-        const indentItems = await tx.indentItem.findMany({
-          where: { indentId: parsedData.indentId },
-          orderBy: { id: 'asc' }
-        });
+        const itemsWithIndentReference = parsedData.purchaseOrderItems
+          .map((item, index) => ({
+            indentItemId: item.indentItemId,
+            detail: createdPODetails[index],
+          }))
+          .filter(
+            ({ indentItemId }) =>
+              typeof indentItemId === "number" && Number.isFinite(indentItemId)
+          ) as { indentItemId: number; detail: typeof createdPODetails[number] }[];
 
-        // Match indent items with PO details by itemId and update the purchaseOrderDetailId
-        for (let i = 0; i < createdPODetails.length && i < indentItems.length; i++) {
-          const poDetail = createdPODetails[i];
-          const indentItem = indentItems.find(item => item.itemId === poDetail.itemId);
-          
-          if (indentItem) {
-            await tx.indentItem.update({
-              where: { id: indentItem.id },
-              data: { purchaseOrderDetailId: poDetail.id }
-            });
+        if (itemsWithIndentReference.length > 0) {
+          const indentItemIds = itemsWithIndentReference.map(
+            ({ indentItemId }) => indentItemId
+          );
+
+          const availableIndentItems = await tx.indentItem.findMany({
+            where: {
+              id: { in: indentItemIds },
+              indentId: parsedData.indentId,
+            },
+            select: { id: true },
+          });
+
+          const validIndentItemIds = new Set(
+            availableIndentItems.map((item) => item.id)
+          );
+
+          for (const { indentItemId, detail } of itemsWithIndentReference) {
+            if (validIndentItemIds.has(indentItemId)) {
+              await tx.indentItem.update({
+                where: { id: indentItemId },
+                data: { purchaseOrderDetailId: detail.id },
+              });
+            }
           }
         }
       }
