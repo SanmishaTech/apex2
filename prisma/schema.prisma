@@ -481,6 +481,7 @@ model Asset {
   assetGroup    AssetGroup          @relation(fields: [assetGroupId], references: [id])
   assetCategory AssetCategory       @relation(fields: [assetCategoryId], references: [id])
   transferItems AssetTransferItem[]
+  assetDocuments AssetDocument[]
 
   @@index([assetNo])
   @@index([assetGroupId])
@@ -1696,6 +1697,20 @@ model RentDocument {
 
   @@index([rentId])
   @@map("rent_documents")
+}
+
+model AssetDocument {
+  id           Int      @id @default(autoincrement())
+  assetId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("asset_documents")
 }
 
 // in approval add budget validatioon from sir in purchase ordeer.

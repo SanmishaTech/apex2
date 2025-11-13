@@ -26,22 +26,37 @@ export default function EditAssetPage({ params }: EditAssetPageProps) {
     fetcher
   );
 
-  const handleSubmit = async (data: AssetFormData) => {
+  const handleSubmit = async (data: any) => {
     try {
-      // Convert date strings to ISO format for API
-      const submitData = {
-        ...data,
-        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate).toISOString() : null,
-        nextMaintenanceDate: data.nextMaintenanceDate ? new Date(data.nextMaintenanceDate).toISOString() : null,
-      };
+      const fd = new FormData();
+      if (data.assetGroupId !== undefined) fd.append('assetGroupId', String(data.assetGroupId));
+      if (data.assetCategoryId !== undefined) fd.append('assetCategoryId', String(data.assetCategoryId));
+      if (data.assetName !== undefined) fd.append('assetName', data.assetName);
+      if (data.make !== undefined) fd.append('make', data.make);
+      if (data.description !== undefined) fd.append('description', data.description);
+      if (data.purchaseDate !== undefined) fd.append('purchaseDate', data.purchaseDate || '');
+      if (data.invoiceNo !== undefined) fd.append('invoiceNo', data.invoiceNo);
+      if (data.supplier !== undefined) fd.append('supplier', data.supplier);
+      if (data.invoiceCopyUrl !== undefined) fd.append('invoiceCopyUrl', data.invoiceCopyUrl);
+      if (data.nextMaintenanceDate !== undefined) fd.append('nextMaintenanceDate', data.nextMaintenanceDate || '');
+      if (data.status !== undefined) fd.append('status', data.status);
+      if (data.useStatus !== undefined) fd.append('useStatus', data.useStatus);
 
-      const response = await fetch(`/api/assets/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
+      const docs = Array.isArray(data.assetDocuments) ? data.assetDocuments : [];
+      const metadata = docs.map((doc: any, index: number) => ({
+        id: typeof doc.id === 'number' ? doc.id : undefined,
+        documentName: typeof doc.documentName === 'string' ? doc.documentName : undefined,
+        documentUrl: typeof doc.documentUrl === 'string' ? doc.documentUrl : undefined,
+        index,
+      }));
+      fd.append('assetDocuments', JSON.stringify(metadata));
+      docs.forEach((doc: any, index: number) => {
+        if (doc?.documentUrl instanceof File) {
+          fd.append(`assetDocuments[${index}][documentFile]`, doc.documentUrl, doc.documentUrl.name);
+        }
       });
+
+      const response = await fetch(`/api/assets/${id}`, { method: 'PATCH', body: fd });
 
       if (!response.ok) {
         const errorData = await response.json();

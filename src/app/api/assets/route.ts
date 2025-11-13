@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 const createSchema = z.object({
   assetGroupId: z.number().int().positive(),
@@ -11,11 +14,11 @@ const createSchema = z.object({
   assetName: z.string().min(1),
   make: z.string().optional(),
   description: z.string().optional(),
-  purchaseDate: z.string().datetime().optional(),
+  purchaseDate: z.string().optional(),
   invoiceNo: z.string().optional(),
   supplier: z.string().optional(),
-  invoiceCopyUrl: z.string().optional(),
-  nextMaintenanceDate: z.string().datetime().optional(),
+  invoiceCopyUrl: z.string().optional().nullable(),
+  nextMaintenanceDate: z.string().optional(),
   status: z.string().default("Working"),
   useStatus: z.string().default("In Use"),
 });
@@ -128,18 +131,108 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Get assets error:", error);
-    return Error("Failed to fetch assets");
+    return ApiError("Failed to fetch assets");
   }
 }
 
-// POST - Create new asset
+async function saveAssetDoc(file: File | null, subname: string) {
+  if (!file || file.size === 0) return null;
+  const allowed = [
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  if (!allowed.includes(file.type || "")) throw new Error("Unsupported file type");
+  if (file.size > 20 * 1024 * 1024) throw new Error("File too large (max 20MB)");
+  const ext = path.extname(file.name) || ".bin";
+  const filename = `${Date.now()}-${subname}-${crypto.randomUUID()}${ext}`;
+  const dir = path.join(process.cwd(), "uploads", "assets");
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  return `/uploads/assets/${filename}`;
+}
+
+// POST - Create new asset (supports multipart with assetDocuments)
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
-    const body = await req.json();
-    const validatedData = createSchema.parse(body);
+    const contentType = req.headers.get("content-type") || "";
+    let body: any = {};
+    let assetDocumentMetadata: Array<{ id?: number; documentName: string; documentUrl?: string; index: number }> = [];
+    const assetDocumentFiles: Array<{ index: number; file: File }> = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      const get = (k: string) => form.get(k) as string | null;
+      body = {
+        assetGroupId: get("assetGroupId"),
+        assetCategoryId: get("assetCategoryId"),
+        assetName: get("assetName"),
+        make: get("make"),
+        description: get("description"),
+        purchaseDate: get("purchaseDate"),
+        invoiceNo: get("invoiceNo"),
+        supplier: get("supplier"),
+        invoiceCopyUrl: get("invoiceCopyUrl"),
+        nextMaintenanceDate: get("nextMaintenanceDate"),
+        status: get("status"),
+        useStatus: get("useStatus"),
+      };
+
+      const documentsJson = form.get("assetDocuments");
+      if (typeof documentsJson === "string" && documentsJson.trim() !== "") {
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            assetDocumentMetadata = parsed
+              .filter((doc: any) => doc && typeof doc === "object")
+              .map((doc: any, index: number) => ({
+                id: typeof doc.id === "number" && Number.isFinite(doc.id) ? doc.id : undefined,
+                documentName: String(doc.documentName || ""),
+                documentUrl:
+                  typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                    ? doc.documentUrl
+                    : undefined,
+                index,
+              }));
+          }
+        } catch (e) {
+          console.warn("Failed to parse assetDocuments metadata (POST)", e);
+        }
+      }
+
+      form.forEach((value, key) => {
+        const match = key.match(/^assetDocuments\[(\d+)\]\[documentFile\]$/);
+        if (!match) return;
+        const idx = Number(match[1]);
+        const fileVal = value as unknown;
+        if (fileVal instanceof File) assetDocumentFiles.push({ index: idx, file: fileVal });
+      });
+    } else {
+      body = await req.json();
+      assetDocumentMetadata = Array.isArray((body as any)?.assetDocuments)
+        ? (body as any).assetDocuments.map((doc: any, index: number) => ({
+            id: typeof doc?.id === "number" && Number.isFinite(doc.id) ? doc.id : undefined,
+            documentName: String(doc?.documentName || ""),
+            documentUrl:
+              typeof doc?.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                ? doc.documentUrl
+                : undefined,
+            index,
+          }))
+        : [];
+    }
+
+    const validatedData = createSchema.parse({
+      ...body,
+      assetGroupId: body.assetGroupId ? Number(body.assetGroupId) : body.assetGroupId,
+      assetCategoryId: body.assetCategoryId ? Number(body.assetCategoryId) : body.assetCategoryId,
+    });
     
     // Convert datetime strings to Date objects
     const data: any = {
@@ -211,15 +304,38 @@ export async function POST(req: NextRequest) {
       }
     });
     
+    // After asset is created, persist any assetDocuments (metadata + files)
+    if (assetDocumentMetadata.length > 0 || assetDocumentFiles.length > 0) {
+      const filesByIndex = new Map<number, File>();
+      assetDocumentFiles.forEach(({ index, file }) => filesByIndex.set(index, file));
+
+      const createPayload: Array<{ assetId: number; documentName: string; documentUrl: string }> = [];
+      for (const docMeta of assetDocumentMetadata) {
+        const name = (docMeta.documentName || '').trim();
+        const file = filesByIndex.get(docMeta.index ?? -1);
+        const trimmedUrl = docMeta.documentUrl?.trim();
+        let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+        if (file) {
+          const saved = await saveAssetDoc(file, 'asset-doc');
+          finalUrl = saved ?? undefined;
+        }
+        if (!name || !finalUrl) continue;
+        createPayload.push({ assetId: created.id, documentName: name, documentUrl: finalUrl });
+      }
+      if (createPayload.length > 0) {
+        await prisma.assetDocument.createMany({ data: createPayload });
+      }
+    }
+
     return Success(created, 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
     if (error.code === 'P2002') {
-      return Error('Asset number already exists', 409);
+      return ApiError('Asset number already exists', 409);
     }
     console.error("Create asset error:", error);
-    return Error("Failed to create asset");
+    return ApiError("Failed to create asset");
   }
 }

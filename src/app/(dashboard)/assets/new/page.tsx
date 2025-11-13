@@ -12,22 +12,37 @@ export default function NewAssetPage() {
   
   const router = useRouter();
 
-  const handleSubmit = async (data: AssetFormData) => {
+  const handleSubmit = async (data: any) => {
     try {
-      // Convert date strings to ISO format for API
-      const submitData = {
-        ...data,
-        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate).toISOString() : undefined,
-        nextMaintenanceDate: data.nextMaintenanceDate ? new Date(data.nextMaintenanceDate).toISOString() : undefined,
-      };
+      const fd = new FormData();
+      if (data.assetGroupId) fd.append('assetGroupId', String(data.assetGroupId));
+      if (data.assetCategoryId) fd.append('assetCategoryId', String(data.assetCategoryId));
+      if (data.assetName) fd.append('assetName', data.assetName);
+      if (data.make) fd.append('make', data.make);
+      if (data.description) fd.append('description', data.description);
+      if (data.purchaseDate) fd.append('purchaseDate', data.purchaseDate);
+      if (data.invoiceNo) fd.append('invoiceNo', data.invoiceNo);
+      if (data.supplier) fd.append('supplier', data.supplier);
+      if (data.invoiceCopyUrl) fd.append('invoiceCopyUrl', data.invoiceCopyUrl);
+      if (data.nextMaintenanceDate) fd.append('nextMaintenanceDate', data.nextMaintenanceDate);
+      if (data.status) fd.append('status', data.status);
+      if (data.useStatus) fd.append('useStatus', data.useStatus);
 
-      const response = await fetch('/api/assets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
+      const docs = Array.isArray(data.assetDocuments) ? data.assetDocuments : [];
+      const metadata = docs.map((doc: any, index: number) => ({
+        id: typeof doc.id === 'number' ? doc.id : undefined,
+        documentName: doc.documentName || '',
+        documentUrl: typeof doc.documentUrl === 'string' ? doc.documentUrl : undefined,
+        index,
+      }));
+      fd.append('assetDocuments', JSON.stringify(metadata));
+      docs.forEach((doc: any, index: number) => {
+        if (doc?.documentUrl instanceof File) {
+          fd.append(`assetDocuments[${index}][documentFile]`, doc.documentUrl, doc.documentUrl.name);
+        }
       });
+
+      const response = await fetch('/api/assets', { method: 'POST', body: fd });
 
       if (!response.ok) {
         const errorData = await response.json();
