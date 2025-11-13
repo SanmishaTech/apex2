@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { use, useMemo } from 'react';
-import useSWR from 'swr';
-import { apiGet } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import CompanyForm from '../../company-form';
-import { Company } from '@/types/companies';
+import { use, useMemo } from "react";
+import useSWR from "swr";
+import { apiGet } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import CompanyForm from "../../company-form";
+import { Company } from "@/types/companies";
 
 interface EditCompanyPageProps {
   params: Promise<{ id: string }>;
@@ -14,11 +14,12 @@ interface EditCompanyPageProps {
 export default function EditCompanyPage({ params }: EditCompanyPageProps) {
   const { id } = use(params);
   const companyId = parseInt(id);
-  
-  const { data: company, error, isLoading } = useSWR<Company>(
-    `/api/companies/${companyId}`,
-    apiGet
-  );
+
+  const {
+    data: company,
+    error,
+    isLoading,
+  } = useSWR<Company>(`/api/companies/${companyId}`, apiGet);
 
   const initial = useMemo(() => {
     if (!company) return null;
@@ -39,11 +40,12 @@ export default function EditCompanyPage({ params }: EditCompanyPageProps) {
       gstNo: company.gstNo ?? undefined,
       tanNo: company.tanNo ?? undefined,
       cinNo: company.cinNo ?? undefined,
+      companyDocuments: (company as any).companyDocuments ?? [],
     };
   }, [company]);
 
   if (error) {
-    toast.error((error as Error).message || 'Failed to load company');
+    toast.error((error as Error).message || "Failed to load company");
     return (
       <div className="p-6">
         <div className="text-center text-muted-foreground">
@@ -83,5 +85,5 @@ export default function EditCompanyPage({ params }: EditCompanyPageProps) {
     );
   }
 
-  return <CompanyForm mode='edit' initial={initial} />;
+  return <CompanyForm mode="edit" initial={initial} />;
 }

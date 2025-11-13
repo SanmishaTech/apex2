@@ -134,6 +134,7 @@ model Company {
   state State? @relation(fields: [stateId], references: [id])
   city  City?  @relation(fields: [cityId], references: [id])
   sites Site[]
+  companyDocuments CompanyDocument[]
 
   @@index([companyName])
   @@index([shortName])
@@ -1711,6 +1712,20 @@ model AssetDocument {
 
   @@index([assetId])
   @@map("asset_documents")
+}
+
+model CompanyDocument {
+  id           Int      @id @default(autoincrement())
+  companyId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("company_documents")
 }
 
 // in approval add budget validatioon from sir in purchase ordeer.
