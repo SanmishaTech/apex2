@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { Asset, AssetFormData, AssetGroup, AssetCategory, ASSET_STATUS_OPTIONS, ASSET_USE_STATUS_OPTIONS } from '@/types/assets';
 import { formatDateForInput } from '@/lib/locales';
 import useSWR from 'swr';
+import { Upload, FileText, Trash2 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -57,6 +58,35 @@ export function AssetForm({ asset, onSubmit, onCancel, isSubmitting = false }: A
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [assetDocuments, setAssetDocuments] = useState<Array<{ id?: number; documentName: string; documentUrl: string | File | null; _isNew?: boolean; _tempId?: number }>>(() => {
+    return [];
+  });
+
+  const addEmptyDocument = () => {
+    const tempId = -Date.now();
+    setAssetDocuments((prev) => [
+      ...prev,
+      { id: tempId, documentName: '', documentUrl: null, _isNew: true, _tempId: tempId },
+    ]);
+  };
+
+  const removeDocumentAt = (index: number) => {
+    setAssetDocuments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Initialize documents for edit mode
+  useEffect(() => {
+    if (asset && Array.isArray((asset as any).assetDocuments)) {
+      const docs = (asset as any).assetDocuments.map((d: any) => ({
+        id: d.id,
+        documentName: d.documentName || '',
+        documentUrl: d.documentUrl || '',
+        _isNew: false,
+      }));
+      setAssetDocuments(docs);
+    }
+  }, [asset]);
+
   // Fetch asset groups
   const { data: assetGroupsData } = useSWR('/api/asset-groups?perPage=100', fetcher);
   const assetGroups: AssetGroup[] = assetGroupsData?.data || [];
@@ -91,10 +121,11 @@ export function AssetForm({ asset, onSubmit, onCancel, isSubmitting = false }: A
       const validatedData = assetSchema.parse(validationData);
       
       // Convert back to the correct format for submission
-      const submitData: AssetFormData = {
+      const submitData: any = {
         ...formData,
         assetGroupId: formData.assetGroupId!,
         assetCategoryId: formData.assetCategoryId!,
+        assetDocuments,
       };
 
       await onSubmit(submitData);
@@ -245,6 +276,89 @@ export function AssetForm({ asset, onSubmit, onCancel, isSubmitting = false }: A
                 />
               </div>
             </FormRow>
+          </FormSection>
+
+          {/* Documents Section */}
+          <FormSection
+            legend="Documents"
+            description="Add one or more documents for this asset"
+          >
+            <div className="space-y-4">
+              {assetDocuments.length === 0 && (
+                <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                  No documents added.
+                </div>
+              )}
+
+              {assetDocuments.map((doc, index) => {
+                const inputId = `asset-doc-${index}`;
+                const isFileObject = doc.documentUrl && typeof doc.documentUrl !== 'string' && (doc.documentUrl as File).name;
+                return (
+                  <div key={(doc as any)._tempId ?? doc.id ?? index} className="rounded-2xl border p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-2 min-w-0">
+                          <Label className="text-sm font-semibold">Document Name<span className="text-red-500">*</span></Label>
+                          <Input
+                            value={doc.documentName}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAssetDocuments((prev) => prev.map((d, i) => i === index ? { ...d, documentName: v } : d));
+                            }}
+                            placeholder="e.g. Invoice, Warranty"
+                          />
+                        </div>
+                      </div>
+                      <Button type="button" variant="ghost" className="text-destructive" onClick={() => removeDocumentAt(index)}>
+                        <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">File<span className="text-red-500">*</span></Label>
+                      <label htmlFor={inputId} className="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed bg-background px-4 py-3 text-sm shadow-sm transition hover:border-primary hover:bg-primary/5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <Upload className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{isFileObject ? (doc.documentUrl as File).name : 'Click to select a file'}</p>
+                            <p className="text-xs text-muted-foreground">JPG, PNG, PDF up to 20 MB.</p>
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-primary/40 px-3 py-1 text-xs font-medium text-primary transition group-hover:border-primary group-hover:bg-primary/10">Browse</span>
+                      </label>
+                      <input id={inputId} type="file" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setAssetDocuments((prev) => prev.map((d, i) => i === index ? { ...d, documentUrl: file } : d));
+                      }} />
+                      {typeof doc.documentUrl === 'string' && doc.documentUrl && (
+                        <div className="pt-2">
+                          {(() => {
+                            const url = doc.documentUrl as string;
+                            const href = url.startsWith('/uploads/') ? `/api${url}` : (url.startsWith('http') ? url : `/api/documents/${url}`);
+                            return (
+                              <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary text-sm underline">
+                                View existing
+                              </a>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div>
+                <Button type="button" variant="outline" onClick={addEmptyDocument}>
+                  <Upload className="h-4 w-4 mr-2" /> Add Document
+                </Button>
+              </div>
+            </div>
           </FormSection>
 
           {/* Purchase Details Section */}
