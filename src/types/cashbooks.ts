@@ -22,9 +22,13 @@ export interface CashbookDetail {
   cashbookId?: number;
   cashbookHeadId: number;
   cashbookHead?: CashbookHead;
+  date?: string;
   description?: string | null;
   openingBalance?: number | null;
   closingBalance?: number | null;
+  amountReceived?: number | null;
+  amountPaid?: number | null;
+  documentUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -58,9 +62,13 @@ export interface CreateCashbookRequest {
   attachVoucherCopyUrl?: string | null;
   cashbookDetails: Array<{
     cashbookHeadId: number;
+    date: string;
     description?: string | null;
     openingBalance?: number | null;
     closingBalance?: number | null;
+    amountReceived?: number | null;
+    amountPaid?: number | null;
+    documentUrl?: string | null;
   }>;
 }
 
@@ -68,8 +76,12 @@ export interface UpdateCashbookRequest extends Partial<CreateCashbookRequest> {
   cashbookDetails?: Array<{
     id?: number;
     cashbookHeadId: number;
+    date: string;
     description?: string | null;
     openingBalance?: number | null;
     closingBalance?: number | null;
+    amountReceived?: number | null;
+    amountPaid?: number | null;
+    documentUrl?: string | null;
   }>;
 }

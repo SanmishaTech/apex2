@@ -1,9 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import {
+  handleFileUpload,
+  imageUploadConfig,
+  documentUploadConfig,
+} from "@/lib/upload";
+import type { UploadConfig } from "@/lib/upload";
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
@@ -12,11 +18,35 @@ const createSchema = z.object({
   attachVoucherCopyUrl: z.string().nullable().optional(),
   cashbookDetails: z.array(z.object({
     cashbookHeadId: z.number().min(1, "Cashbook head is required"),
+    date: z.string().min(1, "Date is required"),
     description: z.string().nullable().optional(),
     openingBalance: z.number().nullable().optional(),
     closingBalance: z.number().nullable().optional(),
+    amountReceived: z.number().nullable().optional(),
+    amountPaid: z.number().nullable().optional(),
+    documentUrl: z.string().nullable().optional(),
   })).min(1, "At least one cashbook detail is required"),
 });
+
+const CASHBOOK_UPLOAD_CONFIG: UploadConfig = {
+  allowedTypes: Array.from(
+    new Set([
+      ...imageUploadConfig.allowedTypes,
+      ...documentUploadConfig.allowedTypes,
+    ])
+  ),
+  maxSize: Math.max(imageUploadConfig.maxSize, documentUploadConfig.maxSize),
+  uploadDir: "uploads/cashbooks",
+};
+
+async function uploadCashbookFile(file: File, prefix: string) {
+  if (!file || file.size === 0) return null;
+  const upload = await handleFileUpload(file, CASHBOOK_UPLOAD_CONFIG, prefix);
+  if (!upload.success || !upload.filename) {
+    throw new Error(upload.error || "Failed to upload file");
+  }
+  return `/uploads/cashbooks/${upload.filename}`;
+}
 
 // GET /api/cashbooks?search=&page=1&perPage=10&sort=voucherDate&order=desc
 export async function GET(req: NextRequest) {
@@ -43,9 +73,13 @@ export async function GET(req: NextRequest) {
 
     // Filter by voucher attachment
     if (isVoucher === "yes") {
-      where.attachVoucherCopyUrl = { not: null };
+      where.OR = where.OR || [];
+      where.OR.push({ attachVoucherCopyUrl: { not: null } });
+      where.OR.push({ cashbookDetails: { some: { documentUrl: { not: null } } } });
     } else if (isVoucher === "no") {
-      where.attachVoucherCopyUrl = null;
+      where.AND = where.AND || [];
+      where.AND.push({ attachVoucherCopyUrl: null });
+      where.AND.push({ cashbookDetails: { none: { documentUrl: { not: null } } } });
     }
 
     // Allow listed sortable fields only
@@ -73,7 +107,7 @@ export async function GET(req: NextRequest) {
     return Success(result);
   } catch (error) {
     console.error("Get cashbooks error:", error);
-    return Error("Failed to fetch cashbooks");
+    return ApiError("Failed to fetch cashbooks");
   }
 }
 
@@ -83,9 +117,79 @@ export async function POST(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
-    const body = await req.json();
-    const { voucherDate, siteId, boqId, attachVoucherCopyUrl, cashbookDetails } = createSchema.parse(body);
-    
+    const contentType = req.headers.get("content-type") || "";
+    let payloadData: unknown;
+    let attachVoucherCopyFile: File | null = null;
+    const detailFiles: Record<number, File> = {};
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      const rawPayload = form.get("payload");
+      if (typeof rawPayload !== "string") {
+        return BadRequest("Invalid payload");
+      }
+      try {
+        payloadData = JSON.parse(rawPayload);
+      } catch (parseError) {
+        return BadRequest("Malformed payload JSON");
+      }
+
+      const voucherFile = form.get("attachVoucherCopy");
+      if (voucherFile instanceof File && voucherFile.size > 0) {
+        attachVoucherCopyFile = voucherFile;
+      }
+
+      form.forEach((value, key) => {
+        if (value instanceof File && key.startsWith("detailDocument[")) {
+          const match = key.match(/^detailDocument\[(\d+)\]$/);
+          if (match) {
+            const index = Number(match[1]);
+            if (!Number.isNaN(index)) {
+              detailFiles[index] = value;
+            }
+          }
+        }
+      });
+    } else {
+      payloadData = await req.json();
+    }
+
+    const {
+      voucherDate,
+      siteId,
+      boqId,
+      attachVoucherCopyUrl,
+      cashbookDetails,
+    } = createSchema.parse(payloadData);
+
+    let finalAttachVoucherUrl = attachVoucherCopyUrl ?? null;
+    if (attachVoucherCopyFile) {
+      finalAttachVoucherUrl = await uploadCashbookFile(
+        attachVoucherCopyFile,
+        "cashbook-voucher"
+      );
+    }
+
+    const detailDocumentUrls: Record<number, string> = {};
+    const detailFileEntries = Object.entries(detailFiles);
+    if (detailFileEntries.length > 0) {
+      for (const [indexStr, file] of detailFileEntries) {
+        const index = Number(indexStr);
+        if (Number.isNaN(index)) continue;
+        try {
+          const uploadedUrl = await uploadCashbookFile(
+            file,
+            `cashbook-detail-${index + 1}`
+          );
+          if (uploadedUrl) {
+            detailDocumentUrls[index] = uploadedUrl;
+          }
+        } catch (uploadError) {
+          console.error("Cashbook detail upload error:", uploadError);
+        }
+      }
+    }
+
     // Generate voucher number
     const lastCashbook = await prisma.cashbook.findFirst({
       where: { voucherNo: { not: null } },
@@ -108,13 +212,18 @@ export async function POST(req: NextRequest) {
         voucherDate: new Date(voucherDate),
         siteId,
         boqId,
-        attachVoucherCopyUrl,
+        attachVoucherCopyUrl: finalAttachVoucherUrl,
         cashbookDetails: {
-          create: cashbookDetails.map(detail => ({
+          create: cashbookDetails.map((detail, detailIndex) => ({
             cashbookHeadId: detail.cashbookHeadId,
+            date: new Date(detail.date),
             description: detail.description,
             openingBalance: detail.openingBalance ? parseFloat(detail.openingBalance.toString()) : null,
             closingBalance: detail.closingBalance ? parseFloat(detail.closingBalance.toString()) : null,
+            amountReceived: detail.amountReceived ? parseFloat(detail.amountReceived.toString()) : null,
+            amountPaid: detail.amountPaid ? parseFloat(detail.amountPaid.toString()) : null,
+            documentUrl:
+              detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
           }))
         }
       },
@@ -135,6 +244,6 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     console.error("Create cashbook error:", error);
-    return Error("Failed to create cashbook");
+    return ApiError("Failed to create cashbook");
   }
 }

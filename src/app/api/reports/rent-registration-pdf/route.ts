@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
-
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
@@ -65,14 +64,15 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: [
-        { siteId: "asc" },
-        { boqId: "asc" },
-      ],
+      orderBy: [{ siteId: "asc" }, { boqId: "asc" }],
     });
 
     // Generate PDF
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
     // Header
     doc.setFontSize(14);
@@ -112,7 +112,10 @@ export async function GET(req: NextRequest) {
 
     // Process each group
     groups.forEach((group, index) => {
-      if (index > 0) {
+      // Check if we need a page break (removed forced page break per group)
+      const pageHeight = doc.internal.pageSize.height;
+      if (startY > pageHeight - 50) {
+        // Leave some margin for the next group
         doc.addPage();
         startY = 20;
       }
@@ -148,16 +151,37 @@ export async function GET(req: NextRequest) {
 
       // Add group total row
       tableData.push([
-        { content: "Total", colSpan: 6, styles: { fontStyle: "bold", halign: "right" } },
-        { content: groupTotalDeposit.toFixed(2), styles: { fontStyle: "bold", halign: "right" } },
-        { content: groupTotalRent.toFixed(2), styles: { fontStyle: "bold", halign: "right" } },
+        {
+          content: "Total",
+          colSpan: 6,
+          styles: { fontStyle: "bold", halign: "right" },
+        },
+        {
+          content: groupTotalDeposit.toFixed(2),
+          styles: { fontStyle: "bold", halign: "right" },
+        },
+        {
+          content: groupTotalRent.toFixed(2),
+          styles: { fontStyle: "bold", halign: "right" },
+        },
       ]);
 
       grandTotalDeposit += groupTotalDeposit;
       grandTotalRent += groupTotalRent;
 
       autoTable(doc, {
-        head: [["Owner", "Rent Category", "Rent Type", "Description", "Due Date", "Status", "Deposit Amount", "Rent Amount"]],
+        head: [
+          [
+            "Owner",
+            "Rent Category",
+            "Rent Type",
+            "Description",
+            "Due Date",
+            "Status",
+            "Deposit Amount",
+            "Rent Amount",
+          ],
+        ],
         body: tableData,
         startY: startY,
         styles: { fontSize: 9, cellPadding: 2 },
@@ -176,7 +200,11 @@ export async function GET(req: NextRequest) {
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       const finalY = (doc as any).lastAutoTable.finalY + 5;
-      doc.text(`Grand Total Deposit: ${grandTotalDeposit.toFixed(2)}`, 14, finalY);
+      doc.text(
+        `Grand Total Deposit: ${grandTotalDeposit.toFixed(2)}`,
+        14,
+        finalY
+      );
       doc.text(`Grand Total Rent: ${grandTotalRent.toFixed(2)}`, 120, finalY);
     }
 

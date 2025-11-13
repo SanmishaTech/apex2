@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
   Form,
@@ -18,13 +18,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppSelect } from "@/components/common/app-select";
-import { apiPost, apiPatch } from "@/lib/api-client";
+import { apiUpload } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
 import { formatDateForInput } from "@/lib/locales";
-import { Plus, Trash2, Upload, File, Image, X, Eye } from "lucide-react";
+import { Plus, Trash2, File, X, Eye } from "lucide-react";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import type { SitesResponse } from "@/types/sites";
 import type {
@@ -76,6 +76,7 @@ const cashbookDetailSchema = z.object({
       "Cashbook head is required"
     )
     .transform((val) => parseInt(val)),
+  date: z.string().min(1, "Date is required"),
   description: z.string().optional(),
   openingBalance: z
     .union([z.string(), z.number(), z.null(), z.undefined()])
@@ -91,6 +92,21 @@ const cashbookDetailSchema = z.object({
       return typeof val === "string" ? parseFloat(val) || null : val;
     })
     .nullable(),
+  amountReceived: z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .transform((val) => {
+      if (!val || val === "" || val === "0") return null;
+      return typeof val === "string" ? parseFloat(val) || null : val;
+    })
+    .nullable(),
+  amountPaid: z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .transform((val) => {
+      if (!val || val === "" || val === "0") return null;
+      return typeof val === "string" ? parseFloat(val) || null : val;
+    })
+    .nullable(),
+  documentUrl: z.string().optional(),
 });
 
 const createInputSchema = z.object({
@@ -125,9 +141,13 @@ type FormData = {
   attachVoucherCopyUrl?: string;
   cashbookDetails: {
     cashbookHeadId: string | number;
+    date: string;
     description?: string;
     openingBalance?: string | number | null;
     closingBalance?: string | number | null;
+    amountReceived?: string | number | null;
+    amountPaid?: string | number | null;
+    documentUrl?: string;
   }[];
 };
 
@@ -146,6 +166,23 @@ export function CashbookForm({
   } | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentFileObjectUrlRef = useRef<string | null>(null);
+  const [detailFilePreviews, setDetailFilePreviews] = useState<
+    Record<
+      string,
+      {
+        url: string;
+        type: "image" | "document";
+        name: string;
+      } | null
+    >
+  >({});
+  const [detailFileUploads, setDetailFileUploads] = useState<
+    Record<string, File | null>
+  >({});
+  const detailFileInputRefs = useRef<Record<string, HTMLInputElement | null>>(
+    {}
+  );
   const { backWithScrollRestore } = useScrollRestoration("cashbooks-list");
 
   // Form setup
@@ -162,15 +199,25 @@ export function CashbookForm({
         cashbookHeadId: detail.cashbookHeadId
           ? String(detail.cashbookHeadId)
           : "__none",
+        date: detail.date
+          ? formatDateForInput(detail.date)
+          : formatDateForInput(new Date().toISOString()),
         description: detail.description || "",
         openingBalance: detail.openingBalance || "",
         closingBalance: detail.closingBalance || "",
+        amountReceived: detail.amountReceived || "",
+        amountPaid: detail.amountPaid || "",
+        documentUrl: detail.documentUrl || "",
       })) || [
         {
           cashbookHeadId: "__none",
+          date: formatDateForInput(new Date().toISOString()),
           description: "",
           openingBalance: "",
           closingBalance: "",
+          amountReceived: "",
+          amountPaid: "",
+          documentUrl: "",
         },
       ],
     },
@@ -198,7 +245,6 @@ export function CashbookForm({
   // Initialize file preview for existing file when editing
   useEffect(() => {
     if (initial?.attachVoucherCopyUrl && mode === "edit") {
-      // Set preview for existing file
       const fileUrl = initial.attachVoucherCopyUrl;
       const fileName = fileUrl.split("/").pop() || "Attached File";
       const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
@@ -211,22 +257,29 @@ export function CashbookForm({
         type: isImage ? "image" : "document",
         name: fileName,
       });
+    } else if (!currentFile && !currentFileObjectUrlRef.current) {
+      setFilePreview(null);
     }
-  }, [initial?.attachVoucherCopyUrl, mode]);
+  }, [initial?.attachVoucherCopyUrl, mode, currentFile]);
 
   // File handling functions
   const handleFileSelect = (file: File, onChange: (value: string) => void) => {
+    if (currentFileObjectUrlRef.current) {
+      URL.revokeObjectURL(currentFileObjectUrlRef.current);
+      currentFileObjectUrlRef.current = null;
+    }
+
     setCurrentFile(file);
 
-    // Create preview
-    const reader = new FileReader();
     const isImage = file.type.startsWith("image/");
 
     if (isImage) {
-      reader.onload = (e) => {
-        if (e.target?.result) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const { result } = reader;
+        if (typeof result === "string") {
           setFilePreview({
-            url: e.target.result as string,
+            url: result,
             type: "image",
             name: file.name,
           });
@@ -234,18 +287,23 @@ export function CashbookForm({
       };
       reader.readAsDataURL(file);
     } else {
+      const objectUrl = URL.createObjectURL(file);
+      currentFileObjectUrlRef.current = objectUrl;
       setFilePreview({
-        url: "",
+        url: objectUrl,
         type: "document",
         name: file.name,
       });
     }
 
-    // Update form value - in a real app, you'd upload the file here
     onChange(file.name);
   };
 
   const removeFile = (onChange: (value: string) => void) => {
+    if (currentFileObjectUrlRef.current) {
+      URL.revokeObjectURL(currentFileObjectUrlRef.current);
+      currentFileObjectUrlRef.current = null;
+    }
     setCurrentFile(null);
     setFilePreview(null);
     onChange("");
@@ -253,6 +311,15 @@ export function CashbookForm({
       fileInputRef.current.value = "";
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (currentFileObjectUrlRef.current) {
+        URL.revokeObjectURL(currentFileObjectUrlRef.current);
+        currentFileObjectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const isImageFile = (filename: string) => {
     const extension = filename.split(".").pop()?.toLowerCase();
@@ -273,15 +340,25 @@ export function CashbookForm({
           cashbookHeadId: detail.cashbookHeadId
             ? String(detail.cashbookHeadId)
             : "__none",
+          date: detail.date
+            ? formatDateForInput(detail.date)
+            : formatDateForInput(new Date().toISOString()),
           description: detail.description || "",
           openingBalance: detail.openingBalance || "",
           closingBalance: detail.closingBalance || "",
+          amountReceived: detail.amountReceived || "",
+          amountPaid: detail.amountPaid || "",
+          documentUrl: detail.documentUrl || "",
         })) || [
           {
             cashbookHeadId: "__none",
+            date: formatDateForInput(new Date().toISOString()),
             description: "",
             openingBalance: "",
             closingBalance: "",
+            amountReceived: "",
+            amountPaid: "",
+            documentUrl: "",
           },
         ],
       });
@@ -291,15 +368,98 @@ export function CashbookForm({
   const addDetail = () => {
     append({
       cashbookHeadId: "__none",
+      date: formatDateForInput(new Date().toISOString()),
       description: "",
       openingBalance: "",
       closingBalance: "",
+      amountReceived: "",
+      amountPaid: "",
+      documentUrl: "",
     });
   };
 
   const removeDetail = (index: number) => {
     if (fields.length > 1) {
+      const fieldId = fields[index]?.id;
+      if (fieldId) {
+        setDetailFilePreviews((prev) => {
+          const updated = { ...prev };
+          delete updated[fieldId];
+          return updated;
+        });
+        setDetailFileUploads((prev) => {
+          const updated = { ...prev };
+          delete updated[fieldId];
+          return updated;
+        });
+        const inputRef = detailFileInputRefs.current[fieldId];
+        if (inputRef) {
+          inputRef.value = "";
+        }
+      }
       remove(index);
+    }
+  };
+
+  const handleDetailFileSelect = (
+    file: File,
+    onChange: (value: string) => void,
+    fieldId: string
+  ) => {
+    const isImage = file.type.startsWith("image/");
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const { result } = reader;
+        if (typeof result === "string") {
+          setDetailFilePreviews((prev) => ({
+            ...prev,
+            [fieldId]: {
+              url: result,
+              type: "image",
+              name: file.name,
+            },
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setDetailFilePreviews((prev) => ({
+        ...prev,
+        [fieldId]: {
+          url: "",
+          type: "document",
+          name: file.name,
+        },
+      }));
+    }
+
+    setDetailFileUploads((prev) => ({
+      ...prev,
+      [fieldId]: file,
+    }));
+    onChange(file.name);
+  };
+
+  const removeDetailFile = (
+    fieldId: string,
+    onChange: (value: string) => void
+  ) => {
+    setDetailFilePreviews((prev) => {
+      const updated = { ...prev };
+      delete updated[fieldId];
+      return updated;
+    });
+    setDetailFileUploads((prev) => {
+      const updated = { ...prev };
+      delete updated[fieldId];
+      return updated;
+    });
+    onChange("");
+    const inputRef = detailFileInputRefs.current[fieldId];
+    if (inputRef) {
+      inputRef.value = "";
     }
   };
 
@@ -316,18 +476,40 @@ export function CashbookForm({
         attachVoucherCopyUrl: transformedData.attachVoucherCopyUrl || null,
         cashbookDetails: transformedData.cashbookDetails.map((detail) => ({
           cashbookHeadId: detail.cashbookHeadId,
+          date: detail.date,
           description: detail.description || null,
           openingBalance: detail.openingBalance,
           closingBalance: detail.closingBalance,
+          amountReceived: detail.amountReceived,
+          amountPaid: detail.amountPaid,
+          documentUrl: detail.documentUrl || null,
         })),
       };
 
+      const formData = new FormData();
+      formData.append("payload", JSON.stringify(payload));
+
+      if (currentFile) {
+        formData.append("attachVoucherCopy", currentFile);
+      }
+
+      transformedData.cashbookDetails.forEach((_, index) => {
+        const fieldId = fields[index]?.id;
+        if (!fieldId) return;
+        const file = detailFileUploads[fieldId];
+        if (file) {
+          formData.append(`detailDocument[${index}]`, file);
+        }
+      });
+
       let result;
       if (mode === "create") {
-        result = await apiPost("/api/cashbooks", payload);
+        result = await apiUpload("/api/cashbooks", formData);
         toast.success("Cashbook created successfully");
       } else {
-        result = await apiPatch(`/api/cashbooks/${initial?.id}`, payload);
+        result = await apiUpload(`/api/cashbooks/${initial?.id}`, formData, {
+          method: "PATCH",
+        });
         toast.success("Cashbook updated successfully");
       }
 
@@ -349,13 +531,17 @@ export function CashbookForm({
       <table className="w-full">
         <thead className="bg-muted/50">
           <tr>
+            <th className="text-left p-2 font-medium text-sm">Date *</th>
             <th className="text-left p-2 font-medium text-sm">
               Cashbook Head *
             </th>
-            <th className="text-left p-2 font-medium text-sm">Description</th>
             <th className="text-left p-2 font-medium text-sm">
               Opening Balance
             </th>
+            <th className="text-left p-2 font-medium text-sm">
+              Amount Received
+            </th>
+            <th className="text-left p-2 font-medium text-sm">Amount Paid</th>
             <th className="text-left p-2 font-medium text-sm">
               Closing Balance
             </th>
@@ -363,118 +549,314 @@ export function CashbookForm({
           </tr>
         </thead>
         <tbody>
-          {fields.map((field, index) => (
-            <tr key={field.id} className="border-t">
-              <td className="p-2">
-                <FormField
-                  control={form.control}
-                  name={`cashbookDetails.${index}.cashbookHeadId`}
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormControl>
-                        <AppSelect
-                          value={String(field.value || "__none")}
-                          onValueChange={field.onChange}
-                        >
-                          <AppSelect.Item value="__none">
-                            Select Cashbook Head
-                          </AppSelect.Item>
-                          {cashbookHeadsData?.data?.map((head: any) => (
-                            <AppSelect.Item
-                              key={head.id}
-                              value={head.id.toString()}
-                            >
-                              {head.cashbookHeadName}
+          {fields.map((detailField, index) => (
+            <Fragment key={detailField.id}>
+              <tr className="border-t">
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.date`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <Input {...field} type="date" className="text-sm" />
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.cashbookHeadId`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <AppSelect
+                            value={String(field.value || "__none")}
+                            onValueChange={field.onChange}
+                          >
+                            <AppSelect.Item value="__none">
+                              Select Cashbook Head
                             </AppSelect.Item>
-                          ))}
-                        </AppSelect>
-                      </FormControl>
-                      <div className="min-h-[16px]">
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </td>
-              <td className="p-2">
-                <FormField
-                  control={form.control}
-                  name={`cashbookDetails.${index}.description`}
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          placeholder="Enter description"
-                          className="min-h-[60px] text-sm"
-                        />
-                      </FormControl>
-                      <div className="min-h-[16px]">
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </td>
-              <td className="p-2">
-                <FormField
-                  control={form.control}
-                  name={`cashbookDetails.${index}.openingBalance`}
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value ?? ""}
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          className="text-sm"
-                        />
-                      </FormControl>
-                      <div className="min-h-[16px]">
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </td>
-              <td className="p-2">
-                <FormField
-                  control={form.control}
-                  name={`cashbookDetails.${index}.closingBalance`}
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value ?? ""}
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          className="text-sm"
-                        />
-                      </FormControl>
-                      <div className="min-h-[16px]">
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </td>
-              <td className="p-2 text-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeDetail(index)}
-                  disabled={fields.length <= 1}
-                  className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </td>
-            </tr>
+                            {cashbookHeadsData?.data?.map((head: any) => (
+                              <AppSelect.Item
+                                key={head.id}
+                                value={head.id.toString()}
+                              >
+                                {head.cashbookHeadName}
+                              </AppSelect.Item>
+                            ))}
+                          </AppSelect>
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.openingBalance`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="text-sm"
+                            disabled
+                          />
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.amountReceived`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="text-sm"
+                          />
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.amountPaid`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="text-sm"
+                          />
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td className="p-2">
+                  <FormField
+                    control={form.control}
+                    name={`cashbookDetails.${index}.closingBalance`}
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="text-sm"
+                            disabled
+                          />
+                        </FormControl>
+                        <div className="min-h-[16px]">
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </td>
+                <td className="p-2 text-center" rowSpan={2}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeDetail(index)}
+                    disabled={fields.length <= 1}
+                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </td>
+              </tr>
+              <tr className="border-t bg-muted/30">
+                <td colSpan={3} className="p-3 align-top">
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Description
+                    </span>
+                    <FormField
+                      control={form.control}
+                      name={`cashbookDetails.${index}.description`}
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Enter description"
+                              className="min-h-[60px] text-sm"
+                            />
+                          </FormControl>
+                          <div className="min-h-[16px]">
+                            <FormMessage className="text-xs" />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </td>
+                <td colSpan={3} className="p-3 align-top">
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Document
+                    </span>
+                    <FormField
+                      control={form.control}
+                      name={`cashbookDetails.${index}.documentUrl`}
+                      render={({ field }) => {
+                        const fieldId = detailField.id;
+                        const preview = detailFilePreviews[fieldId] || null;
+                        const existingValue = field.value;
+                        const hasExistingValue = !!existingValue;
+                        return (
+                          <FormItem className="space-y-1">
+                            <FormControl>
+                              <div className="space-y-2">
+                                <Input
+                                  ref={(element) => {
+                                    detailFileInputRefs.current[fieldId] =
+                                      element;
+                                  }}
+                                  type="file"
+                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handleDetailFileSelect(
+                                        file,
+                                        field.onChange,
+                                        fieldId
+                                      );
+                                    }
+                                  }}
+                                  className="file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                                />
+                                {(preview || hasExistingValue) && (
+                                  <div className="flex items-center gap-2">
+                                    {preview?.type === "image" &&
+                                    preview.url ? (
+                                      <div className="w-12 h-12 border rounded overflow-hidden bg-muted">
+                                        <img
+                                          src={preview.url}
+                                          alt="Document preview"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ) : null}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">
+                                        {preview?.name ||
+                                          (typeof existingValue === "string"
+                                            ? existingValue.split("/").pop() ||
+                                              existingValue
+                                            : "Selected file")}
+                                      </p>
+                                      {preview?.type === "image" &&
+                                        preview.url &&
+                                        preview.url === existingValue && (
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              window.open(preview.url, "_blank")
+                                            }
+                                            className="h-7 text-xs mt-1"
+                                          >
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            View
+                                          </Button>
+                                        )}
+                                      {!preview && hasExistingValue && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            typeof existingValue === "string"
+                                              ? window.open(
+                                                  existingValue,
+                                                  "_blank"
+                                                )
+                                              : undefined
+                                          }
+                                          className="h-7 text-xs mt-1"
+                                          disabled={
+                                            typeof existingValue !== "string"
+                                          }
+                                        >
+                                          <Eye className="h-3 w-3 mr-1" />
+                                          View
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        removeDetailFile(
+                                          fieldId,
+                                          field.onChange
+                                        )
+                                      }
+                                      className="text-red-600 hover:text-red-700 h-7 w-7 p-0"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </FormControl>
+                            <div className="min-h-[16px]">
+                              <FormMessage className="text-xs" />
+                            </div>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  </div>
+                </td>
+              </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -617,7 +999,7 @@ export function CashbookForm({
                           <Input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
@@ -678,26 +1060,22 @@ export function CashbookForm({
                                     : "Document file"}
                                 </p>
 
-                                {/* Action buttons for existing files */}
-                                {mode === "edit" &&
-                                  initial?.attachVoucherCopyUrl &&
-                                  !currentFile &&
-                                  filePreview.type === "image" && (
-                                    <div className="flex gap-2 mt-2">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          window.open(filePreview.url, "_blank")
-                                        }
-                                        className="h-7 text-xs"
-                                      >
-                                        <Eye className="h-3 w-3 mr-1" />
-                                        View Full Size
-                                      </Button>
-                                    </div>
-                                  )}
+                                {filePreview.url && (
+                                  <div className="flex gap-2 mt-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        window.open(filePreview.url, "_blank")
+                                      }
+                                      className="h-7 text-xs"
+                                    >
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      View File
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -706,8 +1084,9 @@ export function CashbookForm({
                         {/* Upload hint */}
                         {!filePreview && (
                           <p className="text-xs text-muted-foreground">
-                            Supported formats: PDF, JPG, JPEG, PNG, DOC, DOCX
-                            (Max 20MB)
+                            Supported formats include images, PDF, Word, Excel,
+                            PowerPoint, text, CSV, and similar documents (Max
+                            20MB)
                           </p>
                         )}
                       </div>

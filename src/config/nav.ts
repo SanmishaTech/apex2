@@ -91,12 +91,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Briefcase,
         permission: PERMISSIONS.READ_DEPARTMENTS,
       },
-      {
-        title: "Employees",
-        href: "/employees",
-        icon: UserCheck,
-        permission: PERMISSIONS.READ_EMPLOYEES,
-      },
+
       {
         title: "Notices",
         href: "/notices",
@@ -111,6 +106,12 @@ export const NAV_ITEMS: NavItem[] = [
     title: "H.R",
     icon: UserCheck,
     children: [
+      {
+        title: "Employees",
+        href: "/employees",
+        icon: UserCheck,
+        permission: PERMISSIONS.READ_EMPLOYEES,
+      },
       {
         title: "Categories",
         href: "/categories",
