@@ -247,12 +247,21 @@ export default function ViewRentPage() {
             </div>
           </div>
 
-          {/* Attached MOM Copy Section */}
+          {/* Attached MOM Copy Section */
+          }
           <div className="border-t pt-4">
             <h3 className="text-lg font-semibold mb-3">Attached MOM Copy</h3>
             {rent.momCopyUrl ? (
-              <a
-                href={`/api/documents/${rent.momCopyUrl}`}
+              (() => {
+                const url = rent.momCopyUrl as string;
+                const href = url.startsWith('/uploads/')
+                  ? `/api${url}`
+                  : url.startsWith('http')
+                  ? url
+                  : `/api/documents/${url}`;
+                return (
+                  <a
+                href={href}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline inline-flex items-center gap-2'
@@ -274,8 +283,48 @@ export default function ViewRentPage() {
                 </svg>
                 View Document
               </a>
+                );
+              })()
             ) : (
               <span className="text-muted-foreground text-sm">No document attached</span>
+            )}
+          </div>
+
+          {/* Rent Documents Section */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-3">Documents</h3>
+            {Array.isArray((rent as any).rentDocuments) && (rent as any).rentDocuments.length > 0 ? (
+              <ul className="space-y-2">
+                {(rent as any).rentDocuments.map((doc: any) => {
+                  const url: string = doc.documentUrl || '';
+                  const href = url.startsWith('/uploads/')
+                    ? `/api${url}`
+                    : url.startsWith('http')
+                    ? url
+                    : `/api/documents/${url}`;
+                  return (
+                    <li key={doc.id} className="flex items-center justify-between gap-4 rounded-md border p-3">
+                      <div className="truncate">
+                        <div className="text-sm font-medium truncate">{doc.documentName || 'Document'}</div>
+                      </div>
+                      {url ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline text-sm whitespace-nowrap"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">No file</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <span className="text-muted-foreground text-sm">No documents</span>
             )}
           </div>
 

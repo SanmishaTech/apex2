@@ -1136,6 +1136,8 @@ model Rent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  rentDocuments RentDocument[]
+
   @@index([siteId])
   @@index([boqId])
   @@index([rentalCategoryId])
@@ -1682,10 +1684,18 @@ model PurchaseOrderDetail {
 }
 
 
-//in approval 1 form check if all fields are getting field by default or not and fix it.
-//check same in items details with the calculation.
-//after approval 1. apply same in approval 2.
-//create add form from indent list.
-// 5) fix items add ui and dark mode color.
+model RentDocument {
+  id           Int      @id @default(autoincrement())
+  rentId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  rent    Rent @relation(fields: [rentId], references: [id], onDelete: Cascade)
 
-// in approval add budget validatioon from sir.
+  @@index([rentId])
+  @@map("rent_documents")
+}
+
+// in approval add budget validatioon from sir in purchase ordeer.

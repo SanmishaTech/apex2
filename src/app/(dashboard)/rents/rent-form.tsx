@@ -18,14 +18,15 @@ import { AppSelect } from "@/components/common/app-select";
 import { TextInput } from "@/components/common/text-input";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import { Input } from "@/components/ui/input";
-import { apiPost, apiPatch, apiGet } from "@/lib/api-client";
+import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { formatDateForInput } from "@/lib/locales";
 import useSWR from "swr";
 import { RENT_DAY_OPTIONS } from "@/types/rents";
 import { UploadInput } from "@/components/common/upload-input";
-import { documentUploadConfig, uploadFile } from "@/lib/upload-config";
+import { documentUploadConfig } from "@/lib/upload-config";
+import { RentDocumentUploadArray } from "./rent-document-array";
 
 interface SitesResponse {
   data: Array<{ id: number; site: string }>;
@@ -57,6 +58,19 @@ export interface RentFormProps {
 export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   const { backWithScrollRestore } = useScrollRestoration("rents-list");
   const [submitting, setSubmitting] = useState(false);
+
+  // Schema for documents
+  const documentSchema = z.object({
+    id: z.number().optional(),
+    documentName: z.string().min(1, "Document name is required"),
+    documentUrl: z
+      .any()
+      .refine(
+        (val) =>
+          (typeof val === "string" && val.trim() !== "") || val instanceof File,
+        "Document file is required"
+      ),
+  });
 
   // Different schemas for add vs edit modes
   const addSchema = z.object({
@@ -95,6 +109,7 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
       .any()
       .refine((val) => !val || val instanceof File, "Invalid file input")
       .optional(),
+    rentDocuments: z.array(documentSchema).default([]),
   });
 
   const editSchema = z.object({
@@ -150,6 +165,14 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
       ifscCode: initial?.ifscCode ?? "",
     };
 
+    const initialDocumentValues =
+      initial?.rentDocuments?.map((doc: any) => ({
+        id: doc.id,
+        documentName: doc.documentName || "",
+        documentUrl: doc.documentUrl || "",
+        _isNew: false,
+      })) || [];
+
     if (mode === "create") {
       return {
         ...baseDefaults,
@@ -161,6 +184,7 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
         toDate: initial?.toDate
           ? formatDateForInput(new Date(initial.toDate))
           : "",
+        rentDocuments: initialDocumentValues,
       };
     } else {
       return {
@@ -201,58 +225,94 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
   async function onSubmit(data: any) {
     setSubmitting(true);
     try {
-      // Handle file upload only in create mode
-      let momCopyUrl = initial?.momCopyUrl || null;
-      if (mode === "create" && data.momCopy && data.momCopy instanceof File) {
-        const uploadResult = await uploadFile(
-          data.momCopy,
-          "document",
-          "rent-mom"
-        );
-        if (uploadResult.success) {
-          momCopyUrl = uploadResult.filename;
-        } else {
-          toast.error(uploadResult.error || "Failed to upload file");
-          return;
-        }
+      // Always use multipart FormData to support documents and optional files
+      const fd = new FormData();
+
+      // Build document metadata and attach files
+      const documents = (data.rentDocuments || []) as Array<any>;
+      const documentMetadata = documents
+        .map((doc) => {
+          const isExistingDoc = typeof doc.id === "number" && doc.id > 0;
+          const metadata: any = {
+            documentName: doc.documentName || "",
+            documentUrl: (() => {
+              if (doc.documentUrl instanceof File) return doc.documentUrl;
+              return typeof doc.documentUrl === "string" &&
+                doc.documentUrl.trim() !== ""
+                ? doc.documentUrl
+                : undefined;
+            })(),
+          };
+          if (isExistingDoc) metadata.id = doc.id;
+          else if (doc._isNew && doc._tempId) metadata._tempId = doc._tempId;
+          return metadata;
+        })
+        .filter((doc) => doc.documentName && doc.documentUrl);
+
+      // Append primitive fields
+      if (data.owner) fd.append("owner", data.owner.trim());
+      if (data.pancardNo) fd.append("pancardNo", data.pancardNo.trim());
+      if (data.description) fd.append("description", data.description.trim());
+      if (data.bank) fd.append("bank", data.bank.trim());
+      if (data.branch) fd.append("branch", data.branch.trim());
+      if (data.accountNo) fd.append("accountNo", data.accountNo.trim());
+      if (data.accountName) fd.append("accountName", data.accountName.trim());
+      if (data.ifscCode) fd.append("ifscCode", data.ifscCode.trim());
+      if (data.siteId) fd.append("siteId", String(data.siteId));
+      if (data.boqId) fd.append("boqId", String(data.boqId));
+      if (data.rentalCategoryId)
+        fd.append("rentalCategoryId", String(data.rentalCategoryId));
+      if (data.rentTypeId) fd.append("rentTypeId", String(data.rentTypeId));
+
+      if (mode === "create") {
+        if (data.rentDay) fd.append("rentDay", data.rentDay);
+        if (data.fromDate) fd.append("fromDate", data.fromDate);
+        if (data.toDate) fd.append("toDate", data.toDate);
+        if (data.depositAmount !== undefined && data.depositAmount !== null)
+          fd.append("depositAmount", String(data.depositAmount));
+        if (data.rentAmount !== undefined && data.rentAmount !== null)
+          fd.append("rentAmount", String(data.rentAmount));
+        if (data.momCopy) fd.append("momCopy", data.momCopy);
+      } else {
+        if (data.dueDate) fd.append("dueDate", data.dueDate);
+        if (data.depositAmount !== undefined && data.depositAmount !== null)
+          fd.append("depositAmount", String(data.depositAmount));
+        if (data.rentAmount !== undefined && data.rentAmount !== null)
+          fd.append("rentAmount", String(data.rentAmount));
       }
 
-      // Clean up the data before sending to API
-      const cleanData = {
-        ...data,
-        // Remove null/undefined numeric fields to let API handle them properly
-        siteId: data.siteId || undefined,
-        boqId: data.boqId || undefined,
-        rentalCategoryId: data.rentalCategoryId || undefined,
-        rentTypeId: data.rentTypeId || undefined,
-        // Clean up empty strings
-        owner: data.owner?.trim() || undefined,
-        pancardNo: data.pancardNo?.trim() || undefined,
-        ...(mode === "create"
-          ? {
-              rentDay: data.rentDay || undefined,
-              fromDate: data.fromDate?.trim() || undefined,
-              toDate: data.toDate?.trim() || undefined,
-            }
-          : {
-              dueDate: data.dueDate?.trim() || undefined,
-            }),
-        description: data.description?.trim() || undefined,
-        bank: data.bank?.trim() || undefined,
-        branch: data.branch?.trim() || undefined,
-        accountNo: data.accountNo?.trim() || undefined,
-        accountName: data.accountName?.trim() || undefined,
-        ifscCode: data.ifscCode?.trim() || undefined,
-        // Only include momCopyUrl in create mode
-        ...(mode === "create" ? { momCopyUrl } : {}),
-      };
+      // Documents only in create mode
+      if (mode === "create") {
+        fd.append("rentDocuments", JSON.stringify(documentMetadata));
+        documents.forEach((doc, idx) => {
+          if (doc?.documentUrl instanceof File) {
+            fd.append(
+              `rentDocuments[${idx}][documentFile]`,
+              doc.documentUrl,
+              doc.documentUrl.name
+            );
+          }
+        });
+      }
 
-      const result =
-        mode === "create"
-          ? await apiPost("/api/rents", cleanData)
-          : await apiPatch(`/api/rents/${initial?.id}`, cleanData);
+      // Submit
+      let resp: Response;
+      if (mode === "create") {
+        resp = await fetch("/api/rents", { method: "POST", body: fd });
+      } else {
+        resp = await fetch(`/api/rents/${initial?.id}`, {
+          method: "PATCH",
+          body: fd,
+        });
+      }
+      const result = await resp.json().catch(() => null);
+      if (!resp.ok)
+        throw new Error(
+          result?.message ||
+            `Failed to ${mode === "create" ? "create" : "update"} rent`
+        );
 
-      // Handle response for multiple records creation
+      // Success notifications
       if (
         mode === "create" &&
         result &&
@@ -602,6 +662,12 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                     showPreview={false}
                   />
                 </FormRow>
+              </FormSection>
+            )}
+
+            {mode === "create" && (
+              <FormSection legend="Documents">
+                <RentDocumentUploadArray control={control} />
               </FormSection>
             )}
 

@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error, BadRequest } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 // Helper to coerce optional numeric fields that may arrive as strings from forms
 function toOptionalNumber(v: unknown): number | undefined {
@@ -46,7 +49,13 @@ const createRentSchema = z.object({
   ifscCode: z.string().optional(),
   momCopyUrl: z
     .any()
-    .refine((val) => !val || val instanceof File, "Invalid file input")
+    .refine(
+      (val) =>
+        !val ||
+        val instanceof File ||
+        (typeof val === "string" && val.trim().length > 0),
+      "Invalid file input"
+    )
     .optional(),
 });
 
@@ -84,9 +93,41 @@ const rentSelectFields = {
   accountName: true,
   ifscCode: true,
   momCopyUrl: true,
+  rentDocuments: {
+    select: {
+      id: true,
+      documentName: true,
+      documentUrl: true,
+    },
+  },
   createdAt: true,
   updatedAt: true,
-} as const;
+};
+
+async function saveRentDoc(file: File | null, subname: string) {
+  if (!file || file.size === 0) return null;
+  const allowed = [
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  if (!allowed.includes(file.type || ""))
+    throw new Error("Unsupported file type");
+  if (file.size > 20 * 1024 * 1024)
+    throw new Error("File too large (max 20MB)");
+  const ext = path.extname(file.name) || ".bin";
+  const filename = `${Date.now()}-${subname}-${crypto.randomUUID()}${ext}`;
+  const dir = path.join(process.cwd(), "uploads", "rents");
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(
+    path.join(dir, filename),
+    Buffer.from(await file.arrayBuffer())
+  );
+  return `/uploads/rents/${filename}`;
+}
 
 // GET - List rents with pagination & search
 export async function GET(req: NextRequest) {
@@ -140,7 +181,7 @@ export async function GET(req: NextRequest) {
         : { [sort]: order }) as any,
       page,
       perPage,
-      select: rentSelectFields as any,
+      select: rentSelectFields,
     });
 
     // Debug: Log pagination result
@@ -165,7 +206,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Get rents error:", error);
-    return Error("Failed to fetch rents");
+    return ApiError("Failed to fetch rents");
   }
 }
 
@@ -175,28 +216,163 @@ export async function POST(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
-    const raw = await req.json();
-    const body = normalizeRentPayload(raw);
-    const validatedData = createRentSchema.parse(body);
+    const contentType = req.headers.get("content-type") || "";
+    let body: any = {};
+    let rentDocumentMetadata: Array<{
+      id?: number;
+      documentName: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
+    const rentDocumentFiles: Array<{ index: number; file: File }> = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      const getString = (key: string) => {
+        const value = form.get(key);
+        return typeof value === "string" ? value : undefined;
+      };
+      const getFile = (key: string) => {
+        const value = form.get(key);
+        return value instanceof File ? value : null;
+      };
+
+      body = {
+        siteId: getString("siteId"),
+        boqId: getString("boqId"),
+        rentalCategoryId: getString("rentalCategoryId"),
+        rentTypeId: getString("rentTypeId"),
+        owner: getString("owner"),
+        pancardNo: getString("pancardNo"),
+        rentDay: getString("rentDay"),
+        fromDate: getString("fromDate"),
+        toDate: getString("toDate"),
+        dueDate: getString("dueDate"),
+        description: getString("description"),
+        depositAmount: getString("depositAmount"),
+        rentAmount: getString("rentAmount"),
+        bank: getString("bank"),
+        branch: getString("branch"),
+        accountNo: getString("accountNo"),
+        accountName: getString("accountName"),
+        ifscCode: getString("ifscCode"),
+        paymentMethod: getString("paymentMethod"),
+        utrNumber: getString("utrNumber"),
+        chequeNumber: getString("chequeNumber"),
+        chequeDate: getString("chequeDate"),
+        bankDetails: getString("bankDetails"),
+        paymentDate: getString("paymentDate"),
+        momCopyUrl:
+          getFile("momCopy") ||
+          getFile("momCopyUrl") ||
+          getString("momCopyUrl"),
+      };
+
+      const documentsJson = form.get("rentDocuments");
+      if (typeof documentsJson === "string" && documentsJson.trim() !== "") {
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            rentDocumentMetadata = parsed
+              .filter((doc: any) => doc && typeof doc === "object")
+              .map((doc: any, index: number) => ({
+                id:
+                  typeof doc.id === "number" && Number.isFinite(doc.id)
+                    ? doc.id
+                    : undefined,
+                documentName: String(doc.documentName || ""),
+                documentUrl:
+                  typeof doc.documentUrl === "string" &&
+                  doc.documentUrl.trim() !== ""
+                    ? doc.documentUrl
+                    : undefined,
+                index,
+              }));
+          }
+        } catch (err) {
+          console.warn("Failed to parse rentDocuments metadata (POST)", err);
+        }
+      }
+
+      form.forEach((value, key) => {
+        const match = key.match(/^rentDocuments\[(\d+)\]\[documentFile\]$/);
+        if (!match) return;
+        const idx = Number(match[1]);
+        const fileVal = value as unknown;
+        if (fileVal instanceof File) {
+          rentDocumentFiles.push({ index: idx, file: fileVal });
+        }
+      });
+    } else {
+      const raw = await req.json();
+      body = raw;
+      if (Array.isArray(raw?.rentDocuments)) {
+        rentDocumentMetadata = raw.rentDocuments.map(
+          (doc: any, index: number) => ({
+            id:
+              typeof doc?.id === "number" && Number.isFinite(doc.id)
+                ? doc.id
+                : undefined,
+            documentName: String(doc?.documentName || ""),
+            documentUrl:
+              typeof doc?.documentUrl === "string" &&
+              doc.documentUrl.trim() !== ""
+                ? doc.documentUrl
+                : undefined,
+            index,
+          })
+        );
+      }
+    }
+
+    const normalizedBody = normalizeRentPayload(body);
+    const validatedData = createRentSchema.parse(normalizedBody);
+
+    const { momCopyUrl: momCopyValue, ...rest } = validatedData as any;
+    let momCopyUrl: string | undefined;
+    if (momCopyValue instanceof File) {
+      const saved = await saveRentDoc(momCopyValue, "mom");
+      momCopyUrl = saved ?? undefined;
+    } else if (typeof momCopyValue === "string" && momCopyValue.trim() !== "") {
+      momCopyUrl = momCopyValue.trim();
+    }
+
+    const filesByIndex = new Map<number, File>();
+    rentDocumentFiles.forEach(({ index, file }) => {
+      filesByIndex.set(index, file);
+    });
+
+    // Resolve document files/urls once so we can attach the same set to every created monthly record
+    const resolvedDocs: Array<{ documentName: string; documentUrl: string }> = [];
+    if (rentDocumentMetadata.length > 0 || filesByIndex.size > 0) {
+      for (const docMeta of rentDocumentMetadata) {
+        const name = (docMeta.documentName || "").trim();
+        const file = filesByIndex.get(docMeta.index ?? -1);
+        const trimmedUrl = docMeta.documentUrl?.trim();
+        let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+        if (file) {
+          const saved = await saveRentDoc(file, "rent-doc");
+          finalUrl = saved ?? undefined;
+        }
+        if (!name || !finalUrl) continue;
+        resolvedDocs.push({ documentName: name, documentUrl: finalUrl });
+      }
+    }
+
+    const { rentDay, ...restWithoutRentDay } = rest;
 
     // If both fromDate and toDate are provided, generate monthly records
-    if (
-      validatedData.fromDate &&
-      validatedData.toDate &&
-      validatedData.rentDay
-    ) {
-      const fromDate = new Date(validatedData.fromDate);
-      const toDate = new Date(validatedData.toDate);
-      const rentDay = parseInt(validatedData.rentDay);
+    if (rest.fromDate && rest.toDate && rentDay) {
+      const fromDate = new Date(rest.fromDate);
+      const toDate = new Date(rest.toDate);
+      const rentDayInt = parseInt(rentDay);
 
-      // Calculate the first due date
       let dueDate = new Date(
         fromDate.getFullYear(),
         fromDate.getMonth(),
-        rentDay
+        rentDayInt
       );
 
-      // If the due date is before the from date, move to next month
       if (dueDate < fromDate) {
         dueDate.setMonth(dueDate.getMonth() + 1);
       }
@@ -204,10 +380,10 @@ export async function POST(req: NextRequest) {
       const createdRents: any[] = [];
       let srNo = 1;
 
-      // Generate monthly records
       while (dueDate <= toDate) {
         const rentData: any = {
-          ...validatedData,
+          ...restWithoutRentDay,
+          rentDay,
           fromDate,
           toDate,
           srNo,
@@ -222,26 +398,38 @@ export async function POST(req: NextRequest) {
           paymentDate: null,
         };
 
-        // Mark first record
+        if (momCopyUrl) {
+          rentData.momCopyUrl = momCopyUrl;
+        }
+
         if (srNo === 1) {
           rentData.listStatus = "First";
         }
 
-        // Check if this is the last record
         const nextDueDate = new Date(dueDate);
         nextDueDate.setMonth(nextDueDate.getMonth() + 1);
         if (nextDueDate > toDate) {
           rentData.listStatus = "Last";
         }
 
-        const created = await prisma.rent.create({
+        const created: any = await prisma.rent.create({
           data: rentData,
-          select: rentSelectFields as any,
+          select: rentSelectFields,
         });
+
+        // Attach documents to each created monthly record, if any were provided
+        if (resolvedDocs.length > 0) {
+          await prisma.rentDocument.createMany({
+            data: resolvedDocs.map((d) => ({
+              rentId: created.id as number,
+              documentName: d.documentName,
+              documentUrl: d.documentUrl,
+            })),
+          });
+        }
 
         createdRents.push(created);
 
-        // Move to next month
         dueDate.setMonth(dueDate.getMonth() + 1);
         srNo++;
       }
@@ -254,9 +442,8 @@ export async function POST(req: NextRequest) {
         201
       );
     } else {
-      // Single record creation (backward compatibility)
       const rentData: any = {
-        ...validatedData,
+        ...rest,
         status: "Unpaid",
         paymentMethod: null,
         utrNumber: null,
@@ -265,21 +452,51 @@ export async function POST(req: NextRequest) {
         bankDetails: null,
         paymentDate: null,
       };
-      if (rentData.fromDate && rentData.fromDate.trim() !== "") {
-        rentData.fromDate = new Date(rentData.fromDate);
+
+      if (
+        rest.fromDate &&
+        typeof rest.fromDate === "string" &&
+        rest.fromDate.trim() !== ""
+      ) {
+        rentData.fromDate = new Date(rest.fromDate);
       } else {
         delete rentData.fromDate;
       }
-      if (rentData.toDate && rentData.toDate.trim() !== "") {
-        rentData.toDate = new Date(rentData.toDate);
+      if (
+        rest.toDate &&
+        typeof rest.toDate === "string" &&
+        rest.toDate.trim() !== ""
+      ) {
+        rentData.toDate = new Date(rest.toDate);
       } else {
         delete rentData.toDate;
       }
+      if (
+        rest.dueDate &&
+        typeof rest.dueDate === "string" &&
+        rest.dueDate.trim() !== ""
+      ) {
+        rentData.dueDate = new Date(rest.dueDate);
+      }
 
-      const created = await prisma.rent.create({
+      if (momCopyUrl) {
+        rentData.momCopyUrl = momCopyUrl;
+      }
+
+      const created: any = await prisma.rent.create({
         data: rentData,
-        select: rentSelectFields as any,
+        select: rentSelectFields,
       });
+
+      if (resolvedDocs.length > 0) {
+        await prisma.rentDocument.createMany({
+          data: resolvedDocs.map((d) => ({
+            rentId: created.id as number,
+            documentName: d.documentName,
+            documentUrl: d.documentUrl,
+          })),
+        });
+      }
 
       return Success(created, 201);
     }
@@ -288,6 +505,6 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     console.error("Create rent error:", error);
-    return Error("Failed to create rent");
+    return ApiError("Failed to create rent");
   }
 }
