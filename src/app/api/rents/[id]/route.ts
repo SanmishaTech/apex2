@@ -156,7 +156,7 @@ export async function GET(
     return Success(rent);
   } catch (error) {
     console.error("Get rent error:", error);
-    return Error("Failed to fetch rent");
+    return ApiError("Failed to fetch rent");
   }
 }
 
@@ -439,11 +439,11 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    if (error.code === "P2025") {
+    if ((error as any)?.code === "P2025") {
       return NotFound("Rent not found");
     }
     console.error("Update rent error:", error);
-    return Error("Failed to update rent");
+    return ApiError("Failed to update rent");
   }
 }
 
@@ -466,10 +466,10 @@ export async function DELETE(
 
     return Success({ message: "Rent deleted successfully" });
   } catch (error) {
-    if (error.code === "P2025") {
+    if ((error as any)?.code === "P2025") {
       return NotFound("Rent not found");
     }
     console.error("Delete rent error:", error);
-    return Error("Failed to delete rent");
+    return ApiError("Failed to delete rent");
   }
 }

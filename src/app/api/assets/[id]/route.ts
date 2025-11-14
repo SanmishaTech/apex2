@@ -324,8 +324,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return Success({ message: 'Asset deleted successfully' });
   } catch (error) {
-    if (error.code === 'P2025') return NotFound('Asset not found');
+    if ((error as any)?.code === 'P2025') return NotFound('Asset not found');
     console.error("Delete asset error:", error);
-    return Error("Failed to delete asset");
+    return ApiError("Failed to delete asset");
   }
 }
