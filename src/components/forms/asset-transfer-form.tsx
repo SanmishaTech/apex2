@@ -1,23 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AppCard } from '@/components/common/app-card';
-import { FormSection, FormRow } from '@/components/common/app-form';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import { toast } from 'sonner';
-import { z } from 'zod';
-import { AssetTransfer, AssetTransferFormData, ASSET_TRANSFER_TYPE_OPTIONS } from '@/types/asset-transfers';
-import { Site } from '@/types/sites';
-import { Asset } from '@/types/assets';
-import { formatDateForInput } from '@/lib/locales';
-import { Badge } from '@/components/ui/badge';
-import { X, Upload, FileText } from 'lucide-react';
-import useSWR from 'swr';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AppCard } from "@/components/common/app-card";
+import { FormSection, FormRow } from "@/components/common/app-form";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { toast } from "sonner";
+import { z } from "zod";
+import {
+  AssetTransfer,
+  AssetTransferFormData,
+  ASSET_TRANSFER_TYPE_OPTIONS,
+} from "@/types/asset-transfers";
+import { Site } from "@/types/sites";
+import { Asset } from "@/types/assets";
+import { formatDateForInput } from "@/lib/locales";
+import { Badge } from "@/components/ui/badge";
+import { X, Upload, FileText, Trash2 } from "lucide-react";
+import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -39,34 +50,56 @@ interface AssetTransferFormProps {
   viewOnly?: boolean;
 }
 
-export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitting = false, viewOnly = false }: AssetTransferFormProps) {
-  const { backWithScrollRestore } = useScrollRestoration('asset-transfers-list');
-  
+export function AssetTransferForm({
+  assetTransfer,
+  onSubmit,
+  onCancel,
+  isSubmitting = false,
+  viewOnly = false,
+}: AssetTransferFormProps) {
+  const router = useRouter();
+  const { backWithScrollRestore } = useScrollRestoration(
+    "asset-transfers-list"
+  );
+
   const [formData, setFormData] = useState<AssetTransferFormData>({
-    transferType: assetTransfer?.transferType || 'New Assign',
-    challanDate: assetTransfer?.challanDate ? formatDateForInput(assetTransfer.challanDate) : formatDateForInput(new Date().toISOString()),
+    transferType: assetTransfer?.transferType || "New Assign",
+    challanDate: assetTransfer?.challanDate
+      ? formatDateForInput(assetTransfer.challanDate)
+      : formatDateForInput(new Date().toISOString()),
     fromSiteId: assetTransfer?.fromSiteId || null,
     toSiteId: assetTransfer?.toSiteId || null,
-    assetIds: assetTransfer?.transferItems?.map(item => item.assetId) || [],
-    challanCopyUrl: assetTransfer?.challanCopyUrl || '',
-    remarks: assetTransfer?.remarks || '',
+    assetIds: assetTransfer?.transferItems?.map((item) => item.assetId) || [],
+    challanCopyUrl: assetTransfer?.challanCopyUrl || "",
+    remarks: assetTransfer?.remarks || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [assetTransferDocuments, setAssetTransferDocuments] = useState<
+    Array<{
+      id?: number;
+      documentName: string;
+      documentUrl: string | File | null;
+      _isNew?: boolean;
+      _tempId?: number;
+    }>
+  >([]);
 
   // Fetch sites
-  const { data: sitesData } = useSWR('/api/sites?perPage=100', fetcher);
+  const { data: sitesData } = useSWR("/api/sites?perPage=100", fetcher);
   const sites: Site[] = sitesData?.data || [];
 
   // Fetch assets (only for new transfers, not when viewing existing ones)
   const shouldFetchAssets = !viewOnly && !assetTransfer;
-  const assetQuery = shouldFetchAssets ? (
-    formData.transferType === 'New Assign' 
-      ? 'transferStatus=Available&perPage=100' // Only available assets can be newly assigned
-      : formData.fromSiteId ? `transferStatus=Assigned&currentSiteId=${formData.fromSiteId}&perPage=100` : null // Only assigned assets at the from site can be transferred
-  ) : null;
+  const assetQuery = shouldFetchAssets
+    ? formData.transferType === "New Assign"
+      ? "transferStatus=Available&perPage=100" // Only available assets can be newly assigned
+      : formData.fromSiteId
+      ? `transferStatus=Assigned&currentSiteId=${formData.fromSiteId}&perPage=100`
+      : null // Only assigned assets at the from site can be transferred
+    : null;
 
   const { data: assetsData } = useSWR(
     assetQuery ? `/api/assets?${assetQuery}` : null,
@@ -76,27 +109,27 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
 
   // Reset relevant fields when transfer type changes
   useEffect(() => {
-    if (formData.transferType === 'New Assign') {
+    if (formData.transferType === "New Assign") {
       // When switching to New Assign, clear fromSiteId and selected assets
-      setFormData(prev => {
+      setFormData((prev) => {
         // Only clear if there were actually fields to clear (avoid initial render)
         if (prev.fromSiteId !== null || prev.assetIds.length > 0) {
           return {
             ...prev,
             fromSiteId: null,
-            assetIds: []
+            assetIds: [],
           };
         }
         return prev;
       });
-    } else if (formData.transferType === 'Transfer') {
+    } else if (formData.transferType === "Transfer") {
       // When switching to Transfer, clear selected assets
-      setFormData(prev => {
+      setFormData((prev) => {
         // Only clear if there were assets selected (avoid initial render)
         if (prev.assetIds.length > 0) {
           return {
             ...prev,
-            assetIds: []
+            assetIds: [],
           };
         }
         return prev;
@@ -104,12 +137,45 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
     }
   }, [formData.transferType]);
 
+  // Preload existing documents in edit/view
+  useEffect(() => {
+    if (assetTransfer && (assetTransfer as any).assetTransferDocuments) {
+      const docs = (
+        (assetTransfer as any).assetTransferDocuments as Array<any>
+      ).map((d) => ({
+        id: d.id,
+        documentName: d.documentName || "",
+        documentUrl: d.documentUrl || "",
+        _isNew: false,
+      }));
+      setAssetTransferDocuments(docs);
+    }
+  }, [assetTransfer]);
+
+  const addEmptyDocument = () => {
+    const tempId = -Date.now();
+    setAssetTransferDocuments((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        documentName: "",
+        documentUrl: null,
+        _isNew: true,
+        _tempId: tempId,
+      },
+    ]);
+  };
+
+  const removeDocumentAt = (index: number) => {
+    setAssetTransferDocuments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Reset assets when from site changes (for Transfer type)
   useEffect(() => {
-    if (formData.transferType === 'Transfer' && formData.fromSiteId) {
-      setFormData(prev => ({
+    if (formData.transferType === "Transfer" && formData.fromSiteId) {
+      setFormData((prev) => ({
         ...prev,
-        assetIds: []
+        assetIds: [],
       }));
     }
   }, [formData.fromSiteId, formData.transferType]);
@@ -123,8 +189,66 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
         ...formData,
         toSiteId: formData.toSiteId || 0,
       });
-      
-      await onSubmit(formData);
+      // Decide JSON vs multipart
+      const hasDocFiles = assetTransferDocuments.some(
+        (d) => d.documentUrl instanceof File
+      );
+      const shouldUseFormData = !!uploadedFile || hasDocFiles;
+
+      if (shouldUseFormData) {
+        const fd = new FormData();
+        fd.append("transferType", formData.transferType);
+        fd.append("challanDate", formData.challanDate);
+        if (formData.fromSiteId != null)
+          fd.append("fromSiteId", String(formData.fromSiteId));
+        if (formData.toSiteId != null)
+          fd.append("toSiteId", String(formData.toSiteId));
+        // assetIds as JSON for reliability
+        fd.append("assetIds", JSON.stringify(formData.assetIds));
+        if (formData.remarks) fd.append("remarks", formData.remarks);
+        if (uploadedFile) {
+          fd.append("challanCopy", uploadedFile, uploadedFile.name);
+        } else if (formData.challanCopyUrl) {
+          fd.append("challanCopyUrl", formData.challanCopyUrl);
+        }
+
+        // documents metadata
+        const docMetadata = assetTransferDocuments.map((doc, index) => ({
+          id: typeof doc.id === "number" && doc.id > 0 ? doc.id : undefined,
+          documentName: doc.documentName || "",
+          documentUrl:
+            typeof doc.documentUrl === "string" ? doc.documentUrl : undefined,
+          index,
+        }));
+        fd.append("assetTransferDocuments", JSON.stringify(docMetadata));
+        assetTransferDocuments.forEach((doc, index) => {
+          if (doc.documentUrl instanceof File) {
+            fd.append(
+              `assetTransferDocuments[${index}][documentFile]`,
+              doc.documentUrl,
+              doc.documentUrl.name
+            );
+          }
+        });
+
+        const endpoint = assetTransfer
+          ? `/api/asset-transfers/${assetTransfer.id}`
+          : "/api/asset-transfers";
+        const method = assetTransfer ? "PATCH" : "POST";
+        const res = await fetch(endpoint, { method, body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.message || `HTTP ${res.status}`);
+        }
+        const result = await res.json().catch(() => null);
+        toast.success(
+          `Asset transfer ${assetTransfer ? "updated" : "created"} successfully`
+        );
+        router.push("/asset-transfers");
+      } else {
+        await onSubmit(formData);
+        router.push("/asset-transfers");
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -134,7 +258,7 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
           }
         });
         setErrors(fieldErrors);
-        toast.error('Please correct the form errors');
+        toast.error("Please correct the form errors");
       }
     }
   };
@@ -143,20 +267,27 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
     backWithScrollRestore();
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     // Validate file size (20MB limit)
     if (file.size > 20 * 1024 * 1024) {
-      toast.error('File size must be less than 20MB');
+      toast.error("File size must be less than 20MB");
       return;
     }
 
     // Validate file type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+    ];
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Only PDF, JPEG, and PNG files are allowed');
+      toast.error("Only PDF, JPEG, and PNG files are allowed");
       return;
     }
 
@@ -165,25 +296,25 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
 
     try {
       const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
-      uploadFormData.append('type', 'document');
-      uploadFormData.append('prefix', 'challan');
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
+      uploadFormData.append("file", file);
+      uploadFormData.append("type", "document");
+      uploadFormData.append("prefix", "challan");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
         body: uploadFormData,
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed");
       }
 
       const result = await response.json();
-      setFormData(prev => ({ ...prev, challanCopyUrl: result.url }));
-      toast.success('File uploaded successfully');
+      setFormData((prev) => ({ ...prev, challanCopyUrl: result.url }));
+      toast.success("File uploaded successfully");
     } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload file');
+      console.error("Upload error:", error);
+      toast.error("Failed to upload file");
       setUploadedFile(null);
     } finally {
       setUploading(false);
@@ -195,7 +326,11 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
       <AppCard>
         <AppCard.Header>
           <h2 className="text-lg font-semibold">
-            {viewOnly ? 'View Asset Transfer' : assetTransfer ? 'Edit Asset Transfer' : 'Create New Asset Transfer'}
+            {viewOnly
+              ? "View Asset Transfer"
+              : assetTransfer
+              ? "Edit Asset Transfer"
+              : "Create New Asset Transfer"}
           </h2>
         </AppCard.Header>
 
@@ -206,7 +341,9 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                 <Label>Transfer Type *</Label>
                 <Select
                   value={formData.transferType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, transferType: value }))}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, transferType: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -219,7 +356,9 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.transferType && <p className="text-sm text-red-600">{errors.transferType}</p>}
+                {errors.transferType && (
+                  <p className="text-sm text-red-600">{errors.transferType}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -227,19 +366,33 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                 <Input
                   type="date"
                   value={formData.challanDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, challanDate: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      challanDate: e.target.value,
+                    }))
+                  }
                 />
-                {errors.challanDate && <p className="text-sm text-red-600">{errors.challanDate}</p>}
+                {errors.challanDate && (
+                  <p className="text-sm text-red-600">{errors.challanDate}</p>
+                )}
               </div>
             </FormRow>
 
             <FormRow cols={2}>
               <div className="space-y-2">
-                <Label>From Site {formData.transferType === 'Transfer' && '*'}</Label>
+                <Label>
+                  From Site {formData.transferType === "Transfer" && "*"}
+                </Label>
                 <Select
-                  value={formData.fromSiteId?.toString() || ''}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, fromSiteId: value ? parseInt(value) : null }))}
-                  disabled={formData.transferType === 'New Assign'}
+                  value={formData.fromSiteId?.toString() || ""}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      fromSiteId: value ? parseInt(value) : null,
+                    }))
+                  }
+                  disabled={formData.transferType === "New Assign"}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select from site" />
@@ -252,27 +405,38 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.fromSiteId && <p className="text-sm text-red-600">{errors.fromSiteId}</p>}
+                {errors.fromSiteId && (
+                  <p className="text-sm text-red-600">{errors.fromSiteId}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>To Site *</Label>
                 <Select
-                  value={formData.toSiteId?.toString() || ''}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, toSiteId: value ? parseInt(value) : null }))}
+                  value={formData.toSiteId?.toString() || ""}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      toSiteId: value ? parseInt(value) : null,
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select to site" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sites.filter(site => site.id !== formData.fromSiteId).map((site) => (
-                      <SelectItem key={site.id} value={site.id.toString()}>
-                        {site.site}
-                      </SelectItem>
-                    ))}
+                    {sites
+                      .filter((site) => site.id !== formData.fromSiteId)
+                      .map((site) => (
+                        <SelectItem key={site.id} value={site.id.toString()}>
+                          {site.site}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
-                {errors.toSiteId && <p className="text-sm text-red-600">{errors.toSiteId}</p>}
+                {errors.toSiteId && (
+                  <p className="text-sm text-red-600">{errors.toSiteId}</p>
+                )}
               </div>
             </FormRow>
           </FormSection>
@@ -281,24 +445,33 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Assets *</Label>
-                <Select onValueChange={(value) => {
-                  const assetId = parseInt(value);
-                  if (!formData.assetIds.includes(assetId)) {
-                    setFormData(prev => ({ ...prev, assetIds: [...prev.assetIds, assetId] }));
-                  }
-                }}>
+                <Select
+                  onValueChange={(value) => {
+                    const assetId = parseInt(value);
+                    if (!formData.assetIds.includes(assetId)) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        assetIds: [...prev.assetIds, assetId],
+                      }));
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select assets to transfer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {assets.filter(asset => !formData.assetIds.includes(asset.id)).map((asset) => (
-                      <SelectItem key={asset.id} value={asset.id.toString()}>
-                        {asset.assetNo} - {asset.assetName}
-                      </SelectItem>
-                    ))}
+                    {assets
+                      .filter((asset) => !formData.assetIds.includes(asset.id))
+                      .map((asset) => (
+                        <SelectItem key={asset.id} value={asset.id.toString()}>
+                          {asset.assetNo} - {asset.assetName}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
-                {errors.assetIds && <p className="text-sm text-red-600">{errors.assetIds}</p>}
+                {errors.assetIds && (
+                  <p className="text-sm text-red-600">{errors.assetIds}</p>
+                )}
               </div>
 
               {formData.assetIds.length > 0 && (
@@ -306,19 +479,27 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                   <Label>Selected Assets ({formData.assetIds.length})</Label>
                   <div className="flex flex-wrap gap-2">
                     {formData.assetIds.map((assetId) => {
-                      const asset = assets.find(a => a.id === assetId);
+                      const asset = assets.find((a) => a.id === assetId);
                       return asset ? (
-                        <Badge key={assetId} variant="secondary" className="flex items-center gap-1">
+                        <Badge
+                          key={assetId}
+                          variant="secondary"
+                          className="flex items-center gap-1"
+                        >
                           {asset.assetNo} - {asset.assetName}
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             className="h-4 w-4 p-0 hover:bg-transparent"
-                            onClick={() => setFormData(prev => ({ 
-                              ...prev, 
-                              assetIds: prev.assetIds.filter(id => id !== assetId) 
-                            }))}
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                assetIds: prev.assetIds.filter(
+                                  (id) => id !== assetId
+                                ),
+                              }))
+                            }
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -355,7 +536,9 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
                   {formData.challanCopyUrl && (
                     <div className="flex items-center gap-2 p-2 bg-green-50 rounded border">
                       <FileText className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-700">File uploaded successfully</span>
+                      <span className="text-sm text-green-700">
+                        File uploaded successfully
+                      </span>
                     </div>
                   )}
                 </div>
@@ -363,13 +546,158 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
             </FormRow>
           </FormSection>
 
+          {/* Documents */}
+          <FormSection legend="Documents">
+            <div className="space-y-4">
+              {assetTransferDocuments.length === 0 && (
+                <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                  No documents added.
+                </div>
+              )}
+
+              {assetTransferDocuments.map((doc, index) => {
+                const inputId = `transfer-doc-${index}`;
+                const isFileObject =
+                  doc.documentUrl &&
+                  typeof doc.documentUrl !== "string" &&
+                  (doc.documentUrl as File).name;
+                return (
+                  <div
+                    key={(doc as any)._tempId ?? doc.id ?? index}
+                    className="rounded-2xl border p-4 space-y-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-2 min-w-0">
+                          <label className="text-sm font-semibold">
+                            Document Name<span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            className="mt-2 w-full rounded-lg border border-muted bg-background px-3 py-2 text-sm"
+                            value={doc.documentName}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAssetTransferDocuments((prev) =>
+                                prev.map((d, i) =>
+                                  i === index ? { ...d, documentName: v } : d
+                                )
+                              );
+                            }}
+                            placeholder="e.g. LR Copy, E-way Bill"
+                          />
+                        </div>
+                      </div>
+                      {!viewOnly && (
+                        <button
+                          type="button"
+                          className="text-destructive inline-flex items-center text-sm"
+                          onClick={() => removeDocumentAt(index)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold">
+                        File<span className="text-red-500">*</span>
+                      </label>
+                      <label
+                        htmlFor={inputId}
+                        className="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed bg-background px-4 py-3 text-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <Upload className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {isFileObject
+                                ? (doc.documentUrl as File).name
+                                : "Click to select a file"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              JPG, PNG, PDF up to 20 MB.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-primary/40 px-3 py-1 text-xs font-medium text-primary">
+                          Browse
+                        </span>
+                      </label>
+                      {!viewOnly && (
+                        <input
+                          id={inputId}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setAssetTransferDocuments((prev) =>
+                              prev.map((d, i) =>
+                                i === index ? { ...d, documentUrl: file } : d
+                              )
+                            );
+                          }}
+                        />
+                      )}
+
+                      {typeof doc.documentUrl === "string" &&
+                        doc.documentUrl && (
+                          <div className="pt-2">
+                            {(() => {
+                              const url = doc.documentUrl as string;
+                              const href = url.startsWith("/uploads/")
+                                ? `/api${url}`
+                                : url.startsWith("http")
+                                ? url
+                                : `/api/documents/${url}`;
+                              return (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary text-sm underline"
+                                >
+                                  View existing
+                                </a>
+                              );
+                            })()}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!viewOnly && (
+                <div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center text-sm border rounded-md px-3 py-2"
+                    onClick={addEmptyDocument}
+                  >
+                    <Upload className="h-4 w-4 mr-2" /> Add Document
+                  </button>
+                </div>
+              )}
+            </div>
+          </FormSection>
+
           <FormSection legend="Additional Details">
             <FormRow>
               <div className="space-y-2">
                 <Label>Remarks</Label>
                 <Textarea
-                  value={formData.remarks || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                  value={formData.remarks || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      remarks: e.target.value,
+                    }))
+                  }
                   placeholder="Enter any additional remarks"
                   rows={3}
                 />
@@ -380,11 +708,16 @@ export function AssetTransferForm({ assetTransfer, onSubmit, onCancel, isSubmitt
 
         <AppCard.Footer>
           <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save'}
+              {isSubmitting ? "Saving..." : "Save"}
             </Button>
           </div>
         </AppCard.Footer>

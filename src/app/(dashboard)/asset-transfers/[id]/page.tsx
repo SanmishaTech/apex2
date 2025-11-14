@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { useProtectPage } from '@/hooks/use-protect-page';
-import { PERMISSIONS } from '@/config/roles';
-import { AssetTransfer } from '@/types/asset-transfers';
-import useSWR from 'swr';
-import { AppCard } from '@/components/common/app-card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, FileText } from 'lucide-react';
-import { FormSection, FormRow } from '@/components/common/app-form';
-import { Label } from '@/components/ui/label';
+import React from "react";
+import { useRouter } from "next/navigation";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { PERMISSIONS } from "@/config/roles";
+import { AssetTransfer } from "@/types/asset-transfers";
+import useSWR from "swr";
+import { AppCard } from "@/components/common/app-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Download, FileText } from "lucide-react";
+import { FormSection, FormRow } from "@/components/common/app-form";
+import { Label } from "@/components/ui/label";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -19,21 +19,34 @@ interface ViewAssetTransferPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageProps) {
+export default function ViewAssetTransferPage({
+  params,
+}: ViewAssetTransferPageProps) {
   useProtectPage();
-  
+
   const router = useRouter();
   const { id } = React.use(params);
   const transferId = parseInt(id, 10);
 
-  const { data: assetTransfer, error, isLoading } = useSWR<AssetTransfer>(
-    `/api/asset-transfers/${transferId}`,
-    fetcher
-  );
+  const {
+    data: assetTransfer,
+    error,
+    isLoading,
+  } = useSWR<AssetTransfer>(`/api/asset-transfers/${transferId}`, fetcher);
 
   const handleBack = () => {
-    router.push('/asset-transfers');
+    router.push("/asset-transfers");
   };
+
+  const resolveDocumentUrl = React.useCallback(
+    (url: string | null | undefined) => {
+      if (!url) return "#";
+      if (url.startsWith("/uploads/")) return `/api${url}`;
+      if (url.startsWith("http")) return url;
+      return `/api/documents/${url}`;
+    },
+    []
+  );
 
   if (error) {
     return (
@@ -76,9 +89,9 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
   }
 
   const statusColors = {
-    "Pending": "bg-yellow-100 text-yellow-800",
-    "Accepted": "bg-green-100 text-green-800", 
-    "Rejected": "bg-red-100 text-red-800",
+    Pending: "bg-yellow-100 text-yellow-800",
+    Accepted: "bg-green-100 text-green-800",
+    Rejected: "bg-red-100 text-red-800",
   };
 
   return (
@@ -98,9 +111,11 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
                 </p>
               </div>
             </div>
-            <Badge 
+            <Badge
               variant="secondary"
-              className={statusColors[assetTransfer.status as keyof typeof statusColors]}
+              className={
+                statusColors[assetTransfer.status as keyof typeof statusColors]
+              }
             >
               {assetTransfer.status}
             </Badge>
@@ -113,21 +128,27 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
             <FormRow cols={3}>
               <div className="space-y-2">
                 <Label>Transfer Type</Label>
-                <div className="p-2 bg-gray-50 rounded border">
-                  <Badge variant={assetTransfer.transferType === 'New Assign' ? 'default' : 'secondary'}>
+                <div className="p-2 rounded border bg-muted">
+                  <Badge
+                    variant={
+                      assetTransfer.transferType === "New Assign"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
                     {assetTransfer.transferType}
                   </Badge>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Challan Date</Label>
-                <div className="p-2 bg-gray-50 rounded border">
+                <div className="p-2 rounded border bg-muted">
                   {new Date(assetTransfer.challanDate).toLocaleDateString()}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Created Date</Label>
-                <div className="p-2 bg-gray-50 rounded border">
+                <div className="p-2 rounded border bg-muted">
                   {new Date(assetTransfer.createdAt).toLocaleDateString()}
                 </div>
               </div>
@@ -136,13 +157,13 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
             <FormRow cols={2}>
               <div className="space-y-2">
                 <Label>From Site</Label>
-                <div className="p-2 bg-gray-50 rounded border">
-                  {assetTransfer.fromSite?.site || 'N/A (New Assignment)'}
+                <div className="p-2 rounded border bg-muted">
+                  {assetTransfer.fromSite?.site || "N/A (New Assignment)"}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>To Site</Label>
-                <div className="p-2 bg-gray-50 rounded border">
+                <div className="p-2 rounded border bg-muted">
                   {assetTransfer.toSite?.site}
                 </div>
               </div>
@@ -150,21 +171,32 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
           </FormSection>
 
           {/* Asset Details */}
-          <FormSection legend={`Selected Assets (${assetTransfer.transferItems?.length || 0})`}>
+          <FormSection
+            legend={`Selected Assets (${
+              assetTransfer.transferItems?.length || 0
+            })`}
+          >
             <div className="space-y-3">
               {assetTransfer.transferItems?.map((item) => (
-                <div key={item.id} className="p-3 border rounded-lg bg-gray-50">
+                <div key={item.id} className="p-3 border rounded-lg bg-muted">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="font-medium text-blue-600">{item.asset?.assetNo}</span>
+                      <span className="font-medium text-blue-600">
+                        {item.asset?.assetNo}
+                      </span>
                       <span className="mx-2">-</span>
-                      <span className="font-medium">{item.asset?.assetName}</span>
+                      <span className="font-medium">
+                        {item.asset?.assetName}
+                      </span>
                       {item.asset?.make && (
-                        <span className="text-gray-600 ml-2">({item.asset.make})</span>
+                        <span className="text-gray-600 ml-2">
+                          ({item.asset.make})
+                        </span>
                       )}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {item.asset?.assetGroup?.assetGroupName} / {item.asset?.assetCategory?.category}
+                      {item.asset?.assetGroup?.assetGroupName} /{" "}
+                      {item.asset?.assetCategory?.category}
                     </div>
                   </div>
                 </div>
@@ -172,16 +204,57 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
             </div>
           </FormSection>
 
+          {/* Documents */}
+          {assetTransfer.assetTransferDocuments &&
+            assetTransfer.assetTransferDocuments.length > 0 && (
+              <FormSection
+                legend={`Documents (${assetTransfer.assetTransferDocuments.length})`}
+              >
+                <div className="space-y-3">
+                  {assetTransfer.assetTransferDocuments.map((doc) => {
+                    const href = resolveDocumentUrl(doc.documentUrl);
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-3 p-3 border rounded-lg bg-muted"
+                      >
+                        <FileText className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <div className="font-medium text-foreground">
+                            {doc.documentName}
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            View
+                          </a>
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </FormSection>
+            )}
+
           {/* Approval Details */}
-          {(assetTransfer.status !== 'Pending' || assetTransfer.approvedAt) && (
+          {(assetTransfer.status !== "Pending" || assetTransfer.approvedAt) && (
             <FormSection legend="Approval Details">
               <FormRow cols={2}>
                 <div className="space-y-2">
                   <Label>Status</Label>
-                  <div className="p-2 bg-gray-50 rounded border">
-                    <Badge 
+                  <div className="p-2 rounded border bg-muted">
+                    <Badge
                       variant="secondary"
-                      className={statusColors[assetTransfer.status as keyof typeof statusColors]}
+                      className={
+                        statusColors[
+                          assetTransfer.status as keyof typeof statusColors
+                        ]
+                      }
                     >
                       {assetTransfer.status}
                     </Badge>
@@ -190,7 +263,7 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
                 {assetTransfer.approvedAt && (
                   <div className="space-y-2">
                     <Label>Approved Date</Label>
-                    <div className="p-2 bg-gray-50 rounded border">
+                    <div className="p-2 rounded border bg-muted">
                       {new Date(assetTransfer.approvedAt).toLocaleDateString()}
                     </div>
                   </div>
@@ -200,8 +273,9 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
                 <FormRow>
                   <div className="space-y-2">
                     <Label>Approved By</Label>
-                    <div className="p-2 bg-gray-50 rounded border">
-                      {assetTransfer.approvedBy.name || assetTransfer.approvedBy.email}
+                    <div className="p-2 rounded border bg-muted">
+                      {assetTransfer.approvedBy.name ||
+                        assetTransfer.approvedBy.email}
                     </div>
                   </div>
                 </FormRow>
@@ -212,16 +286,18 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
           {/* File Attachment */}
           {assetTransfer.challanCopyUrl && (
             <FormSection legend="Challan Copy">
-              <div className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted">
                 <FileText className="w-5 h-5 text-blue-600" />
                 <span className="flex-1">Challan Copy</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(assetTransfer.challanCopyUrl, '_blank')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={resolveDocumentUrl(assetTransfer.challanCopyUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    View
+                  </a>
                 </Button>
               </div>
             </FormSection>
@@ -230,7 +306,7 @@ export default function ViewAssetTransferPage({ params }: ViewAssetTransferPageP
           {/* Remarks */}
           {assetTransfer.remarks && (
             <FormSection legend="Remarks">
-              <div className="p-3 bg-gray-50 rounded border">
+              <div className="p-3 rounded border bg-muted">
                 {assetTransfer.remarks}
               </div>
             </FormSection>

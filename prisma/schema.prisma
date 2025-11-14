@@ -1222,6 +1222,7 @@ model AssetTransfer {
 
   // Relations
   transferItems AssetTransferItem[]
+  assetTransferDocuments AssetTransferDocument[]
 
   @@index([challanNo])
   @@index([fromSiteId])
@@ -1694,7 +1695,7 @@ model RentDocument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  rent    Rent @relation(fields: [rentId], references: [id], onDelete: Cascade)
+  rent    Rent @relation(fields: [rentId], references: [id], onDelete: Restrict)
 
   @@index([rentId])
   @@map("rent_documents")
@@ -1708,7 +1709,7 @@ model AssetDocument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([assetId])
   @@map("asset_documents")
@@ -1722,10 +1723,24 @@ model CompanyDocument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([companyId])
   @@map("company_documents")
+}
+
+model AssetTransferDocument {
+  id           Int      @id @default(autoincrement())
+  assetTransferId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  assetTransfer    AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Restrict)
+
+  @@index([assetTransferId])
+  @@map("asset_transfer_documents")
 }
 
 // in approval add budget validatioon from sir in purchase ordeer.
