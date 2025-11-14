@@ -4,6 +4,7 @@ export interface Notice {
   noticeHeading: string;
   noticeDescription?: string | null;
   documentUrl?: string | null;
+  noticeDocuments?: Array<{ id: number; documentName: string; documentUrl: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,6 +21,7 @@ export interface NoticeInitialData {
   noticeHeading?: string;
   noticeDescription?: string | null;
   documentUrl?: string | null;
+  noticeDocuments?: Array<{ id: number; documentName: string; documentUrl: string }>;
 }
 
 export interface NoticesResponse {
