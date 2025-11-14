@@ -364,32 +364,31 @@ export function PurchaseOrderForm({
       pfCharges: initial?.pfCharges ?? null,
       gstReverseStatus: initial?.gstReverseStatus ?? null,
       gstReverseAmount: initial?.gstReverseAmount ?? null,
-      purchaseOrderItems:
-        initial?.purchaseOrderItems?.map((item) => ({
-          itemId: item.itemId ?? 0,
-          remark: item.remark ?? "",
-          qty: item.qty ?? 1,
-          // normalize approved1Qty: ensure it's a number when in approval mode,
-          // otherwise leave undefined so it doesn't conflict with the input schema
-          approved1Qty: isApprovalMode
-            ? Number(item.approved1Qty ?? item.qty ?? 0)
-            : item.approved1Qty ?? undefined,
-          rate: item.rate ?? 0,
-          discountPercent: item.discountPercent ?? 0,
-          cgstPercent: item.cgstPercent ?? 0,
-          sgstPercent: item.sgstPercent ?? 0,
-          igstPercent: item.igstPercent ?? 0,
-        })) || [
-          {
-            itemId: 0,
-            qty: 1,
-            rate: 0,
-            discountPercent: 0,
-            cgstPercent: 0,
-            sgstPercent: 0,
-            igstPercent: 0,
-          },
-        ],
+      purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
+        itemId: item.itemId ?? 0,
+        remark: item.remark ?? "",
+        qty: item.qty ?? 1,
+        // normalize approved1Qty: ensure it's a number when in approval mode,
+        // otherwise leave undefined so it doesn't conflict with the input schema
+        approved1Qty: isApprovalMode
+          ? Number(item.approved1Qty ?? item.qty ?? 0)
+          : item.approved1Qty ?? undefined,
+        rate: item.rate ?? 0,
+        discountPercent: item.discountPercent ?? 0,
+        cgstPercent: item.cgstPercent ?? 0,
+        sgstPercent: item.sgstPercent ?? 0,
+        igstPercent: item.igstPercent ?? 0,
+      })) || [
+        {
+          itemId: 0,
+          qty: 1,
+          rate: 0,
+          discountPercent: 0,
+          cgstPercent: 0,
+          sgstPercent: 0,
+          igstPercent: 0,
+        },
+      ],
     };
   }, [initial, isApprovalMode]);
 
@@ -1101,7 +1100,6 @@ export function PurchaseOrderForm({
                   label="Delivery Schedule"
                   rows={2}
                   span={1}
-                  disabled={isApprovalMode}
                 />
               </FormRow>
             </FormSection>
