@@ -35,6 +35,7 @@ export interface AssetTransfer {
   toSite?: Site;
   approvedBy?: User;
   transferItems?: AssetTransferItem[];
+  assetTransferDocuments?: Array<{ id: number; documentName: string; documentUrl: string }>;
 }
 
 export interface AssetTransferFormData {
