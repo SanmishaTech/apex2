@@ -7,7 +7,8 @@ import type { UploadConfig, UploadResult } from './upload-config';
 import { 
   imageUploadConfig, 
   documentUploadConfig, 
-  profileImageConfig 
+  profileImageConfig,
+  noticeDocumentUploadConfig,
 } from './upload-config';
 
 // Re-export types and configs from client-safe module
@@ -15,7 +16,8 @@ export type { UploadConfig, UploadResult };
 export { 
   imageUploadConfig, 
   documentUploadConfig, 
-  profileImageConfig 
+  profileImageConfig,
+  noticeDocumentUploadConfig,
 };
 
 /**

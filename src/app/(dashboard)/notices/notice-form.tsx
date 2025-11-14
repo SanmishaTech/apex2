@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +42,8 @@ export function NoticeForm({
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(
     initial?.documentUrl || null
   );
+  const [mainDocumentFile, setMainDocumentFile] = useState<File | null>(null);
+  const [noticeDocuments, setNoticeDocuments] = useState<Array<{ id?: number; documentName: string; documentUrl: string | File | null; _tempId?: number }>>([]);
 
   const schema = z.object({
     noticeDate: z.string().min(1, "Notice Date is required"),
@@ -61,6 +63,18 @@ export function NoticeForm({
     },
   });
   const { control, handleSubmit, watch } = form;
+
+  useEffect(() => {
+    if (initial?.noticeDocuments && Array.isArray(initial.noticeDocuments)) {
+      setNoticeDocuments(
+        initial.noticeDocuments.map((d) => ({
+          id: d.id,
+          documentName: d.documentName || "",
+          documentUrl: d.documentUrl || "",
+        }))
+      );
+    }
+  }, [initial]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -88,46 +102,77 @@ export function NoticeForm({
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "document");
-      formData.append("prefix", "notice");
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const result = await response.json();
-      setUploadedFileUrl(result.url);
-      toast.success("File uploaded successfully");
-    } catch (error) {
-      toast.error("Failed to upload file");
+      setMainDocumentFile(file);
+      setUploadedFileUrl(null);
+      toast.success("File ready for upload");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   }
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const payload = {
+      const baseFields = {
         noticeHead: values.noticeDate,
         noticeHeading: values.noticeHeading,
         noticeDescription: values.notice,
         documentUrl: uploadedFileUrl,
       };
 
-      if (mode === "create") {
-        await apiPost("/api/notices", payload);
-        toast.success("Notice created successfully");
+      const hasDocFiles = noticeDocuments.some((d) => d.documentUrl instanceof File);
+      const shouldUseFormData = !!mainDocumentFile || hasDocFiles;
+
+      if (shouldUseFormData) {
+        const fd = new FormData();
+        fd.append("noticeHead", baseFields.noticeHead);
+        fd.append("noticeHeading", baseFields.noticeHeading);
+        if (baseFields.noticeDescription) fd.append("noticeDescription", baseFields.noticeDescription);
+        if (!mainDocumentFile && baseFields.documentUrl) fd.append("documentUrl", baseFields.documentUrl);
+        if (mainDocumentFile) {
+          fd.append("document", mainDocumentFile, mainDocumentFile.name);
+        }
+
+        const meta = noticeDocuments.map((doc, index) => ({
+          id: typeof doc.id === "number" && doc.id > 0 ? doc.id : undefined,
+          documentName: doc.documentName || "",
+          documentUrl: typeof doc.documentUrl === "string" ? doc.documentUrl : undefined,
+          index,
+        }));
+        if (noticeDocuments.length > 0) {
+          fd.append("noticeDocuments", JSON.stringify(meta));
+        }
+        noticeDocuments.forEach((doc, index) => {
+          if (doc.documentUrl instanceof File) {
+            fd.append(`noticeDocuments[${index}][documentFile]`, doc.documentUrl, doc.documentUrl.name);
+          }
+        });
+
+        const endpoint = mode === "create" ? "/api/notices" : `/api/notices/${initial?.id}`;
+        const method = mode === "create" ? "POST" : "PATCH";
+        const res = await fetch(endpoint, { method, body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.message || `HTTP ${res.status}`);
+        }
+        toast.success(`Notice ${mode === "create" ? "created" : "updated"} successfully`);
       } else {
-        await apiPatch(`/api/notices/${initial?.id}`, payload);
-        toast.success("Notice updated successfully");
+        const jsonPayload: any = {
+          ...baseFields,
+          noticeDocuments: noticeDocuments.map((d) => ({
+            id: d.id,
+            documentName: d.documentName,
+            documentUrl: typeof d.documentUrl === "string" ? d.documentUrl : undefined,
+          })),
+        };
+        if (mode === "create") {
+          await apiPost("/api/notices", jsonPayload);
+          toast.success("Notice created successfully");
+        } else {
+          await apiPatch(`/api/notices/${initial?.id}`, jsonPayload);
+          toast.success("Notice updated successfully");
+        }
       }
 
       // Invalidate and revalidate the cache
@@ -177,6 +222,74 @@ export function NoticeForm({
                   placeholder="Enter notice content..."
                   rows={6}
                 />
+              </FormRow>
+              <FormRow>
+                <div className="space-y-3 w-full">
+                  <label className="block text-sm font-medium">Documents</label>
+                  {noticeDocuments.length === 0 && (
+                    <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
+                      No documents added.
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    {noticeDocuments.map((doc, index) => {
+                      const inputId = `notice-doc-${index}`;
+                      return (
+                        <div key={(doc as any)._tempId ?? doc.id ?? index} className="rounded border p-3">
+                          <div className="flex gap-3 items-start">
+                            <div className="flex-1 space-y-2">
+                              <label className="text-sm font-medium">Document Name</label>
+                              <input
+                                className="w-full rounded border px-3 py-2 text-sm"
+                                value={doc.documentName}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setNoticeDocuments((prev) => prev.map((d, i) => (i === index ? { ...d, documentName: v } : d)));
+                                }}
+                                placeholder="e.g. Circular, Attachment"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="text-sm text-red-600 hover:underline"
+                              onClick={() => setNoticeDocuments((prev) => prev.filter((_, i) => i !== index))}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="mt-3 space-y-1">
+                            <label className="text-sm font-medium">File</label>
+                            <div>
+                              <label htmlFor={inputId} className="inline-flex items-center gap-2 rounded border border-dashed px-3 py-2 text-sm cursor-pointer">
+                                <span>Choose File</span>
+                              </label>
+                              <input
+                                id={inputId}
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] ?? null;
+                                  setNoticeDocuments((prev) => prev.map((d, i) => (i === index ? { ...d, documentUrl: file } : d)));
+                                }}
+                              />
+                            </div>
+                            {typeof doc.documentUrl === 'string' && doc.documentUrl && (
+                              <div className="text-xs">
+                                <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View existing</a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div>
+                    <AppButton type="button" variant="secondary" onClick={() => setNoticeDocuments((prev) => ([...prev, { id: -Date.now(), documentName: '', documentUrl: null, _tempId: -Date.now() }]))}>
+                      Add Document
+                    </AppButton>
+                  </div>
+                </div>
               </FormRow>
               <FormRow>
                 <div>

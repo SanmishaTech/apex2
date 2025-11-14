@@ -33,6 +33,12 @@ export const documentUploadConfig: UploadConfig = {
   uploadDir: 'uploads/documents',
 };
 
+export const noticeDocumentUploadConfig: UploadConfig = {
+  allowedTypes: documentUploadConfig.allowedTypes,
+  maxSize: documentUploadConfig.maxSize,
+  uploadDir: 'uploads/notices',
+};
+
 export const profileImageConfig: UploadConfig = {
   allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
   maxSize: 5 * 1024 * 1024, // 5MB

@@ -757,6 +757,8 @@ model Notice {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  noticeDocuments NoticeDocument[]
+
   @@index([createdAt])
   @@map("notices")
 }
@@ -1741,6 +1743,21 @@ model AssetTransferDocument {
 
   @@index([assetTransferId])
   @@map("asset_transfer_documents")
+}
+
+
+model NoticeDocument {
+  id           Int      @id @default(autoincrement())
+  noticeId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  notice    Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+
+  @@index([noticeId])
+  @@map("notice_documents")
 }
 
 // in approval add budget validatioon from sir in purchase ordeer.
