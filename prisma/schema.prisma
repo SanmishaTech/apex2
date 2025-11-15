@@ -58,6 +58,12 @@ model User {
   purchaseOrdersCompleted PurchaseOrder[] @relation("POCompletedBy")
   purchaseOrdersSuspended PurchaseOrder[] @relation("POSuspendedBy")
 
+  workOrdersCreated WorkOrder[] @relation("WOCreated")
+  workOrdersUpdated WorkOrder[] @relation("WOUpdated")
+  workOrdersApproved1 WorkOrder[] @relation("WOApproved1By")
+  workOrdersApproved2 WorkOrder[] @relation("WOApproved2By")
+  workOrdersCompleted WorkOrder[] @relation("WOCompletedBy")
+  workOrdersSuspended WorkOrder[] @relation("WOSuspendedBy")
 
   @@index([role])
   @@map("users")
@@ -198,6 +204,8 @@ model Site {
   minimumWages MinimumWage[]
   // Back-relation for Indent.site
   indents         Indent[]
+    workOrders WorkOrder[]
+
 
   siteBudgets           SiteBudget[]
   // Back-relation for Rent.site
@@ -566,6 +574,7 @@ model BillingAddress {
   updatedAt    DateTime @updatedAt
 
    purchaseOrders PurchaseOrder[]
+    workOrders WorkOrder[]
 
   @@index([companyName])
   @@map("billing_addresses")
@@ -610,6 +619,7 @@ model Vendor {
   updatedAt        DateTime             @updatedAt
 
   purchaseOrders PurchaseOrder[]
+    workOrders WorkOrder[]
 
   @@index([vendorName])
   @@index([email])
@@ -897,6 +907,7 @@ model PaymentTerm {
   updatedAt   DateTime @updatedAt
 
   purchaseOrders PurchaseOrder[]
+    workOrders WorkOrder[]
 
   @@index([paymentTerm])
   @@map("payment_terms")
@@ -1026,6 +1037,7 @@ model Indent {
   // Relations
   indentItems IndentItem[]
   purchaseOrders PurchaseOrder[]
+  workOrders WorkOrder[]
   
 
   @@index([indentNo])
@@ -1560,6 +1572,8 @@ model SiteDeliveryAddress {
   city               City?       @relation(fields: [cityId], references: [id])
 
   purchaseOrders PurchaseOrder[]
+  workOrders WorkOrder[]
+
   @@index([siteId])
   @@index([stateId])
   @@index([cityId])
@@ -1759,5 +1773,130 @@ model NoticeDocument {
   @@index([noticeId])
   @@map("notice_documents")
 }
+
+enum WorkOrderType {
+  SUB_CONTRACT
+  PWR_WORK
+}
+
+model WorkOrder {
+  id                      Int       @id @default(autoincrement())
+  type         WorkOrderType  
+  indentId                Int?
+  indent    Indent?                @relation( fields: [indentId], references: [id], onDelete:Restrict)
+  siteId                  Int
+  site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
+  siteDeliveryAddressId                  Int
+  siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
+  paymentTermId           Int?
+  paymentTerm    PaymentTerm?                @relation( fields: [paymentTermId], references: [id], onDelete:Restrict)
+  billingAddressId        Int
+  billingAddress    BillingAddress                @relation( fields: [billingAddressId], references: [id], onDelete:Restrict)
+  vendorId                Int
+  vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
+  workOrderNo         String   @db.VarChar(30)  @unique
+  workOrderDate       DateTime @db.Date
+  quotationNo             String   @db.VarChar(100)
+  quotationDate           DateTime @db.Date
+  deliveryDate            DateTime @db.Date
+  transport               String?   @db.VarChar(100)
+  note                    String?   @db.Text
+  terms                   String?   @db.Text
+  paymentTermsInDays      Int?        
+  deliverySchedule        String?   @db.Text
+  amount                  Decimal?  @db.Decimal(12, 2) 
+  pfStatus                String?   @db.VarChar(50)
+  pfCharges               String?   @db.VarChar(50)
+  totalCgstAmount              Decimal? @db.Decimal(12,2) 
+  totalSgstAmount              Decimal? @db.Decimal(12,2) 
+  totalIgstAmount              Decimal? @db.Decimal(12,2) 
+  gstReverseStatus        String?   @db.VarChar(20)
+  gstReverseAmount        String?   @db.VarChar(50)
+  exciseTaxStatus         String?   @db.VarChar(20)
+  exciseTaxAmount         String?   @db.VarChar(50)
+  octroiTaxStatus         String?   @db.VarChar(20)
+  octroiTaxAmount         String?   @db.VarChar(50)
+  transitInsuranceStatus  String?   @db.VarChar(20)
+  transitInsuranceAmount  String?   @db.VarChar(50)
+  amountInWords           String?   @db.VarChar(255)
+  approvalStatus IndentApprovalStatus @default(DRAFT)
+  woStatus                   String?  //HOLD OR NULL
+  isApproved1             Boolean  @default(false)
+  approved1ById  Int?
+  approved1By    User?                @relation("WOApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At    DateTime?
+  isApproved2             Boolean  @default(false)
+   approved2ById  Int?
+  approved2By    User?                @relation("WOApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  approved2At    DateTime?
+  billStatus              String?   @db.VarChar(255)
+  remarks                 String?   @db.VarChar(255)
+  isSuspended             Boolean  @default(false)
+   suspendedById  Int?
+  suspendedBy    User?                @relation("WOSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
+  suspendedAt    DateTime?
+  isComplete              Boolean  @default(false)
+   completedById  Int?
+  completedBy    User?                @relation("WOCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  completedAt    DateTime?
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  revision                Int?
+  createdBy User @relation("WOCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("WOUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  workOrderDetails WorkOrderDetail[] 
+@@index([siteId])
+@@index([indentId])
+@@index([vendorId])
+@@index([billingAddressId])
+@@index([paymentTermId])
+@@index([createdById])
+@@index([updatedById])
+@@index([approved1ById])
+@@index([approved2ById])
+@@index([suspendedById])
+@@index([completedById])
+
+  @@map("work_orders")
+}
+
+
+model WorkOrderDetail {
+  id              Int       @id @default(autoincrement())
+  serialNo        Int
+  workOrderId Int
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+
+  item          String   
+  sac_code        String  
+    unit        String  
+  remark          String?   @db.VarChar(500)
+  qty             Decimal?  @db.Decimal(12, 4)
+  orderedQty      Decimal?  @db.Decimal(12, 4)
+  approved1Qty    Decimal?  @db.Decimal(12, 4)
+  approved2Qty    Decimal?  @db.Decimal(12, 4)
+  receivedQty     Decimal?  @default("0.0000") @db.Decimal(12, 4)
+  rate            Decimal?  @db.Decimal(12, 4)
+  cgstPercent            Decimal?  @db.Decimal(10, 2)
+  cgstAmt         Decimal?  @db.Decimal(10, 2)
+  sgstPercent            Decimal?  @db.Decimal(10, 2)
+  sgstAmt         Decimal?  @db.Decimal(10, 2)
+  igstPercent            Decimal?  @db.Decimal(10, 2)
+  igstAmt         Decimal?  @db.Decimal(10, 2)
+  amount          Decimal?  @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+
+@@index([workOrderId])
+
+  @@map("work_order_details")
+}
+
+
+
 
 // in approval add budget validatioon from sir in purchase ordeer.
