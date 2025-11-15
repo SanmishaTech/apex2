@@ -131,6 +131,7 @@ export interface PurchaseOrderFormProps {
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/purchase-orders'
   mutate?: () => Promise<any>;
+  indentId?: number;
 }
 
 const purchaseOrderItemSchema = z.object({
