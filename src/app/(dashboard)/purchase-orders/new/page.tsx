@@ -10,3 +10,5 @@ export default function NewPurchaseOrderPage() {
 
   return <PurchaseOrderForm mode="create" indentId={indentId} />;
 }
+
+
