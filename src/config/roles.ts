@@ -214,6 +214,14 @@ export const ROLES = {
   INTERNAL_AUDITOR: "internalAuditor", // internal auditor
   EXTERNAL_AUDITOR: "externalAuditor", // external auditor
   PROJECT_USER: "projectUser", // external / client user tied to specific projects
+
+  PURCHASE_EXECUTIVE: "purchaseExecutive", // purchase executive
+  COMMERCIAL_HEAD: "commercialHead", // commercial head
+  MD: "md", // md
+  PROJECT_COORDINATOR: "projectCoordinator", // project coordinator
+  TECHNICAL_DIRECTOR: "technicalDirector", // technical director
+  PROJECT_DIRECTOR: "projectDirector", // project director
+  SITE_ADMIN: "siteAdmin", // site admin
 } as const;
 
 export const ROLES_PERMISSIONS = {

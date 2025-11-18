@@ -87,6 +87,7 @@ type WorkOrderItem = {
   qty: number;
   orderedQty?: number | null;
   approved1Qty?: number | null;
+  approved2Qty?: number | null;
   rate: number;
   cgstPercent: number;
   cgstAmt: number;
@@ -150,6 +151,11 @@ const workOrderItemSchema = z.object({
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
     .pipe(z.number().min(0.0001, "Quantity must be greater than 0")),
   approved1Qty: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
+    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+    .optional(),
+  approved2Qty: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
     .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
@@ -368,6 +374,9 @@ export function WorkOrderForm({
         approved1Qty: isApprovalMode
           ? Number(item.approved1Qty ?? item.qty ?? 0)
           : item.approved1Qty ?? undefined,
+        approved2Qty: isApproval2
+          ? Number(item.approved2Qty ?? item.approved1Qty ?? item.qty ?? 0)
+          : item.approved2Qty ?? undefined,
         rate: item.rate ?? 0,
         cgstPercent: item.cgstPercent ?? 0,
         sgstPercent: item.sgstPercent ?? 0,
@@ -483,8 +492,10 @@ export function WorkOrderForm({
 
   const computeItemMetrics = (item: WorkOrderItemFormValue) => {
     // In approval mode, use approved1Qty for calculations, otherwise use qty
-    const qty = isApprovalMode
+    const qty = isApproval1
       ? toNumber(item.approved1Qty)
+      : isApproval2
+      ? toNumber(item.approved2Qty)
       : toNumber(item.qty);
     const rate = toNumber(item.rate);
     const cgstPercent = toNumber(item.cgstPercent);
@@ -625,7 +636,12 @@ export function WorkOrderForm({
               toNumber(item.qty) ??
               originalItem?.orderedQty ??
               undefined,
-            approved1Qty: approvedQty,
+            approved1Qty: isApproval1
+              ? approvedQty
+              : originalItem?.approved1Qty ?? null,
+            approved2Qty: isApproval2
+              ? approvedQty
+              : originalItem?.approved2Qty ?? null,
             qty: approvedQty,
           };
         }
@@ -1152,40 +1168,51 @@ export function WorkOrderForm({
             {/* Items Table */}
             <FormSection legend="Items">
               <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700">
+                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700 text-xs">
                   <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Item
                       </th>
                       {isApprovalMode && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ordered Qty
                         </th>
                       )}
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         SAC Code
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {isApprovalMode ? "Approved Qty" : "Qty"}
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {isApproval2 ? (
+                        <>
+                          <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Approved 1 Qty
+                          </th>
+                          <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Approved 2 Qty
+                          </th>
+                        </>
+                      ) : (
+                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {isApprovalMode ? "Approved Qty" : "Qty"}
+                        </th>
+                      )}
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         CGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         SGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         IGST %
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
                       {!isApprovalMode && (
-                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -1194,7 +1221,7 @@ export function WorkOrderForm({
                   <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
                     {fields.map((field, index) => (
                       <tr key={field.fieldId ?? index}>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2 py-2 align-top">
                           {isApprovalMode ? (
                             <>
                               <div className="font-medium">
@@ -1360,66 +1387,109 @@ export function WorkOrderForm({
                             />
                           )}
                         </td>
-                        <td className="px-4 py-3 align-top">
-                          {isApprovalMode ? (
-                            <FormField
-                              control={form.control}
-                              name={`workOrderItems.${index}.approved1Qty`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      step="0.0001"
-                                      min="0.0001"
-                                      {...field}
-                                      value={field.value?.toString() || ""}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? ""
-                                            : parseFloat(value) || 0
-                                        );
-                                      }}
-                                      className="text-right w-24"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          ) : (
-                            <FormField
-                              control={form.control}
-                              name={`workOrderItems.${index}.qty`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      step="0.0001"
-                                      min="0.0001"
-                                      {...field}
-                                      value={field.value?.toString() || ""}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? ""
-                                            : parseFloat(value) || 0
-                                        );
-                                      }}
-                                      className="text-right w-24"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 align-top">
+                        {isApproval2 ? (
+                          <>
+                            <td className="px-4 py-3 text-right font-medium align-top">
+                              {toNumber(
+                                initial?.workOrderItems?.[index]
+                                  ?.approved1Qty ?? 0
+                              ).toLocaleString("en-IN", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 4,
+                              })}
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.approved2Qty`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.0001"
+                                        min="0.0001"
+                                        {...field}
+                                        value={field.value?.toString() || ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(
+                                            value === ""
+                                              ? ""
+                                              : parseFloat(value) || 0
+                                          );
+                                        }}
+                                        className="text-right w-24"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <td className="px-4 py-3 align-top">
+                            {isApprovalMode ? (
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.approved1Qty`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.0001"
+                                        min="0.0001"
+                                        {...field}
+                                        value={field.value?.toString() || ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(
+                                            value === ""
+                                              ? ""
+                                              : parseFloat(value) || 0
+                                          );
+                                        }}
+                                        className="text-right w-24"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            ) : (
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.qty`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.0001"
+                                        min="0.0001"
+                                        {...field}
+                                        value={field.value?.toString() || ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(
+                                            value === ""
+                                              ? ""
+                                              : parseFloat(value) || 0
+                                          );
+                                        }}
+                                        className="text-right w-24"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                          </td>
+                        )}
+                        <td className="px-2 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`workOrderItems.${index}.rate`}
@@ -1440,7 +1510,7 @@ export function WorkOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-28"
+                                    className="text-right w-24"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1449,7 +1519,7 @@ export function WorkOrderForm({
                           />
                         </td>
                         {/* Discount column removed for Work Orders */}
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`workOrderItems.${index}.cgstPercent`}
@@ -1471,7 +1541,7 @@ export function WorkOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="text-right w-16"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1483,7 +1553,7 @@ export function WorkOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`workOrderItems.${index}.sgstPercent`}
@@ -1505,7 +1575,7 @@ export function WorkOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="text-right w-16"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1517,7 +1587,7 @@ export function WorkOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`workOrderItems.${index}.igstPercent`}
@@ -1539,7 +1609,7 @@ export function WorkOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-20"
+                                    className="text-right w-16"
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1551,11 +1621,11 @@ export function WorkOrderForm({
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium align-top">
+                        <td className="px-2 py-2 text-right text-xs font-medium align-top">
                           {formatAmount(computedItems[index]?.amount)}
                         </td>
                         {!isApprovalMode && (
-                          <td className="px-3 py-3 text-right text-sm font-medium align-top">
+                          <td className="px-2 py-2 text-right text-xs font-medium align-top">
                             <Button
                               type="button"
                               variant="ghost"
@@ -1573,7 +1643,7 @@ export function WorkOrderForm({
                   <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 8}
+                        colSpan={isApproval2 ? 9 : 8}
                         className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
                         Subtotal
@@ -1583,10 +1653,7 @@ export function WorkOrderForm({
                       </td>
                     </tr>
                     <tr>
-                      <td
-                        colSpan={isApprovalMode ? 8 : 8}
-                        className="px-4 py-3"
-                      >
+                      <td colSpan={isApproval2 ? 9 : 8} className="px-4 py-3">
                         <div className="flex justify-end items-center gap-4">
                           <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
                             Transit Insurance
@@ -1679,7 +1746,7 @@ export function WorkOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 7 : 6}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -1764,7 +1831,7 @@ export function WorkOrderForm({
                     {/* Discount row removed for Work Orders */}
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 8}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         CGST
@@ -1775,7 +1842,7 @@ export function WorkOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 8}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         SGST
@@ -1786,7 +1853,7 @@ export function WorkOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 8}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         IGST
@@ -1797,7 +1864,7 @@ export function WorkOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -1890,7 +1957,7 @@ export function WorkOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 8}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="text-right px-4 py-3 text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200"
                       >
                         Total Amount
