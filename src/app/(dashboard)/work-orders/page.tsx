@@ -580,13 +580,13 @@ export default function WorkOrdersPage() {
                           </AppButton>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
+                          {/* <DropdownMenuItem
                             onClick={() =>
                               pushWithScrollSave(`/work-orders/${po.id}/edit`)
                             }
                           >
                             Edit
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                           <DropdownMenuItem
                             onClick={() => handleRemarkClick(po)}
                           >

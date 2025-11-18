@@ -29,7 +29,7 @@ async function main() {
   );
   const user = await upsertUser(
     "user@demo.com",
-    ROLES.USER,
+    ROLES.SITE_INCHARGE,
     "User",
     passwordHash
   );
@@ -41,12 +41,17 @@ async function main() {
   );
   const siteEng = await upsertUser(
     "siteEng@demo.com",
-    ROLES.SITE_ENGINEER,
+    ROLES.SITE_INCHARGE,
     "Site Engineer",
     passwordHash
   );
 
-  const HR = await upsertUser("hr@demo.com", ROLES.HR, "HR", passwordHash);
+  const HR = await upsertUser(
+    "hr@demo.com",
+    ROLES.SITE_INCHARGE,
+    "HR",
+    passwordHash
+  );
 
   const [
     { token: adminRefresh, expiresAt: adminExp },
@@ -69,7 +74,9 @@ async function main() {
   for (let i = 1; i <= 5; i++) {
     const email = `dummy${i}@demo.com`;
     const name = `Dummy User ${i}`;
-    dummyPromises.push(upsertUser(email, ROLES.USER, name, passwordHash));
+    dummyPromises.push(
+      upsertUser(email, ROLES.SITE_INCHARGE, name, passwordHash)
+    );
   }
   await Promise.all(dummyPromises);
 

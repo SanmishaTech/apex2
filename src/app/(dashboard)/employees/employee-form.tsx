@@ -161,7 +161,7 @@ const createInputSchema = z
     confirmPassword: z
       .string()
       .min(6, "Confirm password must be at least 6 characters"),
-    role: z.enum(ROLE_VALUES).default(ROLES.USER),
+    role: z.enum(ROLE_VALUES).default(ROLES.SITE_INCHARGE),
     employeeDocuments: z.array(documentSchema).default([]),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -429,7 +429,7 @@ export function EmployeeForm({
       email: initial?.email || "",
       password: "",
       confirmPassword: "",
-      role: "user",
+      role: "siteIncharge",
       employeeDocuments: initialDocumentValues,
     },
   });
