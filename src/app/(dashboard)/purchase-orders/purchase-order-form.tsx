@@ -968,7 +968,7 @@ export function PurchaseOrderForm({
                         key={address.id}
                         value={address.id.toString()}
                       >
-                        {`${address.companyName}, ${address.city}`}
+                        {`${address.companyName}`}
                       </AppSelect.Item>
                     ))}
                   </AppSelect>

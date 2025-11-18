@@ -193,35 +193,34 @@ export const PERMISSIONS = {
 
 export const ROLES = {
   ADMIN: "admin", // full system access
-  USER: "user", // internal staff
+  SITE_ADMIN: "siteAdmin", // site admin
   PROJECT_MANAGER: "projectManager", // project manager
-  HR: "humanResources", // HR
-  SITE_ENGINEER: "siteEngineer", // site engineer
-  SITE_INCHARGE: "siteIncharge", // site incharge
-  PURCHASE: "purchase", // purchase
-  STORE_INCHARGE: "storeIncharge", // store incharge
-  EMPLOYEE: "employee", // employee
-  SITE_SUPERVISOR: "siteSupervisor", // site supervisor
-  DIRECTOR: "director", // director
-  GENERAL_MANAGER: "generalManager", // general manager
-  ACCOUNTS: "accounts", // accounts
-  SAFETY_INCHARGE: "safetyIncharge", // safety incharge
-  BILLING: "billing", // billing
-  BILLING_ASSISTANT: "billingAssistant", // billing assistant
-  PURCHASE_MANAGER: "purchaseManager", // purchase manager
-  QAQC: "qaqc", // QA/QC
-  BUSINESS_DEVELOPMENT: "businessDevelopment", // business development
-  INTERNAL_AUDITOR: "internalAuditor", // internal auditor
-  EXTERNAL_AUDITOR: "externalAuditor", // external auditor
-  PROJECT_USER: "projectUser", // external / client user tied to specific projects
-
+  PROJECT_DIRECTOR: "projectDirector", // project director
   PURCHASE_EXECUTIVE: "purchaseExecutive", // purchase executive
   COMMERCIAL_HEAD: "commercialHead", // commercial head
   MD: "md", // md
   PROJECT_COORDINATOR: "projectCoordinator", // project coordinator
   TECHNICAL_DIRECTOR: "technicalDirector", // technical director
-  PROJECT_DIRECTOR: "projectDirector", // project director
-  SITE_ADMIN: "siteAdmin", // site admin
+  SITE_INCHARGE: "siteIncharge", // site incharge
+  // USER: "user", // internal staff
+  // HR: "humanResources", // HR
+  // SITE_ENGINEER: "siteEngineer", // site engineer
+  // PURCHASE: "purchase", // purchase
+  // STORE_INCHARGE: "storeIncharge", // store incharge
+  // EMPLOYEE: "employee", // employee
+  // SITE_SUPERVISOR: "siteSupervisor", // site supervisor
+  // DIRECTOR: "director", // director
+  // GENERAL_MANAGER: "generalManager", // general manager
+  // ACCOUNTS: "accounts", // accounts
+  // SAFETY_INCHARGE: "safetyIncharge", // safety incharge
+  // BILLING: "billing", // billing
+  // BILLING_ASSISTANT: "billingAssistant", // billing assistant
+  // PURCHASE_MANAGER: "purchaseManager", // purchase manager
+  // QAQC: "qaqc", // QA/QC
+  // BUSINESS_DEVELOPMENT: "businessDevelopment", // business development
+  // INTERNAL_AUDITOR: "internalAuditor", // internal auditor
+  // EXTERNAL_AUDITOR: "externalAuditor", // external auditor
+  // PROJECT_USER: "projectUser", // external / client user tied to specific projects
 } as const;
 
 export const ROLES_PERMISSIONS = {
@@ -229,7 +228,7 @@ export const ROLES_PERMISSIONS = {
   [ROLES.ADMIN]: [...Object.values(PERMISSIONS)],
 
   // Internal staff user: can view dashboard, read users & projects & project files (but no creation/upload/delete)
-  [ROLES.USER]: [
+  [ROLES.SITE_ADMIN]: [
     PERMISSIONS.VIEW_DASHBOARD,
     PERMISSIONS.READ_USERS,
     PERMISSIONS.READ_CITIES,
@@ -279,7 +278,7 @@ export const ROLES_PERMISSIONS = {
   ],
 
   // Project (client) user: minimal permissions
-  [ROLES.PROJECT_USER]: [
+  [ROLES.SITE_INCHARGE]: [
     PERMISSIONS.VIEW_DASHBOARD,
     PERMISSIONS.READ_CITIES,
     PERMISSIONS.READ_STATES,
@@ -408,7 +407,7 @@ export const ROLES_PERMISSIONS = {
     PERMISSIONS.READ_DAILY_PROGRESSES,
   ],
 
-  [ROLES.SITE_ENGINEER]: [
+  [ROLES.TECHNICAL_DIRECTOR]: [
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
 
@@ -470,7 +469,7 @@ export const ROLES_PERMISSIONS = {
     PERMISSIONS.DELETE_BOQS,
   ],
 
-  [ROLES.HR]: [
+  [ROLES.PURCHASE_EXECUTIVE]: [
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
 

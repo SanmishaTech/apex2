@@ -1010,7 +1010,7 @@ export function WorkOrderForm({
                         key={address.id}
                         value={address.id.toString()}
                       >
-                        {`${address.companyName}, ${address.city}`}
+                        {`${address.companyName}`}
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
