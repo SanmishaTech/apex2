@@ -428,6 +428,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
     },
   },
+   {
+    prefix: "/api/work-order-bills",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDER_BILLS],
+      POST: [PERMISSIONS.CREATE_WORK_ORDER_BILLS],
+      PATCH: [PERMISSIONS.EDIT_WORK_ORDER_BILLS],
+      DELETE: [PERMISSIONS.DELETE_WORK_ORDER_BILLS],
+    },
+  },
   {
     prefix: "/api/rental-categories",
     methods: {

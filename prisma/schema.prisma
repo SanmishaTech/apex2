@@ -1848,6 +1848,7 @@ model WorkOrder {
   updatedBy User @relation("WOUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   workOrderDetails WorkOrderDetail[] 
+  workOrderBills WorkOrderBill[]
 @@index([siteId])
 @@index([indentId])
 @@index([vendorId])
@@ -1896,6 +1897,36 @@ model WorkOrderDetail {
 }
 
 
+enum WorkOrderBillStatus {
+  PAID
+  UNPAID
+  PARTIALLY_PAID
+}
+
+model WorkOrderBill {
+  id              Int      @id @default(autoincrement())
+  workOrderId Int
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+  billNo          String  @db.VarChar(50) 
+  billDate        DateTime @db.Date 
+  billAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
+  paidAmount      Decimal   @default(0.00) @db.Decimal(10, 2) 
+  dueDate         DateTime  @db.Date 
+  paymentDate     DateTime @db.Date 
+  paymentMode     String   @db.VarChar(50)
+  chequeNo        String?   @db.VarChar(200) 
+  chequeDate      DateTime? @db.Date 
+  utrNo           String?   @db.VarChar(200) 
+  bankName        String?   @db.VarChar(100) 
+  deductionTax    Decimal   @default(0.00) @db.Decimal(10, 2) 
+  dueAmount    Decimal   @default(0.00) @db.Decimal(10, 2) 
+  status         WorkOrderBillStatus 
+
+ createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("work_order_bills")
+}
 
 
 // in approval add budget validatioon from sir in purchase ordeer.

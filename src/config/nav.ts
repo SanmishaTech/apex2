@@ -311,6 +311,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
       {
+        title: "Work Order Bills",
+        href: "/work-order-bills",
+        icon: FileText,
+        permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
+      },
+      {
         title: "Work Orders",
         href: "/work-orders",
         icon: FileText,
