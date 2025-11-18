@@ -311,6 +311,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
       {
+        title: "Work Orders",
+        href: "/work-orders",
+        icon: FileText,
+        permission: PERMISSIONS.READ_WORK_ORDERS,
+      },
+      {
         title: "Units",
         href: "/units",
         icon: Folder,
@@ -363,7 +369,6 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-
   {
     type: "group",
     title: "Progress",

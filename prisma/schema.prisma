@@ -541,7 +541,7 @@ model Item {
 
   siteBudgets SiteBudget[]
     purchaseOrderDetails PurchaseOrderDetail[] 
-
+   workOrderDetails WorkOrderDetail[]
 
   @@index([itemCode])
   @@index([itemCategoryId])
@@ -1869,10 +1869,9 @@ model WorkOrderDetail {
   serialNo        Int
   workOrderId Int
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
-
-  item          String   
+  itemId          Int
+  item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
   sac_code        String  
-    unit        String  
   remark          String?   @db.VarChar(500)
   qty             Decimal?  @db.Decimal(12, 4)
   orderedQty      Decimal?  @db.Decimal(12, 4)

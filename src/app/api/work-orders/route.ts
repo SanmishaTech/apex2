@@ -7,8 +7,9 @@ import { paginate } from "@/lib/paginate";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
-const purchaseOrderItemSchema = z.object({
+const workOrderItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
+  sac_code: z.string().min(1, "SAC code is required"),
   remark: z.string().nullable().optional(),
   qty: z.coerce
     .number()
@@ -18,11 +19,6 @@ const purchaseOrderItemSchema = z.object({
     .number()
     .min(0, "Rate must be non-negative")
     .max(9999999999.99, "Rate must be <= 9,999,999,999.99"),
-  discountPercent: z.coerce
-    .number()
-    .min(0, "Discount % must be non-negative")
-    .max(100, "Discount % must be <= 100")
-    .default(0),
   cgstPercent: z.coerce
     .number()
     .min(0, "CGST % must be non-negative")
@@ -38,12 +34,10 @@ const purchaseOrderItemSchema = z.object({
     .min(0, "IGST % must be non-negative")
     .max(100, "IGST % must be <= 100")
     .default(0),
-  disAmt: z.coerce.number(),
   cgstAmt: z.coerce.number(),
   sgstAmt: z.coerce.number(),
   igstAmt: z.coerce.number(),
   amount: z.coerce.number(),
-  indentItemId: z.coerce.number().optional(),
 });
 
 const createSchema = z.object({
@@ -55,14 +49,15 @@ const createSchema = z.object({
     .number()
     .min(1, "Site delivery address is required"),
   paymentTermId: z.coerce.number().optional(),
-  purchaseOrderDate: z.string().transform((val) => new Date(val)),
+  type: z.enum(["SUB_CONTRACT", "PWR_WORK"]),
+  workOrderDate: z.string().transform((val) => new Date(val)),
   deliveryDate: z.string().transform((val) => new Date(val)),
   quotationNo: z.string().min(1, "Quotation No. is required"),
   quotationDate: z.string().transform((val) => new Date(val)),
   transport: z.string().optional(),
   note: z.string().optional(),
   terms: z.string().optional(),
-  poStatus: z.enum(["HOLD"]).optional().nullable(),
+  woStatus: z.enum(["HOLD"]).optional().nullable(),
   paymentTermsInDays: z.coerce.number().optional(),
   transitInsuranceStatus: z
     .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
@@ -79,13 +74,23 @@ const createSchema = z.object({
     .nullable()
     .optional(),
   gstReverseAmount: z.string().nullable().optional(),
+  exciseTaxStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
+  exciseTaxAmount: z.string().nullable().optional(),
+  octroiTaxStatus: z
+    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
+    .nullable()
+    .optional(),
+  octroiTaxAmount: z.string().nullable().optional(),
   deliverySchedule: z.string().optional(),
   amount: z.coerce.number(),
   totalCgstAmount: z.coerce.number(),
   totalSgstAmount: z.coerce.number(),
   totalIgstAmount: z.coerce.number(),
-  purchaseOrderItems: z
-    .array(purchaseOrderItemSchema)
+  workOrderItems: z
+    .array(workOrderItemSchema)
     .min(1, "At least one item is required"),
 });
 
@@ -129,44 +134,50 @@ function getFinancialYearInfo(rawDate: Date) {
   };
 }
 
-async function generatePONumber(
+async function generateWONumber(
   tx: Prisma.TransactionClient,
-  _purchaseOrderDate: Date
+  _workOrderDate: Date
 ): Promise<string> {
-  // Always use the server's current date to determine the financial year label
-  const { startDate, endDate, financialYearLabel } =
-    getFinancialYearInfo(new Date());
-
-  const prefix = `${COMPANY_CODE}/${financialYearLabel}/`;
-
-  const latestPO = await tx.purchaseOrder.findFirst({
+  // New format: AAAA-BBB (e.g., 0001-001 ... 0001-999, 0002-001 ...)
+  // We sort by workOrderNo desc; lexicographic works due to fixed widths.
+  // Fetch recent candidates and pick the most recent strictly matching NNNN-NNN
+  const candidates = await tx.workOrder.findMany({
     where: {
-      purchaseOrderDate: {
-        gte: startDate,
-        lte: endDate,
-      },
-      purchaseOrderNo: {
-        startsWith: prefix,
+      workOrderNo: {
+        contains: "-",
       },
     },
-    orderBy: {
-      purchaseOrderNo: "desc",
-    },
-    select: {
-      purchaseOrderNo: true,
-    },
+    orderBy: { workOrderNo: "desc" },
+    select: { workOrderNo: true },
+    take: 50,
   });
+  const latestWO = candidates.find((c) => /^\d{4}-\d{3}$/.test(c.workOrderNo));
 
-  const lastSequence = latestPO
-    ? parseInt(latestPO.purchaseOrderNo.slice(prefix.length), 10) || 0
-    : 0;
+  let left = 1;
+  let right = 1;
 
-  const nextSequence = (lastSequence + 1).toString().padStart(5, "0");
+  if (latestWO?.workOrderNo) {
+    const parts = latestWO.workOrderNo.split("-");
+    if (parts.length === 2) {
+      const prevLeft = parseInt(parts[0], 10);
+      const prevRight = parseInt(parts[1], 10);
+      if (Number.isFinite(prevLeft) && Number.isFinite(prevRight)) {
+        left = prevLeft;
+        right = prevRight + 1;
+        if (right > 999) {
+          left = left + 1;
+          right = 1;
+        }
+      }
+    }
+  }
 
-  return `${prefix}${nextSequence}`;
+  const leftStr = String(left).padStart(4, "0");
+  const rightStr = String(right).padStart(3, "0");
+  return `${leftStr}-${rightStr}`;
 }
 
-// GET /api/purchase-orders?search=&page=1&perPage=10&sort=purchaseOrderDate&order=desc&site=&vendor=
+// GET /api/work-orders?search=&page=1&perPage=10&sort=workOrderDate&order=desc&site=&vendor=
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -181,7 +192,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const siteFilter = searchParams.get("site") || "";
     const vendorFilter = searchParams.get("vendor") || "";
-    const sort = (searchParams.get("sort") || "purchaseOrderDate") as string;
+    const sort = (searchParams.get("sort") || "workOrderDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
       | "desc";
@@ -190,7 +201,7 @@ export async function GET(req: NextRequest) {
 
     if (search) {
       where.OR = [
-        { purchaseOrderNo: { contains: search } },
+        { workOrderNo: { contains: search } },
         { quotationNo: { contains: search } },
         { note: { contains: search } },
       ];
@@ -211,24 +222,24 @@ export async function GET(req: NextRequest) {
     }
 
     const sortableFields = new Set([
-      "purchaseOrderNo",
-      "purchaseOrderDate",
+      "workOrderNo",
+      "workOrderDate",
       "createdAt",
     ]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
-      : { purchaseOrderDate: "desc" };
+      : { workOrderDate: "desc" };
 
     const result = await paginate({
-      model: prisma.purchaseOrder as any,
+      model: prisma.workOrder as any,
       where,
       orderBy,
       page,
       perPage,
       select: {
         id: true,
-        purchaseOrderNo: true,
-        purchaseOrderDate: true,
+        workOrderNo: true,
+        workOrderDate: true,
         deliveryDate: true,
         siteId: true,
         vendorId: true,
@@ -239,7 +250,7 @@ export async function GET(req: NextRequest) {
         approvalStatus: true,
         isSuspended: true,
         isComplete: true,
-        poStatus: true,
+        woStatus: true,
         note: true,
         remarks: true,
         billStatus: true,
@@ -257,7 +268,7 @@ export async function GET(req: NextRequest) {
             vendorName: true,
           },
         },
-        purchaseOrderDetails: {
+        workOrderDetails: {
           select: {
             id: true,
             itemId: true,
@@ -286,12 +297,12 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Get purchase orders error:", error);
-    return ApiError("Failed to fetch purchase orders");
+    console.error("Get work orders error:", error);
+    return ApiError("Failed to fetch work orders");
   }
 }
 
-// POST /api/purchase-orders - Create new purchase order
+// POST /api/work-orders - Create new work order
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -301,15 +312,13 @@ export async function POST(req: NextRequest) {
     const parsedData = createSchema.parse(body);
 
     const result = await prisma.$transaction(async (tx) => {
-      // Generate financial year-based PO number within the transaction
-      const purchaseOrderNo = await generatePONumber(
-        tx,
-        parsedData.purchaseOrderDate
-      );
+      // Generate financial year-based WO number within the transaction
+      const workOrderNo = await generateWONumber(tx, parsedData.workOrderDate);
 
-      const poData: Prisma.PurchaseOrderUncheckedCreateInput = {
-        purchaseOrderNo,
-        purchaseOrderDate: parsedData.purchaseOrderDate,
+      const woData: Prisma.WorkOrderUncheckedCreateInput = {
+        workOrderNo,
+        type: parsedData.type,
+        workOrderDate: parsedData.workOrderDate,
         deliveryDate: parsedData.deliveryDate,
         siteId: parsedData.siteId,
         vendorId: parsedData.vendorId,
@@ -326,8 +335,12 @@ export async function POST(req: NextRequest) {
         pfCharges: parsedData.pfCharges || null,
         gstReverseStatus: parsedData.gstReverseStatus || null,
         gstReverseAmount: parsedData.gstReverseAmount || null,
+        exciseTaxStatus: parsedData.exciseTaxStatus || null,
+        exciseTaxAmount: parsedData.exciseTaxAmount || null,
+        octroiTaxStatus: parsedData.octroiTaxStatus || null,
+        octroiTaxAmount: parsedData.octroiTaxAmount || null,
         terms: parsedData.terms || null,
-        poStatus: parsedData.poStatus ?? null,
+        woStatus: parsedData.woStatus ?? null,
         paymentTermsInDays: parsedData.paymentTermsInDays || null,
         deliverySchedule: parsedData.deliverySchedule || null,
         amount: parsedData.amount,
@@ -341,12 +354,15 @@ export async function POST(req: NextRequest) {
         indentId: parsedData.indentId || null,
       };
 
-      const purchaseOrder = await tx.purchaseOrder.create({
-        data: poData,
+      const workOrder = await tx.workOrder.create({
+        data: {
+          ...woData,
+          indentId: parsedData.indentId || null,
+        },
         select: {
           id: true,
-          purchaseOrderNo: true,
-          purchaseOrderDate: true,
+          workOrderNo: true,
+          workOrderDate: true,
           deliveryDate: true,
           siteId: true,
           vendorId: true,
@@ -358,7 +374,7 @@ export async function POST(req: NextRequest) {
           transport: true,
           note: true,
           terms: true,
-          poStatus: true,
+          woStatus: true,
           paymentTermsInDays: true,
           deliverySchedule: true,
           amount: true,
@@ -407,18 +423,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Create PO items
-      const poId = purchaseOrder.id;
-      const itemsData = parsedData.purchaseOrderItems.map((item, index) => ({
-        purchaseOrderId: poId,
+      // Create WO items
+      const woId = workOrder.id;
+      const itemsData = parsedData.workOrderItems.map((item, index) => ({
+        workOrderId: woId,
         serialNo: index + 1,
         itemId: item.itemId,
+        sac_code: item.sac_code,
         remark: item.remark || null,
         qty: item.qty,
         orderedQty: item.qty,
         rate: item.rate,
-        discountPercent: item.discountPercent,
-        disAmt: item.disAmt,
         cgstPercent: item.cgstPercent,
         cgstAmt: item.cgstAmt,
         sgstPercent: item.sgstPercent,
@@ -428,61 +443,21 @@ export async function POST(req: NextRequest) {
         amount: item.amount,
       }));
 
-      const createdPODetails = await Promise.all(
+      await Promise.all(
         itemsData.map(async (itemData) => {
-          return await tx.purchaseOrderDetail.create({
+          return await tx.workOrderDetail.create({
             data: itemData,
           });
         })
       );
 
-      // If this PO is created from an indent, update the indent items with purchase order detail IDs
-      if (parsedData.indentId) {
-        const itemsWithIndentReference = parsedData.purchaseOrderItems
-          .map((item, index) => ({
-            indentItemId: item.indentItemId,
-            detail: createdPODetails[index],
-          }))
-          .filter(
-            ({ indentItemId }) =>
-              typeof indentItemId === "number" && Number.isFinite(indentItemId)
-          ) as { indentItemId: number; detail: typeof createdPODetails[number] }[];
-
-        if (itemsWithIndentReference.length > 0) {
-          const indentItemIds = itemsWithIndentReference.map(
-            ({ indentItemId }) => indentItemId
-          );
-
-          const availableIndentItems = await tx.indentItem.findMany({
-            where: {
-              id: { in: indentItemIds },
-              indentId: parsedData.indentId,
-            },
-            select: { id: true },
-          });
-
-          const validIndentItemIds = new Set(
-            availableIndentItems.map((item) => item.id)
-          );
-
-          for (const { indentItemId, detail } of itemsWithIndentReference) {
-            if (validIndentItemIds.has(indentItemId)) {
-              await tx.indentItem.update({
-                where: { id: indentItemId },
-                data: { purchaseOrderDetailId: detail.id },
-              });
-            }
-          }
-        }
-      }
-
-      // Fetch the created PO with items
-      const poWithItems = await tx.purchaseOrder.findUnique({
-        where: { id: poId },
+      // Fetch the created WO with items
+      const woWithItems = await tx.workOrder.findUnique({
+        where: { id: woId },
         select: {
           id: true,
-          purchaseOrderNo: true,
-          purchaseOrderDate: true,
+          workOrderNo: true,
+          workOrderDate: true,
           deliveryDate: true,
           siteId: true,
           vendorId: true,
@@ -532,7 +507,7 @@ export async function POST(req: NextRequest) {
               description: true,
             },
           },
-          purchaseOrderDetails: {
+          workOrderDetails: {
             select: {
               id: true,
               serialNo: true,
@@ -544,11 +519,10 @@ export async function POST(req: NextRequest) {
                   item: true,
                 },
               },
+              sac_code: true,
               remark: true,
               qty: true,
               rate: true,
-              discountPercent: true,
-              disAmt: true,
               cgstPercent: true,
               cgstAmt: true,
               sgstPercent: true,
@@ -564,7 +538,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      return poWithItems;
+      return woWithItems;
     });
 
     return Success(result, 201);
@@ -573,9 +547,9 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     if (error.code === "P2002") {
-      return ApiError("Purchase order number already exists", 409);
+      return ApiError("Work order number already exists", 409);
     }
-    console.error("Create purchase order error:", error);
-    return ApiError("Failed to create purchase order");
+    console.error("Create work order error:", error);
+    return ApiError("Failed to create work order");
   }
 }

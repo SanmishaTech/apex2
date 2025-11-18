@@ -82,6 +82,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/purchase-orders/new", permissions: [PERMISSIONS.CREATE_PURCHASE_ORDERS] },
   { prefix: "/purchase-orders/", permissions: [PERMISSIONS.EDIT_PURCHASE_ORDERS] },
   { prefix: "/purchase-orders", permissions: [PERMISSIONS.READ_PURCHASE_ORDERS] },
+   { prefix: "/work-orders/new", permissions: [PERMISSIONS.CREATE_WORK_ORDERS] },
+  { prefix: "/work-orders/", permissions: [PERMISSIONS.EDIT_WORK_ORDERS] },
+  { prefix: "/work-orders", permissions: [PERMISSIONS.READ_WORK_ORDERS] },
   {
     prefix: "/daily-progresses/",
     permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
@@ -414,6 +417,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_PURCHASE_ORDERS],
       PATCH: [PERMISSIONS.EDIT_PURCHASE_ORDERS],
       DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
+    },
+  },
+   {
+    prefix: "/api/work-orders",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDERS],
+      POST: [PERMISSIONS.CREATE_WORK_ORDERS],
+      PATCH: [PERMISSIONS.EDIT_WORK_ORDERS],
+      DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
     },
   },
   {
