@@ -11,6 +11,7 @@ const createSchema = z.object({
   billDate: z.string().transform((v) => new Date(v)),
   billAmount: z.coerce.number().min(0, "Bill amount must be non-negative"),
   paidAmount: z.coerce.number().min(0, "Paid amount must be non-negative").default(0),
+  deductionTax: z.coerce.number().min(0).default(0),
   dueDate: z.string().transform((v) => new Date(v)),
   paymentDate: z.string().transform((v) => new Date(v)),
   paymentMode: z.string().min(1, "Payment mode is required"),
@@ -18,8 +19,6 @@ const createSchema = z.object({
   chequeDate: z.string().nullable().transform((v) => (v ? new Date(v) : null)).optional(),
   utrNo: z.string().nullable().optional(),
   bankName: z.string().nullable().optional(),
-  deductionTax: z.coerce.number().min(0).default(0),
-  dueAmount: z.coerce.number().min(0).default(0),
   status: z.enum(["PAID", "UNPAID", "PARTIALLY_PAID"]),
 });
 
@@ -102,6 +101,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
+    const computedDue = data.billAmount - data.paidAmount - data.deductionTax;
 
     const created = await prisma.workOrderBill.create({
       data: {
@@ -110,6 +110,8 @@ export async function POST(req: NextRequest) {
         billDate: data.billDate,
         billAmount: data.billAmount,
         paidAmount: data.paidAmount,
+        deductionTax: data.deductionTax,
+        dueAmount: computedDue,
         dueDate: data.dueDate,
         paymentDate: data.paymentDate,
         paymentMode: data.paymentMode,
@@ -117,8 +119,6 @@ export async function POST(req: NextRequest) {
         chequeDate: (data.chequeDate as any) ?? null,
         utrNo: data.utrNo ?? null,
         bankName: data.bankName ?? null,
-        deductionTax: data.deductionTax,
-        dueAmount: data.dueAmount,
         status: data.status,
       },
       select: {

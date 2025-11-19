@@ -14,6 +14,19 @@ import { DeleteButton } from "@/components/common/delete-button";
 import { toast } from "@/lib/toast";
 import { useMemo } from "react";
 
+const BILL_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatBillDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return BILL_DATE_FORMATTER.format(date);
+}
+
 export default function NewWorkOrderBillPage() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -40,13 +53,47 @@ export default function NewWorkOrderBillPage() {
   }, [woId, page, perPage, sort, order]);
 
   const { data, isLoading, mutate } = useSWR<WorkOrderBillsResponse>(query, apiGet);
+  const { data: workOrder } = useSWR<{ id: number; workOrderNo: string }>(
+    Number.isFinite(woId) ? `/api/work-orders/${woId}` : null,
+    apiGet
+  );
 
   const columns: Column<WorkOrderBill>[] = [
     { key: "billNo", header: "Bill No.", sortable: true },
-    { key: "billDate", header: "Bill Date", sortable: true },
-    { key: "billAmount", header: "Amount", accessor: (r) => r.billAmount, cellClassName: "text-right" },
-    { key: "paidAmount", header: "Paid", accessor: (r) => r.paidAmount, cellClassName: "text-right" },
-    { key: "dueAmount", header: "Due", accessor: (r) => r.dueAmount, cellClassName: "text-right" },
+    {
+      key: "billDate",
+      header: "Bill Date",
+      sortable: true,
+      accessor: (row) => formatBillDate(row.billDate),
+    },
+    {
+      key: "billAmount",
+      header: "Amount",
+      accessor: (r) => r.billAmount,
+      className: "text-right",
+      cellClassName: "text-right",
+    },
+    {
+      key: "paidAmount",
+      header: "Paid",
+      accessor: (r) => r.paidAmount,
+      className: "text-right",
+      cellClassName: "text-right",
+    },
+    {
+      key: "deductionTax",
+      header: "Deduction / Tax",
+      accessor: (r) => r.deductionTax,
+      className: "text-right",
+      cellClassName: "text-right",
+    },
+    {
+      key: "dueAmount",
+      header: "Due",
+      accessor: (r) => r.dueAmount,
+      className: "text-right",
+      cellClassName: "text-right",
+    },
     { key: "status", header: "Status" },
   ];
 
@@ -65,13 +112,14 @@ export default function NewWorkOrderBillPage() {
       <WorkOrderBillForm
         mode="create"
         initial={{ workOrderId: workOrderId ? parseInt(workOrderId) : undefined }}
-        redirectOnSuccess="/work-order-bills"
         mutate={mutate}
       />
       {Number.isFinite(woId) && (
         <AppCard>
           <AppCard.Header>
-            <AppCard.Title>Bills for Work Order #{woId}</AppCard.Title>
+            <AppCard.Title>{`Bills for Work Order - ${
+              workOrder?.workOrderNo ?? `#${woId}`
+            }`}</AppCard.Title>
           </AppCard.Header>
           <AppCard.Content>
             <DataTable

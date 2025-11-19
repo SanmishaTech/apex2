@@ -21,6 +21,15 @@ import {
   UpdateWorkOrderBillData,
 } from "@/types/work-order-bills";
 
+type WorkOrderSummary = {
+  id: number;
+  workOrderNo: string;
+  workOrderDate: string;
+  paymentTermsInDays: number | null;
+  vendor?: { vendorName: string } | null;
+  site?: { site: string } | null;
+};
+
 export interface WorkOrderBillFormInitialData {
   id?: number;
   workOrderId?: number;
@@ -52,7 +61,7 @@ export function WorkOrderBillForm({
   mode,
   initial,
   onSuccess,
-  redirectOnSuccess = "/work-order-bills",
+  redirectOnSuccess,
   mutate,
 }: WorkOrderBillFormProps) {
   const router = useRouter();
@@ -62,17 +71,17 @@ export function WorkOrderBillForm({
     "work-order-bills-list"
   );
 
-  const schema = z.object({
-    workOrderId: z
+  const baseSchema = z.object({
+    workOrderId: z.coerce
       .number({ required_error: "Work Order is required" })
       .min(1, "Work Order is required"),
     billNo: z.string().min(1, "Bill No. is required"),
     billDate: z.string().min(1, "Bill date is required"),
-    billAmount: z
+    billAmount: z.coerce
       .number({ required_error: "Bill amount is required" })
       .min(0, "Must be non-negative"),
-    paidAmount: z.number().min(0, "Must be non-negative").default(0),
-    dueAmount: z.number().min(0, "Must be non-negative").default(0),
+    paidAmount: z.coerce.number().min(0, "Must be non-negative").default(0),
+    dueAmount: z.coerce.number().default(0),
     dueDate: z.string().min(1, "Due date is required"),
     paymentDate: z.string().min(1, "Payment date is required"),
     paymentMode: z.enum(["CASH", "UPI", "BANK"]),
@@ -80,9 +89,45 @@ export function WorkOrderBillForm({
     chequeDate: z.string().nullable().optional(),
     utrNo: z.string().nullable().optional(),
     bankName: z.string().nullable().optional(),
-    deductionTax: z.number().min(0).default(0),
+    deductionTax: z.coerce.number().min(0).default(0),
     status: z.enum(["PAID", "UNPAID", "PARTIALLY_PAID"]),
     remarks: z.string().optional(),
+  });
+
+  const schema = baseSchema.superRefine((values, ctx) => {
+    if (values.paymentMode === "UPI" && (!values.utrNo || !values.utrNo.trim())) {
+      ctx.addIssue({
+        path: ["utrNo"],
+        code: z.ZodIssueCode.custom,
+        message: "UTR No. is required for UPI payments",
+      });
+    }
+
+    if (values.paymentMode === "BANK") {
+      if (!values.bankName || !values.bankName.trim()) {
+        ctx.addIssue({
+          path: ["bankName"],
+          code: z.ZodIssueCode.custom,
+          message: "Bank name is required for bank payments",
+        });
+      }
+
+      if (!values.chequeNo || !values.chequeNo.trim()) {
+        ctx.addIssue({
+          path: ["chequeNo"],
+          code: z.ZodIssueCode.custom,
+          message: "Cheque number is required for bank payments",
+        });
+      }
+
+      if (!values.chequeDate || !values.chequeDate.trim()) {
+        ctx.addIssue({
+          path: ["chequeDate"],
+          code: z.ZodIssueCode.custom,
+          message: "Cheque date is required for bank payments",
+        });
+      }
+    }
   });
 
   type FormValues = z.infer<typeof schema>;
@@ -114,23 +159,18 @@ export function WorkOrderBillForm({
     },
   });
 
-  const { control, handleSubmit } = form;
+  const { control, handleSubmit, reset } = form;
   const isCreate = mode === "create";
 
   // No work order selector; workOrderId comes from query/initial
 
   // Fetch current Work Order basic info to compute due date and display info
   const currentWorkOrderId = initial?.workOrderId ?? defaultWoId;
-  const { data: woDetail } = useSWR<{
-    data?: {
-      id: number;
-      workOrderNo: string;
-      workOrderDate: string;
-      paymentTermsInDays: number | null;
-      vendor?: { vendorName: string } | null;
-      site?: { site: string } | null;
-    };
-  }>(currentWorkOrderId ? `/api/work-orders/${currentWorkOrderId}` : null, apiGet);
+
+  const { data: woDetail, error: woError } = useSWR<WorkOrderSummary>(
+    currentWorkOrderId ? `/api/work-orders/${currentWorkOrderId}` : null,
+    apiGet
+  );
 
   // Helper to add N days to YYYY-MM-DD
   function addDays(dateStr: string, days: number): string {
@@ -146,12 +186,30 @@ export function WorkOrderBillForm({
   // Auto-calc due date when billDate or paymentTerms change
   const billDateVal = form.watch("billDate");
   useEffect(() => {
-    const terms = woDetail?.data?.paymentTermsInDays;
+    const terms = woDetail?.paymentTermsInDays;
+
     if (billDateVal && typeof terms === "number" && !Number.isNaN(terms)) {
       const due = addDays(billDateVal, terms);
-      form.setValue("dueDate", due, { shouldValidate: true, shouldDirty: true });
+      form.setValue("dueDate", due, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
     }
-  }, [billDateVal, woDetail?.data?.paymentTermsInDays]);
+  }, [billDateVal, woDetail?.paymentTermsInDays]);
+
+  const billAmountVal = form.watch("billAmount");
+  const paidAmountVal = form.watch("paidAmount");
+  const deductionTaxVal = form.watch("deductionTax");
+
+  useEffect(() => {
+    const bill = Number(billAmountVal) || 0;
+    const paid = Number(paidAmountVal) || 0;
+    const deduction = Number(deductionTaxVal) || 0;
+    const due = bill - paid - deduction;
+    form.setValue("dueAmount", due, {
+      shouldValidate: true,
+    });
+  }, [billAmountVal, paidAmountVal, deductionTaxVal, form]);
 
   const onSubmit = async (formData: FormValues) => {
     setSubmitting(true);
@@ -166,7 +224,10 @@ export function WorkOrderBillForm({
           bankName: pm === "BANK" ? formData.bankName ?? null : null,
           utrNo: pm === "UPI" ? formData.utrNo ?? null : null,
         };
-        const computedDue = Math.max((formData.billAmount ?? 0) - (formData.paidAmount ?? 0), 0);
+        const computedDue =
+          (formData.billAmount ?? 0) -
+          (formData.paidAmount ?? 0) -
+          (formData.deductionTax ?? 0);
         const payload: CreateWorkOrderBillData = {
           workOrderId: formData.workOrderId,
           billNo: formData.billNo,
@@ -186,6 +247,24 @@ export function WorkOrderBillForm({
         };
         res = await apiPost("/api/work-order-bills", payload);
         toast.success("Work order bill created successfully");
+        reset({
+          workOrderId: initial?.workOrderId ?? defaultWoId ?? undefined,
+          billNo: "",
+          billDate: "",
+          billAmount: 0,
+          paidAmount: 0,
+          dueAmount: 0,
+          dueDate: "",
+          paymentDate: "",
+          paymentMode: "CASH",
+          chequeNo: null,
+          chequeDate: null,
+          utrNo: null,
+          bankName: null,
+          deductionTax: 0,
+          status: "UNPAID",
+          remarks: undefined,
+        });
         onSuccess?.(res);
       } else if (mode === "edit" && initial?.id) {
         const pm = formData.paymentMode;
@@ -195,7 +274,10 @@ export function WorkOrderBillForm({
           bankName: pm === "BANK" ? formData.bankName ?? null : null,
           utrNo: pm === "UPI" ? formData.utrNo ?? null : null,
         };
-        const computedDue = Math.max((formData.billAmount ?? 0) - (formData.paidAmount ?? 0), 0);
+        const computedDue =
+          (formData.billAmount ?? 0) -
+          (formData.paidAmount ?? 0) -
+          (formData.deductionTax ?? 0);
         const payload: UpdateWorkOrderBillData = {
           workOrderId: formData.workOrderId,
           billNo: formData.billNo,
@@ -222,7 +304,9 @@ export function WorkOrderBillForm({
         await mutate();
       }
 
-      router.push(redirectOnSuccess);
+      if (redirectOnSuccess) {
+        router.push(redirectOnSuccess);
+      }
     } catch (err) {
       toast.error((err as Error).message || "Failed to save work order bill");
     } finally {
@@ -248,33 +332,41 @@ export function WorkOrderBillForm({
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <AppCard.Content>
             {/* Work Order summary */}
-            {woDetail?.data && (
-              <div className="mb-4 rounded-md border p-3 text-sm grid grid-cols-3 gap-3">
+            {woDetail && (
+              <div className="mb-4 rounded-md border p-3 text-sm grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <div className="text-muted-foreground">WO No.</div>
-                  <div className="font-medium">{woDetail.data.workOrderNo}</div>
+                  <div className="font-medium">{woDetail.workOrderNo}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Vendor</div>
-                  <div className="font-medium">{woDetail.data.vendor?.vendorName || "-"}</div>
+                  <div className="font-medium">
+                    {woDetail.vendor?.vendorName || "-"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Site</div>
-                  <div className="font-medium">{woDetail.data.site?.site || "-"}</div>
+                  <div className="font-medium">
+                    {woDetail.site?.site || "-"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">WO Date</div>
-                  <div className="font-medium">{woDetail.data.workOrderDate?.slice(0,10)}</div>
+                  <div className="font-medium">
+                    {woDetail.workOrderDate?.slice(0, 10)}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Payment Terms</div>
-                  <div className="font-medium">{woDetail.data.paymentTermsInDays ?? 0} days</div>
+                  <div className="font-medium">
+                    {woDetail.paymentTermsInDays ?? 0} days
+                  </div>
                 </div>
               </div>
             )}
             <FormSection legend="Bill Information">
               {/* Row 1: Bill No, Bill Date, Bill Amount */}
-              <FormRow cols={3}>
+              <FormRow cols={3} from="md">
                 <TextInput
                   control={control}
                   name="billNo"
@@ -288,11 +380,20 @@ export function WorkOrderBillForm({
                   type="date"
                   required
                   onInput={(e) => {
-                    const val = (e as React.FormEvent<HTMLInputElement>).currentTarget.value;
-                    const terms = woDetail?.data?.paymentTermsInDays;
-                    if (val && typeof terms === "number" && Number.isFinite(terms)) {
+                    const val = (e as React.FormEvent<HTMLInputElement>)
+                      .currentTarget.value;
+                    const terms = woDetail?.paymentTermsInDays;
+
+                    if (
+                      val &&
+                      typeof terms === "number" &&
+                      Number.isFinite(terms)
+                    ) {
                       const due = addDays(val, terms);
-                      form.setValue("dueDate", due, { shouldValidate: true, shouldDirty: true });
+                      form.setValue("dueDate", due, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
                     }
                   }}
                 />
@@ -304,7 +405,7 @@ export function WorkOrderBillForm({
                 />
               </FormRow>
               {/* Row 2: Due Date (auto), Payment Date, Payment Mode */}
-              <FormRow cols={3}>
+              <FormRow cols={3} from="md">
                 <TextInput
                   control={control}
                   name="dueDate"
@@ -363,10 +464,23 @@ export function WorkOrderBillForm({
               </FormRow>
               {/* Conditional fields based on payment mode */}
               {paymentMode === "BANK" && (
-                <FormRow cols={3}>
-                  <TextInput control={control} name="bankName" label="Bank Name" />
-                  <TextInput control={control} name="chequeNo" label="Cheque No." />
-                  <TextInput control={control} name="chequeDate" label="Cheque Date" type="date" />
+                <FormRow cols={3} from="md">
+                  <TextInput
+                    control={control}
+                    name="bankName"
+                    label="Bank Name"
+                  />
+                  <TextInput
+                    control={control}
+                    name="chequeNo"
+                    label="Cheque No."
+                  />
+                  <TextInput
+                    control={control}
+                    name="chequeDate"
+                    label="Cheque Date"
+                    type="date"
+                  />
                 </FormRow>
               )}
               {paymentMode === "UPI" && (
@@ -375,19 +489,33 @@ export function WorkOrderBillForm({
                 </FormRow>
               )}
               {/* Row 3: Deduction/Tax, Paid Amount, Status */}
-              <FormRow cols={3}>
-                <TextInput control={control} name="deductionTax" label="Deduction / Tax" />
-                <TextInput control={control} name="paidAmount" label="Paid Amount" />
+              <FormRow cols={3} from="md">
+                <TextInput
+                  control={control}
+                  name="deductionTax"
+                  label="Deduction / Tax"
+                />
+                <TextInput
+                  control={control}
+                  name="paidAmount"
+                  label="Paid Amount"
+                />
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
                   <AppSelect
                     value={form.watch("status")}
-                    onValueChange={(v) => form.setValue("status", v as any, { shouldValidate: true })}
+                    onValueChange={(v) =>
+                      form.setValue("status", v as any, {
+                        shouldValidate: true,
+                      })
+                    }
                     placeholder="Select Status"
                   >
                     <AppSelect.Item value="UNPAID">Unpaid</AppSelect.Item>
                     <AppSelect.Item value="PAID">Paid</AppSelect.Item>
-                    <AppSelect.Item value="PARTIALLY_PAID">Partially Paid</AppSelect.Item>
+                    <AppSelect.Item value="PARTIALLY_PAID">
+                      Partially Paid
+                    </AppSelect.Item>
                   </AppSelect>
                 </div>
               </FormRow>

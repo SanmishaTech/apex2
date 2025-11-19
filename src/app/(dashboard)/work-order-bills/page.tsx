@@ -110,7 +110,13 @@ export default function WorkOrderBillsPage() {
     { key: "workOrderNo", header: "WO No.", sortable: true },
     { key: "site", header: "Site", accessor: (r) => r.site?.site || "-" },
     { key: "vendor", header: "Vendor", accessor: (r) => r.vendor?.vendorName || "-" },
-    { key: "amount", header: "Amount", accessor: (r) => r.amount, cellClassName: "text-right" },
+    {
+      key: "amount",
+      header: "Amount",
+      accessor: (r) => r.amount,
+      className: "text-right",
+      cellClassName: "text-right",
+    },
     { key: "workOrderDate", header: "WO Date", accessor: (r) => formatDate(r.workOrderDate), sortable: true },
   ];
 
