@@ -10,7 +10,7 @@ const updateSchema = z.object({
   billDate: z.string().transform((v) => new Date(v)).optional(),
   billAmount: z.coerce.number().min(0).optional(),
   paidAmount: z.coerce.number().min(0).optional(),
-  dueAmount: z.coerce.number().min(0).optional(),
+  dueAmount: z.coerce.number().optional(),
   dueDate: z.string().transform((v) => new Date(v)).optional(),
   paymentDate: z.string().transform((v) => new Date(v)).optional(),
   paymentMode: z.string().optional(),
