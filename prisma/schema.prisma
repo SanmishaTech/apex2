@@ -65,6 +65,10 @@ model User {
   workOrdersCompleted WorkOrder[] @relation("WOCompletedBy")
   workOrdersSuspended WorkOrder[] @relation("WOSuspendedBy")
 
+
+  inwardDeliveryChallansCreated InwardDeliveryChallan[] @relation("IDCCreated")
+  inwardDeliveryChallansUpdated InwardDeliveryChallan[] @relation("IDCUpdated")
+
   @@index([role])
   @@map("users")
 }
@@ -227,6 +231,8 @@ model Site {
   siteContactPersons   SiteContactPerson[]
   siteDeliveryAddresses SiteDeliveryAddress[]
   purchaseOrders PurchaseOrder[]
+  inwardDeliveryChallans InwardDeliveryChallan[]
+  stockLedgers StockLedger[]
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
@@ -542,6 +548,7 @@ model Item {
   siteBudgets SiteBudget[]
     purchaseOrderDetails PurchaseOrderDetail[] 
    workOrderDetails WorkOrderDetail[]
+   stockLedgers StockLedger[]
 
   @@index([itemCode])
   @@index([itemCategoryId])
@@ -620,6 +627,7 @@ model Vendor {
 
   purchaseOrders PurchaseOrder[]
     workOrders WorkOrder[]
+    inwardDeliveryChallans InwardDeliveryChallan[]
 
   @@index([vendorName])
   @@index([email])
@@ -1595,10 +1603,10 @@ model PurchaseOrder {
   vendorId                Int
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
   purchaseOrderNo         String   @db.VarChar(30)  @unique
-  purchaseOrderDate       DateTime @db.Date
+  purchaseOrderDate       DateTime 
   quotationNo             String   @db.VarChar(100)
-  quotationDate           DateTime @db.Date
-  deliveryDate            DateTime @db.Date
+  quotationDate           DateTime 
+  deliveryDate            DateTime 
   transport               String?   @db.VarChar(100)
   note                    String?   @db.Text
   terms                   String?   @db.Text
@@ -1648,6 +1656,7 @@ model PurchaseOrder {
   updatedBy User @relation("POUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   purchaseOrderDetails PurchaseOrderDetail[] 
+  inwardDeliveryChallan InwardDeliveryChallan?
 @@index([siteId])
 @@index([indentId])
 @@index([vendorId])
@@ -1695,6 +1704,7 @@ model PurchaseOrderDetail {
 
   // Relations
   indentItems IndentItem?
+  InwardDeliveryChallanDetail InwardDeliveryChallanDetail?
 
 @@index([purchaseOrderId])
 @@index([itemId])
@@ -1795,10 +1805,10 @@ model WorkOrder {
   vendorId                Int
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
   workOrderNo         String   @db.VarChar(30)  @unique
-  workOrderDate       DateTime @db.Date
+  workOrderDate       DateTime 
   quotationNo             String   @db.VarChar(100)
-  quotationDate           DateTime @db.Date
-  deliveryDate            DateTime @db.Date
+  quotationDate           DateTime 
+  deliveryDate            DateTime 
   transport               String?   @db.VarChar(100)
   note                    String?   @db.Text
   terms                   String?   @db.Text
@@ -1908,14 +1918,14 @@ model WorkOrderBill {
   workOrderId Int
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
   billNo          String  @db.VarChar(50) 
-  billDate        DateTime @db.Date 
+  billDate        DateTime  
   billAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
   paidAmount      Decimal   @default(0.00) @db.Decimal(10, 2) 
-  dueDate         DateTime  @db.Date 
-  paymentDate     DateTime @db.Date 
+  dueDate         DateTime   
+  paymentDate     DateTime  
   paymentMode     String   @db.VarChar(50)
   chequeNo        String?   @db.VarChar(200) 
-  chequeDate      DateTime? @db.Date 
+  chequeDate      DateTime?  
   utrNo           String?   @db.VarChar(200) 
   bankName        String?   @db.VarChar(100) 
   deductionTax    Decimal   @default(0.00) @db.Decimal(10, 2) 
@@ -1925,8 +1935,135 @@ model WorkOrderBill {
  createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@index([workOrderId])
+
   @@map("work_order_bills")
 }
 
+enum InwardDeliveryChallanStatus {
+  PAID
+  UNPAID
+  PARTIALLY_PAID
+}
 
+model InwardDeliveryChallan {
+  id               Int       @id @default(autoincrement())
+  purchaseOrderId Int    @unique
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  vendorId         Int
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  siteId           Int
+  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  inwardChallanNo  String   @db.VarChar(50)
+  inwardChallanDate DateTime
+  challanNo        String   @db.VarChar(100)
+  challanDate      DateTime
+
+  lrNo             String?   @db.VarChar(100)
+  lRDate           DateTime?
+  invoiceNo        String?   @db.VarChar(100)
+  invoiceDate      DateTime?
+  billNo           String?   @db.VarChar(100)
+  billDate         DateTime?
+  vehicleNo        String?   @db.VarChar(50)
+  remarks          String?   @db.VarChar(255)
+
+  billAmount       Decimal  @default(0.00) @db.Decimal(12, 2)
+  deductionTax     Decimal  @default(0.00) @db.Decimal(12, 2)
+  paidAmount       Decimal  @default(0.00) @db.Decimal(12, 2)
+  dueDays          Int      @default(0)
+  dueDate          DateTime?
+  paymentMode      String?   @db.VarChar(20)
+  paymentDate      DateTime?
+  status           InwardDeliveryChallanStatus @default(UNPAID)
+  chequeNo         String?   @db.VarChar(250)
+  chequeDate       DateTime?
+  utrNo            String?   @db.VarChar(250)
+  bankName         String?   @db.VarChar(100)
+  totalPaidAmount  Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  createdBy User @relation("IDCCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("IDCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+
+//relations
+  inwardDeliveryChallanDetails InwardDeliveryChallanDetail[]
+  inwardDeliveryChallanDocuments InwardDeliveryChallanDocuments[]
+  stockLedgers StockLedger[]
+  @@index([purchaseOrderId])
+  @@index([vendorId])
+  @@index([siteId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("inward_delivery_challans")
+}
+
+model InwardDeliveryChallanDetail {
+  id                        Int      @id @default(autoincrement())
+  inwardDeliveryChallanId   Int   
+  poDetailsId               Int   @unique
+  receivingQty              Decimal  @db.Decimal(12, 4) @default(0.00)
+  rate                      Decimal @db.Decimal(12, 2) @default(0.00)
+  amount                    Decimal @db.Decimal(12, 2) @default(0.00)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)
+
+
+  @@index([inwardDeliveryChallanId])
+  @@index([poDetailsId])
+  @@map("inward_delivery_challan_details")
+}
+
+
+model InwardDeliveryChallanDocuments {
+  id           Int      @id @default(autoincrement())
+  inwardDeliveryChallanId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+
+  @@index([inwardDeliveryChallanId])
+  @@map("inward_delivery_challan_documents")
+}
+
+
+model StockLedger {
+  id             Int       @id @default(autoincrement())
+  siteId                  Int
+  transactionDate DateTime
+  itemId          Int
+  inwardDeliveryChallanId   Int   
+
+  receivedQty     Decimal  @db.Decimal(12,4) @default(0.00)
+  issuedQty     Decimal  @db.Decimal(12, 4) @default(0.00)
+  unitRate     Decimal  @db.Decimal(12, 2) @default(0.00)
+  documentType   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+
+  site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
+  item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+
+  @@index([siteId])
+  @@index([itemId])
+  @@index([inwardDeliveryChallanId])
+
+  @@map("stock_ledgers")
+}
+
+
+
+//1)create delete functinality
+//2)create multipe file upload functionality.
+//3)create view inward delivery challan page.
 // in approval add budget validatioon from sir in purchase ordeer.

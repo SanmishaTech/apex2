@@ -437,6 +437,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_WORK_ORDER_BILLS],
     },
   },
+    {
+    prefix: "/api/inward-delivery-challans",
+    methods: {
+      GET: [PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN],
+      POST: [PERMISSIONS.CREATE_INWARD_DELIVERY_CHALLAN],
+      PATCH: [PERMISSIONS.EDIT_INWARD_DELIVERY_CHALLAN],
+      DELETE: [PERMISSIONS.DELETE_INWARD_DELIVERY_CHALLAN],
+    },
+  },
   {
     prefix: "/api/rental-categories",
     methods: {

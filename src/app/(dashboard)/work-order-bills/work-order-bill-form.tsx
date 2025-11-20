@@ -132,7 +132,7 @@ export function WorkOrderBillForm({
 
   type FormValues = z.infer<typeof schema>;
 
-  const qpWorkOrderId = sp.get("workOrderId");
+  const qpWorkOrderId = sp?.get("workOrderId");
   const defaultWoId = qpWorkOrderId ? parseInt(qpWorkOrderId) : undefined;
 
   const form = useForm<FormValues>({
