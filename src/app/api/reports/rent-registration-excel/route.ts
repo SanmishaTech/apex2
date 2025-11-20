@@ -8,7 +8,6 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
-
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
@@ -64,10 +63,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: [
-        { siteId: "asc" },
-        { boqId: "asc" },
-      ],
+      orderBy: [{ siteId: "asc" }, { boqId: "asc" }],
     });
 
     // Create Excel workbook using xlsx

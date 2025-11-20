@@ -30,7 +30,7 @@ function formatBillDate(value?: string | null) {
 export default function NewWorkOrderBillPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const workOrderId = sp.get("workOrderId");
+  const workOrderId = sp?.get("workOrderId");
   const woId = workOrderId ? parseInt(workOrderId) : NaN;
 
   const [qp, setQp] = useQueryParamsState({ page: 1, perPage: 10, sort: "billDate", order: "desc" });

@@ -181,6 +181,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const siteFilter = searchParams.get("site") || "";
     const vendorFilter = searchParams.get("vendor") || "";
+    const excludeLinked = searchParams.get("excludeLinked") === "true";
     const sort = (searchParams.get("sort") || "purchaseOrderDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
@@ -208,6 +209,11 @@ export async function GET(req: NextRequest) {
       if (!isNaN(vendorId)) {
         where.vendorId = vendorId;
       }
+    }
+
+    if (excludeLinked) {
+      // Only include POs that are not already linked in inward delivery challans
+      where.inwardDeliveryChallan = { is: null };
     }
 
     const sortableFields = new Set([
