@@ -44,14 +44,19 @@ export default function ViewInwardDeliveryChallanPage() {
         ) : challan ? (
           <div className="space-y-8">
             <section>
-              <h3 className="text-base font-semibold mb-3">General</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <div className="text-muted-foreground">IDC No</div>
-                  <div className="font-medium">{challan.inwardChallanNo}</div>
+                  <div className="text-muted-foreground">
+                    Inward Challan No.
+                  </div>
+                  <div className="font-medium">
+                    {challan.inwardChallanNo || "—"}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">IDC Date</div>
+                  <div className="text-muted-foreground">
+                    Material Received Date
+                  </div>
                   <div className="font-medium">
                     {challan.inwardChallanDate
                       ? formatDate(challan.inwardChallanDate)
@@ -59,7 +64,15 @@ export default function ViewInwardDeliveryChallanPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">Challan No</div>
+                  <div className="text-muted-foreground">
+                    Purchase Order No.
+                  </div>
+                  <div className="font-medium">
+                    {challan.purchaseOrder?.purchaseOrderNo || "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Challan No.</div>
                   <div className="font-medium">{challan.challanNo || "—"}</div>
                 </div>
                 <div>
@@ -71,136 +84,79 @@ export default function ViewInwardDeliveryChallanPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">PO</div>
+                  <div className="text-muted-foreground">L.R. No.</div>
+                  <div className="font-medium">{challan.lrNo || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">L.R. Date</div>
                   <div className="font-medium">
-                    {challan.purchaseOrder?.purchaseOrderNo}
+                    {challan.lRDate ? formatDate(challan.lRDate) : "—"}
                   </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Vehicle No.</div>
+                  <div className="font-medium">{challan.vehicleNo || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Site</div>
+                  <div className="font-medium">{challan.site?.site || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Vendor</div>
                   <div className="font-medium">
-                    {challan.vendor?.vendorName || challan.vendorId}
+                    {challan.vendor?.vendorName || "—"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">Site</div>
+                  <div className="text-muted-foreground">Prepared By</div>
                   <div className="font-medium">
-                    {challan.site?.site || challan.siteId}
+                    {challan.createdBy?.name || "—"}
                   </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Vehicle No</div>
-                  <div className="font-medium">{challan.vehicleNo || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Status</div>
-                  <div className="font-medium">{challan.status}</div>
                 </div>
               </div>
             </section>
 
             <section>
               <h3 className="text-base font-semibold mb-3">
-                Amounts & Payment
+                Inward Delivery Challan Details
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Bill Amount</div>
-                  <div className="font-medium">
-                    {challan.billAmount != null
-                      ? String(challan.billAmount)
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Deduction Tax</div>
-                  <div className="font-medium">
-                    {challan.deductionTax != null
-                      ? String(challan.deductionTax)
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Paid Amount</div>
-                  <div className="font-medium">
-                    {challan.paidAmount != null
-                      ? String(challan.paidAmount)
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Total Paid Amount</div>
-                  <div className="font-medium">
-                    {challan.totalPaidAmount != null
-                      ? String(challan.totalPaidAmount)
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Due Days</div>
-                  <div className="font-medium">{challan.dueDays}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Due Date</div>
-                  <div className="font-medium">
-                    {challan.dueDate ? formatDate(challan.dueDate) : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Payment Mode</div>
-                  <div className="font-medium">
-                    {challan.paymentMode || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Payment Date</div>
-                  <div className="font-medium">
-                    {challan.paymentDate
-                      ? formatDate(challan.paymentDate)
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Cheque No</div>
-                  <div className="font-medium">{challan.chequeNo || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Cheque Date</div>
-                  <div className="font-medium">
-                    {challan.chequeDate ? formatDate(challan.chequeDate) : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">UTR No</div>
-                  <div className="font-medium">{challan.utrNo || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Bank Name</div>
-                  <div className="font-medium">{challan.bankName || "—"}</div>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-base font-semibold mb-3">Details</h3>
               <div className="rounded-md border">
                 <div className="grid grid-cols-12 gap-3 p-3 text-xs font-medium bg-muted/50">
-                  <div className="col-span-3">PO Detail ID</div>
-                  <div className="col-span-3">Receiving Qty</div>
-                  <div className="col-span-3">Rate</div>
-                  <div className="col-span-3 text-right">Amount</div>
+                  <div className="col-span-4">Item</div>
+                  <div className="col-span-2">Unit</div>
+                  <div className="col-span-2">Qty</div>
+                  <div className="col-span-2">Received Qty</div>
+                  <div className="col-span-2 text-right">Closing Stock</div>
                 </div>
-                {(challan.inwardDeliveryChallanDetails || []).map((d: any) => (
-                  <div
-                    key={d.id}
-                    className="grid grid-cols-12 gap-3 p-3 border-t text-sm"
-                  >
-                    <div className="col-span-3">{d.poDetailsId}</div>
-                    <div className="col-span-3">{d.receivingQty}</div>
-                    <div className="col-span-3">{d.rate}</div>
-                    <div className="col-span-3 text-right">{d.amount}</div>
-                  </div>
-                ))}
+                {(challan.inwardDeliveryChallanDetails || []).map((d: any) => {
+                  const item = d.poDetails?.item;
+                  const unit = item?.unit?.unitName;
+                  const qty = d.poDetails?.qty;
+                  const receivedQty = d.receivingQty;
+                  const itemId: number | undefined = d.poDetails?.itemId;
+                  const closingStockMap = challan.closingStockByItemId || {};
+                  const closingStock = itemId
+                    ? closingStockMap[itemId]
+                    : undefined;
+                  return (
+                    <div
+                      key={d.id}
+                      className="grid grid-cols-12 gap-3 p-3 border-t text-sm"
+                    >
+                      <div className="col-span-4">
+                        {item?.itemCode
+                          ? `${item.itemCode} - ${item.item}`
+                          : item?.item ?? "—"}
+                      </div>
+                      <div className="col-span-2">{unit || "—"}</div>
+                      <div className="col-span-2">{qty ?? "—"}</div>
+                      <div className="col-span-2">{receivedQty ?? "—"}</div>
+                      <div className="col-span-2 text-right">
+                        {closingStock ?? "—"}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -224,9 +180,6 @@ export default function ViewInwardDeliveryChallanPage() {
                       >
                         <div>
                           <div className="font-medium">{doc.documentName}</div>
-                          <div className="text-xs text-muted-foreground break-all">
-                            {url}
-                          </div>
                         </div>
                         <a
                           href={href}

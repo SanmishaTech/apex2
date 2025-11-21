@@ -182,6 +182,7 @@ export async function GET(req: NextRequest) {
     const siteFilter = searchParams.get("site") || "";
     const vendorFilter = searchParams.get("vendor") || "";
     const excludeLinked = searchParams.get("excludeLinked") === "true";
+    const approved2Filter = searchParams.get("approved2");
     const sort = (searchParams.get("sort") || "purchaseOrderDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
@@ -209,6 +210,13 @@ export async function GET(req: NextRequest) {
       if (!isNaN(vendorId)) {
         where.vendorId = vendorId;
       }
+    }
+
+    // Optional filter for approval stage 2
+    if (approved2Filter === "true") {
+      where.isApproved2 = true;
+    } else if (approved2Filter === "false") {
+      where.isApproved2 = false;
     }
 
     if (excludeLinked) {

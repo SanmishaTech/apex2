@@ -86,6 +86,7 @@ type PurchaseOrderItem = {
   qty: number;
   orderedQty?: number | null;
   approved1Qty?: number | null;
+  approved2Qty?: number | null;
   rate: number;
   discountPercent: number;
   disAmt: number;
@@ -149,6 +150,11 @@ const purchaseOrderItemSchema = z.object({
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
     .pipe(z.number().min(0.0001, "Quantity must be greater than 0")),
   approved1Qty: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
+    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+    .optional(),
+  approved2Qty: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
     .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
@@ -374,6 +380,10 @@ export function PurchaseOrderForm({
         approved1Qty: isApprovalMode
           ? Number(item.approved1Qty ?? item.qty ?? 0)
           : item.approved1Qty ?? undefined,
+        // normalize approved2Qty for approval2 mode
+        approved2Qty: isApproval2
+          ? Number(item.approved2Qty ?? item.approved1Qty ?? item.qty ?? 0)
+          : item.approved2Qty ?? undefined,
         rate: item.rate ?? 0,
         discountPercent: item.discountPercent ?? 0,
         cgstPercent: item.cgstPercent ?? 0,
@@ -446,6 +456,21 @@ export function PurchaseOrderForm({
   const paymentTerms = paymentTermsData?.data ?? [];
   const itemOptions = itemsData?.data ?? [];
 
+  // Closing stock for items at selected site
+  const selectedItemIds: number[] = (
+    (isApprovalMode
+      ? initial?.purchaseOrderItems?.map((it) => it.itemId)
+      : items?.map((it) => Number((it as any)?.itemId))) || []
+  )
+    .filter((n) => typeof n === "number" && Number.isFinite(n) && n > 0) as number[];
+  const itemIdsParam = selectedItemIds.length > 0 ? selectedItemIds.join(",") : null;
+  const { data: closingStockData } = useSWR<any>(
+    siteValue && siteValue > 0 && itemIdsParam
+      ? `/api/inward-delivery-challans?variant=closing-stock&siteId=${siteValue}&itemIds=${itemIdsParam}`
+      : null,
+    apiGet
+  );
+
   type PurchaseOrderItemFormValue = FormData["purchaseOrderItems"][number];
 
   const toNumber = (value: string | number | undefined): number => {
@@ -478,8 +503,10 @@ export function PurchaseOrderForm({
   };
 
   const computeItemMetrics = (item: PurchaseOrderItemFormValue) => {
-    // In approval mode, use approved1Qty for calculations, otherwise use qty
-    const qty = isApprovalMode
+    // In approval 1 use approved1Qty; in approval 2 use approved2Qty; otherwise use qty
+    const qty = isApproval2
+      ? toNumber((item as any).approved2Qty)
+      : isApproval1
       ? toNumber(item.approved1Qty)
       : toNumber(item.qty);
     const rate = toNumber(item.rate);
@@ -613,7 +640,7 @@ export function PurchaseOrderForm({
         };
 
         // Add approval-specific fields
-        if (isApprovalMode) {
+        if (isApproval1) {
           return {
             ...baseItem,
             id: originalItem?.id,
@@ -623,6 +650,20 @@ export function PurchaseOrderForm({
               originalItem?.orderedQty ??
               undefined,
             approved1Qty: approvedQty,
+            qty: approvedQty,
+          };
+        } else if (isApproval2) {
+          return {
+            ...baseItem,
+            id: originalItem?.id,
+            orderedQty:
+              originalItem?.qty ??
+              toNumber(item.qty) ??
+              originalItem?.orderedQty ??
+              undefined,
+            approved1Qty:
+              originalItem?.approved1Qty ?? toNumber((item as any).approved1Qty),
+            approved2Qty: approvedQty,
             qty: approvedQty,
           };
         }
@@ -679,7 +720,7 @@ export function PurchaseOrderForm({
         paymentTermId: data.paymentTermId ? Number(data.paymentTermId) : null,
         paymentTermsInDays: data.paymentTermsInDays
           ? Number(data.paymentTermsInDays)
-          : null,
+          : undefined,
         poStatus: data.poStatus ?? null,
         transitInsuranceStatus: data.transitInsuranceStatus || null,
         transitInsuranceAmount: data.transitInsuranceAmount || null,
@@ -1132,13 +1173,25 @@ export function PurchaseOrderForm({
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Item
                       </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Closing Stock
+                      </th>
                       {isApprovalMode && (
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ordered Qty
                         </th>
                       )}
+                      {isApproval2 && (
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Approved 1 Qty
+                        </th>
+                      )}
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {isApprovalMode ? "Approved Qty" : "Qty"}
+                        {isApproval2
+                          ? "Approved 2 Qty"
+                          : isApproval1
+                          ? "Approved 1 Qty"
+                          : "Qty"}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
@@ -1295,6 +1348,20 @@ export function PurchaseOrderForm({
                             </>
                           )}
                         </td>
+                        {(() => {
+                          const rowItemId = isApprovalMode
+                            ? initial?.purchaseOrderItems?.[index]?.itemId
+                            : (items?.[index] as any)?.itemId;
+                          const closingMap =
+                            (closingStockData && (closingStockData as any).closingStockByItemId) || {};
+                          const closingVal =
+                            typeof rowItemId === "number" ? closingMap[rowItemId] : undefined;
+                          return (
+                            <td className="px-4 py-3 text-right align-top">
+                              {typeof closingVal === "number" ? closingVal : "-"}
+                            </td>
+                          );
+                        })()}
                         {isApprovalMode && (
                           <td className="px-4 py-3 text-right font-medium align-top">
                             {toNumber(
@@ -1308,11 +1375,52 @@ export function PurchaseOrderForm({
                             })}
                           </td>
                         )}
+                        {isApproval2 && (
+                          <td className="px-4 py-3 text-right font-medium align-top">
+                            {toNumber(
+                              (items[index] as any)?.approved1Qty ??
+                                initial?.purchaseOrderItems?.[index]?.approved1Qty ??
+                                initial?.purchaseOrderItems?.[index]?.qty ??
+                                0
+                            ).toLocaleString("en-IN", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                          </td>
+                        )}
                         <td className="px-4 py-3 align-top">
-                          {isApprovalMode ? (
+                          {isApproval1 ? (
                             <FormField
                               control={form.control}
                               name={`purchaseOrderItems.${index}.approved1Qty`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.0001"
+                                      min="0.0001"
+                                      {...field}
+                                      value={field.value?.toString() || ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        field.onChange(
+                                          value === ""
+                                            ? ""
+                                            : parseFloat(value) || 0
+                                        );
+                                      }}
+                                      className="text-right w-24"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          ) : isApproval2 ? (
+                            <FormField
+                              control={form.control}
+                              name={`purchaseOrderItems.${index}.approved2Qty`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
                                   <FormControl>
@@ -1550,7 +1658,7 @@ export function PurchaseOrderForm({
                   <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 10 : isApprovalMode ? 9 : 8}
                         className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
                         Subtotal
@@ -1561,7 +1669,7 @@ export function PurchaseOrderForm({
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApprovalMode ? 9 : 8}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
