@@ -102,6 +102,35 @@ export async function GET(req: NextRequest) {
   if (variant === "dropdown") {
     return handleDropdown(req);
   }
+  if (variant === "closing-stock") {
+    // Compute closing stock for a site and a list of itemIds
+    const siteIdParam = searchParams.get("siteId");
+    const itemIdsParam = searchParams.get("itemIds");
+    const siteId = siteIdParam ? Number(siteIdParam) : NaN;
+    const itemIds = (itemIdsParam || "")
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n));
+    if (!Number.isFinite(siteId) || itemIds.length === 0) {
+      return BadRequest("siteId and itemIds are required");
+    }
+    try {
+      const sums = await prisma.stockLedger.groupBy({
+        by: ["itemId"],
+        where: { siteId: siteId as number, itemId: { in: itemIds as number[] } },
+        _sum: { receivedQty: true, issuedQty: true },
+      } as any);
+      const closingStockByItemId: Record<number, number> = {};
+      for (const row of sums as any[]) {
+        const recv = Number(row._sum?.receivedQty ?? 0);
+        const issued = Number(row._sum?.issuedQty ?? 0);
+        closingStockByItemId[row.itemId] = Number((recv - issued).toFixed(4));
+      }
+      return Success({ closingStockByItemId });
+    } catch (e) {
+      return ApiError("Failed to compute closing stock");
+    }
+  }
 
   try {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
@@ -327,7 +356,10 @@ export async function POST(req: NextRequest) {
           ? Number(form.get("vendorId"))
           : undefined,
         siteId: form.get("siteId") ? Number(form.get("siteId")) : undefined,
-        inwardChallanNo: form.get("inwardChallanNo"),
+        inwardChallanNo: (() => {
+          const v = form.get("inwardChallanNo");
+          return typeof v === "string" && v.trim().length > 0 ? v : undefined;
+        })(),
         inwardChallanDate: form.get("inwardChallanDate"),
         challanNo: form.get("challanNo"),
         challanDate: form.get("challanDate"),

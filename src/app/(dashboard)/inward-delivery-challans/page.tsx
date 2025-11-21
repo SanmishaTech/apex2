@@ -17,7 +17,7 @@ import { DataTable, SortState, Column } from "@/components/common/data-table";
 import { formatRelativeTime, formatDate } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import Link from "next/link";
-
+import { Eye } from "lucide-react";
 // Types
 
 type IDCListItem = {
@@ -255,7 +255,7 @@ export default function InwardDeliveryChallansPage() {
                     type="button"
                     aria-label="View Challan"
                   >
-                    👁️
+                    <Eye />
                   </AppButton>
                 </Link>
                 {canDelete && (

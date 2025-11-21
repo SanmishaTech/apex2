@@ -48,7 +48,7 @@ const updateSchema = z.object({
     .nullable(),
   vehicleNo: z.string().max(50).optional().nullable(),
   remarks: z.string().max(255).optional().nullable(),
-  
+
   // updatedById is set from auth on the server
   inwardDeliveryChallanDetails: z
     .array(
@@ -143,6 +143,12 @@ export async function GET(
                     id: true,
                     item: true,
                     itemCode: true,
+                    unit: {
+                      select: {
+                        id: true,
+                        unitName: true,
+                      },
+                    },
                   },
                 },
               },
@@ -156,7 +162,34 @@ export async function GET(
     });
 
     if (!challan) return NotFound("Inward delivery challan not found");
-    return Success(challan);
+
+    // Compute closing stock per item for this site using StockLedger
+    try {
+      const itemIds = (challan.inwardDeliveryChallanDetails || [])
+        .map((d: any) => d?.poDetails?.itemId)
+        .filter((v: any) => typeof v === "number");
+      const uniqueItemIds = Array.from(new Set(itemIds));
+      let closingStockByItemId: Record<number, number> = {};
+      if (uniqueItemIds.length > 0) {
+        const sums = await prisma.stockLedger.groupBy({
+          by: ["itemId"],
+          where: {
+            siteId: challan.siteId,
+            itemId: { in: uniqueItemIds },
+          },
+          _sum: { receivedQty: true, issuedQty: true },
+        } as any);
+        for (const row of sums as any[]) {
+          const recv = Number(row._sum?.receivedQty ?? 0);
+          const issued = Number(row._sum?.issuedQty ?? 0);
+          closingStockByItemId[row.itemId] = Number((recv - issued).toFixed(4));
+        }
+      }
+      return Success({ ...challan, closingStockByItemId });
+    } catch (e) {
+      // If stock computation fails, still return challan
+      return Success(challan);
+    }
   } catch (error) {
     console.error("Get inward delivery challan error:", error);
     return ApiError("Failed to fetch inward delivery challan");
@@ -564,6 +597,21 @@ export async function DELETE(
 
     // Use transaction to delete challan and related data
     await prisma.$transaction(async (tx) => {
+      // Find all PO detail ids linked to this challan's details
+      const details = await tx.inwardDeliveryChallanDetail.findMany({
+        where: { inwardDeliveryChallanId: id },
+        select: { poDetailsId: true },
+      });
+
+      // Reset receivedQty to 0 for those PO details (if any)
+      const poDetailIds = details.map((d) => d.poDetailsId);
+      if (poDetailIds.length > 0) {
+        await tx.purchaseOrderDetail.updateMany({
+          where: { id: { in: poDetailIds } },
+          data: { receivedQty: 0 },
+        });
+      }
+
       // Delete documents
       await tx.inwardDeliveryChallanDocuments.deleteMany({
         where: { inwardDeliveryChallanId: id },

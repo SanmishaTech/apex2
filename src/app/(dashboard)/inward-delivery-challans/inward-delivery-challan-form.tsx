@@ -54,32 +54,47 @@ export interface InwardDeliveryChallanFormProps {
   redirectOnSuccess?: string; // default '/inward-delivery-challans'
 }
 
-const baseSchema = z.object({
-  purchaseOrderId: z.string().min(1, "Purchase Order is required"),
-  vendorId: z.string().min(1, "Vendor is required"),
-  siteId: z.string().min(1, "Site is required"),
-  inwardChallanDate: z.string().min(1, "Inward Challan Date is required"),
-  challanNo: z.string().min(1, "Challan No is required"),
-  challanDate: z.string().min(1, "Challan Date is required"),
-  lrNo: z.string().optional(),
-  lRDate: z.string().optional(),
-  billNo: z.string().optional(),
-  billDate: z.string().optional(),
-  vehicleNo: z.string().optional(),
-  remarks: z.string().optional(),
+const baseSchema = z
+  .object({
+    purchaseOrderId: z.string().min(1, "Purchase Order is required"),
+    // Make vendorId optional at field level; enforce conditionally below
+    vendorId: z.string().optional(),
+    siteId: z.string().min(1, "Site is required"),
+    inwardChallanDate: z.string().min(1, "Inward Challan Date is required"),
+    challanNo: z.string().min(1, "Challan No is required"),
+    challanDate: z.string().min(1, "Challan Date is required"),
+    lrNo: z.string().optional(),
+    lRDate: z.string().optional(),
+    billNo: z.string().optional(),
+    billDate: z.string().optional(),
+    vehicleNo: z.string().optional(),
+    remarks: z.string().optional(),
 
-  items: z
-    .array(
-      z.object({
-        poDetailsId: z.string().optional(),
-        receivingQty: z.string().optional(),
-        rate: z.string().optional(),
-        amount: z.string().optional(),
-      })
-    )
-    .optional()
-    .default([]),
-});
+    items: z
+      .array(
+        z.object({
+          poDetailsId: z.string().optional(),
+          receivingQty: z.string().optional(),
+          rate: z.string().optional(),
+          amount: z.string().optional(),
+        })
+      )
+      .optional()
+      .default([]),
+  })
+  .superRefine((data, ctx) => {
+    // Enforce vendor only when a PO is selected
+    if ((data.purchaseOrderId || "").trim().length > 0) {
+      const v = (data.vendorId || "").trim();
+      if (v.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["vendorId"],
+          message: "Vendor is required",
+        });
+      }
+    }
+  });
 const inputSchema = baseSchema;
 
 type RawFormValues = z.infer<typeof inputSchema>;
@@ -195,7 +210,7 @@ export default function InwardDeliveryChallanForm({
   const purchaseOrderIdVal = form.watch("purchaseOrderId");
   const { data: posData } = useSWR<any>(
     siteIdVal
-      ? `/api/purchase-orders?perPage=1000&site=${siteIdVal}&excludeLinked=true`
+      ? `/api/purchase-orders?perPage=1000&site=${siteIdVal}&excludeLinked=true&approved2=true`
       : null,
     apiGet
   );
@@ -206,16 +221,29 @@ export default function InwardDeliveryChallanForm({
     apiGet
   );
 
+  const itemIdsForPo: number[] = ((poDetail?.purchaseOrderDetails || []) as any[])
+    .map((d: any) => (typeof d?.itemId === "number" ? d.itemId : d?.item?.id))
+    .filter((v: any) => typeof v === "number");
+  const itemIdsParam = itemIdsForPo.length > 0 ? itemIdsForPo.join(",") : null;
+  const { data: closingStockData } = useSWR<any>(
+    siteIdVal && itemIdsParam
+      ? `/api/inward-delivery-challans?variant=closing-stock&siteId=${siteIdVal}&itemIds=${itemIdsParam}`
+      : null,
+    apiGet
+  );
+
   useEffect(() => {
     // When site changes, clear dependent fields
-    form.setValue("purchaseOrderId", "", { shouldValidate: true });
-    form.setValue("vendorId", "", { shouldValidate: true });
+    form.setValue("purchaseOrderId", "", { shouldValidate: false, shouldDirty: true });
+    form.setValue("vendorId", "", { shouldValidate: false, shouldDirty: true });
   }, [siteIdVal]);
 
   // When PO changes, auto-select vendor from the POs list (no extra call)
   useEffect(() => {
     if (!purchaseOrderIdVal) {
-      form.setValue("vendorId", "", { shouldValidate: true });
+      form.setValue("vendorId", "", { shouldValidate: false, shouldDirty: true });
+      // Don't show vendor error until a PO is selected
+      form.clearErrors("vendorId");
       return;
     }
     const selected = posData?.data?.find?.(
@@ -463,6 +491,14 @@ export default function InwardDeliveryChallanForm({
                   const sr = d?.serialNo ?? index + 1;
                   const itemName = d?.item?.item ?? d?.itemName ?? "-";
                   const qty = d?.qty ?? d?.approved2Qty ?? d?.orderedQty ?? "-";
+                  const itemId =
+                    (typeof d?.itemId === "number" ? d.itemId : d?.item?.id) ??
+                    undefined;
+                  const closingMap =
+                    (closingStockData && closingStockData.closingStockByItemId) ||
+                    {};
+                  const closingVal =
+                    typeof itemId === "number" ? closingMap[itemId] : undefined;
                   return (
                     <div
                       key={field.id}
@@ -481,7 +517,7 @@ export default function InwardDeliveryChallanForm({
                           span={12}
                         />
                       </div>
-                      <div className="col-span-2">-</div>
+                      <div className="col-span-2">{closingVal ?? "-"}</div>
                     </div>
                   );
                 })}

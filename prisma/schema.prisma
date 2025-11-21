@@ -530,7 +530,7 @@ model Item {
   id             Int           @id @default(autoincrement())
   itemCode       String        @unique // auto-generated
   hsnCode        String?
-  item           String
+  item           String        @unique   
   itemCategoryId Int?
   itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
   unitId         Int?
@@ -2010,8 +2010,8 @@ model InwardDeliveryChallanDetail {
   amount                    Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
-  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Cascade)
 
 
   @@index([inwardDeliveryChallanId])
@@ -2028,7 +2028,7 @@ model InwardDeliveryChallanDocuments {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_delivery_challan_documents")
@@ -2049,10 +2049,9 @@ model StockLedger {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
   item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
 
   @@index([siteId])
   @@index([itemId])
@@ -2063,7 +2062,4 @@ model StockLedger {
 
 
 
-//1)create delete functinality
-//2)create multipe file upload functionality.
-//3)create view inward delivery challan page.
 // in approval add budget validatioon from sir in purchase ordeer.
