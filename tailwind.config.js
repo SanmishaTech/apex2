@@ -1,4 +1,3 @@
-import twAnimate from "tw-animate-css"
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -80,5 +79,5 @@ module.exports = {
       },
     },
   },
-  plugins: [twAnimate],
+  plugins: [],
 }

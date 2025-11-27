@@ -14,10 +14,13 @@ export function useCurrentUser() {
     fetcher,
     {
       shouldRetryOnError: false,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 60000, // 1 minute cache
-      focusThrottleInterval: 30000 // 30 seconds
+      // Revalidate aggressively to avoid stale role/permissions after auth changes
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateIfStale: true,
+      refreshInterval: 0,
+      dedupingInterval: 0,
+      focusThrottleInterval: 0
     }
   );
   return {

@@ -47,7 +47,9 @@ export async function GET(
     const data = await fs.readFile(normalizedRequested);
     const contentType = getContentType(normalizedRequested);
 
-    return new Response(data, {
+    // Use Uint8Array view for standards-compliant BodyInit
+    const body = new Uint8Array(data);
+    return new Response(body, {
       status: 200,
       headers: {
         "Content-Type": contentType,

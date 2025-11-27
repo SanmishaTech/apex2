@@ -14,6 +14,7 @@ import { DataTable, SortState, Column } from "@/components/common/data-table";
 import { DeleteButton } from "@/components/common/delete-button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { PERMISSIONS } from "@/config/roles";
 import { formatDate } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
@@ -50,6 +51,8 @@ export default function IndentsPage() {
     sort: "indentDate",
     order: "desc",
   });
+  // Initialize current user early so subsequent effects can safely depend on it
+  const { user } = useCurrentUser();
   const { page, perPage, search, site, sort, order } = qp as unknown as {
     page: number;
     perPage: number;
@@ -97,7 +100,9 @@ export default function IndentsPage() {
 
   function getAvailableActions(
     s?: string,
-    isSuspended?: boolean
+    isSuspended?: boolean,
+    isCreator?: boolean,
+    isL1Approver?: boolean
   ): {
     key: "approve1" | "approve2" | "complete" | "suspend";
     label: string;
@@ -111,24 +116,34 @@ export default function IndentsPage() {
       case "DRAFT":
       case "":
       case undefined:
-        baseActions.push(
-          { key: "approve1", label: "Approve 1" },
-          { key: "suspend", label: "Suspend" }
-        );
+        if (!isCreator && can(PERMISSIONS.APPROVE_INDENTS_L1)) {
+          baseActions.push({ key: "approve1", label: "Approve 1" });
+        }
+        if (can(PERMISSIONS.SUSPEND_INDENTS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "APPROVED_LEVEL_1":
-        baseActions.push(
-          { key: "approve2", label: "Approve 2" },
-          { key: "suspend", label: "Suspend" }
-        );
+        if (
+          !isCreator &&
+          !isL1Approver &&
+          can(PERMISSIONS.APPROVE_INDENTS_L2)
+        ) {
+          baseActions.push({ key: "approve2", label: "Approve 2" });
+        }
+        if (can(PERMISSIONS.SUSPEND_INDENTS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "APPROVED_LEVEL_2":
-        baseActions.push(
-          { key: "complete", label: "Complete" },
-          { key: "suspend", label: "Suspend" }
-        );
+        if (can(PERMISSIONS.COMPLETE_INDENTS)) {
+          baseActions.push({ key: "complete", label: "Complete" });
+        }
+        if (can(PERMISSIONS.SUSPEND_INDENTS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "SUSPENDED":
@@ -137,6 +152,7 @@ export default function IndentsPage() {
         return [];
     }
 
+    // Permission-based filter
     return baseActions;
   }
 
@@ -161,6 +177,11 @@ export default function IndentsPage() {
     query,
     apiGet
   );
+
+  // Refetch when logged-in user changes so Approve options reflect correct permissions/creator/L1 gating
+  useEffect(() => {
+    mutate();
+  }, [user?.id, mutate]);
 
   // Debug: Log when perPage or pagination data changes
   useEffect(() => {
@@ -544,11 +565,24 @@ export default function IndentsPage() {
             sort={sortState}
             onSortChange={(s) => toggleSort(s.field)}
             stickyColumns={1}
-            renderRowActions={(indent) =>
-              !can(PERMISSIONS.EDIT_INDENTS) &&
-              !can(PERMISSIONS.DELETE_INDENTS) ? null : (
+            renderRowActions={(indent) => {
+              const canAnyAction =
+                can(PERMISSIONS.EDIT_INDENTS) ||
+                can(PERMISSIONS.DELETE_INDENTS) ||
+                can(PERMISSIONS.APPROVE_INDENTS_L1) ||
+                can(PERMISSIONS.APPROVE_INDENTS_L2) ||
+                can(PERMISSIONS.COMPLETE_INDENTS) ||
+                can(PERMISSIONS.SUSPEND_INDENTS) ||
+                can(PERMISSIONS.GENERATE_PO_FROM_INDENT);
+              if (!canAnyAction) return null;
+              return (
                 <div className="flex gap-2">
-                  {can(PERMISSIONS.EDIT_INDENTS) && (
+                  {(can(PERMISSIONS.EDIT_INDENTS) ||
+                    can(PERMISSIONS.APPROVE_INDENTS_L1) ||
+                    can(PERMISSIONS.APPROVE_INDENTS_L2) ||
+                    can(PERMISSIONS.COMPLETE_INDENTS) ||
+                    can(PERMISSIONS.SUSPEND_INDENTS) ||
+                    can(PERMISSIONS.GENERATE_PO_FROM_INDENT)) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <AppButton
@@ -573,7 +607,7 @@ export default function IndentsPage() {
                           const allItemsCompleted =
                             items.length > 0 && completedCount === items.length;
                           const canGeneratePo =
-                            can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
+                            can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
                             (indent.approvalStatus === "APPROVED_LEVEL_2" ||
                               indent.approvalStatus === "COMPLETED") &&
                             !indent.suspended &&
@@ -590,7 +624,9 @@ export default function IndentsPage() {
                         {(() => {
                           const actions = getAvailableActions(
                             indent.approvalStatus,
-                            indent.suspended
+                            indent.suspended,
+                            (indent as any).createdById === user?.id,
+                            (indent as any).approved1ById === user?.id
                           );
                           const items = indent.indentItems ?? [];
                           const completedCount = items.filter(
@@ -601,7 +637,7 @@ export default function IndentsPage() {
                           const allItemsCompleted =
                             items.length > 0 && completedCount === items.length;
                           const showGenerate =
-                            can(PERMISSIONS.CREATE_PURCHASE_ORDERS) &&
+                            can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
                             (indent.approvalStatus === "APPROVED_LEVEL_2" ||
                               indent.approvalStatus === "COMPLETED") &&
                             !indent.suspended &&
@@ -626,8 +662,8 @@ export default function IndentsPage() {
                     </DropdownMenu>
                   )}
                 </div>
-              )
-            }
+              );
+            }}
           />
         </AppCard.Content>
         <AppCard.Footer className="justify-end">

@@ -78,11 +78,21 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
   },
 
- // purchase-orders
-  { prefix: "/purchase-orders/new", permissions: [PERMISSIONS.CREATE_PURCHASE_ORDERS] },
-  { prefix: "/purchase-orders/", permissions: [PERMISSIONS.EDIT_PURCHASE_ORDERS] },
-  { prefix: "/purchase-orders", permissions: [PERMISSIONS.READ_PURCHASE_ORDERS] },
-   { prefix: "/work-orders/new", permissions: [PERMISSIONS.CREATE_WORK_ORDERS] },
+  // purchase-orders
+  {
+    prefix: "/purchase-orders/new",
+    permissions: [PERMISSIONS.CREATE_PURCHASE_ORDERS],
+  },
+  // Allow viewing subpages (e.g., approve1/approve2) without requiring EDIT rights
+  {
+    prefix: "/purchase-orders/",
+    permissions: [PERMISSIONS.READ_PURCHASE_ORDERS],
+  },
+  {
+    prefix: "/purchase-orders",
+    permissions: [PERMISSIONS.READ_PURCHASE_ORDERS],
+  },
+  { prefix: "/work-orders/new", permissions: [PERMISSIONS.CREATE_WORK_ORDERS] },
   { prefix: "/work-orders/", permissions: [PERMISSIONS.EDIT_WORK_ORDERS] },
   { prefix: "/work-orders", permissions: [PERMISSIONS.READ_WORK_ORDERS] },
   {
@@ -126,7 +136,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/cashbooks", permissions: [PERMISSIONS.READ_CASHBOOKS] },
   // Indents
   { prefix: "/indents/new", permissions: [PERMISSIONS.CREATE_INDENTS] },
-  { prefix: "/indents/", permissions: [PERMISSIONS.EDIT_INDENTS] },
+  { prefix: "/indents/", permissions: [PERMISSIONS.READ_INDENTS] },
   { prefix: "/indents", permissions: [PERMISSIONS.READ_INDENTS] },
   // Rental Categories
   {
@@ -206,14 +216,23 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
   },
   // Attendances
-  { prefix: '/attendances/mark/', permissions: [PERMISSIONS.CREATE_ATTENDANCES] },
-  { prefix: '/edit-attendance', permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
-  { prefix: '/attendances', permissions: [PERMISSIONS.READ_ATTENDANCES] },
+  {
+    prefix: "/attendances/mark/",
+    permissions: [PERMISSIONS.CREATE_ATTENDANCES],
+  },
+  { prefix: "/edit-attendance", permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
+  { prefix: "/attendances", permissions: [PERMISSIONS.READ_ATTENDANCES] },
   // Attendance Reports
-  { prefix: '/attendance-reports', permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS] },
+  {
+    prefix: "/attendance-reports",
+    permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
+  },
   // Reports
-  { prefix: '/reports/rent-registration', permissions: [PERMISSIONS.READ_RENTS] },
-  { prefix: '/reports/wage-sheet', permissions: [PERMISSIONS.READ_PAYSLIPS] },
+  {
+    prefix: "/reports/rent-registration",
+    permissions: [PERMISSIONS.READ_RENTS],
+  },
+  { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.READ_PAYSLIPS] },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -406,20 +425,22 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_INDENTS],
       POST: [PERMISSIONS.CREATE_INDENTS],
-      PATCH: [PERMISSIONS.EDIT_INDENTS],
+      // Let the handler enforce granular permissions: approve1/approve2/complete/suspend
+      PATCH: [],
       DELETE: [PERMISSIONS.DELETE_INDENTS],
     },
   },
-   {
+  {
     prefix: "/api/purchase-orders",
     methods: {
       GET: [PERMISSIONS.READ_PURCHASE_ORDERS],
       POST: [PERMISSIONS.CREATE_PURCHASE_ORDERS],
-      PATCH: [PERMISSIONS.EDIT_PURCHASE_ORDERS],
+      // Let the handler enforce granular permissions (approve1/approve2/suspend/complete)
+      PATCH: [],
       DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
     },
   },
-   {
+  {
     prefix: "/api/work-orders",
     methods: {
       GET: [PERMISSIONS.READ_WORK_ORDERS],
@@ -428,7 +449,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
     },
   },
-   {
+  {
     prefix: "/api/work-order-bills",
     methods: {
       GET: [PERMISSIONS.READ_WORK_ORDER_BILLS],
@@ -437,7 +458,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_WORK_ORDER_BILLS],
     },
   },
-    {
+  {
     prefix: "/api/inward-delivery-challans",
     methods: {
       GET: [PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN],
@@ -539,13 +560,13 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: '/api/attendance-reports',
+    prefix: "/api/attendance-reports",
     methods: {
       GET: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
     },
   },
   {
-    prefix: '/api/reports/rent-registration',
+    prefix: "/api/reports/rent-registration",
     methods: {
       GET: [PERMISSIONS.READ_RENTS],
     },

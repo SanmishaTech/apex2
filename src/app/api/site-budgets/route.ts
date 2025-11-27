@@ -11,8 +11,6 @@ const createSchema = z.object({
   budgetQty: z.number().positive("Budget quantity must be positive"),
   budgetRate: z.number().positive("Budget rate must be positive"),
   purchaseRate: z.number().positive("Purchase rate must be positive"),
-  orderedQty: z.number().min(0, "Ordered quantity cannot be negative").optional().default(0),
-  avgRate: z.number().min(0, "Average rate cannot be negative").optional().default(0),
   qty50Alert: z.boolean().optional().default(false),
   value50Alert: z.boolean().optional().default(false),
   qty75Alert: z.boolean().optional().default(false),
@@ -26,27 +24,32 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+  const perPage = Math.min(
+    100,
+    Math.max(1, Number(searchParams.get("perPage")) || 10)
+  );
   const search = (searchParams.get("search") || "").trim();
   const siteId = searchParams.get("siteId");
   const sort = (searchParams.get("sort") || "createdAt") as string;
-  const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+  const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
+    | "asc"
+    | "desc";
 
   type SiteBudgetWhere = {
     siteId?: number;
-    OR?: { 
+    OR?: {
       item?: { item?: { contains: string } };
       site?: { site?: { contains: string } };
     }[];
   };
-  
+
   const where: SiteBudgetWhere = {};
-  
+
   // Filter by site if provided
   if (siteId) {
     where.siteId = parseInt(siteId);
   }
-  
+
   // Search across item name and site name
   if (search) {
     where.OR = [
@@ -55,8 +58,16 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const sortableFields = new Set(["createdAt", "budgetQty", "budgetRate", "purchaseRate", "budgetValue"]);
-  const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { createdAt: "desc" };
+  const sortableFields = new Set([
+    "createdAt",
+    "budgetQty",
+    "budgetRate",
+    "purchaseRate",
+    "budgetValue",
+  ]);
+  const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
+    ? { [sort]: order }
+    : { createdAt: "desc" };
 
   const result = await paginate({
     model: prisma.siteBudget,
@@ -85,7 +96,7 @@ export async function GET(req: NextRequest) {
         select: {
           id: true,
           site: true,
-        }
+        },
       },
       item: {
         select: {
@@ -96,10 +107,10 @@ export async function GET(req: NextRequest) {
             select: {
               id: true,
               unitName: true,
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      },
     },
   });
   return Success(result);
@@ -113,11 +124,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validatedData = createSchema.parse(body);
-    
-    // Calculate budget value and ordered value
+
+    // Calculate budget value; ordered fields are read-only and start at 0
     const budgetValue = validatedData.budgetQty * validatedData.budgetRate;
-    const orderedValue = validatedData.orderedQty * validatedData.avgRate;
-    
+    const orderedQty = 0;
+    const avgRate = 0;
+    const orderedValue = 0;
+
     const created = await prisma.siteBudget.create({
       data: {
         siteId: validatedData.siteId,
@@ -125,8 +138,8 @@ export async function POST(req: NextRequest) {
         budgetQty: validatedData.budgetQty,
         budgetRate: validatedData.budgetRate,
         purchaseRate: validatedData.purchaseRate,
-        orderedQty: validatedData.orderedQty,
-        avgRate: validatedData.avgRate,
+        orderedQty,
+        avgRate,
         qty50Alert: validatedData.qty50Alert,
         value50Alert: validatedData.value50Alert,
         qty75Alert: validatedData.qty75Alert,
@@ -154,7 +167,7 @@ export async function POST(req: NextRequest) {
           select: {
             id: true,
             site: true,
-          }
+          },
         },
         item: {
           select: {
@@ -165,20 +178,23 @@ export async function POST(req: NextRequest) {
               select: {
                 id: true,
                 unitName: true,
-              }
-            }
-          }
-        }
-      }
+              },
+            },
+          },
+        },
+      },
     });
-    
+
     return Success(created, 201);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    if (error.code === 'P2002') {
-      return Error('Budget for this site and item combination already exists', 409);
+    if (error.code === "P2002") {
+      return Error(
+        "Budget for this site and item combination already exists",
+        409
+      );
     }
     console.error("Create site budget error:", error);
     return Error("Failed to create site budget");

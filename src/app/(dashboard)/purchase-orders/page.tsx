@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { PERMISSIONS } from "@/config/roles";
 
 import { AppButton } from "@/components/common/app-button";
@@ -45,6 +46,8 @@ type PurchaseOrder = {
   deliveryDate: string;
   siteId: number;
   vendorId: number;
+  createdById: number;
+  approved1ById?: number | null;
   site: {
     id: number;
     site: string;
@@ -100,6 +103,7 @@ export default function PurchaseOrdersPage() {
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("purchase-orders-list");
   const { can } = usePermissions();
+  const { user } = useCurrentUser();
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -167,7 +171,9 @@ export default function PurchaseOrdersPage() {
 
   function getAvailableActions(
     s?: string,
-    isSuspended?: boolean
+    isSuspended?: boolean,
+    isCreator?: boolean,
+    isL1Approver?: boolean
   ): Array<{
     key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
     label: string;
@@ -181,16 +187,20 @@ export default function PurchaseOrdersPage() {
       case "DRAFT":
       case "":
       case undefined:
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1) && !isCreator) {
           baseActions.push({ key: "approve1", label: "Approve 1" });
         }
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }
         break;
 
       case "APPROVED_LEVEL_1":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (
+          can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2) &&
+          !isCreator &&
+          !isL1Approver
+        ) {
           baseActions.push({ key: "approve2", label: "Approve 2" });
         }
         if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
@@ -199,16 +209,16 @@ export default function PurchaseOrdersPage() {
         break;
 
       case "APPROVED_LEVEL_2":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (can(PERMISSIONS.COMPLETE_PURCHASE_ORDERS)) {
           baseActions.push({ key: "complete", label: "Complete" });
         }
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }
         break;
 
       case "SUSPENDED":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
+        if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
           baseActions.push({ key: "unsuspend", label: "Unsuspend" });
         }
         break;
@@ -234,6 +244,11 @@ export default function PurchaseOrdersPage() {
     })}`,
     apiGet
   );
+
+  // Refetch list when logged-in user changes so creator/approver gating updates immediately
+  useEffect(() => {
+    mutate();
+  }, [user?.id, mutate]);
 
   // Fetch sites for filter
   const { data: sitesData } = useSWR<SitesResponse>(
@@ -561,78 +576,61 @@ export default function PurchaseOrdersPage() {
               sort={sortState}
               onSortChange={(s) => toggleSort(s.field)}
               stickyColumns={1}
-              renderRowActions={(po) =>
-                !can(PERMISSIONS.EDIT_PURCHASE_ORDERS) &&
-                !can(PERMISSIONS.DELETE_PURCHASE_ORDERS) ? null : (
+              renderRowActions={(po) => {
+                const canAnyAction =
+                  can(PERMISSIONS.EDIT_PURCHASE_ORDERS) ||
+                  can(PERMISSIONS.DELETE_PURCHASE_ORDERS) ||
+                  can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1) ||
+                  can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2);
+                if (!canAnyAction) return null;
+                return (
                   <div className="flex gap-2">
-                    {can(PERMISSIONS.EDIT_PURCHASE_ORDERS) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <AppButton
-                            size="sm"
-                            variant="secondary"
-                            disabled={
-                              po.approvalStatus === "SUSPENDED" ||
-                              po.approvalStatus === "COMPLETED"
-                            }
-                          >
-                            Actions
-                          </AppButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              pushWithScrollSave(
-                                `/purchase-orders/${po.id}/edit`
-                              )
-                            }
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleRemarkClick(po)}
-                          >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <AppButton
+                          size="sm"
+                          variant="secondary"
+                          disabled={
+                            po.approvalStatus === "SUSPENDED" ||
+                            po.approvalStatus === "COMPLETED"
+                          }
+                        >
+                          Actions
+                        </AppButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) && (
+                          <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
                             Add Remark
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleBillStatusClick(po)}
-                          >
+                        )}
+                        {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS) && (
+                          <DropdownMenuItem onClick={() => handleBillStatusClick(po)}>
                             Bill Status
                           </DropdownMenuItem>
-                          {/* <DropdownMenuItem onClick={() => handlePrint(po)}>
-                            Print
-                          </DropdownMenuItem> */}
-                          {(() => {
-                            const actions = getAvailableActions(
-                              po.approvalStatus,
-                              po.isSuspended
-                            );
-                            if (actions.length === 0) {
-                              return null;
-                            }
-                            return actions.map((a) => (
-                              <DropdownMenuItem
-                                key={a.key}
-                                onSelect={() => openApproval(po.id, a.key)}
-                              >
-                                {a.label}
-                              </DropdownMenuItem>
-                            ));
-                          })()}
-                          {/* {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
+                        )}
+                        {(() => {
+                          const actions = getAvailableActions(
+                            po.approvalStatus,
+                            po.isSuspended,
+                            po.createdById === user?.id,
+                            po.approved1ById === user?.id
+                          );
+                          if (actions.length === 0) return null;
+                          return actions.map((a) => (
                             <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleDeleteClick(po)}
+                              key={a.key}
+                              onSelect={() => openApproval(po.id, a.key)}
                             >
-                              Delete
+                              {a.label}
                             </DropdownMenuItem>
-                          )} */}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                          ));
+                        })()}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                )
-              }
+                );
+              }}
             />
 
             <div className="mt-4">
