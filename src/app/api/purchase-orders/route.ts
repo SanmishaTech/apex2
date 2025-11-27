@@ -6,6 +6,7 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
+import { ROLES } from "@/config/roles";
 
 const purchaseOrderItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
@@ -134,8 +135,9 @@ async function generatePONumber(
   _purchaseOrderDate: Date
 ): Promise<string> {
   // Always use the server's current date to determine the financial year label
-  const { startDate, endDate, financialYearLabel } =
-    getFinancialYearInfo(new Date());
+  const { startDate, endDate, financialYearLabel } = getFinancialYearInfo(
+    new Date()
+  );
 
   const prefix = `${COMPANY_CODE}/${financialYearLabel}/`;
 
@@ -198,11 +200,43 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged =
+      role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    let assignedSiteIds: number[] | null = null;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      assignedSiteIds = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      if (!siteFilter && (!assignedSiteIds || assignedSiteIds.length === 0)) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+    }
+
     if (siteFilter) {
       const siteId = parseInt(siteFilter);
       if (!isNaN(siteId)) {
+        if (!isPrivileged && assignedSiteIds) {
+          if (!assignedSiteIds.includes(siteId)) {
+            return Success({
+              data: [],
+              meta: { page, perPage, total: 0, totalPages: 1 },
+            });
+          }
+        }
         where.siteId = siteId;
       }
+    } else if (!isPrivileged && assignedSiteIds && assignedSiteIds.length > 0) {
+      where.siteId = { in: assignedSiteIds };
     }
 
     if (vendorFilter) {
@@ -259,6 +293,8 @@ export async function GET(req: NextRequest) {
         billStatus: true,
         createdAt: true,
         updatedAt: true,
+        createdById: true,
+        approved1ById: true,
         site: {
           select: {
             id: true,
@@ -460,7 +496,10 @@ export async function POST(req: NextRequest) {
           .filter(
             ({ indentItemId }) =>
               typeof indentItemId === "number" && Number.isFinite(indentItemId)
-          ) as { indentItemId: number; detail: typeof createdPODetails[number] }[];
+          ) as {
+          indentItemId: number;
+          detail: (typeof createdPODetails)[number];
+        }[];
 
         if (itemsWithIndentReference.length > 0) {
           const indentItemIds = itemsWithIndentReference.map(

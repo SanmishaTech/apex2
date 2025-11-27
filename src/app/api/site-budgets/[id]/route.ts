@@ -9,8 +9,6 @@ const updateSchema = z.object({
   budgetQty: z.number().positive("Budget quantity must be positive").optional(),
   budgetRate: z.number().positive("Budget rate must be positive").optional(),
   purchaseRate: z.number().positive("Purchase rate must be positive").optional(),
-  orderedQty: z.number().min(0, "Ordered quantity cannot be negative").optional(),
-  avgRate: z.number().min(0, "Average rate cannot be negative").optional(),
   qty50Alert: z.boolean().optional(),
   value50Alert: z.boolean().optional(),
   qty75Alert: z.boolean().optional(),
@@ -102,11 +100,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // Calculate new values based on what's being updated
     const newBudgetQty = updateData.budgetQty ?? current.budgetQty;
     const newBudgetRate = updateData.budgetRate ?? current.budgetRate;
-    const newOrderedQty = updateData.orderedQty ?? current.orderedQty;
-    const newAvgRate = updateData.avgRate ?? current.avgRate;
-
+    // orderedQty and avgRate are read-only here; use current values
     const budgetValue = Number(newBudgetQty) * Number(newBudgetRate);
-    const orderedValue = Number(newOrderedQty) * Number(newAvgRate);
+    const orderedValue = Number(current.orderedQty) * Number(current.avgRate);
 
     const updated = await prisma.siteBudget.update({
       where: { id },

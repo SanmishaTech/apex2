@@ -7,6 +7,7 @@ import {
   NotFound,
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES_PERMISSIONS, PERMISSIONS, ROLES } from "@/config/roles";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
@@ -295,13 +296,21 @@ export async function PATCH(
 
         // Handle status actions
         if (statusAction) {
+          // Permission check per action
+          const rolePerms =
+            ROLES_PERMISSIONS[
+              auth.user.role as keyof typeof ROLES_PERMISSIONS
+            ] || [];
+          const has = (p: string) => (rolePerms as string[]).includes(p);
           const current: any = await tx.purchaseOrder.findUnique({
             where: { id },
-            select: { 
+            select: {
               approvalStatus: true,
               isApproved1: true,
               isApproved2: true,
-              isComplete: true
+              isComplete: true,
+              createdById: true,
+              approved1ById: true,
             } as any,
           });
 
@@ -312,19 +321,52 @@ export async function PATCH(
           const now = new Date();
 
           if (statusAction === "approve1") {
+            if (!has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to approve level 1"
+              );
+            }
             if (current.approvalStatus !== "DRAFT") {
               throw new Error(
                 "BAD_REQUEST: Only DRAFT can be approved (level 1)"
               );
             }
+            if (current.createdById === auth.user.id) {
+              throw new Error("BAD_REQUEST: Creator cannot approve level 1");
+            }
+            // Approve Level 1
             updateData.approvalStatus = "APPROVED_LEVEL_1";
             updateData.isApproved1 = true;
             updateData.approved1ById = auth.user.id;
             updateData.approved1At = now;
+
+            // If projectDirector has L2 approval permission, auto-approve Level 2 as well
+            if (
+              auth.user.role === ROLES.PROJECT_DIRECTOR &&
+              has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2)
+            ) {
+              updateData.approvalStatus = "APPROVED_LEVEL_2";
+              updateData.isApproved2 = true;
+              updateData.approved2ById = auth.user.id;
+              updateData.approved2At = now;
+            }
           } else if (statusAction === "approve2") {
+            if (!has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to approve level 2"
+              );
+            }
             if (current.approvalStatus !== "APPROVED_LEVEL_1") {
               throw new Error(
                 "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+              );
+            }
+            if (current.createdById === auth.user.id) {
+              throw new Error("BAD_REQUEST: Creator cannot approve level 2");
+            }
+            if (current.approved1ById === auth.user.id) {
+              throw new Error(
+                "BAD_REQUEST: Level 1 approver cannot approve level 2"
               );
             }
             updateData.approvalStatus = "APPROVED_LEVEL_2";
@@ -332,6 +374,11 @@ export async function PATCH(
             updateData.approved2ById = auth.user.id;
             updateData.approved2At = now;
           } else if (statusAction === "complete") {
+            if (!has(PERMISSIONS.COMPLETE_PURCHASE_ORDERS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to complete purchase orders"
+              );
+            }
             if (current.approvalStatus !== "APPROVED_LEVEL_2") {
               throw new Error(
                 "BAD_REQUEST: Only level 2 approved can be completed"
@@ -342,6 +389,11 @@ export async function PATCH(
             updateData.completedAt = now;
             updateData.isComplete = true;
           } else if (statusAction === "suspend") {
+            if (!has(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to suspend purchase orders"
+              );
+            }
             if (current.approvalStatus === "COMPLETED") {
               throw new Error(
                 "BAD_REQUEST: Completed purchase order cannot be suspended"
@@ -352,6 +404,11 @@ export async function PATCH(
             updateData.suspendedById = auth.user.id;
             updateData.suspendedAt = now;
           } else if (statusAction === "unsuspend") {
+            if (!has(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to unsuspend purchase orders"
+              );
+            }
             updateData.isSuspended = false;
             // Restore the correct approval status based on approval flags
             if (current.isComplete) {
@@ -368,6 +425,38 @@ export async function PATCH(
 
         if (typeof poData.amount === "number") {
           updateData.amountInWords = amountInWords(poData.amount);
+        }
+
+        // Enforce field-level update permissions (remarks, billStatus)
+        if (Object.prototype.hasOwnProperty.call(poData, "remarks")) {
+          const rolePerms =
+            ROLES_PERMISSIONS[
+              auth.user.role as keyof typeof ROLES_PERMISSIONS
+            ] || [];
+          if (
+            !(rolePerms as string[]).includes(
+              PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS
+            )
+          ) {
+            throw new Error(
+              "BAD_REQUEST: Missing permission to update remarks"
+            );
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(poData, "billStatus")) {
+          const rolePerms =
+            ROLES_PERMISSIONS[
+              auth.user.role as keyof typeof ROLES_PERMISSIONS
+            ] || [];
+          if (
+            !(rolePerms as string[]).includes(
+              PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS
+            )
+          ) {
+            throw new Error(
+              "BAD_REQUEST: Missing permission to update bill status"
+            );
+          }
         }
 
         // Always update the updatedAt and updatedById

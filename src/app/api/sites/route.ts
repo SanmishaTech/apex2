@@ -4,6 +4,7 @@ import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import { ROLES } from "@/config/roles";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -173,9 +174,37 @@ export async function GET(req: NextRequest) {
       ? { [sort]: order }
       : { site: "asc" };
 
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      // If user has no assigned sites, return empty early
+      if (!assignedSiteIds || assignedSiteIds.length === 0) {
+        return Success({
+          data: [],
+          page,
+          perPage,
+          total: 0,
+          totalPages: 1,
+        } as any);
+      }
+
+      // Constrain by assigned site IDs. We can't directly add an 'in' to SiteWhere typed object easily,
+      // but paginate() accepts generic where; we will pass a combined where below using any.
+      (where as any).id = { in: assignedSiteIds };
+    }
+
     const result = await paginate({
       model: prisma.site,
-      where,
+      where: where as any,
       orderBy,
       page,
       perPage,
@@ -215,6 +244,7 @@ export async function GET(req: NextRequest) {
         _count: {
           select: {
             assignedManpower: true,
+            siteBudgets: true,
           },
         },
       },

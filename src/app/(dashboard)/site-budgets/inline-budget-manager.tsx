@@ -48,8 +48,6 @@ const budgetItemSchema = z.object({
   budgetQty: z.number().min(0.01, 'Budget Qty must be greater than 0'),
   budgetRate: z.number().min(0.01, 'Budget Rate must be greater than 0'),
   purchaseRate: z.number().min(0.01, 'Purchase Rate must be greater than 0'),
-  orderedQty: z.number().min(0, 'Ordered Qty cannot be negative'),
-  avgRate: z.number().min(0, 'Avg Rate cannot be negative'),
   qty50Alert: z.boolean(),
   value50Alert: z.boolean(),
   qty75Alert: z.boolean(),
@@ -180,9 +178,6 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
         if (field === 'budgetQty' || field === 'budgetRate') {
           newItems[actualIndex].budgetValue = newItems[actualIndex].budgetQty * newItems[actualIndex].budgetRate;
         }
-        if (field === 'orderedQty' || field === 'avgRate') {
-          newItems[actualIndex].orderedValue = newItems[actualIndex].orderedQty * newItems[actualIndex].avgRate;
-        }
       }
       
       return newItems;
@@ -214,8 +209,6 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
           budgetQty: item.budgetQty,
           budgetRate: item.budgetRate,
           purchaseRate: item.purchaseRate,
-          orderedQty: item.orderedQty,
-          avgRate: item.avgRate,
           qty50Alert: item.qty50Alert,
           value50Alert: item.value50Alert,
           qty75Alert: item.qty75Alert,
@@ -260,8 +253,6 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
             budgetQty: item.budgetQty,
             budgetRate: item.budgetRate,
             purchaseRate: item.purchaseRate,
-            orderedQty: item.orderedQty,
-            avgRate: item.avgRate,
             qty50Alert: item.qty50Alert,
             value50Alert: item.value50Alert,
             qty75Alert: item.qty75Alert,
@@ -275,8 +266,6 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
             budgetQty: item.budgetQty,
             budgetRate: item.budgetRate,
             purchaseRate: item.purchaseRate,
-            orderedQty: item.orderedQty,
-            avgRate: item.avgRate,
             qty50Alert: item.qty50Alert,
             value50Alert: item.value50Alert,
             qty75Alert: item.qty75Alert,
@@ -425,22 +414,14 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
                     {item.budgetValue.toFixed(2)}
                   </td>
                   <td className="border border-gray-300 dark:border-gray-600 px-2 py-1">
-                    <input
-                      type="number"
-                      value={item.orderedQty}
-                      onChange={(e) => updateItem(index, 'orderedQty', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-200"
-                      step="0.01"
-                    />
+                    <div className="text-right text-sm dark:text-gray-200">
+                      {item.orderedQty.toFixed(2)}
+                    </div>
                   </td>
                   <td className="border border-gray-300 dark:border-gray-600 px-2 py-1">
-                    <input
-                      type="number"
-                      value={item.avgRate}
-                      onChange={(e) => updateItem(index, 'avgRate', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-200"
-                      step="0.01"
-                    />
+                    <div className="text-right text-sm dark:text-gray-200">
+                      {item.avgRate.toFixed(2)}
+                    </div>
                   </td>
                   <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-sm font-medium dark:text-gray-200">
                     {item.orderedValue.toFixed(2)}

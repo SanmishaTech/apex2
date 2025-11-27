@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
+import { PERMISSIONS, ROLES, ROLES_PERMISSIONS } from "@/config/roles";
 
 const indentItemSchema = z.object({
   id: z.number().optional(), // For existing items
@@ -151,10 +152,42 @@ export async function PATCH(
       if (statusAction) {
         const current: any = await tx.indent.findUnique({
           where: { id },
-          select: { approvalStatus: true } as any,
+          select: { approvalStatus: true, createdById: true, approved1ById: true } as any,
         });
         if (!current) {
           throw new Error("BAD_REQUEST: Indent not found");
+        }
+
+        // Prevent creator from approving their own indent
+        if (
+          (statusAction === "approve1" || statusAction === "approve2") &&
+          current.createdById === auth.user.id
+        ) {
+          throw new Error("BAD_REQUEST: Creator cannot approve their own indent");
+        }
+
+        // Permission check based on action
+        const rolePerms =
+          ROLES_PERMISSIONS[auth.user.role as keyof typeof ROLES_PERMISSIONS] || [];
+        if (statusAction === "approve1") {
+          if (!(rolePerms as string[]).includes(PERMISSIONS.APPROVE_INDENTS_L1)) {
+            throw new Error("BAD_REQUEST: Missing permission to approve level 1");
+          }
+        }
+        if (statusAction === "approve2") {
+          if (!(rolePerms as string[]).includes(PERMISSIONS.APPROVE_INDENTS_L2)) {
+            throw new Error("BAD_REQUEST: Missing permission to approve level 2");
+          }
+        }
+        if (statusAction === "complete") {
+          if (!(rolePerms as string[]).includes(PERMISSIONS.COMPLETE_INDENTS)) {
+            throw new Error("BAD_REQUEST: Missing permission to complete indent");
+          }
+        }
+        if (statusAction === "suspend" || statusAction === "unsuspend") {
+          if (!(rolePerms as string[]).includes(PERMISSIONS.SUSPEND_INDENTS)) {
+            throw new Error("BAD_REQUEST: Missing permission to suspend/unsuspend indent");
+          }
         }
         const now = new Date();
         if (statusAction === "approve1") {
@@ -163,18 +196,54 @@ export async function PATCH(
               "BAD_REQUEST: Only DRAFT can be approved (level 1)"
             );
           }
-          await tx.indent.update({
-            where: { id },
-            data: {
-              approvalStatus: "APPROVED_LEVEL_1",
-              approved1ById: auth.user.id,
-              approved1At: now,
-            } as any,
-          });
+          // If Project Director approves L1, auto-approve L2
+          if (auth.user.role === ROLES.PROJECT_DIRECTOR) {
+            await tx.indent.update({
+              where: { id },
+              data: {
+                approvalStatus: "APPROVED_LEVEL_2",
+                approved1ById: auth.user.id,
+                approved1At: now,
+                approved2ById: auth.user.id,
+                approved2At: now,
+              } as any,
+            });
+            // If items present: set approved2Qty to provided or fallback to approved1Qty
+            if (Array.isArray(indentItems) && indentItems.length > 0) {
+              for (const item of indentItems) {
+                if (!item.id) continue;
+                const a1 = item.approved1Qty;
+                const a2 = item.approved2Qty ?? a1;
+                await tx.indentItem.update({
+                  where: { id: item.id },
+                  data: {
+                    approved1Qty: a1 !== undefined ? a1 : undefined,
+                    approved2Qty: a2 !== undefined ? a2 : undefined,
+                    updatedAt: now,
+                  },
+                });
+              }
+            }
+          } else {
+            await tx.indent.update({
+              where: { id },
+              data: {
+                approvalStatus: "APPROVED_LEVEL_1",
+                approved1ById: auth.user.id,
+                approved1At: now,
+              } as any,
+            });
+          }
         } else if (statusAction === "approve2") {
           if (current.approvalStatus !== "APPROVED_LEVEL_1") {
             throw new Error(
               "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+            );
+          }
+          // Prevent the same user who approved level 1 from approving level 2
+          if (current.approved1ById === auth.user.id) {
+            throw new Error(
+              "BAD_REQUEST: Level 1 approver cannot approve level 2"
             );
           }
           await tx.indent.update({

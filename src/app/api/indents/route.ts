@@ -5,6 +5,7 @@ import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import { ROLES } from "@/config/roles";
 
 const indentItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
@@ -70,11 +71,44 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    let assignedSiteIds: number[] | null = null;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      assignedSiteIds = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      // If no assigned sites, return empty set early
+      if (!siteFilter && (!assignedSiteIds || assignedSiteIds.length === 0)) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+    }
+
     if (siteFilter) {
       const siteId = parseInt(siteFilter);
       if (!isNaN(siteId)) {
+        if (!isPrivileged && assignedSiteIds) {
+          // If the requested site is not among assignments, return empty
+          if (!assignedSiteIds.includes(siteId)) {
+            return Success({
+              data: [],
+              meta: { page, perPage, total: 0, totalPages: 1 },
+            });
+          }
+        }
         where.siteId = siteId;
       }
+    } else if (!isPrivileged && assignedSiteIds && assignedSiteIds.length > 0) {
+      where.siteId = { in: assignedSiteIds };
     }
 
     const sortableFields = new Set(["indentNo", "indentDate", "createdAt"]);
@@ -94,6 +128,8 @@ export async function GET(req: NextRequest) {
         indentDate: true,
         deliveryDate: true,
         siteId: true,
+        createdById: true,
+        approved1ById: true,
         approvalStatus: true,
         suspended: true,
         remarks: true,
