@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   );
   const search = (searchParams.get("search") || "").trim();
   const siteId = searchParams.get("siteId");
+  const itemIdsParam = searchParams.get("itemIds");
   const sort = (searchParams.get("sort") || "createdAt") as string;
   const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
     | "asc"
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
 
   type SiteBudgetWhere = {
     siteId?: number;
+    itemId?: number | { in: number[] };
     OR?: {
       item?: { item?: { contains: string } };
       site?: { site?: { contains: string } };
@@ -48,6 +50,17 @@ export async function GET(req: NextRequest) {
   // Filter by site if provided
   if (siteId) {
     where.siteId = parseInt(siteId);
+  }
+
+  // Filter by specific item IDs if provided
+  if (itemIdsParam) {
+    const itemIds = itemIdsParam
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (itemIds.length > 0) {
+      where.itemId = { in: itemIds } as any;
+    }
   }
 
   // Search across item name and site name
