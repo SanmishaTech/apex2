@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
@@ -199,6 +200,8 @@ const purchaseOrderItemSchema = z.object({
         .min(0, "IGST % must be non-negative")
         .max(100, "IGST % must be <= 100")
     ),
+  // Derived, display-only field to allow showing validation message under Amount
+  amount: z.number().optional(),
 });
 
 const createInputSchema = z.object({
@@ -290,6 +293,11 @@ export function PurchaseOrderForm({
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverBudgetError, setServerBudgetError] = useState<string | null>(
+    null
+  );
+  const [hasBudgetError, setHasBudgetError] = useState(false);
+  const [ignoreBudget, setIgnoreBudget] = useState(false);
 
   // Mode flags
   const isCreate = mode === "create";
@@ -389,6 +397,7 @@ export function PurchaseOrderForm({
         cgstPercent: item.cgstPercent ?? 0,
         sgstPercent: item.sgstPercent ?? 0,
         igstPercent: item.igstPercent ?? 0,
+        amount: 0,
       })) || [
         {
           itemId: 0,
@@ -398,6 +407,7 @@ export function PurchaseOrderForm({
           cgstPercent: 0,
           sgstPercent: 0,
           igstPercent: 0,
+          amount: 0,
         },
       ],
     };
@@ -461,9 +471,11 @@ export function PurchaseOrderForm({
     (isApprovalMode
       ? initial?.purchaseOrderItems?.map((it) => it.itemId)
       : items?.map((it) => Number((it as any)?.itemId))) || []
-  )
-    .filter((n) => typeof n === "number" && Number.isFinite(n) && n > 0) as number[];
-  const itemIdsParam = selectedItemIds.length > 0 ? selectedItemIds.join(",") : null;
+  ).filter(
+    (n) => typeof n === "number" && Number.isFinite(n) && n > 0
+  ) as number[];
+  const itemIdsParam =
+    selectedItemIds.length > 0 ? selectedItemIds.join(",") : null;
   const { data: closingStockData } = useSWR<any>(
     siteValue && siteValue > 0 && itemIdsParam
       ? `/api/inward-delivery-challans?variant=closing-stock&siteId=${siteValue}&itemIds=${itemIdsParam}`
@@ -616,6 +628,21 @@ export function PurchaseOrderForm({
 
     try {
       setIsSubmitting(true);
+      setServerBudgetError(null);
+      setHasBudgetError(false);
+      // clear only approved qty field errors to avoid masking other zod errors
+      if (isApprovalMode) {
+        for (let i = 0; i < items.length; i++) {
+          const path = `purchaseOrderItems.${i}.${
+            isApproval2 ? "approved2Qty" : "approved1Qty"
+          }` as const;
+          form.clearErrors(path as any);
+          const ratePath = `purchaseOrderItems.${i}.rate` as const;
+          form.clearErrors(ratePath as any);
+          const amountPath = `purchaseOrderItems.${i}.amount` as const;
+          form.clearErrors(amountPath as any);
+        }
+      }
 
       // Prepare the payload
       const normalizedItems = data.purchaseOrderItems.map((item, index) => {
@@ -662,7 +689,8 @@ export function PurchaseOrderForm({
               originalItem?.orderedQty ??
               undefined,
             approved1Qty:
-              originalItem?.approved1Qty ?? toNumber((item as any).approved1Qty),
+              originalItem?.approved1Qty ??
+              toNumber((item as any).approved1Qty),
             approved2Qty: approvedQty,
             qty: approvedQty,
           };
@@ -741,6 +769,9 @@ export function PurchaseOrderForm({
       } else if (isApproval2) {
         payload.statusAction = "approve2";
       }
+      if (isApprovalMode && ignoreBudget) {
+        payload.ignoreBudgetValidation = true;
+      }
 
       // Submit the form
       const result =
@@ -768,9 +799,122 @@ export function PurchaseOrderForm({
       } else if (redirectOnSuccess) {
         router.push(redirectOnSuccess);
       }
-    } catch (error) {
-      console.error("Error submitting purchase order:", error);
-      toast.error(`Failed to ${mode} purchase order. Please try again.`);
+    } catch (error: any) {
+      const msg =
+        error && typeof error.message === "string"
+          ? (error.message as string)
+          : String(error);
+
+      const cleaned = msg.replace(/^BAD_REQUEST:\s*/i, "");
+      const sections = cleaned.split("|").map((s) => s.trim());
+      let matchedAny = false;
+
+      for (const section of sections) {
+        const lower = section.toLowerCase();
+        if (lower.includes("item limit exceeded")) {
+          matchedAny = true;
+          const arrowIdx = section.indexOf("->");
+          const listStr =
+            arrowIdx >= 0 ? section.substring(arrowIdx + 2).trim() : section;
+          const parts = listStr
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
+          const nameToRatio = new Map<string, string>();
+          for (const p of parts) {
+            const cidx = p.indexOf(":");
+            if (cidx > -1) {
+              const name = p.substring(0, cidx).trim();
+              const ratio = p.substring(cidx + 1).trim();
+              if (name && ratio) nameToRatio.set(name, ratio);
+            }
+          }
+          if (isApprovalMode && nameToRatio.size > 0) {
+            for (let i = 0; i < items.length; i++) {
+              const rowName = initial?.purchaseOrderItems?.[i]?.item?.item;
+              const rowItemId = items?.[i]?.itemId;
+              const ratio =
+                (rowName && nameToRatio.get(rowName)) ||
+                (rowItemId ? nameToRatio.get(String(rowItemId)) : undefined);
+              if (ratio) {
+                const path = `purchaseOrderItems.${i}.${
+                  isApproval2 ? "approved2Qty" : "approved1Qty"
+                }` as const;
+                form.setError(path as any, { type: "manual", message: ratio });
+              }
+            }
+          }
+        }
+        if (lower.includes("rate limit exceeded")) {
+          matchedAny = true;
+          const arrowIdx = section.indexOf("->");
+          const listStr =
+            arrowIdx >= 0 ? section.substring(arrowIdx + 2).trim() : section;
+          const parts = listStr
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
+          const nameToRatio = new Map<string, string>();
+          for (const p of parts) {
+            const cidx = p.indexOf(":");
+            if (cidx > -1) {
+              const name = p.substring(0, cidx).trim();
+              const ratio = p.substring(cidx + 1).trim();
+              if (name && ratio) nameToRatio.set(name, ratio);
+            }
+          }
+          for (let i = 0; i < items.length; i++) {
+            const rowName = initial?.purchaseOrderItems?.[i]?.item?.item;
+            const rowItemId = items?.[i]?.itemId;
+            const ratio =
+              (rowName && nameToRatio.get(rowName)) ||
+              (rowItemId ? nameToRatio.get(String(rowItemId)) : undefined);
+            if (ratio) {
+              const path = `purchaseOrderItems.${i}.rate` as const;
+              form.setError(path as any, { type: "manual", message: ratio });
+            }
+          }
+        }
+        if (lower.includes("value limit exceeded")) {
+          matchedAny = true;
+          const arrowIdx = section.indexOf("->");
+          const listStr =
+            arrowIdx >= 0 ? section.substring(arrowIdx + 2).trim() : section;
+          const parts = listStr
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
+          const nameToRatio = new Map<string, string>();
+          for (const p of parts) {
+            const cidx = p.indexOf(":");
+            if (cidx > -1) {
+              const name = p.substring(0, cidx).trim();
+              const ratio = p.substring(cidx + 1).trim();
+              if (name && ratio) nameToRatio.set(name, ratio);
+            }
+          }
+          for (let i = 0; i < items.length; i++) {
+            const rowName = initial?.purchaseOrderItems?.[i]?.item?.item;
+            const rowItemId = items?.[i]?.itemId;
+            const ratio =
+              (rowName && nameToRatio.get(rowName)) ||
+              (rowItemId ? nameToRatio.get(String(rowItemId)) : undefined);
+            if (ratio) {
+              const path = `purchaseOrderItems.${i}.amount` as const;
+              form.setError(path as any, { type: "manual", message: ratio });
+            }
+          }
+        }
+      }
+
+      if (matchedAny) {
+        setServerBudgetError(cleaned);
+        setHasBudgetError(true);
+      } else {
+        toast.error(
+          msg || `Failed to ${mode} purchase order. Please try again.`
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1353,12 +1497,18 @@ export function PurchaseOrderForm({
                             ? initial?.purchaseOrderItems?.[index]?.itemId
                             : (items?.[index] as any)?.itemId;
                           const closingMap =
-                            (closingStockData && (closingStockData as any).closingStockByItemId) || {};
+                            (closingStockData &&
+                              (closingStockData as any).closingStockByItemId) ||
+                            {};
                           const closingVal =
-                            typeof rowItemId === "number" ? closingMap[rowItemId] : undefined;
+                            typeof rowItemId === "number"
+                              ? closingMap[rowItemId]
+                              : undefined;
                           return (
                             <td className="px-4 py-3 text-right align-top">
-                              {typeof closingVal === "number" ? closingVal : "-"}
+                              {typeof closingVal === "number"
+                                ? closingVal
+                                : "-"}
                             </td>
                           );
                         })()}
@@ -1379,7 +1529,8 @@ export function PurchaseOrderForm({
                           <td className="px-4 py-3 text-right font-medium align-top">
                             {toNumber(
                               (items[index] as any)?.approved1Qty ??
-                                initial?.purchaseOrderItems?.[index]?.approved1Qty ??
+                                initial?.purchaseOrderItems?.[index]
+                                  ?.approved1Qty ??
                                 initial?.purchaseOrderItems?.[index]?.qty ??
                                 0
                             ).toLocaleString("en-IN", {
@@ -1637,7 +1788,18 @@ export function PurchaseOrderForm({
                           />
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-medium align-top">
-                          {formatAmount(computedItems[index]?.amount)}
+                          <FormField
+                            control={form.control}
+                            name={`purchaseOrderItems.${index}.amount`}
+                            render={() => (
+                              <FormItem className="space-y-1">
+                                <div>
+                                  {formatAmount(computedItems[index]?.amount)}
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </td>
                         {!isApprovalMode && (
                           <td className="px-3 py-3 text-right text-sm font-medium align-top">
@@ -2024,6 +2186,16 @@ export function PurchaseOrderForm({
             >
               Cancel
             </AppButton>
+            {hasBudgetError && (
+              <label className="flex items-center gap-2 text-sm select-none">
+                <Checkbox
+                  id="ignoreBudget"
+                  checked={ignoreBudget}
+                  onCheckedChange={(c) => setIgnoreBudget(Boolean(c))}
+                />
+                Ignore budget
+              </label>
+            )}
             <AppButton
               type="submit"
               iconName={isCreate ? "Plus" : isApprovalMode ? "Check" : "Save"}
