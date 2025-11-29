@@ -163,7 +163,7 @@ const purchaseOrderItemSchema = z.object({
   rate: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0, "Rate must be non-negative")),
+    .pipe(z.number().gt(0, "Rate must be greater than 0")),
   discountPercent: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
@@ -200,6 +200,14 @@ const purchaseOrderItemSchema = z.object({
         .min(0, "IGST % must be non-negative")
         .max(100, "IGST % must be <= 100")
     ),
+  indentItemId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => {
+      if (val === undefined || val === null || val === "") return undefined;
+      const n = typeof val === "string" ? parseInt(val, 10) : val;
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    }),
   // Derived, display-only field to allow showing validation message under Amount
   amount: z.number().optional(),
 });
@@ -426,6 +434,12 @@ export function PurchaseOrderForm({
     defaultValues,
   });
 
+  const { fields, append, remove, update, replace } = useFieldArray({
+    control: form.control,
+    name: "purchaseOrderItems",
+    keyName: "fieldId",
+  });
+
   useEffect(() => {
     // When generating from indent, let the indent prefill effect control resets entirely
     if (indentId) return;
@@ -434,9 +448,27 @@ export function PurchaseOrderForm({
     }
   }, [defaultValues, form, prefilledFromIndent, indentId]);
 
-  // Prefill site and items from indent for new PO (robust across repeated opens)
+  // Apply siteId coming from initial props (e.g., passed via query) immediately
   useEffect(() => {
-    if (!indentId || mode !== "create" || !indentData) return;
+    if (mode !== "create") return;
+    const initialSiteId = Number(initial?.siteId ?? 0);
+    if (initialSiteId > 0) {
+      const currentSite = Number(form.getValues("siteId") || 0);
+      if (currentSite !== initialSiteId) {
+        form.setValue("siteId", initialSiteId as any, {
+          shouldDirty: true,
+          shouldTouch: true,
+          shouldValidate: true,
+        });
+        void form.trigger("siteId");
+      }
+    }
+  }, [mode, initial?.siteId, form]);
+
+  // Prefill site and items from indent for new PO (single-shot, unconditional)
+  useEffect(() => {
+    if (!indentId || mode !== "create" || !indentData || prefilledFromIndent)
+      return;
     try {
       const indent = (indentData as any).data ?? indentData; // apiGet returns { data }
       if (!indent) return;
@@ -451,20 +483,35 @@ export function PurchaseOrderForm({
           it.purchaseOrderDetailId === null ||
           it.purchaseOrderDetailId === undefined
       );
-      const mapped = unprocessed.map((it) => ({
-        itemId: Number(it.itemId || 0),
-        remark: it.remark || "",
-        qty:
-          Number(it.approved2Qty ?? it.approved1Qty ?? it.indentQty ?? 0) || 0,
-        rate: 0,
-        discountPercent: 0,
-        cgstPercent: 0,
-        sgstPercent: 0,
-        igstPercent: 0,
-        amount: 0,
-        indentItemId: Number(it.id || 0) || undefined,
-        fromIndent: true,
-      }));
+      const mapped = unprocessed.map((it) => {
+        const toNum = (v: any) => {
+          if (v === null || v === undefined) return undefined;
+          const n = typeof v === "string" ? parseFloat(v) : Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+        const a2 = toNum((it as any)?.approved2Qty);
+        const a1 = toNum((it as any)?.approved1Qty);
+        const iq = toNum((it as any)?.indentQty);
+        const qty =
+          (a2 && a2 > 0 ? a2 : undefined) ??
+          (a1 && a1 > 0 ? a1 : undefined) ??
+          (iq && iq > 0 ? iq : undefined) ??
+          1;
+
+        return {
+          itemId: Number((it as any).itemId || 0),
+          remark: (it as any).remark || "",
+          qty,
+          rate: 0,
+          discountPercent: 0,
+          cgstPercent: 0,
+          sgstPercent: 0,
+          igstPercent: 0,
+          amount: 0,
+          indentItemId: Number((it as any).id || 0) || undefined,
+          fromIndent: true,
+        } as any;
+      });
 
       // Always ensure site is set if different/missing
       const currentSite = Number(form.getValues("siteId") || 0);
@@ -472,27 +519,20 @@ export function PurchaseOrderForm({
         form.setValue("siteId", computedSiteId as any, {
           shouldDirty: true,
           shouldTouch: true,
+          shouldValidate: true,
         });
+        void form.trigger("siteId");
       }
 
-      // Prefill items only if the current rows are still default/blank
-      const currentItems = form.getValues("purchaseOrderItems") as any[];
-      const shouldPrefillItems = Array.isArray(currentItems)
-        ? currentItems.length === 0 ||
-          (currentItems.length === 1 &&
-            Number(currentItems[0]?.itemId || 0) === 0 &&
-            currentItems[0]?.fromIndent !== true)
-        : true;
-      if (shouldPrefillItems && mapped.length > 0) {
-        form.setValue("purchaseOrderItems", mapped as any, {
-          shouldDirty: true,
-          shouldTouch: true,
-        });
+      // Prefill items unconditionally once when indent data is ready
+      if (mapped.length > 0) {
+        replace(mapped as any);
+        setPrefilledFromIndent(true);
       }
     } catch (e) {
       // ignore prefill errors
     }
-  }, [indentId, mode, indentData, form]);
+  }, [indentId, mode, indentData, prefilledFromIndent, form, replace]);
 
   // Fallback: if site is still 0 after mount and indent is known, set it
   useEffect(() => {
@@ -505,101 +545,12 @@ export function PurchaseOrderForm({
         form.setValue("siteId", computedSiteId as any, {
           shouldDirty: true,
           shouldTouch: true,
+          shouldValidate: true,
         });
+        void form.trigger("siteId");
       }
     } catch {}
   }, [indentId, indentData, form]);
-
-  // Poll until siteId is set; revalidate indent if needed (for repeated opens edge cases)
-  useEffect(() => {
-    if (!indentId || mode !== "create") return;
-    let attempts = 0;
-    const maxAttempts = 10;
-    const interval = setInterval(async () => {
-      attempts++;
-      const currentSite = Number(form.getValues("siteId") || 0);
-      if (currentSite > 0) {
-        clearInterval(interval);
-        return;
-      }
-      try {
-        const raw = (indentData as any)?.data ?? indentData;
-        const computedSiteId = Number(raw?.siteId ?? raw?.site?.id ?? 0);
-        if (computedSiteId > 0) {
-          form.setValue("siteId", computedSiteId as any, {
-            shouldDirty: true,
-            shouldTouch: true,
-          });
-          clearInterval(interval);
-          return;
-        }
-        if (typeof revalidateIndent === "function") {
-          await revalidateIndent();
-        }
-      } catch {}
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-      }
-    }, 300);
-    return () => clearInterval(interval);
-  }, [indentId, mode, indentData, form, revalidateIndent]);
-
-  useEffect(() => {
-    if (!indentId || mode !== "create") return;
-    let attempts = 0;
-    const maxAttempts = 10;
-    const interval = setInterval(async () => {
-      attempts++;
-      const currentItems = form.getValues("purchaseOrderItems") as any[];
-      const needsPrefill = !Array.isArray(currentItems)
-        ? true
-        : currentItems.length === 0 ||
-          (currentItems.length === 1 &&
-            Number(currentItems[0]?.itemId || 0) === 0 &&
-            currentItems[0]?.fromIndent !== true);
-      if (!needsPrefill) {
-        clearInterval(interval);
-        return;
-      }
-      try {
-        const raw = (indentData as any)?.data ?? indentData;
-        const itemsArr: any[] = Array.isArray(raw?.indentItems)
-          ? raw.indentItems
-          : [];
-        const unprocessed = itemsArr.filter(
-          (it) => it.purchaseOrderDetailId === null || it.purchaseOrderDetailId === undefined
-        );
-        if (unprocessed.length > 0) {
-          const mapped = unprocessed.map((it) => ({
-            itemId: Number(it.itemId || 0),
-            remark: it.remark || "",
-            qty: Number(it.approved2Qty ?? it.approved1Qty ?? it.indentQty ?? 0) || 0,
-            rate: 0,
-            discountPercent: 0,
-            cgstPercent: 0,
-            sgstPercent: 0,
-            igstPercent: 0,
-            amount: 0,
-            indentItemId: Number(it.id || 0) || undefined,
-            fromIndent: true,
-          }));
-          form.setValue("purchaseOrderItems", mapped as any, {
-            shouldDirty: true,
-            shouldTouch: true,
-          });
-          clearInterval(interval);
-          return;
-        }
-        if (typeof revalidateIndent === "function") {
-          await revalidateIndent();
-        }
-      } catch {}
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-      }
-    }, 300);
-    return () => clearInterval(interval);
-  }, [indentId, mode, indentData, form, revalidateIndent]);
 
   // useEffect(() => {
   //   if (isApprovalMode && typeof defaultValues.poStatus !== "undefined") {
@@ -609,12 +560,6 @@ export function PurchaseOrderForm({
   //     });
   //   }
   // }, [defaultValues.poStatus, form, isApprovalMode]);
-
-  const { fields, append, remove, update } = useFieldArray({
-    control: form.control,
-    name: "purchaseOrderItems",
-    keyName: "fieldId",
-  });
 
   const siteValue = form.watch("siteId");
   const items = form.watch("purchaseOrderItems");
@@ -877,7 +822,8 @@ export function PurchaseOrderForm({
           igstAmt: metrics.igstAmt,
           amount: metrics.amount,
           indentItemId:
-            (item as any)?.indentItemId && Number((item as any).indentItemId) > 0
+            (item as any)?.indentItemId &&
+            Number((item as any).indentItemId) > 0
               ? Number((item as any).indentItemId)
               : undefined,
         };
@@ -1599,23 +1545,6 @@ export function PurchaseOrderForm({
                                 {initial?.purchaseOrderItems?.[index]?.item
                                   ?.unit?.unitName || ""}
                               </div>
-                              <FormField
-                                control={form.control}
-                                name={`purchaseOrderItems.${index}.remark`}
-                                render={({ field }) => (
-                                  <FormItem className="mt-2">
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Remark"
-                                        value={field.value || ""}
-                                        className="text-xs"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
                             </>
                           ) : (
                             <>
@@ -1931,10 +1860,6 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
-                                    disabled={
-                                      (items?.[index] as any)?.fromIndent ===
-                                      true
-                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1969,10 +1894,6 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
-                                    disabled={
-                                      (items?.[index] as any)?.fromIndent ===
-                                      true
-                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -2007,10 +1928,6 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
-                                    disabled={
-                                      (items?.[index] as any)?.fromIndent ===
-                                      true
-                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">

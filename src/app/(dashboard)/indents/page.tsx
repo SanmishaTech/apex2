@@ -381,11 +381,13 @@ export default function IndentsPage() {
   }, [confirmCompleteId, mutate]);
 
   const handleGeneratePO = useCallback(
-    async (indentId: number) => {
+    async (indentId: number, siteId?: number | null) => {
       try {
         // Add a cache-busting param to force fresh mount each time
         pushWithScrollSave(
-          `/purchase-orders/new?indentId=${indentId}&r=${Date.now()}`
+          `/purchase-orders/new?indentId=${indentId}&siteId=${
+            siteId ?? ""
+          }&r=${Date.now()}`
         );
       } catch (e) {
         toast.error(
@@ -618,7 +620,13 @@ export default function IndentsPage() {
 
                           return canGeneratePo ? (
                             <DropdownMenuItem
-                              onSelect={() => handleGeneratePO(indent.id)}
+                              onSelect={() =>
+                                handleGeneratePO(
+                                  indent.id,
+                                  // Prefer explicit siteId if available, else nested site.id
+                                  (indent as any).siteId ?? indent.site?.id ?? null
+                                )
+                              }
                             >
                               Generate PO
                             </DropdownMenuItem>
