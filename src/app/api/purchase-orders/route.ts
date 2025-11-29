@@ -530,41 +530,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Fallback linking by itemId for any remaining unlinked PO details
-        const unlinkedDetails = createdPODetails.filter(
-          (d) => !linkedDetailIds.has(d.id)
-        );
-        if (unlinkedDetails.length > 0) {
-          // Only consider indent items that are still unlinked
-          const openIndentItems = await tx.indentItem.findMany({
-            where: {
-              indentId: parsedData.indentId,
-              purchaseOrderDetailId: null,
-            },
-            select: { id: true, itemId: true },
-            orderBy: { id: "asc" },
-          });
-
-          const buckets = new Map<number, number[]>(); // itemId -> [indentItemId]
-          for (const ii of openIndentItems) {
-            const list = buckets.get(ii.itemId) ?? [];
-            list.push(ii.id);
-            buckets.set(ii.itemId, list);
-          }
-
-          for (const detail of unlinkedDetails) {
-            const list = buckets.get(detail.itemId);
-            if (list && list.length) {
-              const indentItemId = list.shift()!;
-              await tx.indentItem.update({
-                where: { id: indentItemId },
-                data: { purchaseOrderDetailId: detail.id },
-              });
-              linkedDetailIds.add(detail.id);
-              buckets.set(detail.itemId, list);
-            }
-          }
-        }
+        
       }
 
       // Fetch the created PO with items
