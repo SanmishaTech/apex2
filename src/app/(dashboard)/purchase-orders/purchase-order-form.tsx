@@ -290,6 +290,7 @@ export function PurchaseOrderForm({
   onSuccess,
   redirectOnSuccess = "/purchase-orders",
   mutate,
+  indentId,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -335,6 +336,13 @@ export function PurchaseOrderForm({
     "/api/items?perPage=1000&include=unit",
     apiGet
   );
+
+  // If generating from an indent, fetch indent and prefill
+  const { data: indentData, mutate: revalidateIndent } = useSWR<any>(
+    mode === "create" && indentId ? `/api/indents/${indentId}` : null,
+    mode === "create" && indentId ? apiGet : null
+  );
+  const [prefilledFromIndent, setPrefilledFromIndent] = useState(false);
 
   const formatDateField = (
     value?: string | null,
@@ -419,8 +427,179 @@ export function PurchaseOrderForm({
   });
 
   useEffect(() => {
-    form.reset(defaultValues);
-  }, [defaultValues, form]);
+    // When generating from indent, let the indent prefill effect control resets entirely
+    if (indentId) return;
+    if (!prefilledFromIndent) {
+      form.reset(defaultValues);
+    }
+  }, [defaultValues, form, prefilledFromIndent, indentId]);
+
+  // Prefill site and items from indent for new PO (robust across repeated opens)
+  useEffect(() => {
+    if (!indentId || mode !== "create" || !indentData) return;
+    try {
+      const indent = (indentData as any).data ?? indentData; // apiGet returns { data }
+      if (!indent) return;
+      const computedSiteId = Number(
+        (indent as any).siteId ?? (indent as any).site?.id ?? 0
+      );
+      const itemsArr: any[] = Array.isArray(indent.indentItems)
+        ? indent.indentItems
+        : [];
+      const unprocessed = itemsArr.filter(
+        (it) =>
+          it.purchaseOrderDetailId === null ||
+          it.purchaseOrderDetailId === undefined
+      );
+      const mapped = unprocessed.map((it) => ({
+        itemId: Number(it.itemId || 0),
+        remark: it.remark || "",
+        qty:
+          Number(it.approved2Qty ?? it.approved1Qty ?? it.indentQty ?? 0) || 0,
+        rate: 0,
+        discountPercent: 0,
+        cgstPercent: 0,
+        sgstPercent: 0,
+        igstPercent: 0,
+        amount: 0,
+        indentItemId: Number(it.id || 0) || undefined,
+        fromIndent: true,
+      }));
+
+      // Always ensure site is set if different/missing
+      const currentSite = Number(form.getValues("siteId") || 0);
+      if (computedSiteId > 0 && currentSite !== computedSiteId) {
+        form.setValue("siteId", computedSiteId as any, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+
+      // Prefill items only if the current rows are still default/blank
+      const currentItems = form.getValues("purchaseOrderItems") as any[];
+      const shouldPrefillItems = Array.isArray(currentItems)
+        ? currentItems.length === 0 ||
+          (currentItems.length === 1 &&
+            Number(currentItems[0]?.itemId || 0) === 0 &&
+            currentItems[0]?.fromIndent !== true)
+        : true;
+      if (shouldPrefillItems && mapped.length > 0) {
+        form.setValue("purchaseOrderItems", mapped as any, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    } catch (e) {
+      // ignore prefill errors
+    }
+  }, [indentId, mode, indentData, form]);
+
+  // Fallback: if site is still 0 after mount and indent is known, set it
+  useEffect(() => {
+    if (!indentId || !indentData) return;
+    try {
+      const raw = (indentData as any).data ?? indentData;
+      const computedSiteId = Number(raw?.siteId ?? raw?.site?.id ?? 0);
+      const currentSite = Number(form.getValues("siteId") || 0);
+      if (computedSiteId > 0 && currentSite === 0) {
+        form.setValue("siteId", computedSiteId as any, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    } catch {}
+  }, [indentId, indentData, form]);
+
+  // Poll until siteId is set; revalidate indent if needed (for repeated opens edge cases)
+  useEffect(() => {
+    if (!indentId || mode !== "create") return;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const interval = setInterval(async () => {
+      attempts++;
+      const currentSite = Number(form.getValues("siteId") || 0);
+      if (currentSite > 0) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const raw = (indentData as any)?.data ?? indentData;
+        const computedSiteId = Number(raw?.siteId ?? raw?.site?.id ?? 0);
+        if (computedSiteId > 0) {
+          form.setValue("siteId", computedSiteId as any, {
+            shouldDirty: true,
+            shouldTouch: true,
+          });
+          clearInterval(interval);
+          return;
+        }
+        if (typeof revalidateIndent === "function") {
+          await revalidateIndent();
+        }
+      } catch {}
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [indentId, mode, indentData, form, revalidateIndent]);
+
+  useEffect(() => {
+    if (!indentId || mode !== "create") return;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const interval = setInterval(async () => {
+      attempts++;
+      const currentItems = form.getValues("purchaseOrderItems") as any[];
+      const needsPrefill = !Array.isArray(currentItems)
+        ? true
+        : currentItems.length === 0 ||
+          (currentItems.length === 1 &&
+            Number(currentItems[0]?.itemId || 0) === 0 &&
+            currentItems[0]?.fromIndent !== true);
+      if (!needsPrefill) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const raw = (indentData as any)?.data ?? indentData;
+        const itemsArr: any[] = Array.isArray(raw?.indentItems)
+          ? raw.indentItems
+          : [];
+        const unprocessed = itemsArr.filter(
+          (it) => it.purchaseOrderDetailId === null || it.purchaseOrderDetailId === undefined
+        );
+        if (unprocessed.length > 0) {
+          const mapped = unprocessed.map((it) => ({
+            itemId: Number(it.itemId || 0),
+            remark: it.remark || "",
+            qty: Number(it.approved2Qty ?? it.approved1Qty ?? it.indentQty ?? 0) || 0,
+            rate: 0,
+            discountPercent: 0,
+            cgstPercent: 0,
+            sgstPercent: 0,
+            igstPercent: 0,
+            amount: 0,
+            indentItemId: Number(it.id || 0) || undefined,
+            fromIndent: true,
+          }));
+          form.setValue("purchaseOrderItems", mapped as any, {
+            shouldDirty: true,
+            shouldTouch: true,
+          });
+          clearInterval(interval);
+          return;
+        }
+        if (typeof revalidateIndent === "function") {
+          await revalidateIndent();
+        }
+      } catch {}
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [indentId, mode, indentData, form, revalidateIndent]);
 
   // useEffect(() => {
   //   if (isApprovalMode && typeof defaultValues.poStatus !== "undefined") {
@@ -431,7 +610,7 @@ export function PurchaseOrderForm({
   //   }
   // }, [defaultValues.poStatus, form, isApprovalMode]);
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "purchaseOrderItems",
     keyName: "fieldId",
@@ -460,6 +639,22 @@ export function PurchaseOrderForm({
   );
 
   const sites = sitesData?.data ?? [];
+  const activeSiteId = Number(siteValue || 0);
+  const currentSiteInList = sites.some((s) => s.id === activeSiteId);
+  const currentSiteNameFromIndent =
+    (indentData as any)?.data?.site?.site ??
+    (indentData as any)?.site?.site ??
+    undefined;
+  const sitesForSelect =
+    activeSiteId > 0 && !currentSiteInList
+      ? [
+          ...sites,
+          {
+            id: activeSiteId,
+            site: currentSiteNameFromIndent || `Site #${activeSiteId}`,
+          },
+        ]
+      : sites;
   const vendors = vendorsData?.data ?? [];
   const billingAddresses = billingAddressesData?.data ?? [];
   const siteDeliveryAddresses = siteDetailData?.siteDeliveryAddresses ?? [];
@@ -617,9 +812,26 @@ export function PurchaseOrderForm({
 
   // Remove an item row
   const removeItem = (index: number) => {
-    if (fields.length > 1) {
-      remove(index);
+    if (fields.length === 1 && index === 0) {
+      // Reset the only/top row to an empty default instead of removing all rows
+      update(0, {
+        itemId: 0,
+        remark: "",
+        qty: 1,
+        rate: 0,
+        discountPercent: 0,
+        cgstPercent: 0,
+        sgstPercent: 0,
+        igstPercent: 0,
+        amount: 0,
+        // Ensure it's no longer treated as sourced from indent
+        ...(typeof (items?.[0] as any) === "object"
+          ? { fromIndent: false }
+          : {}),
+      } as any);
+      return;
     }
+    remove(index);
   };
 
   // Handle form submission
@@ -664,6 +876,10 @@ export function PurchaseOrderForm({
           sgstAmt: metrics.sgstAmt,
           igstAmt: metrics.igstAmt,
           amount: metrics.amount,
+          indentItemId:
+            (item as any)?.indentItemId && Number((item as any).indentItemId) > 0
+              ? Number((item as any).indentItemId)
+              : undefined,
         };
 
         // Add approval-specific fields
@@ -776,7 +992,10 @@ export function PurchaseOrderForm({
       // Submit the form
       const result =
         mode === "create"
-          ? await apiPost("/api/purchase-orders", payload)
+          ? await apiPost(
+              "/api/purchase-orders",
+              indentId ? { ...payload, indentId } : payload
+            )
           : await apiPatch(`/api/purchase-orders/${initial?.id}`, payload);
 
       // Show success message
@@ -1072,12 +1291,12 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", 0);
                     }}
                     placeholder="Select Site"
-                    disabled={isApprovalMode}
+                    disabled={isApprovalMode || Boolean(indentId)}
                   >
                     <AppSelect.Item key="site-none" value="__none">
                       Select Site
                     </AppSelect.Item>
-                    {sites.map((site) => (
+                    {sitesForSelect.map((site) => (
                       <AppSelect.Item key={site.id} value={site.id.toString()}>
                         {site.site}
                       </AppSelect.Item>
@@ -1449,6 +1668,10 @@ export function PurchaseOrderForm({
                                           }
                                         }}
                                         placeholder="Select Item"
+                                        disabled={
+                                          (items?.[index] as any)
+                                            ?.fromIndent === true
+                                        }
                                       >
                                         <AppSelect.Item
                                           key={`item-placeholder-${index}`}
@@ -1708,6 +1931,10 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
+                                    disabled={
+                                      (items?.[index] as any)?.fromIndent ===
+                                      true
+                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1742,6 +1969,10 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
+                                    disabled={
+                                      (items?.[index] as any)?.fromIndent ===
+                                      true
+                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">
@@ -1776,6 +2007,10 @@ export function PurchaseOrderForm({
                                       );
                                     }}
                                     className="text-right w-20"
+                                    disabled={
+                                      (items?.[index] as any)?.fromIndent ===
+                                      true
+                                    }
                                   />
                                 </FormControl>
                                 <div className="text-xs text-muted-foreground text-right">

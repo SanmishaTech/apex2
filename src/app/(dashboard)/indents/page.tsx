@@ -383,7 +383,10 @@ export default function IndentsPage() {
   const handleGeneratePO = useCallback(
     async (indentId: number) => {
       try {
-        pushWithScrollSave(`/purchase-orders/new?indentId=${indentId}`);
+        // Add a cache-busting param to force fresh mount each time
+        pushWithScrollSave(
+          `/purchase-orders/new?indentId=${indentId}&r=${Date.now()}`
+        );
       } catch (e) {
         toast.error(
           (e as Error).message || "Failed to generate purchase order"
@@ -393,7 +396,7 @@ export default function IndentsPage() {
     [pushWithScrollSave]
   );
 
-  const MAX_DEC = 9999999999.99; // MySQL DECIMAL(12,2)
+  const MAX_DEC = 99999999.9999; // MySQL DECIMAL(12,4)
   const clampDec = (n: number) => Math.min(Math.max(0, n), MAX_DEC);
   const setEdit = useCallback(
     (id: number, field: keyof EditFields, value: string) => {
@@ -725,13 +728,13 @@ export default function IndentsPage() {
                           {it.item?.unit?.unitName}
                         </td>
                         <td className="p-3 whitespace-nowrap">
-                          {Number(it.indentQty || 0).toFixed(2)}
+                          {Number(it.indentQty || 0).toFixed(4)}
                         </td>
                         <td className="p-3 whitespace-nowrap">
                           {approvalAction === "approve1" ? (
                             <Input
                               type="number"
-                              step="0.01"
+                              step="0.0001"
                               min={0}
                               max={MAX_DEC}
                               required
@@ -744,14 +747,14 @@ export default function IndentsPage() {
                               }
                             />
                           ) : (
-                            Number(it.approved1Qty || 0).toFixed(2)
+                            Number(it.approved1Qty || 0).toFixed(4)
                           )}
                         </td>
                         {approvalAction === "approve2" && (
                           <td className="p-3 whitespace-nowrap">
                             <Input
                               type="number"
-                              step="0.01"
+                              step="0.0001"
                               min={0}
                               max={MAX_DEC}
                               required

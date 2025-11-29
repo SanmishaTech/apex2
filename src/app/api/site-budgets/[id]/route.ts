@@ -92,10 +92,20 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // Get current data to calculate new values
     const current = await prisma.siteBudget.findUnique({
       where: { id },
-      select: { budgetQty: true, budgetRate: true, orderedQty: true, avgRate: true }
+      select: { siteId: true, itemId: true, budgetQty: true, budgetRate: true, orderedQty: true, avgRate: true }
     });
 
     if (!current) return NotFound('Site budget not found');
+
+    // If itemId is changing, ensure the (siteId, itemId) pair remains unique
+    if (updateData.itemId !== undefined && updateData.itemId !== current.itemId) {
+      const duplicate = await prisma.siteBudget.findFirst({
+        where: { siteId: current.siteId, itemId: updateData.itemId }
+      });
+      if (duplicate) {
+        return BadRequest("A budget entry for this item already exists for the selected site.");
+      }
+    }
 
     // Calculate new values based on what's being updated
     const newBudgetQty = updateData.budgetQty ?? current.budgetQty;
@@ -156,6 +166,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return BadRequest(error.errors);
     }
     if (error.code === 'P2025') return NotFound('Site budget not found');
+    if (error.code === 'P2002') {
+      return BadRequest("A budget entry for this item already exists for the selected site.");
+    }
     console.error("Update site budget error:", error);
     return Error("Failed to update site budget");
   }

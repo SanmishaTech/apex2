@@ -15,6 +15,8 @@ import { PERMISSIONS } from '@/config/roles';
 interface BudgetItem {
   id?: number;
   itemId: number;
+  originalItemId?: number;
+  tempId?: number;
   item?: {
     id: number;
     item: string;
@@ -61,6 +63,8 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({});
   const [isInitialized, setIsInitialized] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [deletedIds, setDeletedIds] = useState<number[]>([]);
 
   // Fetch site data
   const { data: site } = useSWR(`/api/sites/${siteId}`, apiGet) as { data: any };
@@ -72,61 +76,47 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
   // Fetch existing budget items for this site
   const { data: existingBudgets, mutate: mutateBudgets } = useSWR(
     `/api/site-budgets?siteId=${siteId}&perPage=1000`,
-    apiGet
+    apiGet,
+    { revalidateOnMount: true, revalidateIfStale: true }
   ) as { data: any; mutate: () => Promise<any> };
 
   // Initialize budget items from existing data
   useEffect(() => {
-    if (existingBudgets && !isInitialized) {
-      if (existingBudgets.data && existingBudgets.data.length > 0) {
-        const formattedItems: BudgetItem[] = existingBudgets.data.map((item: any) => ({
-          id: item.id,
-          itemId: item.itemId,
-          item: item.item,
-          budgetQty: Number(item.budgetQty),
-          budgetRate: Number(item.budgetRate),
-          purchaseRate: Number(item.purchaseRate),
-          budgetValue: Number(item.budgetValue),
-          orderedQty: Number(item.orderedQty),
-          avgRate: Number(item.avgRate),
-          orderedValue: Number(item.orderedValue),
-          qty50Alert: item.qty50Alert,
-          value50Alert: item.value50Alert,
-          qty75Alert: item.qty75Alert,
-          value75Alert: item.value75Alert,
-          isNew: false,
-          isDeleted: false,
-        }));
-        setBudgetItems(formattedItems);
-      } else {
-        // If no existing budgets, start with one empty row
-        const newItem: BudgetItem = {
-          id: Date.now(),
-          itemId: 0,
-          budgetQty: 0,
-          budgetRate: 0,
-          purchaseRate: 0,
-          budgetValue: 0,
-          orderedQty: 0,
-          avgRate: 0,
-          orderedValue: 0,
-          qty50Alert: false,
-          value50Alert: false,
-          qty75Alert: false,
-          value75Alert: false,
-          isNew: true,
-          isDeleted: false,
-        };
-        setBudgetItems([newItem]);
-      }
-      setIsInitialized(true);
+    if (!existingBudgets || touched) return;
+    if (existingBudgets.data && existingBudgets.data.length > 0) {
+      const formattedItems: BudgetItem[] = existingBudgets.data.map((item: any) => ({
+        id: item.id,
+        itemId: item.itemId,
+        originalItemId: item.itemId,
+        tempId: item.id ? undefined : Date.now() + Math.floor(Math.random() * 1000),
+        item: item.item,
+        budgetQty: Number(item.budgetQty),
+        budgetRate: Number(item.budgetRate),
+        purchaseRate: Number(item.purchaseRate),
+        budgetValue: Number(item.budgetValue),
+        orderedQty: Number(item.orderedQty),
+        avgRate: Number(item.avgRate),
+        orderedValue: Number(item.orderedValue),
+        qty50Alert: item.qty50Alert,
+        value50Alert: item.value50Alert,
+        qty75Alert: item.qty75Alert,
+        value75Alert: item.value75Alert,
+        isNew: false,
+        isDeleted: false,
+      }));
+      setBudgetItems(formattedItems);
+    } else {
+      // Do not auto-add an empty row; allow zero rows
+      setBudgetItems([]);
     }
-  }, [existingBudgets, isInitialized]);
+    setIsInitialized(true);
+  }, [existingBudgets, touched]);
 
   const addNewRow = () => {
     const newItem: BudgetItem = {
-      id: Date.now(), // Use timestamp as temporary ID for new items
+      tempId: Date.now() + Math.floor(Math.random() * 1000),
       itemId: 0,
+      originalItemId: undefined,
       budgetQty: 0,
       budgetRate: 0,
       purchaseRate: 0,
@@ -142,34 +132,71 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
       isDeleted: false,
     };
     setBudgetItems(prev => [...prev, newItem]);
+    setTouched(true);
   };
 
   const removeRow = (visibleIndex: number) => {
     setBudgetItems(prev => {
-      const newItems = [...prev];
-      // Find the actual index in the full array, not the filtered array
-      const visibleItems = prev.filter(item => !item.isDeleted);
-      const actualIndex = prev.indexOf(visibleItems[visibleIndex]);
-      
-      if (actualIndex !== -1) {
-        if (newItems[actualIndex].id) {
-          // Mark existing item as deleted
-          newItems[actualIndex].isDeleted = true;
-        } else {
-          // Remove new item completely
-          newItems.splice(actualIndex, 1);
+      let newItems = [...prev];
+      // Find the actual index in the full array by counting non-deleted items
+      let actualIndex = -1;
+      let count = -1;
+      for (let i = 0; i < prev.length; i++) {
+        if (!prev[i].isDeleted) {
+          count++;
+          if (count === visibleIndex) {
+            actualIndex = i;
+            break;
+          }
         }
+      }
+
+      if (actualIndex !== -1) {
+        const toRemove = newItems[actualIndex];
+        if (!toRemove.isNew && toRemove.id) {
+          setDeletedIds(prevDel => Array.from(new Set([...prevDel, toRemove.id!])));
+        }
+        // Remove from the list to keep UI indexes simple
+        newItems.splice(actualIndex, 1);
       }
       return newItems;
     });
+    setTouched(true);
+  };
+
+  const removeRowByKey = (rowKey: number, hasDbId: boolean) => {
+    setBudgetItems(prev => {
+      const newItems = [...prev];
+      const idx = hasDbId
+        ? newItems.findIndex(i => i.id === rowKey)
+        : newItems.findIndex(i => i.tempId === rowKey);
+      if (idx !== -1) {
+        const toRemove = newItems[idx];
+        if (toRemove.id && !toRemove.isNew) {
+          setDeletedIds(prevDel => Array.from(new Set([...prevDel, toRemove.id!])));
+        }
+        newItems.splice(idx, 1);
+      }
+      return newItems;
+    });
+    setTouched(true);
   };
 
   const updateItem = (originalIndex: number, field: keyof BudgetItem, value: any) => {
     setBudgetItems(prev => {
       const newItems = [...prev];
-      // Find the actual index in the full array, not the filtered array
-      const visibleItems = prev.filter(item => !item.isDeleted);
-      const actualIndex = prev.indexOf(visibleItems[originalIndex]);
+      // Find the actual index in the full array by counting non-deleted items
+      let actualIndex = -1;
+      let count = -1;
+      for (let i = 0; i < prev.length; i++) {
+        if (!prev[i].isDeleted) {
+          count++;
+          if (count === originalIndex) {
+            actualIndex = i;
+            break;
+          }
+        }
+      }
       
       if (actualIndex !== -1) {
         newItems[actualIndex] = { ...newItems[actualIndex], [field]: value };
@@ -232,6 +259,12 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
   };
 
   const saveChanges = async () => {
+    const visible = budgetItems.filter(i => !i.isDeleted);
+    if (visible.length === 0) {
+      toast.error('You need at least 1 record to save');
+      return;
+    }
+
     if (!validateItems()) {
       toast.error('Please fix validation errors before saving');
       return;
@@ -239,14 +272,28 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
 
     setSaving(true);
     try {
-      const operations: Promise<unknown>[] = [];
+      const deleteOps: Promise<unknown>[] = [];
+      const createOps: Promise<unknown>[] = [];
+      const updateOps: Promise<unknown>[] = [];
 
+      // Phase 1: explicit deletions and rows whose itemId changed
+      // Delete any rows that changed itemId (free unique key)
       for (const item of budgetItems) {
-        if (item.isDeleted && item.id && !item.isNew) {
-          // Delete existing item (only if it has a real database ID)
-          operations.push(apiDelete(`/api/site-budgets/${item.id}`));
-        } else if (item.isNew && !item.isDeleted) {
-          // Create new item
+        if (item.id && !item.isNew && !item.isDeleted && item.originalItemId !== undefined && item.itemId !== item.originalItemId) {
+          // For swaps/changes: delete the original to free unique key
+          deleteOps.push(apiDelete(`/api/site-budgets/${item.id}`));
+        }
+      }
+      // Also delete any existing rows the user removed from the UI entirely
+      for (const id of deletedIds) {
+        deleteOps.push(apiDelete(`/api/site-budgets/${id}`));
+      }
+      await Promise.all(deleteOps);
+
+      // Phase 2: creations (new rows and replacements for changed itemId)
+      for (const item of budgetItems) {
+        const shouldCreateReplacement = item.id && !item.isNew && !item.isDeleted && item.originalItemId !== undefined && item.itemId !== item.originalItemId;
+        if ((item.isNew && !item.isDeleted) || shouldCreateReplacement) {
           const payload = {
             siteId,
             itemId: item.itemId,
@@ -258,9 +305,14 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
             qty75Alert: item.qty75Alert,
             value75Alert: item.value75Alert,
           };
-          operations.push(apiPost('/api/site-budgets', payload));
-        } else if (item.id && !item.isDeleted && !item.isNew) {
-          // Update existing item (only if it has a real database ID)
+          createOps.push(apiPost('/api/site-budgets', payload));
+        }
+      }
+      await Promise.all(createOps);
+
+      // Phase 3: updates for existing rows that didn't change itemId
+      for (const item of budgetItems) {
+        if (item.id && !item.isDeleted && !item.isNew && (item.originalItemId === undefined || item.itemId === item.originalItemId)) {
           const payload = {
             itemId: item.itemId,
             budgetQty: item.budgetQty,
@@ -271,17 +323,17 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
             qty75Alert: item.qty75Alert,
             value75Alert: item.value75Alert,
           };
-          operations.push(apiPatch(`/api/site-budgets/${item.id}`, payload));
+          updateOps.push(apiPatch(`/api/site-budgets/${item.id}`, payload));
         }
       }
-
-      // Execute all operations
-      await Promise.all(operations);
+      await Promise.all(updateOps);
       
       toast.success('Budget items saved successfully');
       
       // Refresh data and navigate back
       await mutateBudgets();
+      setDeletedIds([]);
+      setTouched(false);
       router.push('/site-budgets');
       
     } catch (error) {
@@ -298,6 +350,9 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
   };
 
   const visibleItems = budgetItems.filter(item => !item.isDeleted);
+  const selectedItemIds = visibleItems
+    .map(i => i.itemId)
+    .filter((id) => typeof id === 'number' && id > 0) as number[];
 
   if (!can(PERMISSIONS.CREATE_SITE_BUDGETS)) {
     return (
@@ -345,7 +400,7 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
             </thead>
             <tbody>
               {visibleItems.map((item, index) => (
-                <tr key={item.id || `new-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
+                <tr key={item.id ?? item.tempId} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
                   <td className="border border-gray-300 dark:border-gray-600 px-2 py-1">
                     <select
                       value={item.itemId}
@@ -355,11 +410,14 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
                       }`}
                     >
                       <option value={0}>Select Item</option>
-                      {items.map((i: any) => (
-                        <option key={i.id} value={i.id}>
-                          {i.itemCode} - {i.item}
-                        </option>
-                      ))}
+                      {(() => {
+                        const availableItems = items.filter((i: any) => i.id === item.itemId || !selectedItemIds.includes(i.id));
+                        return availableItems.map((i: any) => (
+                          <option key={i.id} value={i.id}>
+                            {i.itemCode} - {i.item}
+                          </option>
+                        ));
+                      })()}
                     </select>
                     {errors[index]?.itemId && (
                       <div className="text-red-500 text-xs mt-1">{errors[index].itemId}</div>
@@ -462,7 +520,7 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
                     <div className="flex gap-1 justify-center">
                       <button
                         type="button"
-                        onClick={() => removeRow(index)}
+                        onClick={() => removeRowByKey(item.id ?? item.tempId!, !!item.id)}
                         className="w-6 h-6 bg-red-500 text-white rounded text-xs font-bold hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700"
                         title="Remove row"
                       >
@@ -503,7 +561,7 @@ export function InlineBudgetManager({ siteId }: InlineBudgetManagerProps) {
           onClick={saveChanges}
           iconName="Save"
           isLoading={saving}
-          disabled={saving || visibleItems.length === 0}
+          disabled={saving}
         >
           Save
         </AppButton>
