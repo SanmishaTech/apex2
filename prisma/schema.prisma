@@ -1068,9 +1068,9 @@ model IndentItem {
   purchaseOrderDetailId Int? @unique
   purchaseOrderDetail PurchaseOrderDetail? @relation( fields: [purchaseOrderDetailId], references: [id],onDelete: Restrict)
   remark       String?  @db.Text
-  indentQty    Decimal?  @db.Decimal(12, 2)
-  approved1Qty    Decimal?  @db.Decimal(12, 2)
-  approved2Qty    Decimal?  @db.Decimal(12, 2)
+  indentQty    Decimal?  @db.Decimal(12, 4)
+  approved1Qty    Decimal?  @db.Decimal(12, 4)
+  approved2Qty    Decimal?  @db.Decimal(12, 4)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
