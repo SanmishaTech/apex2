@@ -134,6 +134,7 @@ export interface PurchaseOrderFormProps {
   redirectOnSuccess?: string; // default '/purchase-orders'
   mutate?: () => Promise<any>;
   indentId?: number;
+  refreshKey?: string;
 }
 
 const purchaseOrderItemSchema = z.object({
@@ -299,6 +300,7 @@ export function PurchaseOrderForm({
   redirectOnSuccess = "/purchase-orders",
   mutate,
   indentId,
+  refreshKey,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -347,7 +349,9 @@ export function PurchaseOrderForm({
 
   // If generating from an indent, fetch indent and prefill
   const { data: indentData, mutate: revalidateIndent } = useSWR<any>(
-    mode === "create" && indentId ? `/api/indents/${indentId}` : null,
+    mode === "create" && indentId
+      ? `/api/indents/${indentId}?r=${encodeURIComponent(String(refreshKey ?? ""))}`
+      : null,
     mode === "create" && indentId ? apiGet : null
   );
   const [prefilledFromIndent, setPrefilledFromIndent] = useState(false);

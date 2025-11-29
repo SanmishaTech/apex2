@@ -17,6 +17,7 @@ export default function NewPurchaseOrderPage() {
       key={`create-po-${indentId ?? "none"}-${siteId ?? "nosite"}-${rParam}`}
       mode="create"
       indentId={indentId}
+      refreshKey={rParam}
       initial={initial as any}
     />
   );
