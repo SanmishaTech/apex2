@@ -117,7 +117,10 @@ export async function GET(req: NextRequest) {
     try {
       const sums = await prisma.stockLedger.groupBy({
         by: ["itemId"],
-        where: { siteId: siteId as number, itemId: { in: itemIds as number[] } },
+        where: {
+          siteId: siteId as number,
+          itemId: { in: itemIds as number[] },
+        },
         _sum: { receivedQty: true, issuedQty: true },
       } as any);
       const closingStockByItemId: Record<number, number> = {};
@@ -537,12 +540,19 @@ export async function POST(req: NextRequest) {
           poDetails.map((d: any) => [d.id, Number(d.itemId)])
         );
 
-        detailsCreateDataBase = inwardDeliveryChallanDetails.map((detail: any) => {
-          const rate = rateMap.get(detail.poDetailsId) ?? 0;
-          const receivingQty = Number(detail.receivingQty ?? 0);
-          const amount = Number((rate * receivingQty).toFixed(2));
-          return { poDetailsId: detail.poDetailsId, receivingQty, rate, amount };
-        });
+        detailsCreateDataBase = inwardDeliveryChallanDetails.map(
+          (detail: any) => {
+            const rate = rateMap.get(detail.poDetailsId) ?? 0;
+            const receivingQty = Number(detail.receivingQty ?? 0);
+            const amount = Number((rate * receivingQty).toFixed(2));
+            return {
+              poDetailsId: detail.poDetailsId,
+              receivingQty,
+              rate,
+              amount,
+            };
+          }
+        );
 
         totalBillAmount = detailsCreateDataBase.reduce(
           (acc, d) => acc + (Number.isFinite(d.amount) ? d.amount : 0),
@@ -609,7 +619,9 @@ export async function POST(req: NextRequest) {
           rate: d.rate,
           amount: d.amount,
         }));
-        await tx.inwardDeliveryChallanDetail.createMany({ data: detailsCreateData });
+        await tx.inwardDeliveryChallanDetail.createMany({
+          data: detailsCreateData,
+        });
 
         // Increment PO Detail receivedQty by receivingQty
         for (const d of detailsCreateDataBase) {
@@ -620,9 +632,10 @@ export async function POST(req: NextRequest) {
         }
 
         // Create Stock Ledger entries per detail
-        const txnDate: Date = (restWithDates as any)?.inwardChallanDate instanceof Date
-          ? (restWithDates as any).inwardChallanDate
-          : new Date();
+        const txnDate: Date =
+          (restWithDates as any)?.inwardChallanDate instanceof Date
+            ? (restWithDates as any).inwardChallanDate
+            : new Date();
         const stockRows = detailsCreateDataBase
           .map((d) => {
             const itemId = (itemIdMap as any)?.get?.(d.poDetailsId);
@@ -639,17 +652,81 @@ export async function POST(req: NextRequest) {
             };
           })
           .filter(Boolean) as Array<{
-            siteId: number;
-            transactionDate: Date;
-            itemId: number;
-            inwardDeliveryChallanId: number;
-            receivedQty: number;
-            issuedQty: number;
-            unitRate: number;
-            documentType: string;
-          }>;
+          siteId: number;
+          transactionDate: Date;
+          itemId: number;
+          inwardDeliveryChallanId: number;
+          receivedQty: number;
+          issuedQty: number;
+          unitRate: number;
+          documentType: string;
+        }>;
         if (stockRows.length > 0) {
           await tx.stockLedger.createMany({ data: stockRows });
+        }
+
+        // Update SiteItem (closing stock/value per siteId+itemId)
+        // Build totals by itemId from details
+        const totalsByItem = new Map<number, { qty: number; value: number }>();
+        for (const d of detailsCreateDataBase) {
+          const itemId = (itemIdMap as any)?.get?.(d.poDetailsId);
+          if (!itemId) continue;
+          const prev = totalsByItem.get(itemId) || { qty: 0, value: 0 };
+          totalsByItem.set(itemId, {
+            qty: Number((prev.qty + Number(d.receivingQty || 0)).toFixed(4)),
+            value: Number((prev.value + Number(d.amount || 0)).toFixed(4)),
+          });
+        }
+
+        // Apply per itemId totals to site_items
+        for (const [itemId, totals] of totalsByItem.entries()) {
+          const existing = await tx.siteItem.findFirst({
+            where: { siteId: Number(siteId), itemId: Number(itemId) },
+            select: {
+              id: true,
+              closingStock: true,
+              closingValue: true,
+            },
+          });
+
+          if (!existing) {
+            const closingStock = Number(Number(totals.qty || 0).toFixed(4));
+            const closingValue = Number(Number(totals.value || 0).toFixed(4));
+            const unitRate =
+              closingStock > 0
+                ? Number((closingValue / closingStock).toFixed(4))
+                : 0;
+            await tx.siteItem.create({
+              data: {
+                siteId: Number(siteId),
+                itemId: Number(itemId),
+                closingStock,
+                closingValue,
+                unitRate,
+                log: "IDC New",
+              } as any,
+            });
+          } else {
+            const prevStock = Number(existing.closingStock || 0);
+            const prevValue = Number(existing.closingValue || 0);
+            const nextStock = Number(
+              (prevStock + (totals.qty || 0)).toFixed(4)
+            );
+            const nextValue = Number(
+              (prevValue + (totals.value || 0)).toFixed(4)
+            );
+            const unitRate =
+              nextStock > 0 ? Number((nextValue / nextStock).toFixed(4)) : 0;
+            await tx.siteItem.update({
+              where: { id: existing.id },
+              data: {
+                closingStock: nextStock,
+                closingValue: nextValue,
+                unitRate,
+                log: "IDC Old",
+              } as any,
+            });
+          }
         }
       }
 

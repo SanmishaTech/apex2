@@ -69,6 +69,13 @@ model User {
   inwardDeliveryChallansCreated InwardDeliveryChallan[] @relation("IDCCreated")
   inwardDeliveryChallansUpdated InwardDeliveryChallan[] @relation("IDCUpdated")
 
+
+  outwardDeliveryChallanCreated OutwardDeliveryChallan[] @relation("ODCCreated")
+  outwardDeliveryChallanUpdated OutwardDeliveryChallan[] @relation("ODCUpdated")
+  outwardDeliveryChallanApproved1By OutwardDeliveryChallan[] @relation("ODCApproved1By")
+  outwardDeliveryChallanAcceptedBy OutwardDeliveryChallan[] @relation("ODCAcceptedBy")
+
+
   @@index([role])
   @@map("users")
 }
@@ -233,6 +240,11 @@ model Site {
   purchaseOrders PurchaseOrder[]
   inwardDeliveryChallans InwardDeliveryChallan[]
   stockLedgers StockLedger[]
+  siteItems SiteItem[]
+
+  outwardDeliveryFromSite OutwardDeliveryChallan[] @relation("ODCFromSite")
+  outwardDeliveryChallanToSite OutwardDeliveryChallan[] @relation("ODCToSite")
+
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
@@ -549,7 +561,8 @@ model Item {
     purchaseOrderDetails PurchaseOrderDetail[] 
    workOrderDetails WorkOrderDetail[]
    stockLedgers StockLedger[]
-
+   siteItems    SiteItem[]
+   outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
   @@index([itemCode])
   @@index([itemCategoryId])
   @@index([unitId])
@@ -1954,7 +1967,7 @@ model InwardDeliveryChallan {
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   siteId           Int
   site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  inwardChallanNo  String   @db.VarChar(50)
+  inwardChallanNo  String  @unique 
   inwardChallanDate DateTime
   challanNo        String   @db.VarChar(100)
   challanDate      DateTime
@@ -2061,5 +2074,106 @@ model StockLedger {
 }
 
 
+model SiteItem {
+  id            Int       @id @default(autoincrement())
+  siteId                  Int
+  itemId          Int
+  openingStock  Decimal    @default(0.00)   @db.Decimal(12,4) 
+  openingRate   Decimal    @default(0.00)   @db.Decimal(12,2) 
+  openingValue  Decimal    @default(0.00)   @db.Decimal(12,2) 
+  closingStock  Decimal    @default(0.00)    @db.Decimal(12,4) 
+  closingValue  Decimal    @default(0.00)    @db.Decimal(12,2) 
+  unitRate      Decimal    @default(0.00)   @db.Decimal(12,2) 
+  reorderLevel  Decimal    @default(0.00)    @db.Decimal(12,4)
+  log           String?    @db.VarChar(50)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-// in approval add budget validatioon from sir in purchase ordeer.
+  site        Site    @relation( fields: [siteId], references: [id], onDelete:Restrict)
+  item        Item    @relation(fields: [itemId], references: [id], onDelete:Restrict)
+  
+    @@index([siteId])
+  @@index([itemId])
+
+  @@map("site_items")
+}
+
+
+model OutwardDeliveryChallan {
+  id                 Int       @id @default(autoincrement())
+  outwardChallanNo   String   @unique
+  outwardChallanDate DateTime
+  challanNo          String   @db.VarChar(100)
+  challanDate        DateTime
+  fromSiteId         Int
+  toSiteId           Int
+
+  isApproved1             Boolean  @default(false)
+  approved1ById  Int?
+  approved1By    User?                @relation("ODCApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At    DateTime?
+  isAccepted             Boolean  @default(false)
+  acceptedById  Int?
+  acceptedBy    User?                @relation("ODCAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict)
+
+  acceptedAt    DateTime?
+ createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  revision                Int?
+  createdBy User? @relation("ODCCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User? @relation("ODCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  fromSite Site @relation("ODCFromSite", fields: [fromSiteId], references: [id], onDelete: Restrict)
+  toSite Site @relation("ODCToSite", fields: [toSiteId], references: [id], onDelete: Restrict)
+
+  // 
+  @@index([fromSiteId])
+  @@index([toSiteId])
+  @@index([approved1ById])
+  @@index([acceptedById])
+  @@index([createdById])
+  @@index([updatedById])
+
+  outwardDeliveryChallanDetails OutwardDeliveryChallanDetail[]
+  outwardDeliveryChallanDocuments OutwardDeliveryChallanDocuments[]
+
+  @@map("outward_delivery_challans")
+}
+
+
+model OutwardDeliveryChallanDetail {
+  id                         Int      @id @default(autoincrement())
+  outwardDeliveryChallanId   Int
+  itemId                     Int
+  qty                        Decimal  @default(0.00)   @db.Decimal(12,4) 
+  challanQty                 Decimal @default(0.00)   @db.Decimal(12,4) 
+  approved1Qty               Decimal @default(0.00)   @db.Decimal(12,4) 
+  receivedQty                Decimal @default(0.00)   @db.Decimal(12,4) 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  // relation (many details belong to one challan)
+  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id],onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([outwardDeliveryChallanId])
+  @@index([itemId])
+
+  @@map("outward_delivery_challan_details")
+}
+
+
+model OutwardDeliveryChallanDocuments {
+  id           Int      @id @default(autoincrement())
+  outwardDeliveryChallanId   Int     
+  documentName String
+  documentUrl  String       @db.LongText 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  outwardDeliveryChallan    OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Cascade)
+
+  @@index([outwardDeliveryChallanId])
+  @@map("outward_delivery_challan_documents")
+}

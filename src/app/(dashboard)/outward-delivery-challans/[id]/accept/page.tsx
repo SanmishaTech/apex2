@@ -1,0 +1,171 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import useSWR from "swr";
+import { apiGet, apiPatch } from "@/lib/api-client";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import { formatDate } from "@/lib/locales";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { TextInput } from "@/components/common/text-input";
+import { Form } from "@/components/ui/form";
+import { FormSection } from "@/components/common/app-form";
+import { toast } from "@/lib/toast";
+
+const rowSchema = z.object({
+  id: z.number(),
+  receivedQty: z
+    .union([z.string(), z.number()])
+    .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
+    .pipe(z.number().gt(0, "Qty must be greater than 0")),
+});
+const formSchema = z.object({ details: z.array(rowSchema).min(1) });
+
+type FormValues = z.infer<typeof formSchema>;
+
+export default function AcceptOutwardDeliveryChallanPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = Number(params?.id);
+
+  const { data: challan, isLoading, error, mutate } = useSWR<any>(
+    Number.isFinite(id) ? `/api/outward-delivery-challans/${id}` : null,
+    apiGet
+  );
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange",
+    defaultValues: { details: [] },
+  });
+
+  const { control, handleSubmit, reset } = form;
+  useEffect(() => {
+    if (!challan) return;
+    reset({
+      details: (challan.outwardDeliveryChallanDetails || []).map((d: any) => ({
+        id: d.id,
+        receivedQty: d.receivedQty != null ? Number(d.receivedQty) : 0,
+      })),
+    });
+  }, [challan, reset]);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(values: FormValues) {
+    try {
+      setSubmitting(true);
+      const payload = {
+        statusAction: "accept" as const,
+        outwardDeliveryChallanDetails: values.details.map((d) => ({
+          id: d.id,
+          receivedQty: Number(d.receivedQty),
+        })),
+      };
+      await apiPatch(`/api/outward-delivery-challans/${id}`, payload);
+      toast.success("Challan accepted");
+      await mutate();
+      router.push(`/outward-delivery-challans/${id}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to accept");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <AppCard>
+      <AppCard.Header>
+        <AppCard.Title>Accept Outward Delivery Challan</AppCard.Title>
+        <AppCard.Description>Record received quantities.</AppCard.Description>
+        <AppCard.Action>
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            iconName="ArrowLeft"
+            onClick={() => router.push(`/outward-delivery-challans/${id}`)}
+          >
+            Back
+          </AppButton>
+        </AppCard.Action>
+      </AppCard.Header>
+      <AppCard.Content>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        ) : error ? (
+          <div className="text-sm text-destructive">Failed to load</div>
+        ) : challan ? (
+          <Form {...form}>
+            <form noValidate onSubmit={handleSubmit(onSubmit)}>
+              <div className="space-y-8">
+                <section>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Outward Challan No.</div>
+                      <div className="font-medium">{challan.outwardChallanNo || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Outward Challan Date</div>
+                      <div className="font-medium">{challan.outwardChallanDate ? formatDate(challan.outwardChallanDate) : "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Challan No.</div>
+                      <div className="font-medium">{challan.challanNo || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Challan Date</div>
+                      <div className="font-medium">{challan.challanDate ? formatDate(challan.challanDate) : "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">From Site</div>
+                      <div className="font-medium">{challan.fromSite?.site || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">To Site</div>
+                      <div className="font-medium">{challan.toSite?.site || "—"}</div>
+                    </div>
+                  </div>
+                </section>
+
+                <FormSection legend={<span className="text-base font-semibold">Outward Delivery Challan Details</span>}>
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-12 gap-3 p-3 text-xs font-medium bg-muted/50">
+                      <div className="col-span-4">Item</div>
+                      <div className="col-span-2">Unit</div>
+                      <div className="col-span-2">Challan Qty</div>
+                      <div className="col-span-2">Approved Qty</div>
+                      <div className="col-span-2">Received Qty</div>
+                    </div>
+                    {(challan.outwardDeliveryChallanDetails || []).map((d: any, idx: number) => {
+                      const inputName = `details.${idx}.receivedQty` as const;
+                      return (
+                        <div key={d.id} className="grid grid-cols-12 gap-3 p-3 border-t text-sm items-center">
+                          <div className="col-span-4">{d.item?.itemCode ? `${d.item.itemCode} - ${d.item.item}` : d.item?.item ?? "—"}</div>
+                          <div className="col-span-2">{d.item?.unit?.unitName || "—"}</div>
+                          <div className="col-span-2">{d.challanQty ?? "—"}</div>
+                          <div className="col-span-2">{d.approved1Qty ?? "—"}</div>
+                          <div className="col-span-2">
+                            <TextInput control={control} name={inputName} label="" type="number" placeholder="0" span={12} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </FormSection>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <AppButton type="submit" iconName="Check" isLoading={submitting} disabled={submitting}>Accept</AppButton>
+              </div>
+            </form>
+          </Form>
+        ) : (
+          <div className="text-sm text-muted-foreground">No data</div>
+        )}
+      </AppCard.Content>
+    </AppCard>
+  );
+}
