@@ -59,7 +59,7 @@ const indentItemSchema = z.object({
   indentQty: z
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0, "Indent quantity must be non-negative")),
+    .pipe(z.number().min(0.0001, "Indent quantity must be greater than 0")),
 });
 
 const createInputSchema = z.object({

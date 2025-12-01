@@ -14,18 +14,21 @@ const indentItemSchema = z.object({
   id: z.number().optional(), // For existing items
   itemId: z.coerce.number().min(1, "Item is required"),
   remark: z.string().optional(),
-  indentQty: z.coerce
+  indentQty: z
+    .coerce
     .number()
-    .min(0, "Indent quantity must be non-negative")
+    .min(0.0001, "Indent quantity must be greater than 0")
     .max(99999999.9999, "Indent quantity must be <= 99,999,999.9999"),
-  approved1Qty: z.coerce
+  approved1Qty: z
+    .coerce
     .number()
-    .min(0, "Approved quantity must be non-negative")
+    .min(0.0001, "Approved quantity must be greater than 0")
     .max(99999999.9999, "Approved quantity must be <= 99,999,999.9999")
     .optional(),
-  approved2Qty: z.coerce
+  approved2Qty: z
+    .coerce
     .number()
-    .min(0, "Approved quantity must be non-negative")
+    .min(0.0001, "Approved quantity must be greater than 0")
     .max(99999999.9999, "Approved quantity must be <= 99,999,999.9999")
     .optional(),
 });
