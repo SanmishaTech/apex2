@@ -18,9 +18,11 @@ import { toast } from "@/lib/toast";
 const rowSchema = z.object({
   id: z.number(),
   receivedQty: z
-    .union([z.string(), z.number()])
-    .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
-    .pipe(z.number().gt(0, "Qty must be greater than 0")),
+    .string()
+    .trim()
+    .refine((v) => v !== "", { message: "Qty is required" })
+    .refine((v) => !Number.isNaN(Number(v)), { message: "Invalid number" })
+    .refine((v) => Number(v) > 0, { message: "Qty must be greater than 0" }),
 });
 const formSchema = z.object({ details: z.array(rowSchema).min(1) });
 
@@ -36,6 +38,20 @@ export default function AcceptOutwardDeliveryChallanPage() {
     apiGet
   );
 
+  // Closing stock by item at fromSite
+  const fromSiteId = challan?.fromSiteId as number | undefined;
+  const { data: siteItemsResp } = useSWR<any>(
+    fromSiteId ? `/api/site-items?siteId=${fromSiteId}` : null,
+    apiGet
+  );
+  const closingByItem = useMemo(() => {
+    const map = new Map<number, number>();
+    ((siteItemsResp?.data as any[]) || []).forEach((si: any) => {
+      map.set(Number(si.itemId), Number(si.closingStock || 0));
+    });
+    return map;
+  }, [siteItemsResp?.data]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -48,7 +64,7 @@ export default function AcceptOutwardDeliveryChallanPage() {
     reset({
       details: (challan.outwardDeliveryChallanDetails || []).map((d: any) => ({
         id: d.id,
-        receivedQty: d.receivedQty != null ? Number(d.receivedQty) : 0,
+        receivedQty: d.receivedQty != null ? String(d.receivedQty) : "",
       })),
     });
   }, [challan, reset]);
@@ -58,6 +74,24 @@ export default function AcceptOutwardDeliveryChallanPage() {
   async function onSubmit(values: FormValues) {
     try {
       setSubmitting(true);
+      // Client validation: <= closing stock
+      const detailsById = new Map<number, any>();
+      (challan?.outwardDeliveryChallanDetails || []).forEach((d: any) => detailsById.set(d.id, d));
+      let hadErr = false;
+      values.details.forEach((d, idx) => {
+        const detail = detailsById.get(d.id);
+        const itemId = Number(detail?.itemId || 0);
+        const closing = closingByItem.get(itemId) ?? 0;
+        if (Number(d.receivedQty) > closing) {
+          hadErr = true;
+          form.setError(`details.${idx}.receivedQty` as any, { type: "manual", message: `Cannot exceed closing (${closing})` });
+        }
+      });
+      if (hadErr) {
+        toast.error("Received qty cannot exceed closing stock");
+        setSubmitting(false);
+        return;
+      }
       const payload = {
         statusAction: "accept" as const,
         outwardDeliveryChallanDetails: values.details.map((d) => ({
@@ -68,7 +102,7 @@ export default function AcceptOutwardDeliveryChallanPage() {
       await apiPatch(`/api/outward-delivery-challans/${id}`, payload);
       toast.success("Challan accepted");
       await mutate();
-      router.push(`/outward-delivery-challans/${id}`);
+      router.push(`/outward-delivery-challans`);
     } catch (e: any) {
       toast.error(e?.message || "Failed to accept");
     } finally {
@@ -134,20 +168,23 @@ export default function AcceptOutwardDeliveryChallanPage() {
                 <FormSection legend={<span className="text-base font-semibold">Outward Delivery Challan Details</span>}>
                   <div className="rounded-md border">
                     <div className="grid grid-cols-12 gap-3 p-3 text-xs font-medium bg-muted/50">
-                      <div className="col-span-4">Item</div>
+                      <div className="col-span-3">Item</div>
                       <div className="col-span-2">Unit</div>
                       <div className="col-span-2">Challan Qty</div>
                       <div className="col-span-2">Approved Qty</div>
+                      <div className="col-span-1">Closing Qty</div>
                       <div className="col-span-2">Received Qty</div>
                     </div>
                     {(challan.outwardDeliveryChallanDetails || []).map((d: any, idx: number) => {
                       const inputName = `details.${idx}.receivedQty` as const;
+                      const closing = closingByItem.get(Number(d.itemId)) ?? 0;
                       return (
                         <div key={d.id} className="grid grid-cols-12 gap-3 p-3 border-t text-sm items-center">
-                          <div className="col-span-4">{d.item?.itemCode ? `${d.item.itemCode} - ${d.item.item}` : d.item?.item ?? "—"}</div>
+                          <div className="col-span-3">{d.item?.itemCode ? `${d.item.itemCode} - ${d.item.item}` : d.item?.item ?? "—"}</div>
                           <div className="col-span-2">{d.item?.unit?.unitName || "—"}</div>
                           <div className="col-span-2">{d.challanQty ?? "—"}</div>
                           <div className="col-span-2">{d.approved1Qty ?? "—"}</div>
+                          <div className="col-span-1">{closing}</div>
                           <div className="col-span-2">
                             <TextInput control={control} name={inputName} label="" type="number" placeholder="0" span={12} />
                           </div>

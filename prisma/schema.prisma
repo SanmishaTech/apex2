@@ -2053,7 +2053,8 @@ model StockLedger {
   siteId                  Int
   transactionDate DateTime
   itemId          Int
-  inwardDeliveryChallanId   Int   
+  inwardDeliveryChallanId   Int?   
+  outwardDeliveryChallanId   Int?   
 
   receivedQty     Decimal  @db.Decimal(12,4) @default(0.00)
   issuedQty     Decimal  @db.Decimal(12, 4) @default(0.00)
@@ -2064,11 +2065,13 @@ model StockLedger {
 
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
   item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  inwardDeliveryChallan InwardDeliveryChallan? @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  outwardDeliveryChallan OutwardDeliveryChallan? @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Cascade)
 
   @@index([siteId])
   @@index([itemId])
   @@index([inwardDeliveryChallanId])
+  @@index([outwardDeliveryChallanId])
 
   @@map("stock_ledgers")
 }
@@ -2129,6 +2132,7 @@ model OutwardDeliveryChallan {
   toSite Site @relation("ODCToSite", fields: [toSiteId], references: [id], onDelete: Restrict)
 
   // 
+  stockLedgers  StockLedger[]
   @@index([fromSiteId])
   @@index([toSiteId])
   @@index([approved1ById])
