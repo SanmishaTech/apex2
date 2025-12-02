@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { useMemo, useState, useEffect } from "react";
-import { apiGet, apiDelete } from "@/lib/api-client";
+import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { Pagination } from "@/components/common/pagination";
 import { NonFormTextInput } from "@/components/common/non-form-text-input";
@@ -87,7 +87,10 @@ export default function OutwardDeliveryChallansPage() {
     return `/api/outward-delivery-challans?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<ODCsResponse>(query, apiGet);
+  const { data, error, isLoading, mutate } = useSWR<ODCsResponse>(
+    query,
+    apiGet
+  );
   const { can } = usePermissions();
   const { user } = useCurrentUser();
 
@@ -102,49 +105,114 @@ export default function OutwardDeliveryChallansPage() {
   }
 
   const columns: Column<ODCListItem>[] = [
-    { key: "outwardChallanNo", header: "ODC No", sortable: true, accessor: (r) => r.outwardChallanNo, cellClassName: "font-medium whitespace-nowrap" },
-    { key: "fromSite", header: "From Site", sortable: false, accessor: (r) => r.fromSite?.site || "—", className: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
-    { key: "toSite", header: "To Site", sortable: false, accessor: (r) => r.toSite?.site || "—", className: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
-    { key: "outwardChallanDate", header: "ODC Date", sortable: true, accessor: (r) => formatDate(r.outwardChallanDate), className: "whitespace-nowrap" },
-    { key: "isApproved1", header: "Approved", sortable: false, accessor: (r) => (r.isApproved1 ? "Yes" : "No"), className: "whitespace-nowrap" },
-    { key: "isAccepted", header: "Accepted", sortable: false, accessor: (r) => (r.isAccepted ? "Yes" : "No"), className: "whitespace-nowrap" },
-    { key: "createdAt", header: "Created", sortable: true, accessor: (r) => formatDate(r.createdAt), className: "whitespace-nowrap", cellClassName: "text-muted-foreground whitespace-nowrap" },
-    { key: "updatedAt", header: "Updated", sortable: false, accessor: (r) => formatRelativeTime(r.updatedAt), className: "whitespace-nowrap", cellClassName: "text-muted-foreground whitespace-nowrap" },
+    {
+      key: "outwardChallanNo",
+      header: "ODC No",
+      sortable: true,
+      accessor: (r) => r.outwardChallanNo,
+      cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "fromSite",
+      header: "From Site",
+      sortable: false,
+      accessor: (r) => r.fromSite?.site || "—",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "toSite",
+      header: "To Site",
+      sortable: false,
+      accessor: (r) => r.toSite?.site || "—",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "outwardChallanDate",
+      header: "ODC Date",
+      sortable: true,
+      accessor: (r) => formatDate(r.outwardChallanDate),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "isApproved1",
+      header: "Approved",
+      sortable: false,
+      accessor: (r) => (r.isApproved1 ? "Yes" : "No"),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "isAccepted",
+      header: "Accepted",
+      sortable: false,
+      accessor: (r) => (r.isAccepted ? "Yes" : "No"),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: true,
+      accessor: (r) => formatDate(r.createdAt),
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+    },
+    {
+      key: "updatedAt",
+      header: "Updated",
+      sortable: false,
+      accessor: (r) => formatRelativeTime(r.updatedAt),
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+    },
   ];
   const sortState: SortState = { field: sort, order };
 
-  async function handleDelete(id: number) {
-    try {
-      await apiDelete(`/api/outward-delivery-challans/${id}`);
-      toast.success("Challan deleted");
-      await mutate();
-    } catch (e) {
-      toast.error((e as Error).message || "Failed to delete challan");
-    }
-  }
-
   const canCreate = can(PERMISSIONS.CREATE_OUTWARD_DELIVERY_CHALLAN);
-  const canDelete = can(PERMISSIONS.DELETE_OUTWARD_DELIVERY_CHALLAN);
 
   return (
     <AppCard>
       <AppCard.Header>
         <AppCard.Title>Outward Delivery Challans</AppCard.Title>
-        <AppCard.Description>Manage outward delivery challans.</AppCard.Description>
+        <AppCard.Description>
+          Manage outward delivery challans.
+        </AppCard.Description>
         <AppCard.Action>
           {canCreate && (
             <Link href="/outward-delivery-challans/new">
-              <AppButton size="sm" iconName="Plus" type="button">Add</AppButton>
+              <AppButton size="sm" iconName="Plus" type="button">
+                Add
+              </AppButton>
             </Link>
           )}
         </AppCard.Action>
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title="Search & Filter">
-          <NonFormTextInput aria-label="Search Challans" placeholder="Search by ODC No, Challan No, Site..." value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} containerClassName="w-full" />
-          <AppButton size="sm" onClick={applyFilters} disabled={!filtersDirty && !searchDraft} className="min-w-[84px]">Filter</AppButton>
+          <NonFormTextInput
+            aria-label="Search Challans"
+            placeholder="Search by ODC No, Challan No, Site..."
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            containerClassName="w-full"
+          />
+          <AppButton
+            size="sm"
+            onClick={applyFilters}
+            disabled={!filtersDirty && !searchDraft}
+            className="min-w-[84px]"
+          >
+            Filter
+          </AppButton>
           {search && (
-            <AppButton variant="secondary" size="sm" onClick={resetFilters} className="min-w-[84px]">Reset</AppButton>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              onClick={resetFilters}
+              className="min-w-[84px]"
+            >
+              Reset
+            </AppButton>
           )}
         </FilterBar>
         <DataTable
@@ -167,9 +235,7 @@ export default function OutwardDeliveryChallansPage() {
               !row.isAccepted &&
               uid !== row.createdById &&
               uid !== (row.approved1ById ?? undefined);
-            const canDeleteRow = can(PERMISSIONS.DELETE_OUTWARD_DELIVERY_CHALLAN);
-
-            const any = canView || canApprove || canAccept || canDeleteRow;
+            const any = canView || canApprove || canAccept;
             if (!any) return null;
 
             return (
@@ -182,29 +248,27 @@ export default function OutwardDeliveryChallansPage() {
                 <DropdownMenuContent align="end">
                   {canView && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/outward-delivery-challans/${row.id}`}>View</Link>
+                      <Link href={`/outward-delivery-challans/${row.id}`}>
+                        View
+                      </Link>
                     </DropdownMenuItem>
                   )}
                   {canApprove && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/outward-delivery-challans/${row.id}/approve`}>Approve</Link>
+                      <Link
+                        href={`/outward-delivery-challans/${row.id}/approve`}
+                      >
+                        Approve
+                      </Link>
                     </DropdownMenuItem>
                   )}
                   {canAccept && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/outward-delivery-challans/${row.id}/accept`}>Accept</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {canDeleteRow && (
-                    <DropdownMenuItem
-                      onSelect={async (e) => {
-                        e.preventDefault();
-                        if (window.confirm(`Delete ODC ${row.outwardChallanNo}? This cannot be undone.`)) {
-                          await handleDelete(row.id);
-                        }
-                      }}
-                    >
-                      Delete
+                      <Link
+                        href={`/outward-delivery-challans/${row.id}/accept`}
+                      >
+                        Accept
+                      </Link>
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>

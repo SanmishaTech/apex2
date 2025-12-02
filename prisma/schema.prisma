@@ -2006,6 +2006,7 @@ model InwardDeliveryChallan {
   inwardDeliveryChallanDetails InwardDeliveryChallanDetail[]
   inwardDeliveryChallanDocuments InwardDeliveryChallanDocuments[]
   stockLedgers StockLedger[]
+  inwardBillDetail  InwardBillDetail[]
   @@index([purchaseOrderId])
   @@index([vendorId])
   @@index([siteId])
@@ -2180,4 +2181,31 @@ model OutwardDeliveryChallanDocuments {
 
   @@index([outwardDeliveryChallanId])
   @@map("outward_delivery_challan_documents")
+}
+
+
+model InwardBillDetail {
+  id                        Int       @id @default(autoincrement())
+  inwardDeliveryChallanId   Int
+  paymentDate               DateTime
+  paymentMode               String   @db.VarChar(20)
+  chequeNo                  String?   @db.VarChar(30)
+  chequeDate                DateTime?
+  utrNo                     String?   @db.VarChar(50)
+  rtgsDate                  DateTime?
+  neftDate                  DateTime?
+  transactionNo             String?   @db.VarChar(30)
+  transactionDate           DateTime?
+  bankName                  String?   @db.VarChar(50)
+
+  deductionTax              Decimal    @default(0.00) @db.Decimal(12, 2)
+  paidAmount                Decimal    @default(0.00) @db.Decimal(12, 2)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+
+  @@index([inwardDeliveryChallanId])
+  @@map("inward_bill_details")
 }
