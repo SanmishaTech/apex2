@@ -55,7 +55,14 @@ export async function GET(
             challanQty: true,
             approved1Qty: true,
             receivedQty: true,
-            item: { select: { id: true, item: true, itemCode: true, unit: { select: { unitName: true } } } },
+            item: {
+              select: {
+                id: true,
+                item: true,
+                itemCode: true,
+                unit: { select: { unitName: true } },
+              },
+            },
           },
           orderBy: { id: "asc" },
         },
@@ -106,6 +113,8 @@ export async function PATCH(
       where: { id },
       select: {
         id: true,
+        fromSiteId: true,
+        toSiteId: true,
         createdById: true,
         isApproved1: true,
         approved1ById: true,
@@ -113,6 +122,7 @@ export async function PATCH(
         outwardDeliveryChallanDetails: {
           select: {
             id: true,
+            itemId: true,
             challanQty: true,
             approved1Qty: true,
             receivedQty: true,
@@ -143,16 +153,32 @@ export async function PATCH(
       const byId = new Map(
         (current.outwardDeliveryChallanDetails || []).map((d) => [d.id, d])
       );
+      // Load closing stock for all items at fromSite
+      const detailIds = (current.outwardDeliveryChallanDetails || []).map(
+        (d) => d.itemId
+      );
+      const siteItems = await prisma.siteItem.findMany({
+        where: { siteId: current.fromSiteId, itemId: { in: detailIds } },
+        select: { itemId: true, closingStock: true },
+      });
+      const stockByItem = new Map<number, number>();
+      for (const si of siteItems)
+        stockByItem.set(si.itemId, Number(si.closingStock || 0));
+
       for (const row of parsed.outwardDeliveryChallanDetails || []) {
         const found = byId.get(row.id);
         if (!found) return BadRequest("Invalid detail id: " + row.id);
         const qty = Number(row.approved1Qty ?? 0);
         if (qty <= 0) {
-          return BadRequest(`Approved qty must be greater than 0 for detail ${row.id}`);
-        }
-        if (qty > Number(found.challanQty || 0)) {
           return BadRequest(
-            `Approved qty cannot exceed challan qty for detail ${row.id}`
+            `Approved qty must be greater than 0 for detail ${row.id}`
+          );
+        }
+
+        const closing = stockByItem.get(found.itemId) ?? 0;
+        if (qty > closing) {
+          return BadRequest(
+            `Approved qty cannot exceed closing stock (${closing}) for detail ${row.id}`
           );
         }
       }
@@ -171,9 +197,10 @@ export async function PATCH(
         });
         // Details
         for (const row of parsed.outwardDeliveryChallanDetails || []) {
+          const val = Number(row.approved1Qty ?? 0);
           await tx.outwardDeliveryChallanDetail.update({
             where: { id: row.id },
-            data: { approved1Qty: Number(row.approved1Qty ?? 0) },
+            data: { approved1Qty: val, qty: val },
           });
         }
       });
@@ -194,19 +221,37 @@ export async function PATCH(
       const byId = new Map(
         (current.outwardDeliveryChallanDetails || []).map((d) => [d.id, d])
       );
+      // Load closing stock for all items at fromSite
+      const detailIds = (current.outwardDeliveryChallanDetails || []).map(
+        (d) => d.itemId
+      );
+      const siteItems = await prisma.siteItem.findMany({
+        where: { siteId: current.fromSiteId, itemId: { in: detailIds } },
+        select: { itemId: true, closingStock: true },
+      });
+      const stockByItem = new Map<number, number>();
+      for (const si of siteItems)
+        stockByItem.set(si.itemId, Number(si.closingStock || 0));
+
       for (const row of parsed.outwardDeliveryChallanDetails || []) {
         const found = byId.get(row.id);
         if (!found) return BadRequest("Invalid detail id: " + row.id);
         const qty = Number(row.receivedQty ?? 0);
         if (qty <= 0) {
-          return BadRequest(`Received qty must be greater than 0 for detail ${row.id}`);
+          return BadRequest(
+            `Received qty must be greater than 0 for detail ${row.id}`
+          );
         }
         const max = Number(
-          (found.approved1Qty != null ? found.approved1Qty : found.challanQty) || 0
+          (found.approved1Qty != null
+            ? found.approved1Qty
+            : found.challanQty) || 0
         );
-        if (qty < 0 || qty > max) {
+
+        const closing = stockByItem.get(found.itemId) ?? 0;
+        if (qty > closing) {
           return BadRequest(
-            `Received qty cannot exceed approved qty for detail ${row.id}`
+            `Received qty cannot exceed closing stock (${closing}) for detail ${row.id}`
           );
         }
       }
@@ -222,11 +267,142 @@ export async function PATCH(
             updatedAt: now,
           },
         });
+        // Update details received qty and qty
         for (const row of parsed.outwardDeliveryChallanDetails || []) {
+          const val = Number(row.receivedQty ?? 0);
           await tx.outwardDeliveryChallanDetail.update({
             where: { id: row.id },
-            data: { receivedQty: Number(row.receivedQty ?? 0) },
+            data: { receivedQty: val, qty: val },
           });
+        }
+
+        // Prepare maps for site items (from and to sites)
+        const detailItemIds = (current.outwardDeliveryChallanDetails || []).map(
+          (d) => d.itemId
+        );
+        const fromItems = await tx.siteItem.findMany({
+          where: { siteId: current.fromSiteId, itemId: { in: detailItemIds } },
+          select: {
+            id: true,
+            itemId: true,
+            closingStock: true,
+            unitRate: true,
+            closingValue: true,
+          },
+        });
+        const toItems = await tx.siteItem.findMany({
+          where: { siteId: current.toSiteId!, itemId: { in: detailItemIds } },
+          select: {
+            id: true,
+            itemId: true,
+            closingStock: true,
+            unitRate: true,
+            closingValue: true,
+          },
+        });
+        const fromMap = new Map<number, (typeof fromItems)[number]>();
+        fromItems.forEach((si) => fromMap.set(si.itemId, si));
+        const toMap = new Map<number, (typeof toItems)[number]>();
+        toItems.forEach((si) => toMap.set(si.itemId, si));
+
+        // For each detail, create stock ledger entries and update site stock
+        for (const row of parsed.outwardDeliveryChallanDetails || []) {
+          const found = (current.outwardDeliveryChallanDetails || []).find(
+            (d) => d.id === row.id
+          );
+          if (!found) continue;
+          const itemId = found.itemId;
+          const qty = Number(row.receivedQty ?? 0);
+
+          const fromInfo = fromMap.get(itemId);
+          const issueRate = fromInfo ? Number(fromInfo.unitRate) : 0;
+
+          // Ledger: Issue from fromSite
+          await tx.stockLedger.create({
+            data: {
+              siteId: current.fromSiteId,
+              transactionDate: now,
+              itemId,
+              outwardDeliveryChallanId: id,
+              receivedQty: 0,
+              issuedQty: qty,
+              unitRate: issueRate,
+              documentType: "OUTWARD_DEILVERY_CHALLAN",
+            },
+          });
+
+          // Ledger: Receive at toSite
+          await tx.stockLedger.create({
+            data: {
+              siteId: current.toSiteId!,
+              transactionDate: now,
+              itemId,
+              outwardDeliveryChallanId: id,
+              receivedQty: qty,
+              issuedQty: 0,
+              unitRate: issueRate,
+              documentType: "OUTWARD_DEILVERY_CHALLAN",
+            },
+          });
+
+          // Update fromSite SiteItem (decrement stock)
+          if (fromInfo) {
+            const prev = Number(fromInfo.closingStock || 0);
+            const newStock = Math.max(prev - qty, 0);
+            const newValue = Number(issueRate) * newStock;
+            await tx.siteItem.update({
+              where: { id: fromInfo.id },
+              data: { closingStock: newStock, closingValue: newValue },
+            });
+          } else {
+            // No from-site record exists: create with zero then deduct (results in zero)
+            await tx.siteItem.create({
+              data: {
+                siteId: current.fromSiteId,
+                itemId,
+                openingStock: 0,
+                openingRate: 0,
+                openingValue: 0,
+                closingStock: 0,
+                closingValue: 0,
+                unitRate: issueRate,
+              },
+            });
+          }
+
+          // Update toSite SiteItem (increment stock)
+          const toInfo = toMap.get(itemId);
+          if (toInfo) {
+            const prev = Number(toInfo.closingStock || 0);
+            const newStock = prev + qty;
+            // adopt the issue rate as the receiving unit rate
+            const newRate = issueRate;
+            const newValue = newRate * newStock;
+            await tx.siteItem.update({
+              where: { id: toInfo.id },
+              data: {
+                closingStock: newStock,
+                unitRate: newRate,
+                closingValue: newValue,
+              },
+            });
+          } else {
+            const newRate = issueRate;
+            const newStock = qty;
+            const newValue = newRate * newStock;
+            await tx.siteItem.create({
+              data: {
+                siteId: current.toSiteId!,
+                itemId,
+                openingStock: 0,
+                openingRate: 0,
+                openingValue: 0,
+                closingStock: newStock,
+                closingValue: newValue,
+                unitRate: newRate,
+              },
+            });
+          }
         }
       });
 
