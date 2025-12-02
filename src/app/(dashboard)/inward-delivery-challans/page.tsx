@@ -184,15 +184,7 @@ export default function InwardDeliveryChallansPage() {
 
   const sortState: SortState = { field: sort, order };
 
-  async function handleDelete(id: number) {
-    try {
-      await apiDelete(`/api/inward-delivery-challans/${id}`);
-      toast.success("Challan deleted");
-      await mutate();
-    } catch (e) {
-      toast.error((e as Error).message || "Failed to delete challan");
-    }
-  }
+ 
 
   return (
     <AppCard>
@@ -245,7 +237,6 @@ export default function InwardDeliveryChallansPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(row) => {
-            const canDelete = can(PERMISSIONS.DELETE_INWARD_DELIVERY_CHALLAN);
             return (
               <div className="flex">
                 <Link href={`/inward-delivery-challans/${row.id}`}>
@@ -258,14 +249,6 @@ export default function InwardDeliveryChallansPage() {
                     <Eye />
                   </AppButton>
                 </Link>
-                {canDelete && (
-                  <DeleteButton
-                    onDelete={() => handleDelete(row.id)}
-                    itemLabel="inward delivery challan"
-                    title="Delete challan?"
-                    description={`This will permanently remove IDC ${row.inwardChallanNo}. This action cannot be undone.`}
-                  />
-                )}
               </div>
             );
           }}
