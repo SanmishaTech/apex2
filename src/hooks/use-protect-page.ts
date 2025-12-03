@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCurrentUser } from './use-current-user';
 import { findAccessRule, Permission } from '@/config/access-control';
-import { ROLES_PERMISSIONS } from '@/config/roles';
+import { ROLES_PERMISSIONS, ROLES } from '@/config/roles';
 import { toast } from '@/lib/toast';
 
 export interface UseProtectPageOptions {
@@ -49,7 +49,8 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
   const rule = findAccessRule(pathname || '');
   const isPageRule = rule?.type === 'page';
 
-  const userPerms = user ? (ROLES_PERMISSIONS[user.role] || []) : [];
+  const roleLabel = user ? ((ROLES as any)[user.role] || user.role) : null;
+  const userPerms = user ? ((ROLES_PERMISSIONS as any)[roleLabel || ''] || []) : [];
   const userPermSet = new Set(userPerms); // O(1) lookups instead of O(n)
   const required = isPageRule ? (rule?.permissions || []) : [];
   const missing = required.filter(p => !userPermSet.has(p));

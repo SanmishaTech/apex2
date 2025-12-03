@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import { verifyAccessToken } from '@/lib/jwt';
 import { prisma } from '@/lib/prisma';
 import { Unauthorized, Error as ApiError, Forbidden } from '@/lib/api-response';
-import { ROLES_PERMISSIONS } from '@/config/roles';
+import { ROLES_PERMISSIONS, ROLES } from '@/config/roles';
 import { API_ACCESS_RULES, Permission } from '@/config/access-control';
 
 // Return shape reused by both guard functions
@@ -28,12 +28,15 @@ export async function guardApiPermissions(req: NextRequest, required: Permission
   const user = await prisma.user.findUnique({ where: { id: Number(userId) }, select: { id: true, role: true } });
   if (!user) return { ok: false, response: ApiError('Current user not found', 404) };
 
-  const perms = ROLES_PERMISSIONS[user.role as keyof typeof ROLES_PERMISSIONS] || [];
+  // Support role stored as code (e.g., PROJECT_MANAGER) or label (e.g., "Project Manager")
+  const roleKeyOrLabel = user.role as string;
+  const roleLabel = (ROLES as any)[roleKeyOrLabel] || roleKeyOrLabel;
+  const perms = (ROLES_PERMISSIONS as any)[roleLabel] || [];
   if (required.length) {
     const missing = required.filter(p => !(perms as string[]).includes(p));
     if (missing.length) return { ok: false, response: Forbidden() };
   }
-  return { ok: true, user };
+  return { ok: true, user: { id: user.id, role: roleLabel } };
 }
 
 // Method + path aware guard reading API_ACCESS_RULES

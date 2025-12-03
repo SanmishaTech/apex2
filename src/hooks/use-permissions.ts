@@ -22,7 +22,8 @@ export function usePermissions(): UsePermissionsResult {
   const { perms, permSet } = useMemo(() => {
     if (!user) return { perms: [], permSet: new Set() };
     const map = ROLES_PERMISSIONS as unknown as RolePermissionsMap;
-    const permissions = map[user.role as RoleKey] || [];
+    const roleLabel = (ROLES as any)[user.role] || user.role; // map code -> label if needed
+    const permissions = map[roleLabel as RoleKey] || [];
     return {
       perms: permissions,
       permSet: new Set(permissions) // O(1) lookups
@@ -40,7 +41,8 @@ export function usePermissions(): UsePermissionsResult {
   function lacks(...required: Permission[]) {
     return required.filter(p => !permSet.has(p)); // O(1) per check
   }
-  return { role: user?.role || null, permissions: perms, can, canAny, lacks };
+  const roleLabel = user ? ((ROLES as any)[user.role] || user.role) : null;
+  return { role: roleLabel, permissions: perms, can, canAny, lacks };
 }
 
 // Convenience wrapper component for conditional rendering in JSX
