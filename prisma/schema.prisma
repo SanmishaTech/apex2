@@ -1980,19 +1980,11 @@ model InwardDeliveryChallan {
   billDate         DateTime?
   vehicleNo        String?   @db.VarChar(50)
   remarks          String?   @db.VarChar(255)
-
   billAmount       Decimal  @default(0.00) @db.Decimal(12, 2)
-  deductionTax     Decimal  @default(0.00) @db.Decimal(12, 2)
-  paidAmount       Decimal  @default(0.00) @db.Decimal(12, 2)
   dueDays          Int      @default(0)
   dueDate          DateTime?
-  paymentMode      String?   @db.VarChar(20)
-  paymentDate      DateTime?
   status           InwardDeliveryChallanStatus @default(UNPAID)
-  chequeNo         String?   @db.VarChar(250)
-  chequeDate       DateTime?
-  utrNo            String?   @db.VarChar(250)
-  bankName         String?   @db.VarChar(100)
+  dueAmount    Decimal  @default(0.00) @db.Decimal(12, 2)
   totalPaidAmount  Decimal  @default(0.00) @db.Decimal(12, 2)
   createdById  Int
   createdAt    DateTime @default(now())
@@ -2197,15 +2189,15 @@ model InwardBillDetail {
   transactionNo             String?   @db.VarChar(30)
   transactionDate           DateTime?
   bankName                  String?   @db.VarChar(50)
-
-  deductionTax              Decimal    @default(0.00) @db.Decimal(12, 2)
   paidAmount                Decimal    @default(0.00) @db.Decimal(12, 2)
-
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
   inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_bill_details")
 }
+
+
+
+

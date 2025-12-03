@@ -219,6 +219,11 @@ export async function GET(req: NextRequest) {
         lRDate: true,
         billNo: true,
         billDate: true,
+        dueDate: true,
+        billAmount: true,
+        dueAmount: true,
+        totalPaidAmount: true,
+        status: true,
         vehicleNo: true,
         remarks: true,
         createdAt: true,
@@ -789,3 +794,5 @@ export async function POST(req: NextRequest) {
     return ApiError("Failed to create inward delivery challan");
   }
 }
+
+
