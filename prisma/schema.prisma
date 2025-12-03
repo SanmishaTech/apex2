@@ -2140,6 +2140,15 @@ model OutwardDeliveryChallan {
 }
 
 
+enum InwardBillPaymentMode {
+  CASH 
+  UPI 
+  CHEQUE 
+  RTGS 
+  NEFT 
+  NET_BANKING 
+}
+
 model OutwardDeliveryChallanDetail {
   id                         Int      @id @default(autoincrement())
   outwardDeliveryChallanId   Int
@@ -2180,7 +2189,7 @@ model InwardBillDetail {
   id                        Int       @id @default(autoincrement())
   inwardDeliveryChallanId   Int
   paymentDate               DateTime
-  paymentMode               String   @db.VarChar(20)
+  paymentMode               InwardBillPaymentMode
   chequeNo                  String?   @db.VarChar(30)
   chequeDate                DateTime?
   utrNo                     String?   @db.VarChar(50)

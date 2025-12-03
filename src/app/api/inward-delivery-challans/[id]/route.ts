@@ -93,6 +93,7 @@ export async function GET(
         billAmount: true,
         dueDays: true,
         dueDate: true,
+        dueAmount: true,
         totalPaidAmount: true,
         status: true,
         vehicleNo: true,

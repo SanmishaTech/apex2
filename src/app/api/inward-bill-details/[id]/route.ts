@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  NotFound,
+} from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 
 // DELETE /api/inward-bill-details/[id] - delete a bill detail and update challan totals/status
@@ -34,19 +39,18 @@ export async function DELETE(
       });
       if (!challan) throw new Error("Parent challan missing");
 
-      const newTotal = Math.max(0, Number(challan.totalPaidAmount || 0) - Number(detail.paidAmount || 0));
+      const newTotal = Math.max(
+        0,
+        Number(challan.totalPaidAmount || 0) - Number(detail.paidAmount || 0)
+      );
       const billAmount = Number(challan.billAmount || 0);
       const dueAmount = Math.max(0, Number((billAmount - newTotal).toFixed(2)));
-      let status: "UNPAID" | "PARTIALLY_PAID" | "PAID" = "UNPAID";
-      if (billAmount > 0 && newTotal >= billAmount) status = "PAID";
-      else if (newTotal > 0) status = "PARTIALLY_PAID";
 
       await tx.inwardDeliveryChallan.update({
         where: { id: challan.id },
         data: {
           totalPaidAmount: newTotal,
           dueAmount,
-          status: status as any,
           updatedBy: { connect: { id: (auth as any).user?.id as number } },
         } as any,
       });

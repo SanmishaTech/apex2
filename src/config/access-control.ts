@@ -110,6 +110,11 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
 
   // Inward Bills (Purchase Billing)
   { prefix: "/inward-bills", permissions: [PERMISSIONS.READ_INWARD_BILL] },
+  // Inward Bill Payments
+  {
+    prefix: "/inward-bill-payments/new",
+    permissions: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
+  },
   // Cashbook Heads
   {
     prefix: "/cashbook-heads/new",

@@ -86,7 +86,10 @@ export default function InwardBillsPage() {
     return `/api/inward-delivery-challans?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<BillsResponse>(query, apiGet);
+  const { data, error, isLoading, mutate } = useSWR<BillsResponse>(
+    query,
+    apiGet
+  );
   const { can } = usePermissions();
 
   // page-based edit flow; no dialog state needed
@@ -183,7 +186,9 @@ export default function InwardBillsPage() {
               Math.max(
                 0,
                 Number(
-                  (Number(r.billAmount || 0) - Number(r.totalPaidAmount || 0)).toFixed(2)
+                  (
+                    Number(r.billAmount || 0) - Number(r.totalPaidAmount || 0)
+                  ).toFixed(2)
                 )
               )
             ),
@@ -203,85 +208,94 @@ export default function InwardBillsPage() {
 
   return (
     <>
-    <AppCard>
-      <AppCard.Header>
-        <AppCard.Title>Inward Bills</AppCard.Title>
-        <AppCard.Description>Manage inward bills.</AppCard.Description>
-        <AppCard.Action>
-          <AppButton size="sm" type="button" disabled>
-            Edit
-          </AppButton>
-        </AppCard.Action>
-      </AppCard.Header>
-      <AppCard.Content>
-        <FilterBar title="Search & Filter">
-          <NonFormTextInput
-            aria-label="Search Bills"
-            placeholder="Search by IDC No, Challan No, Vendor, Site..."
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-            containerClassName="w-full"
-          />
-          <AppButton
-            size="sm"
-            onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft}
-            className="min-w-[84px]"
-          >
-            Filter
-          </AppButton>
-          {search && (
+      <AppCard>
+        <AppCard.Header>
+          <AppCard.Title>Inward Bills</AppCard.Title>
+          <AppCard.Description>Manage inward bills.</AppCard.Description>
+          <AppCard.Action></AppCard.Action>
+        </AppCard.Header>
+        <AppCard.Content>
+          <FilterBar title="Search & Filter">
+            <NonFormTextInput
+              aria-label="Search Bills"
+              placeholder="Search by IDC No, Challan No, Vendor, Site..."
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              containerClassName="w-full"
+            />
             <AppButton
-              variant="secondary"
               size="sm"
-              onClick={resetFilters}
+              onClick={applyFilters}
+              disabled={!filtersDirty && !searchDraft}
               className="min-w-[84px]"
             >
-              Reset
+              Filter
             </AppButton>
-          )}
-        </FilterBar>
-        <DataTable
-          columns={columns}
-          data={data?.data || []}
-          loading={isLoading}
-          sort={sortState}
-          onSortChange={(s) => setQp({ sort: s.field, order: s.order })}
-          stickyColumns={1}
-          renderRowActions={(row) => {
-            const canEdit = can(PERMISSIONS.EDIT_INWARD_BILL);
-            return (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <AppButton size="sm" variant="secondary" type="button">
-                    Actions
-                  </AppButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild disabled={!canEdit}>
-                    <Link href={`/inward-bills/${row.id}/edit`}>Edit Bill</Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          }}
-        />
-      </AppCard.Content>
-      <AppCard.Footer className="justify-end">
-        <Pagination
-          page={data?.page || page}
-          totalPages={data?.totalPages || 1}
-          total={data?.total}
-          perPage={perPage}
-          onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
-          onPageChange={(p) => setQp({ page: p })}
-          showPageNumbers
-          maxButtons={5}
-          disabled={isLoading}
-        />
-      </AppCard.Footer>
-    </AppCard>
-    {/* page-based edit at /inward-bills/[id]/edit */}
+            {search && (
+              <AppButton
+                variant="secondary"
+                size="sm"
+                onClick={resetFilters}
+                className="min-w-[84px]"
+              >
+                Reset
+              </AppButton>
+            )}
+          </FilterBar>
+          <DataTable
+            columns={columns}
+            data={data?.data || []}
+            loading={isLoading}
+            sort={sortState}
+            onSortChange={(s) => setQp({ sort: s.field, order: s.order })}
+            stickyColumns={1}
+            renderRowActions={(row) => {
+              const canEdit = can(PERMISSIONS.EDIT_INWARD_BILL);
+              const canAddPayment = can(PERMISSIONS.ADD_INWARD_BILL_PAYMENT);
+              const hasBillNo = ((row as any)?.billNo ?? "").toString().trim().length > 0;
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <AppButton size="sm" variant="secondary" type="button">
+                      Actions
+                    </AppButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild disabled={!canEdit}>
+                      <Link href={`/inward-bills/${row.id}/edit`}>
+                        Edit Bill
+                      </Link>
+                    </DropdownMenuItem>
+                    {canAddPayment && hasBillNo && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={`/inward-bill-payments/new?challanId=${row.id}`}
+                        >
+                          Add Payment
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }}
+          />
+        </AppCard.Content>
+        <AppCard.Footer className="justify-end">
+          <Pagination
+            page={data?.page || page}
+            totalPages={data?.totalPages || 1}
+            total={data?.total}
+            perPage={perPage}
+            onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
+            onPageChange={(p) => setQp({ page: p })}
+            showPageNumbers
+            maxButtons={5}
+            disabled={isLoading}
+          />
+        </AppCard.Footer>
+      </AppCard>
+      {/* page-based edit at /inward-bills/[id]/edit */}
     </>
   );
 }
