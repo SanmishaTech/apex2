@@ -2208,5 +2208,4 @@ model InwardBillDetail {
 }
 
 
-
-
+// Manage roles and permissions. Done Till Employees. 

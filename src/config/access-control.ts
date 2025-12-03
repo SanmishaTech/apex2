@@ -297,7 +297,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/sites",
     methods: {
       GET: [PERMISSIONS.READ_SITES],
-      POST: [PERMISSIONS.EDIT_SITES],
+      POST: [PERMISSIONS.CREATE_SITES],
       PATCH: [PERMISSIONS.EDIT_SITES],
       DELETE: [PERMISSIONS.DELETE_SITES],
     },
