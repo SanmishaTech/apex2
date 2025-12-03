@@ -14,7 +14,9 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.DELETE_INWARD_BILL_PAYMENT]);
+  const auth = await guardApiPermissions(req, [
+    PERMISSIONS.DELETE_INWARD_BILL_PAYMENT,
+  ]);
   if (auth.ok === false) return auth.response;
 
   try {
