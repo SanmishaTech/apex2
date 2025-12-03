@@ -107,6 +107,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/notices/new", permissions: [PERMISSIONS.CREATE_NOTICES] },
   { prefix: "/notices/", permissions: [PERMISSIONS.EDIT_NOTICES] },
   { prefix: "/notices", permissions: [PERMISSIONS.READ_NOTICES] },
+
+  // Inward Bills (Purchase Billing)
+  { prefix: "/inward-bills", permissions: [PERMISSIONS.READ_INWARD_BILL] },
   // Cashbook Heads
   {
     prefix: "/cashbook-heads/new",
@@ -464,6 +467,13 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       GET: [PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN],
       POST: [PERMISSIONS.CREATE_INWARD_DELIVERY_CHALLAN],
       PATCH: [PERMISSIONS.EDIT_INWARD_DELIVERY_CHALLAN],
+    },
+  },
+  {
+    prefix: "/api/inward-bills",
+    methods: {
+      GET: [PERMISSIONS.READ_INWARD_BILL],
+      POST: [PERMISSIONS.EDIT_INWARD_BILL],
     },
   },
   {

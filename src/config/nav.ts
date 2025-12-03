@@ -103,6 +103,20 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: "group",
+    title: "Purchase Billing",
+    icon: Receipt,
+    children: [
+      {
+        title: "Inward Bills",
+        href: "/inward-bills",
+        icon: FileText,
+        permission: PERMISSIONS.READ_INWARD_BILL,
+      },
+    ],
+  },
+
+  {
+    type: "group",
     title: "H.R",
     icon: UserCheck,
     children: [
