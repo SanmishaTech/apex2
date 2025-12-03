@@ -19,6 +19,8 @@ import {
 import { apiGet, apiPost, apiDelete } from "@/lib/api-client";
 import { Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 const PAYMENT_MODES = [
   "CASH",
@@ -43,6 +45,8 @@ export default function NewInwardBillPaymentPage() {
   const router = useRouter();
   const sp = useSearchParams();
   const challanId = Number(sp.get("challanId"));
+  const { can } = usePermissions();
+  const canDeletePayment = can(PERMISSIONS.DELETE_INWARD_BILL_PAYMENT);
 
   const { data, mutate: mutateChallan } = useSWR<
     ChallanInfo | { data: ChallanInfo }
@@ -522,29 +526,31 @@ export default function NewInwardBillPaymentPage() {
               data={paymentsList as PaymentRow[]}
               loading={false}
               stickyColumns={0}
-              renderRowActions={(row: any) => (
-                <AppButton
-                  size="icon"
-                  variant="destructive"
-                  type="button"
-                  className="sticky right-0"
-                  onClick={async () => {
-                    if (!confirm("Delete this payment?")) return;
-                    try {
-                      await apiDelete(`/api/inward-bill-details/${row.id}`);
-                      toast.success("Payment deleted");
-                      await Promise.all([mutatePayments(), mutateChallan()]);
-                      router.push(`/inward-bills`);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Failed to delete");
-                    }
-                  }}
-                  aria-label="Delete payment"
-                  title="Delete payment"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </AppButton>
-              )}
+              renderRowActions={(row: any) =>
+                canDeletePayment ? (
+                  <AppButton
+                    size="icon"
+                    variant="destructive"
+                    type="button"
+                    className="sticky right-0"
+                    onClick={async () => {
+                      if (!confirm("Delete this payment?")) return;
+                      try {
+                        await apiDelete(`/api/inward-bill-details/${row.id}`);
+                        toast.success("Payment deleted");
+                        await Promise.all([mutatePayments(), mutateChallan()]);
+                        router.push(`/inward-bills`);
+                      } catch (e: any) {
+                        toast.error(e?.message || "Failed to delete");
+                      }
+                    }}
+                    aria-label="Delete payment"
+                    title="Delete payment"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </AppButton>
+                ) : null
+              }
             />
           </div>
         </div>

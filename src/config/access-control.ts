@@ -482,6 +482,13 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
+    prefix: "/api/inward-bills",
+    methods: {
+      GET: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
+      POST: [PERMISSIONS.DELETE_INWARD_BILL_PAYMENT],
+    },
+  },
+  {
     prefix: "/api/outward-delivery-challans",
     methods: {
       GET: [PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN],

@@ -6,14 +6,15 @@ import {
   BadRequest,
   NotFound,
 } from "@/lib/api-response";
-import { guardApiAccess } from "@/lib/access-guard";
+import { guardApiPermissions } from "@/lib/access-guard";
+import { PERMISSIONS } from "@/config/roles";
 
 // DELETE /api/inward-bill-details/[id] - delete a bill detail and update challan totals/status
 export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.DELETE_INWARD_BILL_PAYMENT]);
   if (auth.ok === false) return auth.response;
 
   try {
