@@ -87,8 +87,32 @@ export default function EditInwardBillPage() {
   async function handleSave() {
     try {
       if (!id) return;
+      if (!billNo.trim()) {
+        toast.error("Bill number is required");
+        return;
+      }
+      if (!billDate || isNaN(Date.parse(billDate))) {
+        toast.error("Valid bill date is required");
+        return;
+      }
       if (!(Number(billAmount) > 0)) {
         toast.error("Bill amount must be greater than 0");
+        return;
+      }
+      if (Number(billAmount) < totalPaid) {
+        toast.error("Bill amount cannot be less than total paid amount");
+        return;
+      }
+      if (!Number.isFinite(Number(dueDays)) || Number(dueDays) < 0) {
+        toast.error("Due days must be 0 or more");
+        return;
+      }
+      if (!dueDate || isNaN(Date.parse(dueDate))) {
+        toast.error("Valid due date is required");
+        return;
+      }
+      if (!status) {
+        toast.error("Status is required");
         return;
       }
       const payload = {
@@ -149,40 +173,44 @@ export default function EditInwardBillPage() {
         <div className="grid grid-cols-2 gap-4">
           <NonFormTextInput
             label="Bill Number"
+            required
             value={billNo}
             onChange={(e) => setBillNo(e.target.value)}
           />
           <NonFormTextInput
             label="Bill Date"
             type="date"
+            required
             value={new Date(billDate).toISOString().slice(0, 10)}
             onChange={(e) => {
               const s = e.target.value;
               const dt = new Date(s);
               setBillDate(
-                new Date(
-                  Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())
-                ).toISOString()
+                new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())).toISOString()
               );
             }}
           />
           <NonFormTextInput
             label="Bill Amount"
             type="number"
-            min={0.01}
+            min={Math.max(0.01, totalPaid)}
             step={0.01}
+            required
             value={String(billAmount)}
             onChange={(e) => setBillAmount(Number(e.target.value || 0))}
           />
           <NonFormTextInput
             label="Due Days"
             type="number"
+            min={0}
+            required
             value={String(dueDays)}
             onChange={(e) => setDueDays(Number(e.target.value || 0))}
           />
           <NonFormTextInput
             label="Due Date"
             type="date"
+            required
             value={new Date(dueDate).toISOString().slice(0, 10)}
             onChange={(e) => {
               const s = e.target.value;

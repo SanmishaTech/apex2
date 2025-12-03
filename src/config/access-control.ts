@@ -110,6 +110,11 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
 
   // Inward Bills (Purchase Billing)
   { prefix: "/inward-bills", permissions: [PERMISSIONS.READ_INWARD_BILL] },
+  // Inward Bill Payments
+  {
+    prefix: "/inward-bill-payments/new",
+    permissions: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
+  },
   // Cashbook Heads
   {
     prefix: "/cashbook-heads/new",
@@ -474,6 +479,13 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_INWARD_BILL],
       POST: [PERMISSIONS.EDIT_INWARD_BILL],
+    },
+  },
+  {
+    prefix: "/api/inward-bills",
+    methods: {
+      GET: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
+      POST: [PERMISSIONS.DELETE_INWARD_BILL_PAYMENT],
     },
   },
   {
