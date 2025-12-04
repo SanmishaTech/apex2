@@ -19,6 +19,11 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/states/new", permissions: [PERMISSIONS.EDIT_STATES] },
   { prefix: "/states/", permissions: [PERMISSIONS.EDIT_STATES] },
   { prefix: "/states", permissions: [PERMISSIONS.READ_STATES] },
+    // DailyConsumtions
+  { prefix: "/daily-consumptions/new", permissions: [PERMISSIONS.CREATE_DAILY_CONSUMPTIONS] },
+  { prefix: "/daily-consumptions", permissions: [PERMISSIONS.READ_DAILY_CONSUMPTIONS] },
+  // Payslips
+  { prefix: "/payslips", permissions: [PERMISSIONS.READ_PAYSLIPS] },
   // Companies
   { prefix: "/companies/new", permissions: [PERMISSIONS.EDIT_COMPANIES] },
   { prefix: "/companies/", permissions: [PERMISSIONS.EDIT_COMPANIES] },
@@ -285,12 +290,26 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
+    prefix: "/api/daily-consumptions",
+    methods: {
+      GET: [PERMISSIONS.READ_DAILY_CONSUMPTIONS],
+      POST: [PERMISSIONS.CREATE_DAILY_CONSUMPTIONS],
+    },
+  },
+  {
     prefix: "/api/companies",
     methods: {
       GET: [PERMISSIONS.READ_COMPANIES],
       POST: [PERMISSIONS.EDIT_COMPANIES],
       PATCH: [PERMISSIONS.EDIT_COMPANIES],
       DELETE: [PERMISSIONS.DELETE_COMPANIES],
+    },
+  },
+   {
+    prefix: "/api/payslips",
+    methods: {
+      GET: [PERMISSIONS.READ_PAYSLIPS],
+      POST: [PERMISSIONS.GENERATE_PAYSLIPS],
     },
   },
   {

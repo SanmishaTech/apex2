@@ -43,7 +43,11 @@ async function request<T = unknown>(method: string, url: string, data?: unknown,
     }
     const message = msg || ax.message || "Request failed";
     if (opts.showErrorToast) toast.error(message);
-    throw new Error(message);
+    const err = new Error(message) as Error & { data?: unknown; status?: number; raw?: unknown };
+    err.data = respData;
+    err.status = ax.response?.status;
+    err.raw = ax;
+    throw err;
   }
 }
 

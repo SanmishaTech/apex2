@@ -75,6 +75,8 @@ model User {
   outwardDeliveryChallanApproved1By OutwardDeliveryChallan[] @relation("ODCApproved1By")
   outwardDeliveryChallanAcceptedBy OutwardDeliveryChallan[] @relation("ODCAcceptedBy")
 
+  dailyConsumptionCreated DailyConsumption[] @relation("ConsumptionCreated")
+  dailyConsumptionUpdated DailyConsumption[] @relation("ConsumptionUpdated")
 
   @@index([role])
   @@map("users")
@@ -244,6 +246,8 @@ model Site {
 
   outwardDeliveryFromSite OutwardDeliveryChallan[] @relation("ODCFromSite")
   outwardDeliveryChallanToSite OutwardDeliveryChallan[] @relation("ODCToSite")
+
+  DailyConsumptions DailyConsumption[]
 
   @@index([site])
   @@index([shortName])
@@ -563,6 +567,8 @@ model Item {
    stockLedgers StockLedger[]
    siteItems    SiteItem[]
    outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
+    dailyConsumptionDetails DailyConsumptionDetail[]
+
   @@index([itemCode])
   @@index([itemCategoryId])
   @@index([unitId])
@@ -2048,6 +2054,7 @@ model StockLedger {
   itemId          Int
   inwardDeliveryChallanId   Int?   
   outwardDeliveryChallanId   Int?   
+  dailyConsumptionId   Int?   
 
   receivedQty     Decimal  @db.Decimal(12,4) @default(0.00)
   issuedQty     Decimal  @db.Decimal(12, 4) @default(0.00)
@@ -2058,8 +2065,9 @@ model StockLedger {
 
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
   item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  inwardDeliveryChallan InwardDeliveryChallan? @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
-  outwardDeliveryChallan OutwardDeliveryChallan? @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  inwardDeliveryChallan InwardDeliveryChallan? @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  outwardDeliveryChallan OutwardDeliveryChallan? @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  dailyConsumption DailyConsumption? @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([itemId])
@@ -2117,9 +2125,8 @@ model OutwardDeliveryChallan {
   createdAt    DateTime @default(now())
   updatedById  Int
   updatedAt    DateTime @updatedAt
-  revision                Int?
-  createdBy User? @relation("ODCCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User? @relation("ODCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdBy User @relation("ODCCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("ODCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   fromSite Site @relation("ODCFromSite", fields: [fromSiteId], references: [id], onDelete: Restrict)
   toSite Site @relation("ODCToSite", fields: [toSiteId], references: [id], onDelete: Restrict)
@@ -2207,5 +2214,51 @@ model InwardBillDetail {
   @@map("inward_bill_details")
 }
 
+model DailyConsumption {
+  id             Int       @id @default(autoincrement())
+  dailyConsumptionNo  String @unique  
+  dailyConsumptionDate DateTime
+  siteId         Int  
+  totalAmount    Decimal    @default(0.00) @db.Decimal(12, 2)
 
-// Manage roles and permissions. Done Till Employees. 
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  createdBy User @relation("ConsumptionCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("ConsumptionUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  dailyConsumptionDetails DailyConsumptionDetail[]
+  stockLedgers             StockLedger[]
+  @@index([siteId])
+  @@index([createdById])
+  @@index([updatedById])
+
+  @@map("daily_consumptions")
+}
+
+model DailyConsumptionDetail {
+  id            Int      @id @default(autoincrement())
+  dailyConsumptionId Int   
+  itemId        Int   
+  qty           Decimal? @db.Decimal(12, 4)
+  rate          Decimal? @db.Decimal(12, 2)
+  amount        Decimal? @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  // Relations
+  dailyConsumption   DailyConsumption @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
+  item          Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+
+  @@index([dailyConsumptionId])
+  @@index([itemId])
+  @@map("daily_consumption_details")
+}
+
+
+
+// Roles And Permission Till Payslip.
+// fix onDelete Cascade
