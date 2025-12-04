@@ -130,51 +130,51 @@ export const NAV_ITEMS: NavItem[] = [
         title: "Categories",
         href: "/categories",
         icon: Folder,
-        permission: PERMISSIONS.READ_CATEGORIES,
+        permission: PERMISSIONS.VIEW_CATEGORIES,
       },
       {
         title: "Skill Sets",
         href: "/skill-sets",
         icon: Folder,
-        permission: PERMISSIONS.READ_SKILLSETS,
+        permission: PERMISSIONS.VIEW_SKILLSETS,
       },
       {
         title: "Manpower Suppliers",
         href: "/manpower-suppliers",
         icon: Folder,
-        permission: PERMISSIONS.READ_MANPOWER_SUPPLIERS,
+        permission: PERMISSIONS.VIEW_MANPOWER_SUPPLIERS,
       },
       {
         title: "Manpower",
         href: "/manpower",
         icon: Folder,
-        permission: PERMISSIONS.READ_MANPOWER,
+        permission: PERMISSIONS.VIEW_MANPOWER,
       },
 
       {
         title: "Minimum Wages",
         href: "/minimum-wages",
         icon: Folder,
-        permission: PERMISSIONS.READ_MIN_WAGES,
+        permission: PERMISSIONS.VIEW_MIN_WAGES,
       },
       {
         title: "Assign Manpower",
         href: "/assign-manpower",
 
         icon: UserPlus,
-        permission: PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
+        permission: PERMISSIONS.VIEW_MANPOWER_ASSIGNMENTS,
       },
       {
         title: "Manpower Transfers",
         href: "/manpower-transfers",
         icon: ArrowUpDown,
-        permission: PERMISSIONS.READ_MANPOWER_TRANSFERS,
+        permission: PERMISSIONS.VIEW_MANPOWER_TRANSFERS,
       },
       {
         title: "Attendances",
         href: "/attendances",
         icon: ClipboardCheck,
-        permission: PERMISSIONS.READ_ATTENDANCES,
+        permission: PERMISSIONS.VIEW_ATTENDANCES,
       },
       {
         title: "Edit Attendance",
@@ -411,6 +411,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/boq-targets",
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
+      },
+      {
+        title: "Daily Consumptions",
+        href: "/daily-consumptions",
+        icon: Folder,
+        permission: PERMISSIONS.VIEW_DAILY_CONSUMPTIONS,
       },
       {
         title: "Daily Progress",

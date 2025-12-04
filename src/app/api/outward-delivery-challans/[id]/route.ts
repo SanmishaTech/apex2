@@ -203,6 +203,19 @@ export async function PATCH(
             data: { approved1Qty: val, qty: val },
           });
         }
+        // Update SiteItem logs at fromSite for existing records
+        const approveItemIds = (
+          current.outwardDeliveryChallanDetails || []
+        ).map((d) => d.itemId);
+        if (approveItemIds.length > 0) {
+          await tx.siteItem.updateMany({
+            where: {
+              siteId: current.fromSiteId,
+              itemId: { in: approveItemIds },
+            },
+            data: { log: "APPROVE ODC OLD" },
+          });
+        }
       });
 
       return Success({ message: "Challan approved" });
@@ -384,6 +397,7 @@ export async function PATCH(
                 closingStock: newStock,
                 unitRate: newRate,
                 closingValue: newValue,
+                log: "ACCEPT ODC OLD",
               },
             });
           } else {
@@ -400,6 +414,7 @@ export async function PATCH(
                 closingStock: newStock,
                 closingValue: newValue,
                 unitRate: newRate,
+                log: "ACCEPT ODC NEW",
               },
             });
           }
@@ -416,5 +431,3 @@ export async function PATCH(
     return ApiError("Failed to update outward delivery challan");
   }
 }
-
-
