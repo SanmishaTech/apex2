@@ -461,6 +461,20 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: "group",
+    title: "Stocks",
+    icon: Building,
+    children: [
+      {
+        title: "Stocks",
+        href: "/stocks",
+        icon: Building2,
+        permission: PERMISSIONS.VIEW_STOCKS,
+      },
+    ],
+  },
+
+  {
+    type: "group",
     title: "Settings",
 
     icon: Settings,
