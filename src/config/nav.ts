@@ -470,6 +470,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Building2,
         permission: PERMISSIONS.VIEW_STOCKS,
       },
+      {
+        title: "Stock Adjustments",
+        href: "/stock-adjustments",
+        icon: Building2,
+        permission: PERMISSIONS.VIEW_STOCK_ADJUSTMENTS,
+      },
     ],
   },
 

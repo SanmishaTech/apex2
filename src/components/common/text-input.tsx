@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 export interface TextInputProps {
 	control: unknown; // relaxed typing
 	name: string;
-	label: string;
+	label?: string;
 	min?: number;
 	max?: number;
 	maxLength?: number;
@@ -72,12 +72,14 @@ export function TextInput({
 			name={name}
 			render={({ field }) => (
 				<FormItem className={cn('col-span-12', itemClassName, spanClass)}>
-					<FormLabel>
-						{label}
-						{required ? (
-							<span className='ml-0.5 text-destructive'>*</span>
-						) : null}
-					</FormLabel>
+					{label !== undefined ? (
+						<FormLabel>
+							{label}
+							{required ? (
+								<span className='ml-0.5 text-destructive'>*</span>
+							) : null}
+						</FormLabel>
+					) : null}
 					<div className='relative'>
 						{prefixIcon && (
 							<div className='pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground'>
