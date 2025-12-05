@@ -78,6 +78,9 @@ model User {
   dailyConsumptionCreated DailyConsumption[] @relation("ConsumptionCreated")
   dailyConsumptionUpdated DailyConsumption[] @relation("ConsumptionUpdated")
 
+  stockAdjustmentsCreated StockAdjustment[] @relation("SACreated")
+  stockAdjustmentsUpdated StockAdjustment[] @relation("SAUpdated")
+
   @@index([role])
   @@map("users")
 }
@@ -248,6 +251,8 @@ model Site {
   outwardDeliveryChallanToSite OutwardDeliveryChallan[] @relation("ODCToSite")
 
   DailyConsumptions DailyConsumption[]
+
+  stockAdjustments  StockAdjustment[]
 
   @@index([site])
   @@index([shortName])
@@ -568,6 +573,7 @@ model Item {
    siteItems    SiteItem[]
    outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
     dailyConsumptionDetails DailyConsumptionDetail[]
+    stockAdjustmentDetail   StockAdjustmentDetail[]
 
   @@index([itemCode])
   @@index([itemCategoryId])
@@ -2050,11 +2056,13 @@ model InwardDeliveryChallanDocuments {
 model StockLedger {
   id             Int       @id @default(autoincrement())
   siteId                  Int
+
   transactionDate DateTime
   itemId          Int
   inwardDeliveryChallanId   Int?   
   outwardDeliveryChallanId   Int?   
   dailyConsumptionId   Int?   
+  stockAdjustmentId      Int?
 
   receivedQty     Decimal  @db.Decimal(12,4) @default(0.00)
   issuedQty     Decimal  @db.Decimal(12, 4) @default(0.00)
@@ -2068,6 +2076,7 @@ model StockLedger {
   inwardDeliveryChallan InwardDeliveryChallan? @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
   outwardDeliveryChallan OutwardDeliveryChallan? @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
   dailyConsumption DailyConsumption? @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
+  stockAdjustment StockAdjustment? @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([itemId])
@@ -2259,6 +2268,49 @@ model DailyConsumptionDetail {
 }
 
 
+model StockAdjustment {
+  id         Int      @id @default(autoincrement())
+  date       DateTime
+  siteId     Int      
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  createdBy User @relation("SACreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("SAUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+ stockAdjustmentDetail   StockAdjustmentDetail[]
+ stockLedgers      StockLedger[]
+ @@index([siteId])
+ @@index([createdById])
+ @@index([updatedById])
+
+  @@map("stock_adjustments")
+}
+
+
+model StockAdjustmentDetail {
+  id                Int       @id @default(autoincrement())
+  stockAdjustmentId Int  
+  itemId            Int  
+  issuedQty         Decimal  @default(0.0000) @db.Decimal(12, 4)
+  receivedQty       Decimal  @default(0.0000) @db.Decimal(12, 4) 
+  rate              Decimal  @default(0.00) @db.Decimal(12, 2)
+  amount            Decimal  @default(0.00) @db.Decimal(12, 2)
+  remarks           String?
+
+  stockAdjustment StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
+  item Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+   @@index([itemId])
+   @@index([stockAdjustmentId])
+  @@map("stock_adjustment_details")
+}
+
+
 
 // Roles And Permission Till Payslip.
 // fix onDelete Cascade
+//test stock adjustmtn backend functinality.

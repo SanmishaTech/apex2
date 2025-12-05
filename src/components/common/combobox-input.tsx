@@ -20,6 +20,7 @@ interface ComboboxInputProps<T extends FieldValues> {
   emptyText?: string
   required?: boolean
   className?: string
+  inputClassName?: string
 }
 
 export function ComboboxInput<T extends FieldValues>({
@@ -32,6 +33,7 @@ export function ComboboxInput<T extends FieldValues>({
   emptyText = "No option found.",
   required = false,
   className,
+  inputClassName,
 }: ComboboxInputProps<T>) {
   return (
     <FormField
@@ -53,6 +55,7 @@ export function ComboboxInput<T extends FieldValues>({
               placeholder={placeholder}
               searchPlaceholder={searchPlaceholder}
               emptyText={emptyText}
+              className={inputClassName}
             />
           </FormControl>
           <FormMessage />

@@ -15,6 +15,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/cities/new", permissions: [PERMISSIONS.EDIT_CITIES] },
   { prefix: "/cities/", permissions: [PERMISSIONS.EDIT_CITIES] },
   { prefix: "/cities", permissions: [PERMISSIONS.READ_CITIES] },
+   // StockAdjustments
+  { prefix: "/stock-adjustments/new", permissions: [PERMISSIONS.CREATE_STOCK_ADJUSTMENTS] },
+  { prefix: "/stock-adjustments/", permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS] },
+  { prefix: "/stock-adjustments", permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS] },
   // States
   { prefix: "/states/new", permissions: [PERMISSIONS.EDIT_STATES] },
   { prefix: "/states/", permissions: [PERMISSIONS.EDIT_STATES] },
@@ -278,6 +282,13 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/stocks",
     methods: {
       GET: [PERMISSIONS.READ_STOCKS],
+    },
+  },
+  {
+    prefix: "/api/stock-adjustments",
+    methods: {
+      GET: [PERMISSIONS.READ_STOCK_ADJUSTMENTS],
+      POST: [PERMISSIONS.CREATE_STOCK_ADJUSTMENTS],
     },
   },
   {
