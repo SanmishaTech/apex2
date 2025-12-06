@@ -19,12 +19,25 @@ export async function GET(req: NextRequest) {
 
     const siteItems = await prisma.siteItem.findMany({
       where: { siteId },
-      select: { itemId: true, closingStock: true },
+      select: {
+        itemId: true,
+        openingStock: true,
+        openingRate: true,
+        openingValue: true,
+        closingStock: true,
+        unitRate: true,
+        closingValue: true,
+      },
     });
 
     const data = siteItems.map((si) => ({
       itemId: si.itemId,
+      openingStock: Number(si.openingStock || 0),
+      openingRate: Number(si.openingRate || 0),
+      openingValue: Number(si.openingValue || 0),
       closingStock: Number(si.closingStock || 0),
+      unitRate: Number(si.unitRate || 0),
+      closingValue: Number(si.closingValue || 0),
     }));
 
     return Success({ data });
