@@ -81,6 +81,9 @@ model User {
   stockAdjustmentsCreated StockAdjustment[] @relation("SACreated")
   stockAdjustmentsUpdated StockAdjustment[] @relation("SAUpdated")
 
+  openingStockCreated OpeningStock[] @relation("OPCreated")
+  openingStockUpdated OpeningStock[] @relation("OPUpdated")
+
   @@index([role])
   @@map("users")
 }
@@ -253,6 +256,7 @@ model Site {
   DailyConsumptions DailyConsumption[]
 
   stockAdjustments  StockAdjustment[]
+  openingStocks     OpeningStock[]
 
   @@index([site])
   @@index([shortName])
@@ -574,7 +578,7 @@ model Item {
    outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
     dailyConsumptionDetails DailyConsumptionDetail[]
     stockAdjustmentDetail   StockAdjustmentDetail[]
-
+     openingStockDetail  OpeningStockDetail[]
   @@index([itemCode])
   @@index([itemCategoryId])
   @@index([unitId])
@@ -2300,7 +2304,8 @@ model StockAdjustmentDetail {
   rate              Decimal  @default(0.00) @db.Decimal(12, 2)
   amount            Decimal  @default(0.00) @db.Decimal(12, 2)
   remarks           String?
-
+createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   stockAdjustment StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
   item Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
@@ -2308,6 +2313,47 @@ model StockAdjustmentDetail {
    @@index([stockAdjustmentId])
   @@map("stock_adjustment_details")
 }
+
+
+
+model OpeningStock {
+  id         Int      @id @default(autoincrement())
+  siteId     Int      
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+  createdBy User @relation("OPCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("OPUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+ openingStockDetails   OpeningStockDetail[]
+ @@index([siteId])
+ @@index([createdById])
+ @@index([updatedById])
+
+  @@map("opening_stocks")
+}
+
+
+model OpeningStockDetail {
+  id                Int       @id @default(autoincrement())
+  openingStockId Int  
+  itemId            Int  
+  openingStock         Decimal  @default(0.0000) @db.Decimal(12, 4)
+  openingRate       Decimal  @default(0.00) @db.Decimal(12, 2) 
+  openingValue              Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  openingStocks   OpeningStock @relation(fields: [openingStockId], references: [id], onDelete: Restrict)
+  item Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+   @@index([itemId])
+   @@index([openingStockId])
+  @@map("opening_stock_details")
+}
+
 
 
 

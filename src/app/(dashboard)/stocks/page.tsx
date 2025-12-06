@@ -131,6 +131,9 @@ export default function StockSitesPage() {
                 </AppButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(`/stocks/opening/new?siteId=${row.id}`)}>
+                  Opening Stock
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(`/stocks/${row.id}/view`)}>
                   View stock
                 </DropdownMenuItem>
