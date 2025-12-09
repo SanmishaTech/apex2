@@ -88,7 +88,7 @@ type DocumentFormValue = z.infer<typeof documentSchema> & {
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
   middleName: z.string().optional(),
-  lastName: z.string().min(1, "Last name is required"),
+  lastName: z.string().optional(),
   supplierId: z.string().min(1, "Manpower supplier is required"),
   dateOfBirth: z.string().optional(), // yyyy-mm-dd
   // Contact
@@ -225,7 +225,7 @@ export default function ManpowerForm({
         .filter((doc) => doc.documentName && doc.documentUrl); // Filter out incomplete documents
       fd.append("firstName", values.firstName.trim());
       if (values.middleName) fd.append("middleName", values.middleName.trim());
-      fd.append("lastName", values.lastName.trim());
+      if (values.lastName) fd.append("lastName", values.lastName.trim());
       fd.append("supplierId", values.supplierId);
       if (values.dateOfBirth) fd.append("dateOfBirth", values.dateOfBirth);
       if (values.address) fd.append("address", values.address);
@@ -333,7 +333,6 @@ export default function ManpowerForm({
                   name="lastName"
                   label="Last Name"
                   placeholder="Last name"
-                  required
                   itemClassName="col-span-4"
                 />
               </FormRow>

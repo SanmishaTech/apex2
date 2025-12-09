@@ -852,7 +852,7 @@ model Manpower {
   id               Int              @id @default(autoincrement())
   firstName        String
   middleName       String?
-  lastName         String
+  lastName         String?
   supplierId       Int
   manpowerSupplier ManpowerSupplier @relation(fields: [supplierId], references: [id])
   dateOfBirth      DateTime?
