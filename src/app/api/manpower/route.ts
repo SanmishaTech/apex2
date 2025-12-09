@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
         : [];
     }
 
-    if (!body.firstName || !body.lastName) return ApiError('First and last name are required', 400);
+    if (!body.firstName) return ApiError('First name is required', 400);
     const supplierIdNum = Number(body.supplierId);
     if (!supplierIdNum || Number.isNaN(supplierIdNum)) return ApiError('Valid manpower supplier is required', 400);
 
@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
         data: {
           firstName: String(body.firstName).trim(),
           middleName: nil(body.middleName) as any,
-          lastName: String(body.lastName).trim(),
+          lastName: nil(body.lastName) as any,
           supplierId: supplierIdNum,
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
           address: nil(body.address) as any,

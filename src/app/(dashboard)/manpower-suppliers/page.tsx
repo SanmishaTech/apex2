@@ -1,23 +1,24 @@
-'use client';
+"use client";
 
-import useSWR from 'swr';
-import { useMemo, useState, useEffect } from 'react';
-import { apiGet, apiDelete } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import { Pagination } from '@/components/common/pagination';
-import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { FilterBar } from '@/components/common';
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
-import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { DeleteButton } from '@/components/common/delete-button';
-import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS } from '@/config/roles';
-import { formatRelativeTime, formatDate } from '@/lib/locales';
-import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import Link from 'next/link';
-import { EditButton } from '@/components/common/icon-button';
+import useSWR from "swr";
+import { useMemo, useState, useEffect } from "react";
+import { apiGet, apiDelete } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import { Pagination } from "@/components/common/pagination";
+import { NonFormTextInput } from "@/components/common/non-form-text-input";
+import { FilterBar } from "@/components/common";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import { DataTable, SortState, Column } from "@/components/common/data-table";
+import { BulkManpowerSuppliersUploadDialog } from "@/components/common/bulk-manpower-suppliers-upload-dialog";
+import { DeleteButton } from "@/components/common/delete-button";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { formatRelativeTime, formatDate } from "@/lib/locales";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import Link from "next/link";
+import { EditButton } from "@/components/common/icon-button";
 
 export type ManpowerSupplierListItem = {
   id: number;
@@ -41,27 +42,31 @@ export type SuppliersResponse = {
 };
 
 export default function ManpowerSuppliersPage() {
-  const { pushWithScrollSave } = useScrollRestoration('manpower-suppliers-list');
-  
+  const { pushWithScrollSave } = useScrollRestoration(
+    "manpower-suppliers-list"
+  );
+  const [importOpen, setImportOpen] = useState(false);
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
-    search: '',
-    sort: 'supplierName',
-    order: 'asc',
+    search: "",
+    sort: "supplierName",
+    order: "asc",
   });
-  const { page, perPage, search, sort, order } =
-    (qp as unknown) as {
-      page: number;
-      perPage: number;
-      search: string;
-      sort: string;
-      order: 'asc' | 'desc';
-    };
+  const { page, perPage, search, sort, order } = qp as unknown as {
+    page: number;
+    perPage: number;
+    search: string;
+    sort: string;
+    order: "asc" | "desc";
+  };
 
   const [searchDraft, setSearchDraft] = useState(search);
 
-  useEffect(() => { setSearchDraft(search); }, [search]);
+  useEffect(() => {
+    setSearchDraft(search);
+  }, [search]);
 
   const filtersDirty = searchDraft !== search;
 
@@ -70,46 +75,99 @@ export default function ManpowerSuppliersPage() {
   }
 
   function resetFilters() {
-    setSearchDraft('');
-    setQp({ page: 1, search: '' });
+    setSearchDraft("");
+    setQp({ page: 1, search: "" });
   }
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
-    sp.set('page', String(page));
-    sp.set('perPage', String(perPage));
-    if (search) sp.set('search', search);
-    if (sort) sp.set('sort', sort);
-    if (order) sp.set('order', order);
+    sp.set("page", String(page));
+    sp.set("perPage", String(perPage));
+    if (search) sp.set("search", search);
+    if (sort) sp.set("sort", sort);
+    if (order) sp.set("order", order);
     return `/api/manpower-suppliers?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<SuppliersResponse>(query, apiGet);
+  const { data, error, isLoading, mutate } = useSWR<SuppliersResponse>(
+    query,
+    apiGet
+  );
 
   const { can } = usePermissions();
 
   if (error) {
-    toast.error((error as Error).message || 'Failed to load suppliers');
+    toast.error((error as Error).message || "Failed to load suppliers");
   }
 
   function toggleSort(field: string) {
     if (sort === field) {
-      setQp({ order: order === 'asc' ? 'desc' : 'asc' });
+      setQp({ order: order === "asc" ? "desc" : "asc" });
     } else {
-      setQp({ sort: field, order: 'asc' });
+      setQp({ sort: field, order: "asc" });
     }
   }
 
   const columns: Column<ManpowerSupplierListItem>[] = [
-    { key: 'supplierName', header: 'Supplier', sortable: true, cellClassName: 'font-medium whitespace-nowrap' },
-    { key: 'vendorCode', header: 'Vendor Code', sortable: true, className: 'whitespace-nowrap' },
-    { key: 'contactPerson', header: 'Contact Person', sortable: false, className: 'whitespace-nowrap' },
-    { key: 'representativeName', header: 'Representative', sortable: false, className: 'whitespace-nowrap' },
-    { key: 'city', header: 'City', sortable: true, className: 'whitespace-nowrap' },
-    { key: 'state', header: 'State', sortable: true, className: 'whitespace-nowrap' },
-    { key: 'numberOfWorkers', header: 'Workers', sortable: false, className: 'text-right whitespace-nowrap', cellClassName: 'text-right tabular-nums whitespace-nowrap' },
-    { key: 'createdAt', header: 'Created', sortable: true, className: 'whitespace-nowrap', cellClassName: 'text-muted-foreground whitespace-nowrap', accessor: (r) => formatDate(r.createdAt) },
-    { key: 'updatedAt', header: 'Updated', sortable: false, className: 'whitespace-nowrap', cellClassName: 'text-muted-foreground whitespace-nowrap', accessor: (r) => formatRelativeTime(r.updatedAt) },
+    {
+      key: "supplierName",
+      header: "Supplier",
+      sortable: true,
+      cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "vendorCode",
+      header: "Vendor Code",
+      sortable: true,
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "contactPerson",
+      header: "Contact Person",
+      sortable: false,
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "representativeName",
+      header: "Representative",
+      sortable: false,
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "city",
+      header: "City",
+      sortable: true,
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "state",
+      header: "State",
+      sortable: true,
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "numberOfWorkers",
+      header: "Workers",
+      sortable: false,
+      className: "text-right whitespace-nowrap",
+      cellClassName: "text-right tabular-nums whitespace-nowrap",
+    },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: true,
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+      accessor: (r) => formatDate(r.createdAt),
+    },
+    {
+      key: "updatedAt",
+      header: "Updated",
+      sortable: false,
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+      accessor: (r) => formatRelativeTime(r.updatedAt),
+    },
   ];
 
   const sortState: SortState = { field: sort, order };
@@ -117,7 +175,7 @@ export default function ManpowerSuppliersPage() {
   async function handleDelete(id: number) {
     try {
       await apiDelete(`/api/manpower-suppliers/${id}`);
-      toast.success('Supplier deleted');
+      toast.success("Supplier deleted");
       await mutate();
     } catch (e) {
       toast.error((e as Error).message);
@@ -131,40 +189,51 @@ export default function ManpowerSuppliersPage() {
         <AppCard.Description>Manage manpower suppliers.</AppCard.Description>
         {can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && (
           <AppCard.Action>
-            <AppButton 
-              size='sm' 
-              iconName='Plus' 
-              type='button'
-              onClick={() => pushWithScrollSave('/manpower-suppliers/new')}
-            >
-              Add
-            </AppButton>
+            <div className="flex gap-2">
+              <AppButton
+                size="sm"
+                variant="outline"
+                iconName="Upload"
+                type="button"
+                onClick={() => setImportOpen(true)}
+              >
+                Import
+              </AppButton>
+              <AppButton
+                size="sm"
+                iconName="Plus"
+                type="button"
+                onClick={() => pushWithScrollSave("/manpower-suppliers/new")}
+              >
+                Add
+              </AppButton>
+            </div>
           </AppCard.Action>
         )}
       </AppCard.Header>
       <AppCard.Content>
-        <FilterBar title='Search & Filter'>
+        <FilterBar title="Search & Filter">
           <NonFormTextInput
-            aria-label='Search suppliers'
-            placeholder='Search suppliers…'
+            aria-label="Search suppliers"
+            placeholder="Search suppliers…"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            containerClassName='w-full'
+            containerClassName="w-full"
           />
           <AppButton
-            size='sm'
+            size="sm"
             onClick={applyFilters}
             disabled={!filtersDirty && !searchDraft}
-            className='min-w-[84px]'
+            className="min-w-[84px]"
           >
             Filter
           </AppButton>
           {search && (
             <AppButton
-              variant='secondary'
-              size='sm'
+              variant="secondary"
+              size="sm"
               onClick={resetFilters}
-              className='min-w-[84px]'
+              className="min-w-[84px]"
             >
               Reset
             </AppButton>
@@ -178,21 +247,27 @@ export default function ManpowerSuppliersPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(row) => {
-            if (!can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && !can(PERMISSIONS.DELETE_MANPOWER_SUPPLIERS)) return null;
+            if (
+              !can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) &&
+              !can(PERMISSIONS.DELETE_MANPOWER_SUPPLIERS)
+            )
+              return null;
             return (
-              <div className='flex'>
+              <div className="flex">
                 {can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && (
-                  <EditButton 
-                    tooltip='Edit Supplier' 
-                    aria-label='Edit Supplier' 
-                    onClick={() => pushWithScrollSave(`/manpower-suppliers/${row.id}/edit`)}
+                  <EditButton
+                    tooltip="Edit Supplier"
+                    aria-label="Edit Supplier"
+                    onClick={() =>
+                      pushWithScrollSave(`/manpower-suppliers/${row.id}/edit`)
+                    }
                   />
                 )}
                 {can(PERMISSIONS.DELETE_MANPOWER_SUPPLIERS) && (
                   <DeleteButton
                     onDelete={() => handleDelete(row.id)}
-                    itemLabel='supplier'
-                    title='Delete supplier?'
+                    itemLabel="supplier"
+                    title="Delete supplier?"
                     description={`This will permanently remove supplier "${row.supplierName}". This action cannot be undone.`}
                   />
                 )}
@@ -201,7 +276,7 @@ export default function ManpowerSuppliersPage() {
           }}
         />
       </AppCard.Content>
-      <AppCard.Footer className='justify-end'>
+      <AppCard.Footer className="justify-end">
         <Pagination
           page={data?.page || page}
           totalPages={data?.totalPages || 1}
@@ -214,6 +289,11 @@ export default function ManpowerSuppliersPage() {
           disabled={isLoading}
         />
       </AppCard.Footer>
+      <BulkManpowerSuppliersUploadDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onUploadSuccess={() => mutate()}
+      />
     </AppCard>
   );
 }
