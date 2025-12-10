@@ -259,9 +259,9 @@ export default function ManpowerPage() {
         <FilterBar title='Search'>
           <NonFormTextInput aria-label='Search' placeholder='Search by name, mobile, supplier...' value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} containerClassName='w-full' />
           <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !searchDraft} className='min-w-[84px]'>Filter</AppButton>
-          {can(PERMISSIONS.EDIT_MANPOWER) && (
+          {/* {can(PERMISSIONS.EDIT_MANPOWER) && (
             <AppButton variant='outline' size='sm' onClick={() => setUploadDialogOpen(true)} iconName='Upload' className='min-w-[84px]'>Upload</AppButton>
-          )}
+          )} */}
           <AppButton variant='outline' size='sm' onClick={handleExport} iconName='Download' className='min-w-[84px]'>Export</AppButton>
           {search && (
             <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-[84px]'>Reset</AppButton>

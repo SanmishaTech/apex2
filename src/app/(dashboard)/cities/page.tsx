@@ -153,7 +153,7 @@ export default function CitiesPage() {
         {can(PERMISSIONS.EDIT_CITIES) && (
           <AppCard.Action>
             <div className="flex gap-2">
-              <AppButton
+              {/* <AppButton
                 size="sm"
                 variant="outline"
                 iconName="Upload"
@@ -161,7 +161,7 @@ export default function CitiesPage() {
                 onClick={() => setImportOpen(true)}
               >
                 Import
-              </AppButton>
+              </AppButton> */}
               <AppButton
                 size="sm"
                 iconName="Plus"
