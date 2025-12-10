@@ -44,7 +44,7 @@ type ChallanInfo = {
 export default function NewInwardBillPaymentPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const challanId = Number(sp.get("challanId"));
+  const challanId = Number(sp?.get("challanId") ?? NaN);
   const { can } = usePermissions();
   const canDeletePayment = can(PERMISSIONS.DELETE_INWARD_BILL_PAYMENT);
 

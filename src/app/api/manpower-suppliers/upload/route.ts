@@ -10,6 +10,18 @@ function val(v: any) {
   return String(v).trim();
 }
 
+function normalizePan(v: any): string | null {
+  const s = val(v);
+  if (!s) return null;
+  return s.replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeAadhaar(v: any): string | null {
+  const s = val(v);
+  if (!s) return null;
+  return s.replace(/\s+/g, "");
+}
+
 function generateVendorCodeForIndex(baseCount: number, index: number) {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -116,8 +128,25 @@ export async function POST(req: NextRequest) {
         accountNo: val(row["Account No"] ?? row["accountNo"]),
         ifscNo: val(row["IFSC No"] ?? row["ifscNo"]),
         rtgsNo: val(row["RTGS No"] ?? row["rtgsNo"]),
-        panNo: val(row["PAN No"] ?? row["panNo"]),
-        adharNo: val(row["Aadhar No"] ?? row["adharNo"]),
+        panNo: normalizePan(
+          row["PAN No"] ??
+          row["PAN"] ??
+          row["Pan No"] ??
+          row["Pan"] ??
+          row["panNo"] ??
+          row["pan"]
+        ),
+        adharNo: normalizeAadhaar(
+          row["Aadhaar No"] ??
+          row["Aadhar No"] ??
+          row["Adhar No"] ??
+          row["Aadhaar"] ??
+          row["Aadhar"] ??
+          row["Adhar"] ??
+          row["aadhaarNo"] ??
+          row["adharNo"] ??
+          row["aadharNo"]
+        ),
         pfNo: val(row["PF No"] ?? row["pfNo"]),
         esicNo: val(row["ESIC No"] ?? row["esicNo"]),
         gstNo: val(row["GST No"] ?? row["gstNo"]),

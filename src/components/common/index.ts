@@ -13,3 +13,4 @@ export * from "./pagination";
 export * from "./password-input";
 export * from "./status-badge";
 export * from "./bulk-cities-upload-dialog";
+export * from "./bulk-sites-upload-dialog";

@@ -11,6 +11,47 @@ function nil(v: any) {
   return v;
 }
 
+// Excel serial date (days since 1899-12-30) to JS Date
+function excelSerialToDate(n: number): Date {
+  const epoch = new Date(Date.UTC(1899, 11, 30));
+  const ms = Math.round(n * 24 * 60 * 60 * 1000);
+  return new Date(epoch.getTime() + ms);
+}
+
+// Parse common date formats: Date object, dd/mm/yyyy, yyyy-mm-dd, Excel serial number
+function parseDateFlexible(v: any): Date | null {
+  if (v == null || v === "") return null;
+  if (v instanceof Date && !isNaN(v.getTime())) return v;
+  if (typeof v === "number" && isFinite(v)) {
+    try {
+      const d = excelSerialToDate(v);
+      if (!isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  const s = String(v).trim();
+  // dd/mm/yyyy
+  const m1 = s.match(/^([0-3]?\d)\/(0?\d|1[0-2])\/(\d{4})$/);
+  if (m1) {
+    const dd = parseInt(m1[1], 10);
+    const mm = parseInt(m1[2], 10);
+    const yy = parseInt(m1[3], 10);
+    const d = new Date(yy, mm - 1, dd);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // yyyy-mm-dd
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m2) {
+    const yy = parseInt(m2[1], 10);
+    const mm = parseInt(m2[2], 10);
+    const dd = parseInt(m2[3], 10);
+    const d = new Date(yy, mm - 1, dd);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Fallback: native Date parser
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // POST /api/manpower/upload - Upload Excel file and bulk create manpower
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -78,11 +119,12 @@ export async function POST(req: NextRequest) {
       const supplierName = nil(
         row["Supplier Name*"] || row["Supplier Name"] || row["supplierName"]
       );
-      const dateOfBirth = nil(
+      const dateOfBirthRaw =
         row["Date of Birth (YYYY-MM-DD)"] ||
-          row["Date of Birth"] ||
-          row["dateOfBirth"]
-      );
+        row["Date of Birth"] ||
+        row["DOB"] ||
+        row["dob"] ||
+        row["dateOfBirth"]; // may be string, number, Date
       const address = nil(row["Address"] || row["address"]);
       const location = nil(row["Location"] || row["location"]);
       const mobileNumber = nil(row["Mobile Number"] || row["mobileNumber"]);
@@ -119,7 +161,7 @@ export async function POST(req: NextRequest) {
         middleName: middleName ? String(middleName).trim() : null,
         lastName: lastName ? String(lastName).trim() : null,
         supplierName: String(supplierName).trim(),
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        dateOfBirth: parseDateFlexible(dateOfBirthRaw),
         address: address ? String(address).trim() : null,
         location: location ? String(location).trim() : null,
         mobileNumber: mobileNumber ? String(mobileNumber).trim() : null,

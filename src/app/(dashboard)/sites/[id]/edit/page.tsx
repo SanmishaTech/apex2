@@ -45,6 +45,12 @@ export default function EditSitePage() {
     );
   }
 
+  const normalizedStatus = useMemo(() => {
+    const s = site?.status;
+    if (!s) return undefined;
+    return s.toString().toUpperCase().replace(/\s+/g, "_");
+  }, [site]);
+
   return (
     <SiteForm
       mode="edit"
@@ -55,7 +61,7 @@ export default function EditSitePage() {
         site: site.site,
         shortName: site.shortName ?? undefined,
         companyId: site.companyId ?? undefined,
-        status: site.status,
+        status: normalizedStatus as any,
         attachCopyUrl: site.attachCopyUrl ?? undefined,
         contactPerson: site.contactPerson ?? undefined,
         contactNo: site.contactNo ?? undefined,

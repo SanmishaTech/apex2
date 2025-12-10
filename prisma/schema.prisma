@@ -169,6 +169,14 @@ model Company {
   @@map("companies")
 }
 
+enum SiteStatus {
+  ONGOING
+  HOLD
+  CLOSED
+  COMPLETED
+  MOBILIZATION_STAGE
+}
+
 // Site master data for location/branch management
 model Site {
   id        Int     @id @default(autoincrement())
@@ -181,7 +189,7 @@ model Site {
   company   Company? @relation(fields: [companyId], references: [id])
 
   // Status Flags
-  status          String //Ongoing,Hold,Closed
+  status          SiteStatus  //Ongoing,Hold,Closed,Completed,Mobilization stage
 
   // File Upload
   attachCopyUrl String?

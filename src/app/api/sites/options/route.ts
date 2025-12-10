@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const sites = await prisma.site.findMany({
+      where: { status: "ONGOING" },
       select: { id: true, site: true },
       orderBy: { site: "asc" },
       take: 1000,

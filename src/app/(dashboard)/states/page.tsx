@@ -127,7 +127,7 @@ export default function StatesPage() {
         {can(PERMISSIONS.EDIT_STATES) && (
           <AppCard.Action>
             <div className="flex gap-2">
-              <AppButton
+              {/* <AppButton
                 size="sm"
                 variant="outline"
                 iconName="Upload"
@@ -135,7 +135,7 @@ export default function StatesPage() {
                 onClick={() => setImportOpen(true)}
               >
                 Import
-              </AppButton>
+              </AppButton> */}
               <AppButton
                 size="sm"
                 iconName="Plus"

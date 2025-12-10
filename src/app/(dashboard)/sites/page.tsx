@@ -20,11 +20,13 @@ import { formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { Site, SitesResponse } from '@/types/sites';
+import { BulkSitesUploadDialog } from '@/components/common/bulk-sites-upload-dialog';
 
 type SiteListItem = Site;
 
 export default function SitesPage() {
 	const { pushWithScrollSave } = useScrollRestoration('sites-list');
+	const [importOpen, setImportOpen] = useState(false);
 	
 	const [qp, setQp] = useQueryParamsState({
 		page: 1,
@@ -187,6 +189,8 @@ export default function SitesPage() {
             ongoing: { label: 'Ongoing', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
             hold: { label: 'Hold', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
             closed: { label: 'Closed', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+            completed: { label: 'Completed', className: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' },
+            mobilization_stage: { label: 'Mobilization Stage', className: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
           }}
         />
       ),
@@ -227,14 +231,25 @@ export default function SitesPage() {
 				<AppCard.Description>Manage application sites.</AppCard.Description>
 				{can(PERMISSIONS.EDIT_SITES) && (
 					<AppCard.Action>
-						<AppButton 
-							size='sm' 
-							iconName='Plus' 
-							type='button'
-							onClick={() => pushWithScrollSave('/sites/new')}
-						>
-							Add
-						</AppButton>
+						<div className='flex gap-2'>
+							{/* <AppButton
+								size='sm'
+								variant='outline'
+								iconName='Upload'
+								type='button'
+								onClick={() => setImportOpen(true)}
+							>
+								Import
+							</AppButton> */}
+							<AppButton 
+								size='sm' 
+								iconName='Plus' 
+								type='button'
+								onClick={() => pushWithScrollSave('/sites/new')}
+							>
+								Add
+							</AppButton>
+						</div>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -253,9 +268,11 @@ export default function SitesPage() {
 						placeholder='Status'
 					>
 						<AppSelect.Item value='__all'>All Statuses</AppSelect.Item>
-						<AppSelect.Item value='Ongoing'>Ongoing</AppSelect.Item>
-						<AppSelect.Item value='Hold'>Hold</AppSelect.Item>
-						<AppSelect.Item value='Closed'>Closed</AppSelect.Item>
+						<AppSelect.Item value='ONGOING'>Ongoing</AppSelect.Item>
+						<AppSelect.Item value='HOLD'>Hold</AppSelect.Item>
+						<AppSelect.Item value='CLOSED'>Closed</AppSelect.Item>
+						<AppSelect.Item value='COMPLETED'>Completed</AppSelect.Item>
+						<AppSelect.Item value='MOBILIZATION_STAGE'>Mobilization Stage</AppSelect.Item>
 					</AppSelect>
 					<AppButton
 						size='sm'
@@ -320,6 +337,11 @@ export default function SitesPage() {
 					disabled={isLoading}
 				/>
 			</AppCard.Footer>
+			<BulkSitesUploadDialog
+				open={importOpen}
+				onOpenChange={setImportOpen}
+				onUploadSuccess={() => mutate()}
+			/>
 		</AppCard>
 	);
 }

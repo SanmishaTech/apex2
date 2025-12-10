@@ -28,7 +28,13 @@ import {
   validateGST,
 } from "@/lib/tax-validation";
 
-const STATUS_OPTIONS = ["Ongoing", "Hold", "Closed"] as const;
+const STATUS_OPTIONS = [
+  "ONGOING",
+  "HOLD",
+  "CLOSED",
+  "COMPLETED",
+  "MOBILIZATION_STAGE",
+] as const;
 
 // Define the full contact person type from the database
 export interface SiteContactPerson {
@@ -110,7 +116,12 @@ export function SiteForm({
     siteCode: z.string().optional().nullable(),
     site: z.string().min(1, "Site name is required"),
     shortName: z.string().optional().nullable(),
-    companyId: z.number().optional().nullable(),
+    companyId: z
+      .number()
+      .nullable()
+      .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+        message: "Company is required",
+      }),
     status: z.enum(STATUS_OPTIONS, {
       required_error: "Status is required",
     }),
@@ -214,7 +225,7 @@ export function SiteForm({
     site: initial?.site || "",
     shortName: initial?.shortName || "",
     companyId: initial?.companyId ?? null,
-    status: initial?.status || "Ongoing",
+    status: initial?.status || "ONGOING",
     contactPersons: defaultContactPersons,
     addressLine1: initial?.addressLine1 || "",
     addressLine2: initial?.addressLine2 || "",
@@ -518,7 +529,7 @@ export function SiteForm({
                 />
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Company
+                    Company <span className="text-red-500">*</span>
                   </label>
                   <AppSelect
                     value={
@@ -527,7 +538,10 @@ export function SiteForm({
                         : "__none"
                     }
                     onValueChange={(v) =>
-                      setValue("companyId", v === "__none" ? null : Number(v))
+                      setValue("companyId", v === "__none" ? null : Number(v), {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
                     }
                     placeholder="Select company"
                   >
@@ -544,6 +558,11 @@ export function SiteForm({
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
+                  {form.formState.errors.companyId?.message && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {form.formState.errors.companyId.message as string}
+                    </p>
+                  )}
                 </div>
               </FormRow>
               <FormRow cols={1}>
@@ -560,7 +579,11 @@ export function SiteForm({
                   >
                     {STATUS_OPTIONS.map((status) => (
                       <AppSelect.Item key={status} value={status}>
-                        {status}
+                        {status
+                          .toLowerCase()
+                          .split("_")
+                          .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+                          .join(" ")}
                       </AppSelect.Item>
                     ))}
                   </AppSelect>

@@ -18,7 +18,9 @@ const updateSchema = z.object({
   site: z.string().min(1, "Site name is required").optional(),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
-  status: z.enum(["Ongoing", "Hold", "Closed"]).optional(),
+  status: z
+    .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"]) 
+    .optional(),
   attachCopyUrl: z.string().optional().nullable(),
   // legacy top-level contactPerson/contactNo removed (we use siteContactPersons array)
   deliveryAddresses: z

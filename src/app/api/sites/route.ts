@@ -19,8 +19,14 @@ const createSchema = z.object({
   siteCode: z.string().optional().nullable(),
   site: z.string().min(1, "Site name is required"),
   shortName: z.string().optional().nullable(),
-  companyId: z.number().optional().nullable(),
-  status: z.enum(["Ongoing", "Hold", "Closed"]).default("Ongoing"),
+  companyId: z
+    .number({ required_error: "Company is required" })
+    .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+      message: "Company is required",
+    }),
+  status: z
+    .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"]) 
+    .default("ONGOING"),
   attachCopyUrl: z.string().optional().nullable(),
   contactPersons: z
     .array(
@@ -143,7 +149,10 @@ export async function GET(req: NextRequest) {
         },
       ];
     }
-    if (statusParam && ["Ongoing", "Hold", "Closed"].includes(statusParam)) {
+    if (
+      statusParam &&
+      ["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"].includes(statusParam)
+    ) {
       where.status = statusParam;
     }
 
