@@ -8,6 +8,7 @@ import { Pagination } from "@/components/common/pagination";
 import { NonFormTextInput } from "@/components/common/non-form-text-input";
 import { AppSelect } from "@/components/common/app-select";
 import { FilterBar } from "@/components/common"; // filter layout wrapper
+import { BulkEmployeesUploadDialog } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { DataTable, SortState, Column } from "@/components/common/data-table";
@@ -24,6 +25,7 @@ import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
 
 export default function EmployeesPage() {
+  const [importOpen, setImportOpen] = useState(false);
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -178,14 +180,25 @@ export default function EmployeesPage() {
         <AppCard.Description>Manage application employees.</AppCard.Description>
         <AppCard.Action className="flex flex-wrap gap-2">
           {can(PERMISSIONS.EDIT_EMPLOYEES) && (
-            <AppButton
-              size="sm"
-              iconName="Plus"
-              type="button"
-              onClick={() => pushWithScrollSave("/employees/new")}
-            >
-              Add
-            </AppButton>
+            <>
+              <AppButton
+                size="sm"
+                variant="outline"
+                iconName="Upload"
+                type="button"
+                onClick={() => setImportOpen(true)}
+              >
+                Import
+              </AppButton>
+              <AppButton
+                size="sm"
+                iconName="Plus"
+                type="button"
+                onClick={() => pushWithScrollSave("/employees/new")}
+              >
+                Add
+              </AppButton>
+            </>
           )}
         </AppCard.Action>
       </AppCard.Header>
@@ -329,6 +342,11 @@ export default function EmployeesPage() {
           disabled={isLoading}
         />
       </AppCard.Footer>
+      <BulkEmployeesUploadDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onUploadSuccess={() => mutate()}
+      />
     </AppCard>
   );
 }
