@@ -81,8 +81,8 @@ export default function InternalDashboard() {
       sortable: false,
       accessor: (r) => (
         <div className="flex items-center gap-2">
-          <StatusBadge active={r.status === "Ongoing"} />
-          {r.status !== "Ongoing" && (
+          <StatusBadge active={r.status === "ONGOING"} />
+          {r.status !== "ONGOING" && (
             <span className="text-xs">{r.status}</span>
           )}
         </div>

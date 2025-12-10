@@ -4,7 +4,8 @@ export interface Site {
   site: string;
   shortName?: string | null;
   companyId?: number | null;
-  status: "Ongoing" | "Hold" | "Closed";
+  status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
+
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
@@ -76,7 +77,7 @@ export interface CreateSiteData {
   site: string;
   shortName?: string | null;
   companyId?: number | null;
-  status: "Ongoing" | "Hold" | "Closed";
+  status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
@@ -98,7 +99,7 @@ export interface UpdateSiteData {
   site?: string;
   shortName?: string | null;
   companyId?: number | null;
-  status?: "Ongoing" | "Hold" | "Closed";
+  status?: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
