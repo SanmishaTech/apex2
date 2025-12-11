@@ -181,7 +181,7 @@ export default function EmployeesPage() {
         <AppCard.Action className="flex flex-wrap gap-2">
           {can(PERMISSIONS.EDIT_EMPLOYEES) && (
             <>
-              <AppButton
+              {/* <AppButton
                 size="sm"
                 variant="outline"
                 iconName="Upload"
@@ -189,7 +189,7 @@ export default function EmployeesPage() {
                 onClick={() => setImportOpen(true)}
               >
                 Import
-              </AppButton>
+              </AppButton> */}
               <AppButton
                 size="sm"
                 iconName="Plus"

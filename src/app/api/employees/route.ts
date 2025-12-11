@@ -23,7 +23,7 @@ const createSchema = z.object({
       if (!val) return undefined;
       return new Date(val);
     }),
-  role: z.enum(ROLE_VALUES).default(ROLES.SITE_INCHARGE),
+  role: z.enum(ROLE_VALUES).default(ROLES.SITE_SUPERVISOR),
   // Personal Details
   dateOfBirth: z
     .string()
@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
         resignDate: form.get("resignDate")
           ? String(form.get("resignDate"))
           : undefined,
-        role: String(form.get("role") || "siteIncharge"),
+        role: String(form.get("role") || ROLES.SITE_SUPERVISOR),
         dateOfBirth: form.get("dateOfBirth")
           ? String(form.get("dateOfBirth"))
           : undefined,
