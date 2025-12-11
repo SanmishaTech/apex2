@@ -160,87 +160,119 @@ export async function POST(req: NextRequest) {
         }));
         await tx.stockAdjustmentDetail.createMany({ data: detailsCreate });
 
-        // Create Stock Ledger entries and update SiteItem aggregates
-        // Build per-item totals
-        const perItem: Map<
-          number,
-          { qty: number; value: number; unitRate: number }
-        > = new Map();
+        // Determine if the site has any prior stock ledger records
+        const siteLedgerCount = await tx.stockLedger.count({
+          where: { siteId: Number(siteId) },
+        });
 
+        // For each detail: create ledger entries (separate rows for received and issued with appropriate unit rates)
+        // and update SiteItem per rules
         for (const d of detailsCreate) {
-          const qtyDelta = Number(
-            (Number(d.receivedQty || 0) - Number(d.issuedQty || 0)).toFixed(4)
-          );
-          const unitRate = Number(d.rate || 0);
-          const valueDelta = (() => {
-            const amt = Number(d.amount || 0);
-            return qtyDelta >= 0 ? amt : -amt;
-          })();
+          const receivedQty = Number(d.receivedQty || 0);
+          const issuedQty = Number(d.issuedQty || 0);
+          const payloadRate = Number(d.rate || 0);
+          const payloadAmount = Number(d.amount || 0);
 
-          // ledger row (single row representing net movement)
-          await tx.stockLedger.create({
-            data: {
-              siteId: Number(siteId),
-              transactionDate: txnDate,
-              itemId: Number(d.itemId),
-              stockAdjustmentId: main.id,
-              receivedQty: qtyDelta > 0 ? qtyDelta : 0,
-              issuedQty: qtyDelta < 0 ? Math.abs(qtyDelta) : 0,
-              unitRate: unitRate,
-              documentType: "STOCK ADJUSTMENT",
-            } as any,
-          });
-
-          const prev = perItem.get(d.itemId) || { qty: 0, value: 0, unitRate };
-          perItem.set(d.itemId, {
-            qty: Number((prev.qty + qtyDelta).toFixed(4)),
-            value: Number((prev.value + valueDelta).toFixed(2)),
-            unitRate,
-          });
-        }
-
-        // Apply to SiteItem
-        for (const [itemId, totals] of perItem.entries()) {
+          // Fetch current site item to get existing unitRate for issue and current closing
           const existing = await tx.siteItem.findFirst({
-            where: { siteId: Number(siteId), itemId: Number(itemId) },
-            select: { id: true, closingStock: true, closingValue: true },
+            where: { siteId: Number(siteId), itemId: Number(d.itemId) },
+            select: {
+              id: true,
+              closingStock: true,
+              closingValue: true,
+              unitRate: true,
+            },
           });
 
+          // Ledger: received
+          if (receivedQty > 0) {
+            await tx.stockLedger.create({
+              data: {
+                siteId: Number(siteId),
+                transactionDate: txnDate,
+                itemId: Number(d.itemId),
+                stockAdjustmentId: main.id,
+                receivedQty: receivedQty,
+                issuedQty: 0,
+                unitRate: payloadRate,
+                documentType: "STOCK ADJUSTMENT",
+              } as any,
+            });
+          }
+
+          // Ledger: issued (use existing unit rate from SiteItem)
+          if (issuedQty > 0) {
+            const issueUnitRate = Number(existing?.unitRate || 0);
+            await tx.stockLedger.create({
+              data: {
+                siteId: Number(siteId),
+                transactionDate: txnDate,
+                itemId: Number(d.itemId),
+                stockAdjustmentId: main.id,
+                receivedQty: 0,
+                issuedQty: issuedQty,
+                unitRate: issueUnitRate,
+                documentType: "STOCK ADJUSTMENT",
+              } as any,
+            });
+          }
+
+          // Compute new SiteItem values
+          // Step 1: apply receive per site ledger rule
+          let baseStock = Number(existing?.closingStock || 0);
+          let baseValue = Number(existing?.closingValue || 0);
+          let baseUnitRate = Number(existing?.unitRate || 0);
+          if (receivedQty > 0) {
+            if (siteLedgerCount === 0) {
+              baseStock = Number(receivedQty.toFixed(4));
+              baseValue = Number(payloadAmount.toFixed(2));
+              baseUnitRate = Number(payloadRate.toFixed(4));
+            } else {
+              baseStock = Number((baseStock + receivedQty).toFixed(4));
+              baseValue = Number((baseValue + payloadAmount).toFixed(2));
+              baseUnitRate =
+                baseStock !== 0
+                  ? Number((baseValue / baseStock).toFixed(4))
+                  : baseUnitRate;
+            }
+          }
+
+          // Step 2: apply issue (unitRate unchanged; value = stock * unitRate)
+          if (issuedQty > 0) {
+            baseStock = Number((baseStock - issuedQty).toFixed(4));
+            baseValue = Number((baseStock * baseUnitRate).toFixed(2));
+          }
+
+          // Persist SiteItem
           if (!existing) {
-            const closingStock = Number(Number(totals.qty || 0).toFixed(4));
-            const closingValue = Number(Number(totals.value || 0).toFixed(2));
-            const unitRate =
-              closingStock !== 0
-                ? Number((closingValue / closingStock).toFixed(4))
-                : 0;
             await tx.siteItem.create({
               data: {
                 siteId: Number(siteId),
-                itemId: Number(itemId),
-                closingStock,
-                closingValue,
-                unitRate,
-                log: "SA New",
+                itemId: Number(d.itemId),
+                closingStock: baseStock,
+                closingValue: baseValue,
+                unitRate: baseUnitRate,
+                log:
+                  issuedQty > 0 && receivedQty === 0
+                    ? "SA Issue Init"
+                    : receivedQty > 0
+                    ? "SA Init"
+                    : "SA Init",
               } as any,
             });
           } else {
-            const prevStock = Number(existing.closingStock || 0);
-            const prevValue = Number(existing.closingValue || 0);
-            const nextStock = Number(
-              (prevStock + (totals.qty || 0)).toFixed(4)
-            );
-            const nextValue = Number(
-              (prevValue + (totals.value || 0)).toFixed(2)
-            );
-            const unitRate =
-              nextStock !== 0 ? Number((nextValue / nextStock).toFixed(4)) : 0;
             await tx.siteItem.update({
               where: { id: existing.id },
               data: {
-                closingStock: nextStock,
-                closingValue: nextValue,
-                unitRate,
-                log: "SA Update",
+                closingStock: baseStock,
+                closingValue: baseValue,
+                unitRate: baseUnitRate,
+                log:
+                  issuedQty > 0 && receivedQty === 0
+                    ? "SA Issue Update"
+                    : receivedQty > 0
+                    ? "SA Update"
+                    : "SA Update",
               } as any,
             });
           }

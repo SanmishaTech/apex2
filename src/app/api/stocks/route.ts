@@ -36,9 +36,7 @@ const openingStockDetailSchema = z
 
 const createSchema = z.object({
   siteId: z.coerce.number().min(1, "Site is required"),
-  details: z
-    .array(openingStockDetailSchema)
-    .min(1, "At least one item is required"),
+  details: z.array(openingStockDetailSchema).optional(),
 });
 
 // POST /api/stocks - Create Opening Stock with details
@@ -50,29 +48,33 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createSchema.parse(body);
 
-    // Validate that all detail itemIds are present after transform
-    const missingItemIndex = parsed.details.findIndex(
-      (d) => !Number.isFinite(d.itemId)
-    );
-    if (missingItemIndex >= 0) {
-      return BadRequest([
-        {
-          code: z.ZodIssueCode.custom,
-          path: ["details", missingItemIndex, "itemId"],
-          message: "Item is required",
-        },
-      ]);
+    // Validate that all detail itemIds are present after transform (only if details provided)
+    if (Array.isArray(parsed.details) && parsed.details.length > 0) {
+      const missingItemIndex = parsed.details.findIndex(
+        (d) => !Number.isFinite(d.itemId)
+      );
+      if (missingItemIndex >= 0) {
+        return BadRequest([
+          {
+            code: z.ZodIssueCode.custom,
+            path: ["details", missingItemIndex, "itemId"],
+            message: "Item is required",
+          },
+        ]);
+      }
     }
 
     // Validate that itemIds are unique (no duplicate items in opening stock details)
     {
-      const seen = new Set<number>();
-      for (let i = 0; i < parsed.details.length; i++) {
-        const id = parsed.details[i].itemId as number;
-        if (seen.has(id)) {
-          return ApiError("Duplicate item entries are not allowed", 500);
+      if (Array.isArray(parsed.details) && parsed.details.length > 0) {
+        const seen = new Set<number>();
+        for (let i = 0; i < parsed.details.length; i++) {
+          const id = parsed.details[i].itemId as number;
+          if (seen.has(id)) {
+            return ApiError("Duplicate item entries are not allowed", 500);
+          }
+          seen.add(id);
         }
-        seen.add(id);
       }
     }
 
@@ -87,42 +89,74 @@ export async function POST(req: NextRequest) {
       });
 
       // Create details sequentially to preserve serial order if needed in future
-      for (const d of parsed.details) {
-        // Create OpeningStockDetail
-        await tx.openingStockDetail.create({
-          data: {
-            openingStockId: openingStock.id,
-            itemId: d.itemId as number,
-            openingStock: d.openingStock,
-            openingRate: d.openingRate,
-            openingValue: d.openingValue,
-          },
-        });
-
-        // Also upsert SiteItem (update if exists for site+item, else create)
-        const existing = await tx.siteItem.findFirst({
-          where: { siteId: parsed.siteId, itemId: d.itemId as number },
-          select: { id: true },
-        });
-        if (existing) {
-          await tx.siteItem.update({
-            where: { id: existing.id },
+      if (Array.isArray(parsed.details) && parsed.details.length > 0) {
+        for (const d of parsed.details) {
+          // Create OpeningStockDetail
+          await tx.openingStockDetail.create({
             data: {
-              openingStock: d.openingStock,
-              openingRate: d.openingRate,
-              openingValue: d.openingValue,
-              log: "OPENING_STOCK",
-            },
-          });
-        } else {
-          await tx.siteItem.create({
-            data: {
-              siteId: parsed.siteId,
+              openingStockId: openingStock.id,
               itemId: d.itemId as number,
               openingStock: d.openingStock,
               openingRate: d.openingRate,
               openingValue: d.openingValue,
-              log: "OPENING_STOCK",
+            },
+          });
+
+          // Also upsert SiteItem (update if exists for site+item, else create)
+          const existing = await tx.siteItem.findFirst({
+            where: { siteId: parsed.siteId, itemId: d.itemId as number },
+            select: { id: true },
+          });
+          if (existing) {
+            await tx.siteItem.update({
+              where: { id: existing.id },
+              data: {
+                openingStock: d.openingStock,
+                openingRate: d.openingRate,
+                openingValue: d.openingValue,
+                log: "OPENING_STOCK",
+              },
+            });
+          } else {
+            await tx.siteItem.create({
+              data: {
+                siteId: parsed.siteId,
+                itemId: d.itemId as number,
+                openingStock: d.openingStock,
+                openingRate: d.openingRate,
+                openingValue: d.openingValue,
+                log: "OPENING_STOCK",
+              },
+            });
+          }
+        }
+      }
+
+      // Zero out opening fields for other existing site_items at this site not included in payload
+      {
+        if (Array.isArray(parsed.details) && parsed.details.length > 0) {
+          const includedItemIds = parsed.details.map((d) => d.itemId as number);
+          await tx.siteItem.updateMany({
+            where: {
+              siteId: parsed.siteId,
+              itemId: { notIn: includedItemIds },
+            },
+            data: {
+              openingStock: 0,
+              openingRate: 0,
+              openingValue: 0,
+              log: "OPENING_STOCK_ZEROED",
+            },
+          });
+        } else {
+          // No details provided: zero all existing items for this site
+          await tx.siteItem.updateMany({
+            where: { siteId: parsed.siteId },
+            data: {
+              openingStock: 0,
+              openingRate: 0,
+              openingValue: 0,
+              log: "OPENING_STOCK_ZEROED",
             },
           });
         }
