@@ -1,6 +1,4 @@
 "use client";
-
-import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
@@ -45,11 +43,9 @@ export default function EditSitePage() {
     );
   }
 
-  const normalizedStatus = useMemo(() => {
-    const s = site?.status;
-    if (!s) return undefined;
-    return s.toString().toUpperCase().replace(/\s+/g, "_");
-  }, [site]);
+  const normalizedStatus = site?.status
+    ? site.status.toString().toUpperCase().replace(/\s+/g, "_")
+    : undefined;
 
   return (
     <SiteForm

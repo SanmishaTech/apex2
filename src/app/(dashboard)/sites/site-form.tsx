@@ -106,6 +106,7 @@ export function SiteForm({
 }: SiteFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
   const { backWithScrollRestore } = useScrollRestoration("sites-list");
   const [attachCopyFile, setAttachCopyFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
@@ -154,7 +155,7 @@ export function SiteForm({
           pinCode: z.string().optional().nullable(),
         })
       )
-      .min(1, { message: "At least one delivery address is required" }),
+      .optional(),
     addressLine1: z.string().optional().nullable(),
     addressLine2: z.string().optional().nullable(),
     stateId: z.number().optional().nullable(),
@@ -377,6 +378,7 @@ export function SiteForm({
   const onSubmit = async (data: z.infer<typeof schema>) => {
     try {
       setSubmitting(true);
+      setSubmitErrors([]);
 
       const normalizeId = (value: unknown): number | undefined => {
         if (typeof value === "number" && !Number.isNaN(value)) {
@@ -479,10 +481,28 @@ export function SiteForm({
     } catch (error: any) {
       console.error("Site form submission error", error, form.formState.errors);
       console.error("Error saving site:", error);
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to ${mode === "create" ? "create" : "update"} site`
-      );
+      const errs: string[] = [];
+      const data = error?.response?.data;
+      if (Array.isArray(data)) {
+        for (const issue of data) {
+          const path = Array.isArray(issue?.path) ? issue.path.join(".") : "";
+          const msg = issue?.message || String(issue);
+          errs.push(path ? `${path}: ${msg}` : msg);
+        }
+      } else if (data?.errors && Array.isArray(data.errors)) {
+        for (const issue of data.errors) {
+          const path = Array.isArray(issue?.path) ? issue.path.join(".") : "";
+          const msg = issue?.message || String(issue);
+          errs.push(path ? `${path}: ${msg}` : msg);
+        }
+      } else if (typeof data?.message === "string") {
+        errs.push(data.message);
+      } else if (error?.message) {
+        errs.push(error.message);
+      }
+      setSubmitErrors(errs.length ? errs : [
+        `Failed to ${mode === "create" ? "create" : "update"} site`,
+      ]);
     } finally {
       setSubmitting(false);
     }
@@ -503,6 +523,16 @@ export function SiteForm({
         </AppCard.Header>
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <AppCard.Content className="space-y-6">
+            {submitErrors.length > 0 && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <div className="font-medium mb-1">Validation errors</div>
+                <ul className="list-disc pl-5 space-y-1">
+                  {submitErrors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Site Details */}
             <FormSection legend="Site Details">
               <FormRow cols={2}>

@@ -25,7 +25,7 @@ const createSchema = z.object({
       message: "Company is required",
     }),
   status: z
-    .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"]) 
+    .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"])
     .default("ONGOING"),
   attachCopyUrl: z.string().optional().nullable(),
   contactPersons: z
@@ -151,7 +151,9 @@ export async function GET(req: NextRequest) {
     }
     if (
       statusParam &&
-      ["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"].includes(statusParam)
+      ["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"].includes(
+        statusParam
+      )
     ) {
       where.status = statusParam;
     }
@@ -185,7 +187,8 @@ export async function GET(req: NextRequest) {
 
     // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
     const role = auth.user.role;
-    const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    const isPrivileged =
+      role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
     if (!isPrivileged) {
       const employee = await prisma.employee.findFirst({
         where: { userId: auth.user.id },
@@ -225,6 +228,8 @@ export async function GET(req: NextRequest) {
         companyId: true,
         status: true,
         attachCopyUrl: true,
+        createdAt: true,
+        updatedAt: true,
         // legacy top-level address fields (kept if present)
         addressLine1: true,
         addressLine2: true,
