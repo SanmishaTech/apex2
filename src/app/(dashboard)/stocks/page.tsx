@@ -9,7 +9,7 @@ import { Pagination } from "@/components/common/pagination";
 import type { SortState } from "@/components/common/data-table";
 import { FilterBar } from "@/components/common/filter-bar";
 import { NonFormTextInput } from "@/components/common/non-form-text-input";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import {
   DropdownMenu,
@@ -30,6 +30,7 @@ export default function StockSitesPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
+  const [updating, setUpdating] = useState(false);
   useEffect(() => {
     setSearchDraft(search);
   }, [search]);
@@ -48,7 +49,7 @@ export default function StockSitesPage() {
     return `/api/stocks/sites?${sp.toString()}`;
   }, [search, page, perPage, sort]);
 
-  const { data, error, isLoading } = useSWR<{
+  const { data, error, isLoading, mutate } = useSWR<{
     data: StockSiteRow[];
     meta?: { page: number; perPage: number; totalPages: number; total: number };
   }>(query, apiGet);
@@ -81,11 +82,42 @@ export default function StockSitesPage() {
     setPage(1);
   }
 
+  async function onUpdateClosingStock() {
+    try {
+      setUpdating(true);
+      const res = await apiPost<{ updated?: number; message?: string }>(
+        "/api/stocks/update-closing",
+        {},
+        { showErrorToast: true }
+      );
+      const msg = (res as any)?.message || "Closing stock updated";
+      toast.success(msg);
+      await mutate();
+    } catch (e) {
+      // error toast handled by api client when showErrorToast is true
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>Stock</AppCard.Title>
-        <AppCard.Description>Stock maintained per site.</AppCard.Description>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <AppCard.Title>Stock</AppCard.Title>
+            <AppCard.Description>
+              Stock maintained per site.
+            </AppCard.Description>
+          </div>
+          <AppButton
+            size="sm"
+            onClick={onUpdateClosingStock}
+            disabled={updating}
+          >
+            {updating ? "Updating..." : "Update Closing Stock"}
+          </AppButton>
+        </div>
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title="Search">
@@ -131,10 +163,16 @@ export default function StockSitesPage() {
                 </AppButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => router.push(`/stocks/opening/new?siteId=${row.id}`)}>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(`/stocks/opening/new?siteId=${row.id}`)
+                  }
+                >
                   Opening Stock
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(`/stocks/${row.id}/view`)}>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/stocks/${row.id}/view`)}
+                >
                   View stock
                 </DropdownMenuItem>
               </DropdownMenuContent>

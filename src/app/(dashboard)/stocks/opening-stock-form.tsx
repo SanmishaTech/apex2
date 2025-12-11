@@ -49,15 +49,15 @@ const detailSchema = z.object({
   openingStock: z
     .union([z.string(), z.number()])
     .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
-    .refine((v) => Number.isFinite(v) && v >= 0, "Opening stock must be >= 0"),
+    .refine((v) => Number.isFinite(v) && v > 0, "Opening stock must be > 0"),
   openingRate: z
     .union([z.string(), z.number()])
     .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
-    .refine((v) => Number.isFinite(v) && v >= 0, "Opening rate must be >= 0"),
+    .refine((v) => Number.isFinite(v) && v > 0, "Opening rate must be > 0"),
   openingValue: z
     .union([z.string(), z.number()])
     .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
-    .refine((v) => Number.isFinite(v) && v >= 0, "Opening value must be >= 0"),
+    .refine((v) => Number.isFinite(v) && v > 0, "Opening value must be > 0"),
 });
 
 const createSchema = z.object({
@@ -65,7 +65,7 @@ const createSchema = z.object({
     .union([z.string(), z.number()])
     .transform((v) => (typeof v === "string" ? parseInt(v) : v))
     .refine((v) => Number.isFinite(v) && v > 0, "Site is required"),
-  details: z.array(detailSchema).min(1, "Add at least one item"),
+  details: z.array(detailSchema).optional(),
 });
 
 // Raw form data type before zod transforms
@@ -176,12 +176,7 @@ export function OpeningStockForm() {
     ).trim();
     const qty = qtyRaw === "" ? NaN : parseFloat(qtyRaw);
     const rate = rateRaw === "" ? NaN : parseFloat(rateRaw);
-    if (
-      Number.isFinite(qty) &&
-      qty >= 0 &&
-      Number.isFinite(rate) &&
-      rate >= 0
-    ) {
+    if (Number.isFinite(qty) && qty > 0 && Number.isFinite(rate) && rate > 0) {
       const val = (qty * rate).toFixed(2);
       form.setValue(`details.${index}.openingValue`, val, {
         shouldDirty: true,
@@ -455,7 +450,7 @@ export function OpeningStockForm() {
                           variant="outline"
                           size="sm"
                           onClick={() => remove(index)}
-                          disabled={fields.length <= 1}
+                          disabled={false}
                           className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
                         >
                           <Trash2 className="h-3 w-3" />

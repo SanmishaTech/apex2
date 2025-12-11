@@ -18,6 +18,12 @@ function endOfDay(d: Date) {
   x.setHours(23, 59, 59, 999);
   return x;
 }
+function formatYMDLocal(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 // GET /api/stocks/sites/[id]
 // Returns previous 7 days stock report for a site (moved from /report)
@@ -92,9 +98,7 @@ export async function GET(
       Map<string, { received: number; issued: number }>
     >();
     for (const l of ledgersInRange) {
-      const dKey = startOfDay(new Date(l.transactionDate))
-        .toISOString()
-        .slice(0, 10);
+      const dKey = formatYMDLocal(startOfDay(new Date(l.transactionDate)));
       if (!dailyMap.has(l.itemId)) dailyMap.set(l.itemId, new Map());
       const m = dailyMap.get(l.itemId)!;
       const prev = m.get(dKey) || { received: 0, issued: 0 };
@@ -137,7 +141,7 @@ export async function GET(
           unit: mi.unit?.unitName ?? null,
         });
 
-    const dayKeys = days.map((d) => d.toISOString().slice(0, 10));
+    const dayKeys = days.map((d) => formatYMDLocal(d));
     const rows = itemIds.map((itemId) => {
       const meta = metaByItem.get(itemId) || {
         name: `Item ${itemId}`,

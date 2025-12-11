@@ -637,17 +637,14 @@ export async function POST(req: NextRequest) {
         }
 
         // Create Stock Ledger entries per detail
-        const txnDate: Date =
-          (restWithDates as any)?.inwardChallanDate instanceof Date
-            ? (restWithDates as any).inwardChallanDate
-            : new Date();
+
         const stockRows = detailsCreateDataBase
           .map((d) => {
             const itemId = (itemIdMap as any)?.get?.(d.poDetailsId);
             if (!itemId) return null;
             return {
               siteId: Number(siteId),
-              transactionDate: txnDate,
+              transactionDate: new Date(),
               itemId: Number(itemId),
               inwardDeliveryChallanId: createdMain.id,
               receivedQty: d.receivingQty,
@@ -794,5 +791,3 @@ export async function POST(req: NextRequest) {
     return ApiError("Failed to create inward delivery challan");
   }
 }
-
-
