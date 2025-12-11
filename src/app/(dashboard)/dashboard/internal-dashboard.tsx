@@ -21,8 +21,10 @@ export default function InternalDashboard() {
 
   // Build queries for small recent lists (top 5)
   const sitesQuery = "/api/sites?page=1&perPage=5&sort=createdAt&order=desc";
-  const employeesQuery = "/api/employees?page=1&perPage=5&sort=createdAt&order=desc";
-  const indentsQuery = "/api/indents?page=1&perPage=5&sort=indentDate&order=desc";
+  const employeesQuery =
+    "/api/employees?page=1&perPage=5&sort=createdAt&order=desc";
+  const indentsQuery =
+    "/api/indents?page=1&perPage=5&sort=indentDate&order=desc";
   const assetsQuery = "/api/assets?page=1&perPage=5&sort=createdAt&order=desc";
 
   // Permission gates per section
@@ -31,28 +33,38 @@ export default function InternalDashboard() {
   const canIndents = can(PERMISSIONS.READ_INDENTS);
   const canAssets = can(PERMISSIONS.READ_ASSETS);
 
-  const { data: sitesData, error: sitesError, isLoading: sitesLoading } = useSWR<SitesResponse>(
-    canSites ? sitesQuery : null,
-    apiGet
-  );
-  const { data: employeesData, error: employeesError, isLoading: employeesLoading } = useSWR<EmployeesResponse>(
-    canEmployees ? employeesQuery : null,
-    apiGet
-  );
-  const { data: indentsData, error: indentsError, isLoading: indentsLoading } = useSWR<IndentsResponse>(
-    canIndents ? indentsQuery : null,
-    apiGet
-  );
-  const { data: assetsData, error: assetsError, isLoading: assetsLoading } = useSWR<AssetsResponse>(
-    canAssets ? assetsQuery : null,
-    apiGet
-  );
+  const {
+    data: sitesData,
+    error: sitesError,
+    isLoading: sitesLoading,
+  } = useSWR<SitesResponse>(canSites ? sitesQuery : null, apiGet);
+  const {
+    data: employeesData,
+    error: employeesError,
+    isLoading: employeesLoading,
+  } = useSWR<EmployeesResponse>(canEmployees ? employeesQuery : null, apiGet);
+  const {
+    data: indentsData,
+    error: indentsError,
+    isLoading: indentsLoading,
+  } = useSWR<IndentsResponse>(canIndents ? indentsQuery : null, apiGet);
+  const {
+    data: assetsData,
+    error: assetsError,
+    isLoading: assetsLoading,
+  } = useSWR<AssetsResponse>(canAssets ? assetsQuery : null, apiGet);
 
   // Surface errors non-intrusively (one-time toast per error type)
-  if (sitesError) toast.error((sitesError as Error).message || "Failed to load sites");
-  if (employeesError) toast.error((employeesError as Error).message || "Failed to load employees");
-  if (indentsError) toast.error((indentsError as Error).message || "Failed to load indents");
-  if (assetsError) toast.error((assetsError as Error).message || "Failed to load assets");
+  if (sitesError)
+    toast.error((sitesError as Error).message || "Failed to load sites");
+  if (employeesError)
+    toast.error(
+      (employeesError as Error).message || "Failed to load employees"
+    );
+  if (indentsError)
+    toast.error((indentsError as Error).message || "Failed to load indents");
+  if (assetsError)
+    toast.error((assetsError as Error).message || "Failed to load assets");
 
   const siteColumns: Column<Site>[] = [
     {
@@ -80,12 +92,34 @@ export default function InternalDashboard() {
       header: "Status",
       sortable: false,
       accessor: (r) => (
-        <div className="flex items-center gap-2">
-          <StatusBadge active={r.status === "ONGOING"} />
-          {r.status !== "ONGOING" && (
-            <span className="text-xs">{r.status}</span>
-          )}
-        </div>
+        <StatusBadge
+          status={r.status.toLowerCase()}
+          stylesMap={{
+            ongoing: {
+              label: "Ongoing",
+              className:
+                "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+            },
+            hold: {
+              label: "Hold",
+              className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+            },
+            closed: {
+              label: "Closed",
+              className: "bg-gray-500/10 text-gray-600 dark:text-gray-400",
+            },
+            completed: {
+              label: "Completed",
+              className:
+                "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+            },
+            mobilization_stage: {
+              label: "Mobilization Stage",
+              className:
+                "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+            },
+          }}
+        />
       ),
       cellClassName: "whitespace-nowrap",
     },
@@ -99,23 +133,91 @@ export default function InternalDashboard() {
   ];
 
   const employeeColumns: Column<Employee>[] = [
-    { key: "name", header: "Name", sortable: false, accessor: (r) => r.name, cellClassName: "font-medium whitespace-nowrap" },
-    { key: "department", header: "Department", sortable: false, accessor: (r) => r.department?.department || "—", cellClassName: "whitespace-nowrap" },
-    { key: "createdAt", header: "Created", sortable: false, accessor: (r) => formatDate(r.createdAt), cellClassName: "text-muted-foreground whitespace-nowrap" },
+    {
+      key: "name",
+      header: "Name",
+      sortable: false,
+      accessor: (r) => r.name,
+      cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "department",
+      header: "Department",
+      sortable: false,
+      accessor: (r) => r.department?.department || "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: false,
+      accessor: (r) => formatDate(r.createdAt),
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+    },
   ];
 
   const indentColumns: Column<Indent>[] = [
-    { key: "indentNo", header: "Indent No", sortable: false, accessor: (r) => r.indentNo || "—", cellClassName: "font-medium whitespace-nowrap" },
-    { key: "indentDate", header: "Indent Date", sortable: false, accessor: (r) => formatDate(r.indentDate), cellClassName: "whitespace-nowrap" },
-    { key: "site", header: "Site", sortable: false, accessor: (r) => r.site?.site || "—", cellClassName: "whitespace-nowrap" },
-    { key: "items", header: "Items", sortable: false, accessor: (r) => r.indentItems?.length || 0, cellClassName: "text-center" },
+    {
+      key: "indentNo",
+      header: "Indent No",
+      sortable: false,
+      accessor: (r) => r.indentNo || "—",
+      cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "indentDate",
+      header: "Indent Date",
+      sortable: false,
+      accessor: (r) => formatDate(r.indentDate),
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "site",
+      header: "Site",
+      sortable: false,
+      accessor: (r) => r.site?.site || "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "items",
+      header: "Items",
+      sortable: false,
+      accessor: (r) => r.indentItems?.length || 0,
+      cellClassName: "text-center",
+    },
   ];
 
   const assetColumns: Column<Asset>[] = [
-    { key: "assetNo", header: "Asset No", sortable: false, accessor: (r) => <span className="font-medium text-blue-600">{r.assetNo}</span>, cellClassName: "whitespace-nowrap" },
-    { key: "assetName", header: "Asset Name", sortable: false, accessor: (r) => r.assetName, cellClassName: "whitespace-nowrap" },
-    { key: "assetGroup", header: "Group", sortable: false, accessor: (r) => r.assetGroup?.assetGroupName || "—", cellClassName: "whitespace-nowrap" },
-    { key: "useStatus", header: "Use Status", sortable: false, accessor: (r) => r.useStatus, cellClassName: "whitespace-nowrap" },
+    {
+      key: "assetNo",
+      header: "Asset No",
+      sortable: false,
+      accessor: (r) => (
+        <span className="font-medium text-blue-600">{r.assetNo}</span>
+      ),
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "assetName",
+      header: "Asset Name",
+      sortable: false,
+      accessor: (r) => r.assetName,
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "assetGroup",
+      header: "Group",
+      sortable: false,
+      accessor: (r) => r.assetGroup?.assetGroupName || "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "useStatus",
+      header: "Use Status",
+      sortable: false,
+      accessor: (r) => r.useStatus,
+      cellClassName: "whitespace-nowrap",
+    },
   ];
 
   return (
@@ -144,7 +246,9 @@ export default function InternalDashboard() {
                 skeletonRows={5}
               />
             ) : (
-              <div className="text-sm text-muted-foreground">You do not have permission to view sites.</div>
+              <div className="text-sm text-muted-foreground">
+                You do not have permission to view sites.
+              </div>
             )}
           </AppCard.Content>
         </AppCard>
@@ -172,7 +276,9 @@ export default function InternalDashboard() {
                 skeletonRows={5}
               />
             ) : (
-              <div className="text-sm text-muted-foreground">You do not have permission to view employees.</div>
+              <div className="text-sm text-muted-foreground">
+                You do not have permission to view employees.
+              </div>
             )}
           </AppCard.Content>
         </AppCard>
@@ -200,7 +306,9 @@ export default function InternalDashboard() {
                 skeletonRows={5}
               />
             ) : (
-              <div className="text-sm text-muted-foreground">You do not have permission to view indents.</div>
+              <div className="text-sm text-muted-foreground">
+                You do not have permission to view indents.
+              </div>
             )}
           </AppCard.Content>
         </AppCard>
@@ -228,7 +336,9 @@ export default function InternalDashboard() {
                 skeletonRows={5}
               />
             ) : (
-              <div className="text-sm text-muted-foreground">You do not have permission to view assets.</div>
+              <div className="text-sm text-muted-foreground">
+                You do not have permission to view assets.
+              </div>
             )}
           </AppCard.Content>
         </AppCard>
