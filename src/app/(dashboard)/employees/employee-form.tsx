@@ -108,10 +108,13 @@ const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 const documentSchema = z.object({
   id: z.union([z.number(), z.undefined()]).optional(),
   documentName: z.string().min(1, "Document name is required"),
-  documentUrl: z.any().refine(
-    (val) => (typeof val === "string" && val.trim() !== "") || val instanceof File,
-    "Document file is required"
-  ),
+  documentUrl: z
+    .any()
+    .refine(
+      (val) =>
+        (typeof val === "string" && val.trim() !== "") || val instanceof File,
+      "Document file is required"
+    ),
 });
 
 const createInputSchema = z
@@ -161,7 +164,7 @@ const createInputSchema = z
     confirmPassword: z
       .string()
       .min(6, "Confirm password must be at least 6 characters"),
-    role: z.enum(ROLE_VALUES).default(ROLES.SITE_INCHARGE),
+    role: z.enum(ROLE_VALUES).default(ROLES.SITE_SUPERVISOR),
     employeeDocuments: z.array(documentSchema).default([]),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -429,7 +432,7 @@ export function EmployeeForm({
       email: initial?.email || "",
       password: "",
       confirmPassword: "",
-      role: "siteIncharge",
+      role: ROLES.SITE_SUPERVISOR,
       employeeDocuments: initialDocumentValues,
     },
   });
@@ -543,7 +546,7 @@ export function EmployeeForm({
         const documents = Array.isArray(data.employeeDocuments)
           ? data.employeeDocuments
           : [];
-        
+
         // Process document metadata for new employee
         const documentMetadata = documents
           .map((doc: any) => {
@@ -554,21 +557,22 @@ export function EmployeeForm({
                 if (doc.documentUrl instanceof File) {
                   return doc.documentUrl;
                 }
-                return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                return typeof doc.documentUrl === "string" &&
+                  doc.documentUrl.trim() !== ""
                   ? doc.documentUrl
                   : undefined;
               })(),
             };
-            
+
             // Only include temp ID for tracking during this session
             if (doc._isNew && doc._tempId) {
               metadata._tempId = doc._tempId;
             }
-            
+
             return metadata;
           })
-          .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
-          
+          .filter((doc) => doc.documentName && doc.documentUrl); // Filter out incomplete documents
+
         const hasDocumentFiles = documents.some(
           (doc: any) => doc?.documentUrl instanceof File
         );
@@ -712,25 +716,27 @@ export function EmployeeForm({
         const documents = Array.isArray(data.employeeDocuments)
           ? data.employeeDocuments
           : [];
-        
+
         // Process document metadata for employee update
         const documentMetadata = documents
           .map((doc: any) => {
             // Only include id if it's a valid positive number (existing document)
-            const isExistingDoc = typeof doc.id === 'number' && doc.id > 0 && !doc._isNew;
-            
+            const isExistingDoc =
+              typeof doc.id === "number" && doc.id > 0 && !doc._isNew;
+
             const metadata: any = {
               documentName: doc.documentName || "",
               documentUrl: (() => {
                 if (doc.documentUrl instanceof File) {
                   return doc.documentUrl;
                 }
-                return typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                return typeof doc.documentUrl === "string" &&
+                  doc.documentUrl.trim() !== ""
                   ? doc.documentUrl
                   : undefined;
               })(),
             };
-            
+
             // Only include id for existing documents (positive IDs)
             if (isExistingDoc) {
               metadata.id = doc.id;
@@ -738,11 +744,11 @@ export function EmployeeForm({
               // For new documents, use the temp ID for tracking during this session
               metadata._tempId = doc._tempId;
             }
-            
+
             return metadata;
           })
-          .filter(doc => doc.documentName && doc.documentUrl); // Filter out incomplete documents
-          
+          .filter((doc) => doc.documentName && doc.documentUrl); // Filter out incomplete documents
+
         const hasDocumentFiles = documents.some(
           (doc: any) => doc?.documentUrl instanceof File
         );
