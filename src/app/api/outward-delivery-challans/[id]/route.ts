@@ -386,11 +386,12 @@ export async function PATCH(
           // Update toSite SiteItem (increment stock)
           const toInfo = toMap.get(itemId);
           if (toInfo) {
-            const prev = Number(toInfo.closingStock || 0);
-            const newStock = prev + qty;
-            // adopt the issue rate as the receiving unit rate
-            const newRate = issueRate;
-            const newValue = newRate * newStock;
+            const prevStock = Number(toInfo.closingStock || 0);
+            const prevValue = Number(toInfo.closingValue || 0);
+            const newStock = prevStock + qty;
+            const incValue = issueRate * qty;
+            const newValue = prevValue + incValue;
+            const newRate = newStock !== 0 ? newValue / newStock : 0;
             await tx.siteItem.update({
               where: { id: toInfo.id },
               data: {
@@ -401,9 +402,9 @@ export async function PATCH(
               },
             });
           } else {
-            const newRate = issueRate;
             const newStock = qty;
-            const newValue = newRate * newStock;
+            const newValue = issueRate * qty;
+            const newRate = newStock !== 0 ? newValue / newStock : 0;
             await tx.siteItem.create({
               data: {
                 siteId: current.toSiteId!,

@@ -200,9 +200,8 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          // Ledger: issued (use existing unit rate from SiteItem)
+          // Ledger: issued (use payload rate in ledger unitRate)
           if (issuedQty > 0) {
-            const issueUnitRate = Number(existing?.unitRate || 0);
             await tx.stockLedger.create({
               data: {
                 siteId: Number(siteId),
@@ -211,7 +210,7 @@ export async function POST(req: NextRequest) {
                 stockAdjustmentId: main.id,
                 receivedQty: 0,
                 issuedQty: issuedQty,
-                unitRate: issueUnitRate,
+                unitRate: payloadRate,
                 documentType: "STOCK ADJUSTMENT",
               } as any,
             });
@@ -237,10 +236,13 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Step 2: apply issue (unitRate unchanged; value = stock * unitRate)
+          // Step 2: apply issue (unitRate will be recomputed)
           if (issuedQty > 0) {
+            const prevValue = baseValue;
             baseStock = Number((baseStock - issuedQty).toFixed(4));
-            baseValue = Number((baseStock * baseUnitRate).toFixed(2));
+            baseValue = Number((prevValue - payloadAmount).toFixed(2));
+            baseUnitRate =
+              baseStock !== 0 ? Number((baseValue / baseStock).toFixed(4)) : 0;
           }
 
           // Persist SiteItem
