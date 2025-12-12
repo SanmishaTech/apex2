@@ -24,6 +24,7 @@ import useSWR from 'swr';
 import { toast } from '@/lib/toast';
 import { apiDelete } from '@/lib/api-client';
 import { Asset, AssetsResponse, ASSET_STATUS_OPTIONS } from '@/types/assets';
+import { BulkAssetsUploadDialog } from '@/components/common/bulk-assets-upload-dialog';
 import { SitesResponse } from '@/types/sites';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -70,6 +71,7 @@ export default function AssetsPage() {
   }, [site]);
 
   const filtersDirty = searchDraft !== search || statusDraft !== status || siteDraft !== site;
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   function applyFilters() {
     setQp({
@@ -288,6 +290,15 @@ export default function AssetsPage() {
           >
             Filter
           </AppButton>
+          <AppButton
+            variant='outline'
+            size='sm'
+            onClick={() => setUploadDialogOpen(true)}
+            iconName='Upload'
+            className='min-w-[84px]'
+          >
+            Upload
+          </AppButton>
           {(search || status || site) && (
             <AppButton
               variant="secondary"
@@ -299,6 +310,12 @@ export default function AssetsPage() {
             </AppButton>
           )}
         </FilterBar>
+
+        <BulkAssetsUploadDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          onUploadSuccess={() => mutate()}
+        />
 
         <DataTable
           columns={columns}
