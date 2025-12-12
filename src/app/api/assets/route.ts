@@ -228,6 +228,13 @@ export async function POST(req: NextRequest) {
         : [];
     }
 
+    // Normalize: convert explicit nulls to undefined so optional fields pass validation/defaults
+    if (body && typeof body === 'object') {
+      Object.entries(body).forEach(([k, v]) => {
+        if (v === null) (body as any)[k] = undefined;
+      });
+    }
+
     const validatedData = createSchema.parse({
       ...body,
       assetGroupId: body.assetGroupId ? Number(body.assetGroupId) : body.assetGroupId,
@@ -265,13 +272,16 @@ export async function POST(req: NextRequest) {
       return BadRequest("Asset category does not belong to the selected asset group");
     }
 
-    // Generate asset number
-    const lastAsset = await prisma.asset.findFirst({
-      orderBy: { id: 'desc' },
-      select: { id: true }
+    // Generate asset number from last assetNo (e.g., AST-00001 -> AST-00002)
+    const lastByAssetNo = await prisma.asset.findFirst({
+      orderBy: { assetNo: 'desc' },
+      select: { assetNo: true }
     });
-    const nextId = (lastAsset?.id || 0) + 1;
-    const assetNo = `AST-${nextId.toString().padStart(5, '0')}`;
+    const lastNo = lastByAssetNo?.assetNo || '';
+    const match = lastNo.match(/(\d+)$/);
+    const lastSeq = match ? parseInt(match[1], 10) : 0;
+    const nextSeq = lastSeq + 1;
+    const assetNo = `AST-${nextSeq.toString().padStart(5, '0')}`;
 
     const created = await prisma.asset.create({
       data: {
