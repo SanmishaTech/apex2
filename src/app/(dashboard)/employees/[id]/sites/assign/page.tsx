@@ -78,14 +78,14 @@ export default function EmployeeAssignSitesPage({ params }: PageProps) {
 
   const sitesQuery = useMemo(() => {
     const sp = new URLSearchParams();
-    sp.set("page", String(page));
-    sp.set("perPage", String(perPage));
+    // Fetch a large page and paginate client-side to show full totals like Assigned Sites
+    sp.set("perPage", String(1000));
     if (siteFilter) sp.set("search", siteFilter);
     if (companyFilter !== "__all") sp.set("companyId", companyFilter);
     sp.set("sort", "site");
     sp.set("order", "asc");
     return `/api/sites?${sp.toString()}`;
-  }, [page, perPage, siteFilter, companyFilter]);
+  }, [siteFilter, companyFilter]);
 
   const {
     data: sitesData,
@@ -93,7 +93,10 @@ export default function EmployeeAssignSitesPage({ params }: PageProps) {
     isLoading: sitesLoading,
   } = useSWR<SitesResponse>(sitesQuery, apiGet);
 
-  const { data: companiesData } = useSWR<CompaniesResponse>(`/api/companies?perPage=1000`, apiGet);
+  const { data: companiesData } = useSWR<CompaniesResponse>(
+    `/api/companies?perPage=1000`,
+    apiGet
+  );
 
   const assignedSiteIds = useMemo(() => {
     const ids = new Set<number>();
@@ -139,14 +142,17 @@ export default function EmployeeAssignSitesPage({ params }: PageProps) {
 
   const rows = sitesData?.data ?? [];
   const unassignedRows = rows.filter((row) => !assignedSiteIds.has(row.id));
-  const tableRows: TableRow[] = unassignedRows.map((row, index) => ({
+  const total = unassignedRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const start = (page - 1) * perPage;
+  const pageRows = unassignedRows.slice(start, start + perPage);
+  const tableRows: TableRow[] = pageRows.map((row, index) => ({
     ...row,
-    sr: (page - 1) * perPage + index + 1,
+    sr: start + index + 1,
     assigned: false,
   }));
 
-  const total = unassignedRows.length;
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  // totals computed above using full unassignedRows
 
   const selectedCount = useMemo(
     () => Object.values(selected).filter(Boolean).length,

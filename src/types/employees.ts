@@ -61,6 +61,11 @@ export interface Employee {
     id: number;
     city: string;
   } | null;
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+  } | null;
 }
 
 export interface EmployeesResponse {

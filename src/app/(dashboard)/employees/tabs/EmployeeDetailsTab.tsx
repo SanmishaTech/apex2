@@ -163,47 +163,45 @@ export default function EmployeeDetailsTab({
         </FormRow>
       </FormSection>
 
-      {isCreate && (
-        <FormSection legend="Login Details">
-          <FormRow cols={2}>
-            <ComboboxInput
-              control={control}
-              name="role"
-              label="Role"
-              options={roleOptions}
-              placeholder="Select role"
-              searchPlaceholder="Search roles..."
-              emptyText="No role found."
-            />
-            <TextInput
-              control={control}
-              name="email"
-              label="Email"
-              type="email"
-              placeholder="Enter email address"
-              required
-            />
-          </FormRow>
-          <FormRow cols={2}>
-            <TextInput
-              control={control}
-              name="password"
-              label="Password"
-              type="password"
-              placeholder="Enter password (min 6 characters)"
-              required
-            />
-            <TextInput
-              control={control}
-              name="confirmPassword"
-              label="Verify Password"
-              type="password"
-              placeholder="Re-enter password"
-              required
-            />
-          </FormRow>
-        </FormSection>
-      )}
+      <FormSection legend="Login Details">
+        <FormRow cols={2}>
+          <ComboboxInput
+            control={control}
+            name="role"
+            label="Role"
+            options={roleOptions}
+            placeholder="Select role"
+            searchPlaceholder="Search roles..."
+            emptyText="No role found."
+          />
+          <TextInput
+            control={control}
+            name="email"
+            label="Email"
+            type="email"
+            placeholder={isCreate ? "Enter email address" : "Update email address (optional)"}
+            required={isCreate}
+          />
+        </FormRow>
+        <FormRow cols={2}>
+          <TextInput
+            control={control}
+            name="password"
+            label={isCreate ? "Password" : "Set New Password"}
+            type="password"
+            placeholder={isCreate ? "Enter password (min 6 characters)" : "Leave blank to keep current password"}
+            required={isCreate}
+          />
+          <TextInput
+            control={control}
+            name="confirmPassword"
+            label={isCreate ? "Verify Password" : "Confirm New Password"}
+            type="password"
+            placeholder={isCreate ? "Re-enter password" : "Re-enter new password if changing"}
+            required={isCreate}
+          />
+        </FormRow>
+      </FormSection>
     </>
   );
 }

@@ -10,6 +10,7 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
+import bcrypt from "bcryptjs";
 const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
@@ -83,6 +84,10 @@ const updateSchema = z.object({
       })
     )
     .optional(),
+  // Login Details (optional)
+  email: z.string().email().optional(),
+  role: z.string().optional(),
+  password: z.string().min(6).optional(),
 });
 
 // GET /api/employees/[id] - Get single employee
@@ -103,6 +108,7 @@ export async function GET(
         id: true,
         name: true,
         departmentId: true,
+        userId: true,
         resignDate: true,
         dateOfBirth: true,
         anniversaryDate: true,
@@ -185,6 +191,13 @@ export async function GET(
             city: true,
           },
         },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -228,25 +241,26 @@ export async function PATCH(
       signature = (form.get("signature") as File) || null;
       // Map fields for PATCH (all optional)
       const mapped: any = {};
-      const numericKeys = new Set(
-        [
-          "departmentId",
-          "stateId",
-          "cityId",
-          "reporting1Id",
-          "reporting2Id",
-          "reportingSiteId",
-          "sickLeavesPerYear",
-          "paidLeavesPerYear",
-          "casualLeavesPerYear",
-          "balanceSickLeaves",
-          "balancePaidLeaves",
-          "balanceCasualLeaves",
-        ]
-      );
+      const numericKeys = new Set([
+        "departmentId",
+        "stateId",
+        "cityId",
+        "reporting1Id",
+        "reporting2Id",
+        "reportingSiteId",
+        "sickLeavesPerYear",
+        "paidLeavesPerYear",
+        "casualLeavesPerYear",
+        "balanceSickLeaves",
+        "balancePaidLeaves",
+        "balanceCasualLeaves",
+      ]);
       for (const key of Array.from(form.keys())) {
         if (["profilePic", "signature"].includes(key)) continue;
-        if (key === "employeeDocuments" || key.startsWith("employeeDocuments[")) {
+        if (
+          key === "employeeDocuments" ||
+          key.startsWith("employeeDocuments[")
+        ) {
           continue;
         }
         // Special handling for siteId: parse JSON string if present
@@ -269,7 +283,9 @@ export async function PATCH(
             mapped[key] = undefined;
           } else if (typeof raw === "string") {
             const parsedNumber = Number(raw);
-            mapped[key] = Number.isFinite(parsedNumber) ? parsedNumber : undefined;
+            mapped[key] = Number.isFinite(parsedNumber)
+              ? parsedNumber
+              : undefined;
           } else {
             mapped[key] = undefined;
           }
@@ -345,28 +361,36 @@ export async function PATCH(
         : [];
     }
 
-    const { employeeDocuments: employeeDocumentsPayload, ...updateDataWithoutDocs } =
-      updateData ?? {};
+    const {
+      employeeDocuments: employeeDocumentsPayload,
+      ...updateDataWithoutDocs
+    } = updateData ?? {};
 
     if (
       documentMetadata.length === 0 &&
       Array.isArray(employeeDocumentsPayload)
     ) {
-      documentMetadata = employeeDocumentsPayload.map((doc: any, index: number) => ({
-        id:
-          typeof doc?.id === "number" && Number.isFinite(doc.id)
-            ? doc.id
-            : undefined,
-        documentName:
-          typeof doc?.documentName === "string" ? doc.documentName : undefined,
-        documentUrl:
-          typeof doc?.documentUrl === "string" ? doc.documentUrl : undefined,
-        index,
-      }));
+      documentMetadata = employeeDocumentsPayload.map(
+        (doc: any, index: number) => ({
+          id:
+            typeof doc?.id === "number" && Number.isFinite(doc.id)
+              ? doc.id
+              : undefined,
+          documentName:
+            typeof doc?.documentName === "string"
+              ? doc.documentName
+              : undefined,
+          documentUrl:
+            typeof doc?.documentUrl === "string" ? doc.documentUrl : undefined,
+          index,
+        })
+      );
     }
 
     const hasDocumentOperations =
-      documentsProvided || documentMetadata.length > 0 || documentFiles.length > 0;
+      documentsProvided ||
+      documentMetadata.length > 0 ||
+      documentFiles.length > 0;
 
     if (
       Object.keys(updateDataWithoutDocs).length === 0 &&
@@ -390,6 +414,9 @@ export async function PATCH(
         key === "reportingSiteId"
       ) {
         processedData[key] = value || null;
+      } else if (key === "email" || key === "role" || key === "password") {
+        // handled separately for User update
+        continue;
       } else {
         processedData[key] = value;
       }
@@ -526,6 +553,7 @@ export async function PATCH(
           id: true,
           name: true,
           departmentId: true,
+          userId: true,
           resignDate: true,
           createdAt: true,
           updatedAt: true,
@@ -555,10 +583,40 @@ export async function PATCH(
               documentUrl: true,
             },
           },
+          user: {
+            select: { id: true, email: true, role: true },
+          },
         },
       });
 
-      if (documentsProvided || documentMetadata.length > 0 || documentFiles.length > 0) {
+      // Update linked user if any login fields provided
+      const newEmail = (updateDataWithoutDocs as any)?.email as
+        | string
+        | undefined;
+      const newRole = (updateDataWithoutDocs as any)?.role as
+        | string
+        | undefined;
+      const newPassword = (updateDataWithoutDocs as any)?.password as
+        | string
+        | undefined;
+      if (employee.userId && (newEmail || newRole || newPassword)) {
+        const userUpdate: any = {};
+        if (newEmail) userUpdate.email = newEmail;
+        if (newRole) userUpdate.role = newRole as any;
+        if (newPassword) {
+          userUpdate.passwordHash = await bcrypt.hash(newPassword, 10);
+        }
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: userUpdate,
+        });
+      }
+
+      if (
+        documentsProvided ||
+        documentMetadata.length > 0 ||
+        documentFiles.length > 0
+      ) {
         const incomingById = new Map<
           number,
           { documentName?: string; documentUrl?: string }

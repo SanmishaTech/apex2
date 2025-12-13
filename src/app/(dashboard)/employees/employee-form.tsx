@@ -94,6 +94,7 @@ export interface EmployeeFormInitialData {
   // User Account Details
   email?: string;
   password?: string;
+  role?: string;
 }
 
 export interface EmployeeFormProps {
@@ -172,48 +173,76 @@ const createInputSchema = z
     path: ["confirmPassword"],
   });
 
-const editInputSchema = z.object({
-  name: z.string().min(1, "Employee name is required"),
-  departmentId: z.string().optional(),
-  resignDate: z.string().optional(),
-  // Personal Details
-  dateOfBirth: z.string().optional(),
-  anniversaryDate: z.string().optional(),
-  spouseName: z.string().optional(),
-  bloodGroup: z.string().optional(),
-  // Address Details
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
-  stateId: z.string().optional(),
-  cityId: z.string().optional(),
-  pincode: z.string().optional(),
-  // Contact Details
-  mobile1: z.string().optional(),
-  mobile2: z.string().optional(),
-  // Other Details
-  esic: z.string().optional(),
-  pf: z.string().optional(),
-  panNo: z.string().optional(),
-  adharNo: z.string().optional(),
-  cinNo: z.string().optional(),
-  // Travel/Reporting Details
-  airTravelClass: z.string().optional(),
-  railwayTravelClass: z.string().optional(),
-  busTravelClass: z.string().optional(),
-  reporting1Id: z.string().optional(),
-  reporting2Id: z.string().optional(),
-  // Reporting Sites
-  reportingSiteId: z.string().optional(),
-  reportingSiteAssignedDate: z.string().optional(),
-  // Leave Details
-  sickLeavesPerYear: z.string().optional(),
-  paidLeavesPerYear: z.string().optional(),
-  casualLeavesPerYear: z.string().optional(),
-  balanceSickLeaves: z.string().optional(),
-  balancePaidLeaves: z.string().optional(),
-  balanceCasualLeaves: z.string().optional(),
-  employeeDocuments: z.array(documentSchema).default([]),
-});
+const editInputSchema = z
+  .object({
+    name: z.string().min(1, "Employee name is required"),
+    departmentId: z.string().optional(),
+    resignDate: z.string().optional(),
+    // Personal Details
+    dateOfBirth: z.string().optional(),
+    anniversaryDate: z.string().optional(),
+    spouseName: z.string().optional(),
+    bloodGroup: z.string().optional(),
+    // Address Details
+    addressLine1: z.string().optional(),
+    addressLine2: z.string().optional(),
+    stateId: z.string().optional(),
+    cityId: z.string().optional(),
+    pincode: z.string().optional(),
+    // Contact Details
+    mobile1: z.string().optional(),
+    mobile2: z.string().optional(),
+    // Other Details
+    esic: z.string().optional(),
+    pf: z.string().optional(),
+    panNo: z.string().optional(),
+    adharNo: z.string().optional(),
+    cinNo: z.string().optional(),
+    // Travel/Reporting Details
+    airTravelClass: z.string().optional(),
+    railwayTravelClass: z.string().optional(),
+    busTravelClass: z.string().optional(),
+    reporting1Id: z.string().optional(),
+    reporting2Id: z.string().optional(),
+    // Reporting Sites
+    reportingSiteId: z.string().optional(),
+    reportingSiteAssignedDate: z.string().optional(),
+    // Leave Details
+    sickLeavesPerYear: z.string().optional(),
+    paidLeavesPerYear: z.string().optional(),
+    casualLeavesPerYear: z.string().optional(),
+    balanceSickLeaves: z.string().optional(),
+    balancePaidLeaves: z.string().optional(),
+    balanceCasualLeaves: z.string().optional(),
+    employeeDocuments: z.array(documentSchema).default([]),
+    // Login Details (optional on edit)
+    email: z.string().email("Valid email is required").optional(),
+    // Accept empty string as undefined so blank fields are allowed in edit mode
+    password: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z.string().min(6, "Password must be at least 6 characters").optional()
+    ),
+    confirmPassword: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z
+        .string()
+        .min(6, "Confirm password must be at least 6 characters")
+        .optional()
+    ),
+    role: z.enum(ROLE_VALUES).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.password || data.confirmPassword) {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    },
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    }
+  );
 
 const createSchema = createInputSchema.transform((data) => ({
   ...data,
@@ -432,7 +461,7 @@ export function EmployeeForm({
       email: initial?.email || "",
       password: "",
       confirmPassword: "",
-      role: ROLES.SITE_SUPERVISOR,
+      role: initial?.role || ROLES.SITE_SUPERVISOR,
       employeeDocuments: initialDocumentValues,
     },
   });
@@ -494,6 +523,8 @@ export function EmployeeForm({
                 documentName: doc.documentName ?? "",
                 documentUrl: doc.documentUrl ?? "",
               })) ?? [],
+            email: initial.email || "",
+            role: initial.role || ROLES.SITE_SUPERVISOR,
           },
         },
         { keepDirty: false, keepTouched: false }
@@ -807,6 +838,10 @@ export function EmployeeForm({
               "reportingSiteAssignedDate",
               data.reportingSiteAssignedDate.toISOString()
             );
+          // Optional login fields on edit
+          if (data.email) fd.append("email", data.email);
+          if (data.role) fd.append("role", data.role);
+          if (data.password) fd.append("password", data.password);
           if (profilePicFile) fd.append("profilePic", profilePicFile);
           if (signatureFile) fd.append("signature", signatureFile);
           fd.append("employeeDocuments", JSON.stringify(documentMetadata));
@@ -890,6 +925,10 @@ export function EmployeeForm({
           reportingSiteId: data.reportingSiteId || undefined,
           reportingSiteAssignedDate:
             data.reportingSiteAssignedDate?.toISOString() || undefined,
+          // Optional login details on edit
+          ...(data.email ? { email: data.email } : {}),
+          ...(data.role ? { role: data.role } : {}),
+          ...(data.password ? { password: data.password } : {}),
           employeeDocuments: documentMetadata,
         };
       }

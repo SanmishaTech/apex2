@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
 import type { Employee } from "@/types/employees";
 import { useParams } from "next/navigation";
+import { ROLES } from "@/config/roles";
 
 export default function EditEmployeePage() {
   const params = useParams<{ id?: string }>();
@@ -34,6 +35,31 @@ export default function EditEmployeePage() {
     );
   }
 
+  // Map stored role code (e.g., TECHNICAL_DIRECTOR/TECHNICAL_DIRECTER) to a valid ROLES label
+  function mapRoleToLabel(input?: string | null) {
+    if (!input) return "";
+    const roleValues = Object.values(ROLES) as string[]; // labels used by UI
+    // If already an exact label
+    if (roleValues.includes(input)) return input;
+    // Normalize input code to label-ish format
+    const normalizedLabel = String(input)
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    // Try direct match after normalization
+    if (roleValues.includes(normalizedLabel)) return normalizedLabel;
+    // Fix common typos (e.g., Directer -> Director)
+    const corrected = normalizedLabel.replace(/Directer/gi, "Director");
+    if (roleValues.includes(corrected)) return corrected;
+    // Fallback: match ignoring spaces/case
+    const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+    const target = norm(normalizedLabel);
+    const found = roleValues.find((r) => norm(r) === target);
+    return found || "";
+  }
+
   return (
     <EmployeeForm
       mode="edit"
@@ -47,6 +73,8 @@ export default function EditEmployeePage() {
           : null,
         signatureImage: employee.signatureImage ?? null,
         employeeImage: employee.employeeImage ?? null,
+        email: employee.user?.email,
+        role: mapRoleToLabel(employee.user?.role),
         employeeDocuments: employee.employeeDocuments?.map((doc) => ({
           id: doc.id,
           documentName: doc.documentName,
