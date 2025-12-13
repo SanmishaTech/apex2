@@ -103,20 +103,6 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     type: "group",
-    title: "Purchase Billing",
-    icon: Receipt,
-    children: [
-      {
-        title: "Inward Bills",
-        href: "/inward-bills",
-        icon: FileText,
-        permission: PERMISSIONS.READ_INWARD_BILL,
-      },
-    ],
-  },
-
-  {
-    type: "group",
     title: "H.R",
     icon: UserCheck,
     children: [
@@ -324,12 +310,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
-      {
-        title: "Work Order Bills",
-        href: "/work-order-bills",
-        icon: FileText,
-        permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
-      },
+      // {
+      //   title: "Work Order Bills",
+      //   href: "/work-order-bills",
+      //   icon: FileText,
+      //   permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
+      // },
       {
         title: "Inward Delivery Challan",
         href: "/inward-delivery-challans",
@@ -342,12 +328,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN,
       },
-      {
-        title: "Work Orders",
-        href: "/work-orders",
-        icon: FileText,
-        permission: PERMISSIONS.READ_WORK_ORDERS,
-      },
+      // {
+      //   title: "Work Orders",
+      //   href: "/work-orders",
+      //   icon: FileText,
+      //   permission: PERMISSIONS.READ_WORK_ORDERS,
+      // },
       {
         title: "Units",
         href: "/units",
@@ -384,6 +370,19 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/site-budgets",
         icon: Folder,
         permission: PERMISSIONS.READ_SITE_BUDGETS,
+      },
+    ],
+  },
+  {
+    type: "group",
+    title: "Purchase Billing",
+    icon: Receipt,
+    children: [
+      {
+        title: "Inward Bills",
+        href: "/inward-bills",
+        icon: FileText,
+        permission: PERMISSIONS.READ_INWARD_BILL,
       },
     ],
   },

@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     return handleDropdown(req);
   }
   if (variant === "closing-stock") {
-    // Compute closing stock for a site and a list of itemIds
+    // Compute closing stock for a site and a list of itemIds from SiteItem.closingStock
     const siteIdParam = searchParams.get("siteId");
     const itemIdsParam = searchParams.get("itemIds");
     const siteId = siteIdParam ? Number(siteIdParam) : NaN;
@@ -115,19 +115,13 @@ export async function GET(req: NextRequest) {
       return BadRequest("siteId and itemIds are required");
     }
     try {
-      const sums = await prisma.stockLedger.groupBy({
-        by: ["itemId"],
-        where: {
-          siteId: siteId as number,
-          itemId: { in: itemIds as number[] },
-        },
-        _sum: { receivedQty: true, issuedQty: true },
-      } as any);
+      const siteItems = await prisma.siteItem.findMany({
+        where: { siteId: siteId as number, itemId: { in: itemIds as number[] } },
+        select: { itemId: true, closingStock: true },
+      });
       const closingStockByItemId: Record<number, number> = {};
-      for (const row of sums as any[]) {
-        const recv = Number(row._sum?.receivedQty ?? 0);
-        const issued = Number(row._sum?.issuedQty ?? 0);
-        closingStockByItemId[row.itemId] = Number((recv - issued).toFixed(4));
+      for (const si of siteItems) {
+        closingStockByItemId[Number(si.itemId)] = Number(si.closingStock ?? 0);
       }
       return Success({ closingStockByItemId });
     } catch (e) {

@@ -169,7 +169,7 @@ export async function GET(
 
     if (!challan) return NotFound("Inward delivery challan not found");
 
-    // Compute closing stock per item for this site using StockLedger
+    // Compute closing stock per item for this site using SiteItem.closingStock
     try {
       const itemIds = (challan.inwardDeliveryChallanDetails || [])
         .map((d: any) => d?.poDetails?.itemId)
@@ -177,18 +177,12 @@ export async function GET(
       const uniqueItemIds = Array.from(new Set(itemIds));
       let closingStockByItemId: Record<number, number> = {};
       if (uniqueItemIds.length > 0) {
-        const sums = await prisma.stockLedger.groupBy({
-          by: ["itemId"],
-          where: {
-            siteId: challan.siteId,
-            itemId: { in: uniqueItemIds },
-          },
-          _sum: { receivedQty: true, issuedQty: true },
-        } as any);
-        for (const row of sums as any[]) {
-          const recv = Number(row._sum?.receivedQty ?? 0);
-          const issued = Number(row._sum?.issuedQty ?? 0);
-          closingStockByItemId[row.itemId] = Number((recv - issued).toFixed(4));
+        const siteItems = await prisma.siteItem.findMany({
+          where: { siteId: challan.siteId, itemId: { in: uniqueItemIds } },
+          select: { itemId: true, closingStock: true },
+        });
+        for (const si of siteItems) {
+          closingStockByItemId[Number(si.itemId)] = Number(si.closingStock ?? 0);
         }
       }
       return Success({ ...challan, closingStockByItemId });
