@@ -203,20 +203,14 @@ export async function POST(req: NextRequest) {
         requestedByItem.set(d.itemId, Number((prev + (d.qty || 0)).toFixed(4)));
       }
 
-      // Compute closing via stock ledger (received - issued), align with frontend closing endpoint
-      const sums = await prisma.stockLedger.groupBy({
-        by: ["itemId"],
-        where: {
-          siteId: siteIdForValidation,
-          itemId: { in: itemIds },
-        },
-        _sum: { receivedQty: true, issuedQty: true },
-      } as any);
+      // Compute closing from SiteItem.closingStock to match frontend display
+      const siteItemsForValidation = await prisma.siteItem.findMany({
+        where: { siteId: siteIdForValidation, itemId: { in: itemIds } },
+        select: { itemId: true, closingStock: true },
+      });
       const closingById = new Map<number, number>();
-      for (const row of sums as any[]) {
-        const recv = Number(row._sum?.receivedQty ?? 0);
-        const issued = Number(row._sum?.issuedQty ?? 0);
-        closingById.set(Number(row.itemId), Number((recv - issued).toFixed(4)));
+      for (const si of siteItemsForValidation) {
+        closingById.set(Number(si.itemId), Number(si.closingStock ?? 0));
       }
 
       const errors: string[] = [];
