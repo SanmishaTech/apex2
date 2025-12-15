@@ -74,7 +74,7 @@ export default function EditEmployeePage() {
         signatureImage: employee.signatureImage ?? null,
         employeeImage: employee.employeeImage ?? null,
         email: employee.user?.email,
-        role: mapRoleToLabel(employee.user?.role),
+        role: employee.user?.role ?? "",
         employeeDocuments: employee.employeeDocuments?.map((doc) => ({
           id: doc.id,
           documentName: doc.documentName,

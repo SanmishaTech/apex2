@@ -317,6 +317,7 @@ export async function PATCH(
               isComplete: true,
               createdById: true,
               approved1ById: true,
+              amount: true,
               siteId: true,
               purchaseOrderDetails: {
                 select: {
@@ -545,11 +546,15 @@ export async function PATCH(
             updateData.isApproved1 = true;
             updateData.approved1ById = auth.user.id;
             updateData.approved1At = now;
-
-            // If projectDirector has L2 approval permission, auto-approve Level 2 as well
+            // Auto-approve Level 2 when total amount <= 100000 OR when PD has L2 permission
+            const totalForDecision =
+              typeof (poData as any).amount === "number"
+                ? Number((poData as any).amount)
+                : Number(current.amount || 0);
             if (
-              auth.user.role === ROLES.PROJECT_DIRECTOR &&
-              has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2)
+              totalForDecision <= 100000 ||
+              (auth.user.role === ROLES.PROJECT_DIRECTOR &&
+                has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2))
             ) {
               updateData.approvalStatus = "APPROVED_LEVEL_2";
               updateData.isApproved2 = true;
@@ -760,7 +765,13 @@ export async function PATCH(
             select: {
               id: true,
               purchaseOrderDetails: {
-                select: { itemId: true, qty: true, approved1Qty: true, approved2Qty: true, amount: true },
+                select: {
+                  itemId: true,
+                  qty: true,
+                  approved1Qty: true,
+                  approved2Qty: true,
+                  amount: true,
+                },
               },
             },
           });
@@ -790,13 +801,17 @@ export async function PATCH(
             });
 
             const existing = new Map<number, { id: number }>();
-            for (const b of budgets) existing.set(Number(b.itemId), { id: b.id });
+            for (const b of budgets)
+              existing.set(Number(b.itemId), { id: b.id });
 
             // Upsert per item: update if exists else create with zeroed budget fields
             for (const itemId of itemIds) {
               const orderedQty = totalByItem.get(itemId) || 0;
               const orderedValue = totalValueByItem.get(itemId) || 0;
-              const avgRate = orderedQty > 0 ? Number((orderedValue / orderedQty).toFixed(2)) : 0;
+              const avgRate =
+                orderedQty > 0
+                  ? Number((orderedValue / orderedQty).toFixed(2))
+                  : 0;
 
               const found = existing.get(itemId);
               if (found) {

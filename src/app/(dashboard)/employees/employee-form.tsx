@@ -105,6 +105,7 @@ export interface EmployeeFormProps {
 }
 
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
 
 const documentSchema = z.object({
   id: z.union([z.number(), z.undefined()]).optional(),
@@ -165,7 +166,9 @@ const createInputSchema = z
     confirmPassword: z
       .string()
       .min(6, "Confirm password must be at least 6 characters"),
-    role: z.enum(ROLE_VALUES).default(ROLES.SITE_SUPERVISOR),
+    role: z
+      .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
+      .default(ROLES.SITE_SUPERVISOR),
     employeeDocuments: z.array(documentSchema).default([]),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -229,7 +232,7 @@ const editInputSchema = z
         .min(6, "Confirm password must be at least 6 characters")
         .optional()
     ),
-    role: z.enum(ROLE_VALUES).optional(),
+    role: z.union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)]).optional(),
   })
   .refine(
     (data) => {
