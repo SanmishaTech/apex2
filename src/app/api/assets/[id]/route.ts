@@ -178,13 +178,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       assetCategoryId: body.assetCategoryId ? Number(body.assetCategoryId) : body.assetCategoryId,
     });
 
-    // Convert datetime strings to Date objects
+    // Normalize and convert date fields
     const updateData: any = { ...validatedData };
-    
-    if (validatedData.purchaseDate) {
+
+    // purchaseDate: allow null, convert non-empty strings to Date, map empty string to null
+    if (validatedData.purchaseDate === "" || validatedData.purchaseDate === null) {
+      updateData.purchaseDate = null;
+    } else if (validatedData.purchaseDate) {
       updateData.purchaseDate = new Date(validatedData.purchaseDate);
     }
-    if (validatedData.nextMaintenanceDate) {
+
+    // nextMaintenanceDate: allow null, convert non-empty strings to Date, map empty string to null
+    if (validatedData.nextMaintenanceDate === "" || validatedData.nextMaintenanceDate === null) {
+      updateData.nextMaintenanceDate = null;
+    } else if (validatedData.nextMaintenanceDate) {
       updateData.nextMaintenanceDate = new Date(validatedData.nextMaintenanceDate);
     }
 

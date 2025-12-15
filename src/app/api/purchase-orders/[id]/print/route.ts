@@ -52,6 +52,46 @@ function drawLines(
   return currentY;
 }
 
+// Measure total height of wrapped lines for a given width
+function measureWrappedLinesHeight(
+  doc: jsPDF,
+  lines: { text: string; bold?: boolean }[],
+  maxWidth: number,
+  lineHeight = 4
+) {
+  let total = 0;
+  for (const line of lines) {
+    if (!line.text) continue;
+    doc.setFont("helvetica", line.bold ? "bold" : "normal");
+    const wrapped = doc.splitTextToSize(line.text, maxWidth);
+    total += (Array.isArray(wrapped) ? wrapped.length : 1) * lineHeight;
+  }
+  return total;
+}
+
+// Draw wrapped lines within a given width
+function drawWrappedLines(
+  doc: jsPDF,
+  lines: { text: string; bold?: boolean }[],
+  x: number,
+  startY: number,
+  maxWidth: number,
+  lineHeight = 4
+) {
+  let currentY = startY;
+  for (const line of lines) {
+    if (!line.text) continue;
+    doc.setFont("helvetica", line.bold ? "bold" : "normal");
+    const wrapped = doc.splitTextToSize(line.text, maxWidth);
+    const items = Array.isArray(wrapped) ? wrapped : [String(wrapped)];
+    for (const w of items) {
+      doc.text(w, x, currentY);
+      currentY += lineHeight;
+    }
+  }
+  return currentY;
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -76,6 +116,11 @@ export async function GET(
       note: true,
       terms: true,
       paymentTermsInDays: true,
+      paymentTerm: {
+        select: {
+          description: true,
+        },
+      },
       deliverySchedule: true,
       amount: true,
       amountInWords: true,
@@ -203,6 +248,7 @@ export async function GET(
             select: {
               item: true,
               itemCode: true,
+              description: true,
               hsnCode: true,
               unit: {
                 select: {
@@ -223,11 +269,16 @@ export async function GET(
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
   const usableWidth = pageWidth - margin * 2;
 
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.4);
+  doc.rect(margin, margin, usableWidth, pageHeight - margin * 2);
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.rect(margin, margin, usableWidth, 10);
   doc.text("PURCHASE ORDER", pageWidth / 2, margin + 7, {
     align: "center",
@@ -245,32 +296,10 @@ export async function GET(
   doc.setTextColor(0);
 
   const topBoxY = margin + 14;
-  const topBoxHeight = 66;
   const halfWidth = usableWidth / 2;
   const topBoxX = margin;
 
-  doc.setDrawColor(0);
-  doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
-  doc.line(
-    topBoxX + halfWidth,
-    topBoxY,
-    topBoxX + halfWidth,
-    topBoxY + topBoxHeight
-  );
-  doc.line(
-    topBoxX,
-    topBoxY + topBoxHeight / 2,
-    topBoxX + halfWidth,
-    topBoxY + topBoxHeight / 2
-  );
-  doc.line(
-    topBoxX + halfWidth,
-    topBoxY + topBoxHeight / 2,
-    topBoxX + usableWidth,
-    topBoxY + topBoxHeight / 2
-  );
-
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   const vendorPhone = [
     purchaseOrder.vendor?.mobile1,
     purchaseOrder.vendor?.mobile2,
@@ -299,7 +328,7 @@ export async function GET(
     { text: `GST No : ${safeText(purchaseOrder.vendor?.gstNumber)}` },
     { text: `State Code : ${safeText(purchaseOrder.vendor?.stateCode)}` },
   ];
-  drawLines(doc, vendorLines, topBoxX + 2, topBoxY + 6);
+  // Prepare billing/PO/delivery blocks
 
   const billing = purchaseOrder.billingAddress;
   const billingPhone = [billing?.landline1, billing?.landline2]
@@ -324,7 +353,6 @@ export async function GET(
     { text: `GST No : ${safeText(billing?.gstNumber)}` },
     { text: `State Code : ${safeText(billing?.stateCode)}` },
   ];
-  drawLines(doc, billingLines, topBoxX + 2, topBoxY + topBoxHeight / 2 + 6);
 
   const poHeaderLines = [
     { text: "INLAND PURCHASE ORDER", bold: true },
@@ -334,7 +362,6 @@ export async function GET(
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
     { text: `Indent No : ${safeText(purchaseOrder.indent?.indentNo)}` },
   ];
-  drawLines(doc, poHeaderLines, topBoxX + halfWidth + 2, topBoxY + 6);
 
   const deliver = purchaseOrder.siteDeliveryAddress;
   const deliverLines = [
@@ -363,33 +390,133 @@ export async function GET(
       text: `Contact No : ${safeText(purchaseOrder.site?.company?.contactNo)}`,
     },
   ];
-  drawLines(
+  // Compute dynamic heights for top/bottom halves and draw the box & dividers
+  const colTextWidth = halfWidth - 4; // padding 2mm on each side
+  const lineHeight = 3.2;
+  const vendorHeight = measureWrappedLinesHeight(
+    doc,
+    vendorLines,
+    colTextWidth,
+    lineHeight
+  );
+  const poHeaderHeight = measureWrappedLinesHeight(
+    doc,
+    poHeaderLines,
+    colTextWidth,
+    lineHeight
+  );
+  const topHalfHeight = Math.max(vendorHeight, poHeaderHeight) + 8; // include top/bottom padding
+
+  const billingHeight = measureWrappedLinesHeight(
+    doc,
+    billingLines,
+    colTextWidth,
+    lineHeight
+  );
+  const deliverHeight = measureWrappedLinesHeight(
+    doc,
+    deliverLines,
+    colTextWidth,
+    lineHeight
+  );
+  const bottomHalfHeight = Math.max(billingHeight, deliverHeight) + 8;
+
+  const topBoxHeight = topHalfHeight + bottomHalfHeight;
+
+  doc.setDrawColor(0);
+  doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
+  // vertical center divider
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY,
+    topBoxX + halfWidth,
+    topBoxY + topBoxHeight
+  );
+  // horizontal divider at computed top-half height
+  doc.line(
+    topBoxX,
+    topBoxY + topHalfHeight,
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight
+  );
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight,
+    topBoxX + usableWidth,
+    topBoxY + topHalfHeight
+  );
+
+  // Render wrapped text blocks within columns
+  drawWrappedLines(
+    doc,
+    vendorLines,
+    topBoxX + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    poHeaderLines,
+    topBoxX + halfWidth + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    billingLines,
+    topBoxX + 2,
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
     doc,
     deliverLines,
     topBoxX + halfWidth + 2,
-    topBoxY + topBoxHeight / 2 + 6
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
   );
 
   const summaryYStart = topBoxY + topBoxHeight + 6;
   doc.setFont("helvetica", "normal");
-  doc.text(
-    doc.splitTextToSize(
-      "We are pleased to confirm our purchase order against your quotation. Please acknowledge the following items as per terms and conditions.",
-      usableWidth
-    ),
+  doc.setFontSize(9);
+  const summaryText =
+    "Dear Sir/Madam :\nWe are pleased to confirm our purchase order against your Quotation. You are requested to supply the following items as per terms and\nconditions attached. Please quote purchase order no in challan,invoice and related correspondence.";
+  const summarySpec = [{ text: summaryText }];
+  const summaryHeight = measureWrappedLinesHeight(
+    doc,
+    summarySpec,
+    usableWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    summarySpec,
     margin,
-    summaryYStart
+    summaryYStart,
+    usableWidth,
+    lineHeight
   );
 
-  const tableStartY = summaryYStart + 8;
+  const tableStartY = summaryYStart + summaryHeight + 4;
+  // Build item rows matching screenshot format
   const itemRows = purchaseOrder.purchaseOrderDetails.map((detail, index) => [
     (index + 1).toString(),
-    detail.item?.item ?? "",
-    detail.item?.itemCode ?? "",
-    formatNumber(detail.qty, 3),
+    [
+      detail.item?.item ?? "",
+      detail.item?.description ? String(detail.item.description) : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    detail.item?.hsnCode ?? "",
     detail.item?.unit?.unitName ?? "",
-    formatNumber(detail.rate),
+    formatNumber(detail.qty, 3),
+    formatNumber(detail.rate, 3),
     formatNumber(detail.discountPercent),
+    formatCurrency(detail.disAmt),
     formatNumber(detail.cgstPercent),
     formatCurrency(detail.cgstAmt),
     formatNumber(detail.sgstPercent),
@@ -399,38 +526,55 @@ export async function GET(
     formatCurrency(detail.amount),
   ]);
 
+  const headRows: CellDef[][] = [
+    [
+      { content: "Sr. No.", rowSpan: 2 as any },
+      { content: "Material Description", rowSpan: 2 as any },
+      { content: "HSN/SAC Code", rowSpan: 2 as any },
+      { content: "Unit", rowSpan: 2 as any },
+      { content: "Qty", rowSpan: 2 as any },
+      { content: "Rate (INR)", rowSpan: 2 as any },
+      { content: "Discount", colSpan: 2 as any },
+      { content: "CGST", colSpan: 2 as any },
+      { content: "SGST", colSpan: 2 as any },
+      { content: "IGST", colSpan: 2 as any },
+      { content: "Amount (INR)", rowSpan: 2 as any },
+    ],
+    [
+      { content: "Rate" },
+      { content: "Amt" },
+      { content: "Rate" },
+      { content: "Amt" },
+      { content: "Rate" },
+      { content: "Amt" },
+      { content: "Rate" },
+      { content: "Amt" },
+    ],
+  ];
+
+  const itemTableStyles: any = {
+    fontSize: 7,
+    cellPadding: 1.5,
+    valign: "top",
+    lineWidth: 0.4,
+  };
+
   autoTable(doc, {
     startY: tableStartY,
-    head: [
-      [
-        "Sr No",
-        "Material Description",
-        "Code",
-        "Qty",
-        "Unit",
-        "Rate",
-        "Discount %",
-        "CGST %",
-        "CGST Amt",
-        "SGST %",
-        "SGST Amt",
-        "IGST %",
-        "IGST Amt",
-        "Amount",
-      ],
-    ],
+    head: headRows,
     body: itemRows,
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
+    theme: "grid",
+    styles: itemTableStyles,
     headStyles: {
       fillColor: [220, 220, 220],
       textColor: 0,
     },
+    margin: margin,
     columnStyles: {
-      0: { halign: "center", cellWidth: 12 },
-      3: { halign: "right" },
+      0: { halign: "center", cellWidth: 10 },
+      2: { halign: "center" },
+      3: { halign: "center" },
+      4: { halign: "right" },
       5: { halign: "right" },
       6: { halign: "right" },
       7: { halign: "right" },
@@ -440,10 +584,14 @@ export async function GET(
       11: { halign: "right" },
       12: { halign: "right" },
       13: { halign: "right" },
+      14: { halign: "right" },
     },
   });
 
   const tableEndY = (doc as any).lastAutoTable.finalY;
+  doc.setLineWidth(0.4);
+  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
+  doc.setLineWidth(0.2);
 
   const totals = purchaseOrder.purchaseOrderDetails.reduce(
     (acc, detail) => {
@@ -475,6 +623,7 @@ export async function GET(
       : 0;
 
   const baseAmount = totals.amount - totals.cgst - totals.sgst - totals.igst;
+  const totalGST = totals.cgst + totals.sgst + totals.igst;
   const grandTotal =
     Number(purchaseOrder.amount ?? 0) ||
     baseAmount +
@@ -487,82 +636,150 @@ export async function GET(
 
   const chargesY = tableEndY + 6;
 
+  // Build a 4-column grid: [Left Label, Left Value, Right Label, Right Value]
+  const leftValuePaymentTerms = purchaseOrder.paymentTerm?.description ?? "-";
+
+  const validityText = safeText(
+    "If you have any query, please revert within 48 hours, else we will presume that order is accepted by you. Purchase Order validity is upto 30 days"
+  );
+  const jurisText =
+    "Mumbai Courts, please refer the general terms and conditions governing this PO.";
+
+  const amountWords =
+    safeText(purchaseOrder.amountInWords) || "Rupees Zero Only";
+  const chargesRows: any[][] = [
+    [
+      "Delivery Schedule:",
+      safeText(purchaseOrder.deliverySchedule),
+      "Transport Charges",
+      safeText(purchaseOrder.transport),
+    ],
+    [
+      "Payment Terms:",
+      leftValuePaymentTerms,
+      "Transit Insurance",
+      transitAmount ? formatCurrency(transitAmount) : "Inclusive",
+    ],
+    [
+      "Validity:",
+      validityText,
+      "Total Amount before Tax",
+      formatCurrency(baseAmount),
+    ],
+    [
+      "Jurisdiction & Conditions:",
+      jurisText,
+      "CGST",
+      formatCurrency(totals.cgst),
+    ],
+    [
+      "Note:",
+      safeText(purchaseOrder.note),
+      "SGST",
+      formatCurrency(totals.sgst),
+    ],
+    ["", "", "IGST", formatCurrency(totals.igst)],
+    ["", "", "Total GST", formatCurrency(totalGST)],
+    [
+      "",
+      "",
+      "GST Reverse Charge",
+      gstReverseAmount ? formatCurrency(gstReverseAmount) : "Not Applicable",
+    ],
+    [
+      { content: amountWords, colSpan: 2, styles: { fontStyle: "bold" } },
+      "Total Amount",
+      formatCurrency(grandTotal),
+    ],
+  ];
+
+  const leftSectionWidth = usableWidth * 0.6;
+  const rightSectionWidth = usableWidth * 0.4;
+
+  const boldRightLabels = new Set([
+    "Total Amount before Tax",
+    "Total GST",
+    "Total Amount",
+  ]);
+
+  const chargesTableStyles: any = {
+    fontSize: 8,
+    cellPadding: 1.2,
+    lineWidth: 0.4,
+  };
+
   autoTable(doc, {
     startY: chargesY,
-    body: [
-      ["Delivery Schedule", safeText(purchaseOrder.deliverySchedule)],
-      [
-        "Payment Terms",
-        purchaseOrder.paymentTermsInDays
-          ? `${purchaseOrder.paymentTermsInDays} Days from PO`
-          : "As per PO",
-      ],
-      ["Transport", safeText(purchaseOrder.transport)],
-      [
-        "Validity",
-        safeText(
-          purchaseOrder.terms ??
-            "Terms & Conditions apply as per negotiated agreement"
-        ),
-      ],
-      ["Jurisdiction & Conditions", safeText(purchaseOrder.note)],
-      [
-        "Transit Insurance",
-        transitAmount ? formatCurrency(transitAmount) : "Inclusive",
-      ],
-      ["PF Charges", pfAmount ? formatCurrency(pfAmount) : "Inclusive"],
-      [
-        "GST Reverse Charges",
-        gstReverseAmount ? formatCurrency(gstReverseAmount) : "Not Applicable",
-      ],
-      ["Total Before Tax", formatCurrency(baseAmount)],
-      ["CGST", formatCurrency(totals.cgst)],
-      ["SGST", formatCurrency(totals.sgst)],
-      ["IGST", formatCurrency(totals.igst)],
-      ["Grand Total", formatCurrency(grandTotal)],
-    ],
-    theme: "plain",
-    styles: {
-      fontSize: 9,
-      cellPadding: 1.5,
-    },
+    body: chargesRows as any,
+    theme: "grid",
+    styles: chargesTableStyles,
+    margin: margin,
     columnStyles: {
-      0: { cellWidth: usableWidth * 0.4 },
-      1: { halign: "right" },
+      0: { cellWidth: leftSectionWidth * 0.45 },
+      1: { cellWidth: leftSectionWidth * 0.55 },
+      2: { cellWidth: rightSectionWidth * 0.65 },
+      3: { cellWidth: rightSectionWidth * 0.35, halign: "right" },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === "body" && data.column.index === 2) {
+        const label = String(data.cell.raw ?? "");
+        if (boldRightLabels.has(label)) {
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
     },
   });
 
-  const afterChargesY = (doc as any).lastAutoTable.finalY + 4;
+  const chargesTableEndY = (doc as any).lastAutoTable.finalY;
+  doc.setLineWidth(0.4);
+  doc.rect(margin, chargesY, usableWidth, chargesTableEndY - chargesY);
+  doc.setLineWidth(0.2);
 
-  doc.setFont("helvetica", "bold");
-  doc.text("Rupees (in words)", margin, afterChargesY);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    doc.splitTextToSize(
-      safeText(purchaseOrder.amountInWords) || "Rupees Zero Only",
-      usableWidth
-    ),
-    margin,
-    afterChargesY + 5
-  );
+  const afterChargesY = chargesTableEndY + 4;
 
-  const termsStartY = afterChargesY + 18;
+  let termsStartY = afterChargesY + 4;
   doc.setFont("helvetica", "bold");
   doc.text("Terms & Conditions", margin, termsStartY);
   doc.setFont("helvetica", "normal");
   const termLines = [
-    "Material supplied is subject to approval of quality assurance & performance parameters.",
-    "Invoices must accompany delivery challan mentioning this purchase order number.",
-    "Any dispute will be subject to Mumbai jurisdiction.",
+    "Material shall be subject to approval for quality assurance and performance parameters as per the datasheet. Any rejections shall be on the supplier’s account.",
+    "Material Test Certificate (MTC) must be sent along with the material.",
+    "Material should be dispatched as per the given dispatch schedule.",
+    "Material should be delivered in sealed-pack condition with a minimum shelf life of 6 months.",
+    "All invoices must be sent in duplicate to the Head Office for smooth release of payment and must include the Purchase Order number.",
   ];
-  doc.text(
-    doc.splitTextToSize(termLines.join("\n"), usableWidth),
-    margin,
-    termsStartY + 5
+  const termsSpec = [{ text: termLines.join("\n") }];
+  const termsHeight = measureWrappedLinesHeight(
+    doc,
+    termsSpec,
+    usableWidth,
+    lineHeight
   );
 
-  const signatureBoxY = termsStartY + 30;
-  const signatureBoxHeight = 26;
+  const signatureBoxHeight = 20;
+  const footerSpace = 10;
+  const totalNeeded = 5 + termsHeight + 6 + signatureBoxHeight + footerSpace;
+  if (termsStartY + totalNeeded > pageHeight - margin) {
+    doc.addPage();
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.4);
+    doc.rect(margin, margin, usableWidth, pageHeight - margin * 2);
+    termsStartY = margin + 14;
+    doc.setFont("helvetica", "bold");
+    doc.text("Terms & Conditions", margin, termsStartY);
+    doc.setFont("helvetica", "normal");
+  }
+
+  drawWrappedLines(
+    doc,
+    termsSpec as any,
+    margin,
+    termsStartY + 5,
+    usableWidth,
+    lineHeight
+  );
+
+  const signatureBoxY = termsStartY + 5 + termsHeight + 6;
   doc.rect(margin, signatureBoxY, usableWidth, signatureBoxHeight);
   doc.line(
     margin + usableWidth / 2,
@@ -571,21 +788,27 @@ export async function GET(
     signatureBoxY + signatureBoxHeight
   );
   doc.setFont("helvetica", "bold");
-  doc.text("Signature", margin + 4, signatureBoxY + 18);
+  doc.text("Signature", margin + 4, signatureBoxY + signatureBoxHeight - 8);
   doc.text(
     "Authorised Signatory",
     margin + usableWidth / 2 + 4,
-    signatureBoxY + 18
+    signatureBoxY + signatureBoxHeight - 8
   );
 
-  const footerY = signatureBoxY + signatureBoxHeight + 12;
+  const totalPages = doc.getNumberOfPages();
   doc.setFontSize(8);
   const footerText = `Apex Constructions    Generated on ${format(
     new Date(),
     "dd-MM-yyyy HH:mm"
   )}`;
-  doc.text(footerText, margin, footerY);
-  doc.text("Page 1/1", pageWidth - margin, footerY, { align: "right" });
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    const y = pageHeight - margin;
+    doc.text(footerText, margin, y);
+    doc.text(`Page ${i}/${totalPages}`, pageWidth - margin, y, {
+      align: "right",
+    });
+  }
 
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 
