@@ -11,6 +11,15 @@ import crypto from "crypto";
 import { ROLES } from "@/config/roles";
 
 const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
+
+function labelToRoleCode(label?: string | null) {
+  if (!label) return undefined as unknown as string;
+  for (const [code, lbl] of Object.entries(ROLES)) {
+    if (lbl === label) return code;
+  }
+  return label; // fallback (should not happen when label comes from ROLE_VALUES)
+}
 
 const createSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
@@ -23,7 +32,9 @@ const createSchema = z.object({
       if (!val) return undefined;
       return new Date(val);
     }),
-  role: z.enum(ROLE_VALUES).default(ROLES.SITE_SUPERVISOR),
+  role: z
+    .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
+    .default(ROLES.SITE_SUPERVISOR),
   // Personal Details
   dateOfBirth: z
     .string()
@@ -350,7 +361,8 @@ export async function POST(req: NextRequest) {
                 : undefined,
             documentName: String(doc?.documentName || ""),
             documentUrl:
-              typeof doc?.documentUrl === "string" && doc.documentUrl.trim() !== ""
+              typeof doc?.documentUrl === "string" &&
+              doc.documentUrl.trim() !== ""
                 ? doc.documentUrl
                 : undefined,
             index,
@@ -412,7 +424,7 @@ export async function POST(req: NextRequest) {
           name: parsedData.name,
           email: parsedData.email,
           passwordHash: hashedPassword,
-          role: parsedData.role,
+          role: labelToRoleCode(parsedData.role) as any,
           status: true,
         },
       });
@@ -495,28 +507,39 @@ export async function POST(req: NextRequest) {
       });
 
       if (documentMetadata.length > 0) {
-        const documentsToCreate: Array<{ employeeId: number; documentName: string; documentUrl: string } | null> =
-          await Promise.all(
-            documentMetadata.map(async (docMeta) => {
-              let finalUrl = docMeta.documentUrl || null;
-              const matchingFile = documentFiles.find(
-                (entry) => entry.index === docMeta.index
-              );
-              if (matchingFile) {
-                finalUrl = await saveDocument(matchingFile.file);
-              }
-              if (!finalUrl) return null;
-              return {
-                employeeId: employee.id,
-                documentName: docMeta.documentName.trim(),
-                documentUrl: finalUrl,
-              };
-            })
-          );
+        const documentsToCreate: Array<{
+          employeeId: number;
+          documentName: string;
+          documentUrl: string;
+        } | null> = await Promise.all(
+          documentMetadata.map(async (docMeta) => {
+            let finalUrl = docMeta.documentUrl || null;
+            const matchingFile = documentFiles.find(
+              (entry) => entry.index === docMeta.index
+            );
+            if (matchingFile) {
+              finalUrl = await saveDocument(matchingFile.file);
+            }
+            if (!finalUrl) return null;
+            return {
+              employeeId: employee.id,
+              documentName: docMeta.documentName.trim(),
+              documentUrl: finalUrl,
+            };
+          })
+        );
 
-        const filteredDocs = documentsToCreate.filter((doc): doc is { employeeId: number; documentName: string; documentUrl: string } => {
-          return Boolean(doc && doc.documentName && doc.documentUrl);
-        });
+        const filteredDocs = documentsToCreate.filter(
+          (
+            doc
+          ): doc is {
+            employeeId: number;
+            documentName: string;
+            documentUrl: string;
+          } => {
+            return Boolean(doc && doc.documentName && doc.documentUrl);
+          }
+        );
 
         if (filteredDocs.length > 0) {
           await tx.employeeDocument.createMany({ data: filteredDocs });

@@ -11,6 +11,15 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import bcrypt from "bcryptjs";
+import { ROLES } from "@/config/roles";
+
+function labelToRoleCode(label?: string | null) {
+  if (!label) return undefined as unknown as string;
+  for (const [code, lbl] of Object.entries(ROLES)) {
+    if (lbl === label) return code;
+  }
+  return label;
+}
 const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
@@ -602,7 +611,7 @@ export async function PATCH(
       if (employee.userId && (newEmail || newRole || newPassword)) {
         const userUpdate: any = {};
         if (newEmail) userUpdate.email = newEmail;
-        if (newRole) userUpdate.role = newRole as any;
+        if (newRole) userUpdate.role = labelToRoleCode(newRole) as any;
         if (newPassword) {
           userUpdate.passwordHash = await bcrypt.hash(newPassword, 10);
         }

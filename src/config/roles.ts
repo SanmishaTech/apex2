@@ -316,6 +316,7 @@ export const ROLES = {
 export const ROLES_PERMISSIONS = {
   // Admin: everything
   [ROLES.ADMIN]: [...Object.values(PERMISSIONS)],
+  [ROLES.PROJECT_DIRECTOR]: [...Object.values(PERMISSIONS)],
 
   // Internal staff user: can view dashboard, read users & projects & project files (but no creation/upload/delete)
 
@@ -344,10 +345,10 @@ export const ROLES_PERMISSIONS = {
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
   ],
-  [ROLES.PROJECT_DIRECTOR]: [
-    // DASHBOARD
-    PERMISSIONS.VIEW_DASHBOARD,
-  ],
+  // [ROLES.PROJECT_DIRECTOR]: [
+  //   // DASHBOARD
+  //   PERMISSIONS.VIEW_DASHBOARD,
+  // ],
   [ROLES.HR_ASSISTANT]: [
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
