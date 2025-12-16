@@ -1,58 +1,59 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { AppCard } from '@/components/common/app-card';
-import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { Pagination } from '@/components/common/pagination';
-import { FilterBar } from '@/components/common';
-import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { AppSelect } from '@/components/common/app-select';
-import { AppButton } from '@/components/common/app-button';
-import { DeleteButton } from '@/components/common/delete-button';
-import { EditButton } from '@/components/common/icon-button';
-import { useProtectPage } from '@/hooks/use-protect-page';
-import { usePermissions } from '@/hooks/use-permissions';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { useSearchParams } from 'next/navigation';
-import { PERMISSIONS } from '@/config/roles';
-import useSWR from 'swr';
-import { toast } from '@/lib/toast';
-import { apiDelete } from '@/lib/api-client';
-import { Asset, AssetsResponse, ASSET_STATUS_OPTIONS } from '@/types/assets';
-import { BulkAssetsUploadDialog } from '@/components/common/bulk-assets-upload-dialog';
-import { SitesResponse } from '@/types/sites';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { AppCard } from "@/components/common/app-card";
+import { DataTable, SortState, Column } from "@/components/common/data-table";
+import { Pagination } from "@/components/common/pagination";
+import { FilterBar } from "@/components/common";
+import { NonFormTextInput } from "@/components/common/non-form-text-input";
+import { AppSelect } from "@/components/common/app-select";
+import { AppButton } from "@/components/common/app-button";
+import { DeleteButton } from "@/components/common/delete-button";
+import { EditButton } from "@/components/common/icon-button";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import { useSearchParams } from "next/navigation";
+import { PERMISSIONS } from "@/config/roles";
+import useSWR from "swr";
+import { toast } from "@/lib/toast";
+import { apiDelete } from "@/lib/api-client";
+import { Asset, AssetsResponse, ASSET_STATUS_OPTIONS } from "@/types/assets";
+import { BulkAssetsUploadDialog } from "@/components/common/bulk-assets-upload-dialog";
+import { SitesResponse } from "@/types/sites";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function AssetsPage() {
   useProtectPage();
-  
+
   const searchParams = useSearchParams();
-  const { pushWithScrollSave } = useScrollRestoration('assets-list');
-  
+  const { pushWithScrollSave } = useScrollRestoration("assets-list");
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
-    search: '',
-    status: '',
-    site: '',
-    sort: 'createdAt',
-    order: 'desc',
+    search: "",
+    status: "",
+    site: "",
+    sort: "createdAt",
+    order: "desc",
   });
-  const { page, perPage, search, status, site, sort, order } = qp as unknown as {
-    page: number;
-    perPage: number;
-    search: string;
-    status: string;
-    site: string;
-    sort: string;
-    order: 'asc' | 'desc';
-  };
+  const { page, perPage, search, status, site, sort, order } =
+    qp as unknown as {
+      page: number;
+      perPage: number;
+      search: string;
+      status: string;
+      site: string;
+      sort: string;
+      order: "asc" | "desc";
+    };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
@@ -70,7 +71,8 @@ export default function AssetsPage() {
     setSiteDraft(site);
   }, [site]);
 
-  const filtersDirty = searchDraft !== search || statusDraft !== status || siteDraft !== site;
+  const filtersDirty =
+    searchDraft !== search || statusDraft !== status || siteDraft !== site;
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   function applyFilters() {
@@ -83,10 +85,10 @@ export default function AssetsPage() {
   }
 
   function clearFilters() {
-    setSearchDraft('');
-    setStatusDraft('');
-    setSiteDraft('');
-    setQp({ page: 1, search: '', status: '', site: '' });
+    setSearchDraft("");
+    setStatusDraft("");
+    setSiteDraft("");
+    setQp({ page: 1, search: "", status: "", site: "" });
   }
 
   const { can } = usePermissions();
@@ -113,84 +115,90 @@ export default function AssetsPage() {
 
   // Fetch sites for filter dropdown
   const { data: sitesData } = useSWR<SitesResponse>(
-    '/api/sites?perPage=100',
+    "/api/sites?perPage=100",
     fetcher
   );
 
   const sortState: SortState = { field: sort, order };
 
   function toggleSort(field: string) {
-    const newOrder = sort === field && order === 'asc' ? 'desc' : 'asc';
+    const newOrder = sort === field && order === "asc" ? "desc" : "asc";
     setQp({ sort: field, order: newOrder });
   }
 
   const handleDelete = async (id: number) => {
     try {
       await apiDelete(`/api/assets/${id}`);
-      toast.success('Asset deleted successfully');
+      toast.success("Asset deleted successfully");
       mutate(); // Refresh the data
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete asset');
+      console.error("Delete error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete asset"
+      );
     }
   };
 
   const columns = [
     {
-      key: 'assetNo',
-      header: 'Asset No',
+      key: "assetNo",
+      header: "Asset No",
       sortable: true,
       accessor: (asset: Asset) => (
         <span className="font-medium text-blue-600">{asset.assetNo}</span>
       ),
     },
     {
-      key: 'assetName',
-      header: 'Asset Name',
+      key: "assetName",
+      header: "Asset Name",
       sortable: true,
       accessor: (asset: Asset) => (
         <div>
           <div className="font-medium">{asset.assetName}</div>
-          {asset.make && <div className="text-sm text-muted-foreground">{asset.make}</div>}
+          {asset.make && (
+            <div className="text-sm text-muted-foreground">{asset.make}</div>
+          )}
         </div>
       ),
     },
     {
-      key: 'assetGroup',
-      header: 'Asset Group',
+      key: "assetGroup",
+      header: "Asset Group",
       sortable: false,
-      accessor: (asset: Asset) => asset.assetGroup?.assetGroupName || '-',
+      accessor: (asset: Asset) => asset.assetGroup?.assetGroupName || "-",
     },
     {
-      key: 'assetCategory',
-      header: 'Asset Category',
+      key: "assetCategory",
+      header: "Asset Category",
       sortable: false,
-      accessor: (asset: Asset) => asset.assetCategory?.category || '-',
+      accessor: (asset: Asset) => asset.assetCategory?.category || "-",
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: "status",
+      header: "Status",
       sortable: true,
       accessor: (asset: Asset) => (
-        <Badge 
-          variant={asset.status === 'Working' ? 'default' : 'secondary'}
-          className={asset.status === 'Working' ? 'bg-green-100 text-green-800' : ''}
+        <Badge
+          variant={asset.status === "Working" ? "default" : "secondary"}
+          className={
+            asset.status === "Working" ? "bg-green-100 text-green-800" : ""
+          }
         >
           {asset.status}
         </Badge>
       ),
     },
     {
-      key: 'useStatus',
-      header: 'Use Status',
+      key: "useStatus",
+      header: "Use Status",
       sortable: true,
       accessor: (asset: Asset) => (
-        <Badge 
-          variant={asset.useStatus === 'In Use' ? 'default' : 'secondary'}
+        <Badge
+          variant={asset.useStatus === "In Use" ? "default" : "secondary"}
           className={
-            asset.useStatus === 'In Use' 
-              ? 'bg-blue-100 text-blue-800' 
-              : 'bg-orange-100 text-orange-800'
+            asset.useStatus === "In Use"
+              ? "bg-blue-100 text-blue-800"
+              : "bg-orange-100 text-orange-800"
           }
         >
           {asset.useStatus}
@@ -198,22 +206,21 @@ export default function AssetsPage() {
       ),
     },
     {
-      key: 'supplier',
-      header: 'Supplier',
+      key: "supplier",
+      header: "Supplier",
       sortable: true,
-      accessor: (asset: Asset) => asset.supplier || '-',
+      accessor: (asset: Asset) => asset.supplier || "-",
     },
     {
-      key: 'purchaseDate',
-      header: 'Purchase Date',
+      key: "purchaseDate",
+      header: "Purchase Date",
       sortable: true,
-      accessor: (asset: Asset) => 
-        asset.purchaseDate 
+      accessor: (asset: Asset) =>
+        asset.purchaseDate
           ? new Date(asset.purchaseDate).toLocaleDateString()
-          : '-',
+          : "-",
     },
   ];
-
 
   if (error) {
     return (
@@ -239,7 +246,7 @@ export default function AssetsPage() {
           </div>
           {canCreate && (
             <AppButton
-              onClick={() => pushWithScrollSave('/assets/new')}
+              onClick={() => pushWithScrollSave("/assets/new")}
               className="flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -259,8 +266,8 @@ export default function AssetsPage() {
             containerClassName="w-full"
           />
           <AppSelect
-            value={statusDraft || '__all'}
-            onValueChange={(v) => setStatusDraft(v === '__all' ? '' : v)}
+            value={statusDraft || "__all"}
+            onValueChange={(v) => setStatusDraft(v === "__all" ? "" : v)}
             placeholder="Status"
           >
             <AppSelect.Item value="__all">All Statuses</AppSelect.Item>
@@ -271,8 +278,8 @@ export default function AssetsPage() {
             ))}
           </AppSelect>
           <AppSelect
-            value={siteDraft || '__all'}
-            onValueChange={(v) => setSiteDraft(v === '__all' ? '' : v)}
+            value={siteDraft || "__all"}
+            onValueChange={(v) => setSiteDraft(v === "__all" ? "" : v)}
             placeholder="Site"
           >
             <AppSelect.Item value="__all">All Sites</AppSelect.Item>
@@ -285,12 +292,14 @@ export default function AssetsPage() {
           <AppButton
             size="sm"
             onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft && !statusDraft && !siteDraft}
+            disabled={
+              !filtersDirty && !searchDraft && !statusDraft && !siteDraft
+            }
             className="min-w-[84px]"
           >
             Filter
           </AppButton>
-          <AppButton
+          {/* <AppButton
             variant='outline'
             size='sm'
             onClick={() => setUploadDialogOpen(true)}
@@ -298,7 +307,7 @@ export default function AssetsPage() {
             className='min-w-[84px]'
           >
             Upload
-          </AppButton>
+          </AppButton> */}
           {(search || status || site) && (
             <AppButton
               variant="secondary"
@@ -331,7 +340,9 @@ export default function AssetsPage() {
                   <EditButton
                     tooltip="Edit Asset"
                     aria-label="Edit Asset"
-                    onClick={() => pushWithScrollSave(`/assets/${asset.id}/edit`)}
+                    onClick={() =>
+                      pushWithScrollSave(`/assets/${asset.id}/edit`)
+                    }
                   />
                 )}
                 {canDelete && (
