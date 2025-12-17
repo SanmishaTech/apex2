@@ -12,7 +12,7 @@ type PaymentTermEditPageProps = {
 
 export default function PaymentTermEditPage({ params }: PaymentTermEditPageProps) {
   const { id } = use(params);
-  const { data: paymentTerm, error, isLoading } = useSWR(`/api/payment-terms/${id}`, apiGet) as { data: any, error: any, isLoading: boolean };
+  const { data: paymentTerm, error, isLoading, mutate } = useSWR(`/api/payment-terms/${id}`, apiGet) as { data: any, error: any, isLoading: boolean, mutate: () => Promise<any> };
 
   if (isLoading) {
     return (
@@ -44,5 +44,5 @@ export default function PaymentTermEditPage({ params }: PaymentTermEditPageProps
     description: paymentTerm.description,
   };
 
-  return <PaymentTermForm mode='edit' initial={initialData} />;
+  return <PaymentTermForm mode='edit' initial={initialData} mutate={mutate} />;
 }

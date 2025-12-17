@@ -60,6 +60,13 @@ export interface EmployeeFormInitialData {
   // Reporting Sites
   reportingSiteId?: number | null;
   reportingSiteAssignedDate?: string | null;
+  // Leave Details
+  sickLeavesPerYear?: number | null;
+  paidLeavesPerYear?: number | null;
+  casualLeavesPerYear?: number | null;
+  balanceSickLeaves?: number | null;
+  balancePaidLeaves?: number | null;
+  balanceCasualLeaves?: number | null;
   // Signature and Profile Picture
   signatureImage?: string | null;
   employeeImage?: string | null;
@@ -454,12 +461,30 @@ export function EmployeeForm({
         ? initial.reportingSiteAssignedDate.split("T")[0]
         : "",
       // Leave Details
-      sickLeavesPerYear: "",
-      paidLeavesPerYear: "",
-      casualLeavesPerYear: "",
-      balanceSickLeaves: "",
-      balancePaidLeaves: "",
-      balanceCasualLeaves: "",
+      sickLeavesPerYear:
+        initial?.sickLeavesPerYear != null
+          ? String(initial.sickLeavesPerYear)
+          : "",
+      paidLeavesPerYear:
+        initial?.paidLeavesPerYear != null
+          ? String(initial.paidLeavesPerYear)
+          : "",
+      casualLeavesPerYear:
+        initial?.casualLeavesPerYear != null
+          ? String(initial.casualLeavesPerYear)
+          : "",
+      balanceSickLeaves:
+        initial?.balanceSickLeaves != null
+          ? String(initial.balanceSickLeaves)
+          : "",
+      balancePaidLeaves:
+        initial?.balancePaidLeaves != null
+          ? String(initial.balancePaidLeaves)
+          : "",
+      balanceCasualLeaves:
+        initial?.balanceCasualLeaves != null
+          ? String(initial.balanceCasualLeaves)
+          : "",
       // User Account Details
       email: initial?.email || "",
       password: "",
@@ -520,6 +545,31 @@ export function EmployeeForm({
             reportingSiteAssignedDate: initial.reportingSiteAssignedDate
               ? initial.reportingSiteAssignedDate.split("T")[0]
               : "",
+            // Leave Details
+            sickLeavesPerYear:
+              initial.sickLeavesPerYear != null
+                ? String(initial.sickLeavesPerYear)
+                : "",
+            paidLeavesPerYear:
+              initial.paidLeavesPerYear != null
+                ? String(initial.paidLeavesPerYear)
+                : "",
+            casualLeavesPerYear:
+              initial.casualLeavesPerYear != null
+                ? String(initial.casualLeavesPerYear)
+                : "",
+            balanceSickLeaves:
+              initial.balanceSickLeaves != null
+                ? String(initial.balanceSickLeaves)
+                : "",
+            balancePaidLeaves:
+              initial.balancePaidLeaves != null
+                ? String(initial.balancePaidLeaves)
+                : "",
+            balanceCasualLeaves:
+              initial.balanceCasualLeaves != null
+                ? String(initial.balanceCasualLeaves)
+                : "",
             employeeDocuments:
               initial.employeeDocuments?.map((doc) => ({
                 id: doc.id,
@@ -639,6 +689,19 @@ export function EmployeeForm({
           if (data.panNo) fd.append("panNo", data.panNo);
           if (data.adharNo) fd.append("adharNo", data.adharNo);
           if (data.cinNo) fd.append("cinNo", data.cinNo);
+          // Leave Details
+          if (data.sickLeavesPerYear != null)
+            fd.append("sickLeavesPerYear", String(data.sickLeavesPerYear));
+          if (data.paidLeavesPerYear != null)
+            fd.append("paidLeavesPerYear", String(data.paidLeavesPerYear));
+          if (data.casualLeavesPerYear != null)
+            fd.append("casualLeavesPerYear", String(data.casualLeavesPerYear));
+          if (data.balanceSickLeaves != null)
+            fd.append("balanceSickLeaves", String(data.balanceSickLeaves));
+          if (data.balancePaidLeaves != null)
+            fd.append("balancePaidLeaves", String(data.balancePaidLeaves));
+          if (data.balanceCasualLeaves != null)
+            fd.append("balanceCasualLeaves", String(data.balanceCasualLeaves));
           // Travel/Reporting Details
           if (data.airTravelClass)
             fd.append("airTravelClass", data.airTravelClass);
@@ -739,6 +802,13 @@ export function EmployeeForm({
           reportingSiteId: data.reportingSiteId || undefined,
           reportingSiteAssignedDate:
             data.reportingSiteAssignedDate?.toISOString() || undefined,
+          // Leave Details
+          sickLeavesPerYear: data.sickLeavesPerYear ?? undefined,
+          paidLeavesPerYear: data.paidLeavesPerYear ?? undefined,
+          casualLeavesPerYear: data.casualLeavesPerYear ?? undefined,
+          balanceSickLeaves: data.balanceSickLeaves ?? undefined,
+          balancePaidLeaves: data.balancePaidLeaves ?? undefined,
+          balanceCasualLeaves: data.balanceCasualLeaves ?? undefined,
           // User Account Details (creation only)
           email: data.email,
           password: data.password,
@@ -841,6 +911,19 @@ export function EmployeeForm({
               "reportingSiteAssignedDate",
               data.reportingSiteAssignedDate.toISOString()
             );
+          // Leave Details
+          if (data.sickLeavesPerYear != null)
+            fd.append("sickLeavesPerYear", String(data.sickLeavesPerYear));
+          if (data.paidLeavesPerYear != null)
+            fd.append("paidLeavesPerYear", String(data.paidLeavesPerYear));
+          if (data.casualLeavesPerYear != null)
+            fd.append("casualLeavesPerYear", String(data.casualLeavesPerYear));
+          if (data.balanceSickLeaves != null)
+            fd.append("balanceSickLeaves", String(data.balanceSickLeaves));
+          if (data.balancePaidLeaves != null)
+            fd.append("balancePaidLeaves", String(data.balancePaidLeaves));
+          if (data.balanceCasualLeaves != null)
+            fd.append("balanceCasualLeaves", String(data.balanceCasualLeaves));
           // Optional login fields on edit
           if (data.email) fd.append("email", data.email);
           if (data.role) fd.append("role", data.role);
@@ -928,6 +1011,13 @@ export function EmployeeForm({
           reportingSiteId: data.reportingSiteId || undefined,
           reportingSiteAssignedDate:
             data.reportingSiteAssignedDate?.toISOString() || undefined,
+          // Leave Details
+          sickLeavesPerYear: data.sickLeavesPerYear ?? undefined,
+          paidLeavesPerYear: data.paidLeavesPerYear ?? undefined,
+          casualLeavesPerYear: data.casualLeavesPerYear ?? undefined,
+          balanceSickLeaves: data.balanceSickLeaves ?? undefined,
+          balancePaidLeaves: data.balancePaidLeaves ?? undefined,
+          balanceCasualLeaves: data.balanceCasualLeaves ?? undefined,
           // Optional login details on edit
           ...(data.email ? { email: data.email } : {}),
           ...(data.role ? { role: data.role } : {}),

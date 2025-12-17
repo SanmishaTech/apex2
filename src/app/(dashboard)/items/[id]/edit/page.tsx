@@ -12,7 +12,7 @@ interface EditItemPageProps {
 
 export default function EditItemPage({ params }: EditItemPageProps) {
   const { id } = use(params);
-  const { data: item, error } = useSWR<ItemFormInitialData>(
+  const { data: item, error, mutate } = useSWR<ItemFormInitialData>(
     `/api/items/${id}`,
     apiGet
   );
@@ -50,7 +50,7 @@ export default function EditItemPage({ params }: EditItemPageProps) {
         </p>
       </div>
 
-      <ItemForm mode='edit' initial={item} />
+      <ItemForm mode='edit' initial={item} mutate={mutate} />
     </div>
   );
 }

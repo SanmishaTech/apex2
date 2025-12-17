@@ -24,6 +24,7 @@ export interface ItemCategoryFormProps {
   initial?: ItemCategoryFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/item-categories'
+  mutate?: () => Promise<any>;
 }
 
 const inputSchema = z.object({
@@ -41,7 +42,7 @@ function toSubmitPayload(data: RawFormValues) {
   };
 }
 
-export function ItemCategoryForm({ mode, initial, onSuccess, redirectOnSuccess = '/item-categories' }: ItemCategoryFormProps) {
+export function ItemCategoryForm({ mode, initial, onSuccess, redirectOnSuccess = '/item-categories', mutate }: ItemCategoryFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -90,6 +91,10 @@ export function ItemCategoryForm({ mode, initial, onSuccess, redirectOnSuccess =
         const res = await apiPatch('/api/item-categories', { id: initial.id, ...payload });
         toast.success('Item Category updated');
         onSuccess?.(res);
+      }
+      // Invalidate and revalidate the cache similar to states implementation
+      if (mutate) {
+        await mutate();
       }
       router.push(redirectOnSuccess);
     } catch (err) {

@@ -43,6 +43,11 @@ export interface Asset {
     id: number;
     category: string;
   } | null;
+  currentSite?: {
+    id: number;
+    shortName?: string | null;
+    site?: string | null;
+  } | null;
 }
 
 export interface AssetFormData {

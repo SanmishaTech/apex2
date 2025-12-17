@@ -25,6 +25,21 @@ export interface Employee {
   panNo: string | null;
   adharNo: string | null;
   cinNo: string | null;
+  // Travel/Reporting Details
+  airTravelClass?: string | null;
+  railwayTravelClass?: string | null;
+  busTravelClass?: string | null;
+  reporting1Id?: number | null;
+  reporting2Id?: number | null;
+  reportingSiteId?: number | null;
+  reportingSiteAssignedDate?: Date | null;
+  // Leave Details
+  sickLeavesPerYear?: number | null;
+  paidLeavesPerYear?: number | null;
+  casualLeavesPerYear?: number | null;
+  balanceSickLeaves?: number | null;
+  balancePaidLeaves?: number | null;
+  balanceCasualLeaves?: number | null;
   signatureImage: string | null;
   employeeImage: string | null;
   createdAt: Date;

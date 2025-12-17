@@ -12,7 +12,7 @@ interface EditBillingAddressPageProps {
 
 export default function EditBillingAddressPage({ params }: EditBillingAddressPageProps) {
   const { id } = use(params);
-  const { data: billingAddress, error } = useSWR<BillingAddressFormInitialData>(
+  const { data: billingAddress, error, mutate } = useSWR<BillingAddressFormInitialData>(
     `/api/billing-addresses/${id}`,
     apiGet
   );
@@ -50,7 +50,7 @@ export default function EditBillingAddressPage({ params }: EditBillingAddressPag
         </p>
       </div>
 
-      <BillingAddressForm mode='edit' initial={billingAddress} />
+      <BillingAddressForm mode='edit' initial={billingAddress} mutate={mutate} />
     </div>
   );
 }

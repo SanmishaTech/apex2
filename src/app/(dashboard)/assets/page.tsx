@@ -174,6 +174,12 @@ export default function AssetsPage() {
       accessor: (asset: Asset) => asset.assetCategory?.category || "-",
     },
     {
+      key: "site",
+      header: "Site",
+      sortable: false,
+      accessor: (asset: Asset) => asset.currentSite?.site || "-",
+    },
+    {
       key: "status",
       header: "Status",
       sortable: true,
