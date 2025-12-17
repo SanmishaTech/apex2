@@ -25,6 +25,7 @@ export interface RentTypeFormProps {
   initial?: RentTypeFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string;
+  mutate?: () => Promise<any>;
 }
 
 export function RentTypeForm({
@@ -32,6 +33,7 @@ export function RentTypeForm({
   initial,
   onSuccess,
   redirectOnSuccess = '/rent-types',
+  mutate,
 }: RentTypeFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +74,9 @@ export function RentTypeForm({
         const res = await apiPatch(`/api/rent-types/${initial.id}`, payload);
         toast.success('Rent type updated successfully');
         onSuccess?.(res);
+      }
+      if (mutate) {
+        await mutate();
       }
       router.push(redirectOnSuccess);
     } catch (err) {

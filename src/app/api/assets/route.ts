@@ -104,6 +104,13 @@ export async function GET(req: NextRequest) {
         },
         transferStatus: true,
         currentSiteId: true,
+        currentSite: {
+          select: {
+            id: true,
+            shortName: true,
+            site: true,
+          }
+        },
         createdAt: true,
         updatedAt: true,
       }

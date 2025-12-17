@@ -22,7 +22,21 @@ export function usePermissions(): UsePermissionsResult {
   const { perms, permSet } = useMemo(() => {
     if (!user) return { perms: [], permSet: new Set() };
     const map = ROLES_PERMISSIONS as unknown as RolePermissionsMap;
-    const roleLabel = (ROLES as any)[user.role] || user.role; // map code -> label if needed
+    // Resolve role robustly
+    const input = user.role || '';
+    function resolveRoleLabel(value: string): string {
+      if (!value) return value;
+      const direct = (ROLES as any)[value];
+      if (direct) return direct;
+      const norm = value.trim();
+      const normUpper = norm.toUpperCase().replace(/\s+/g, '_');
+      const fromUpper = (ROLES as any)[normUpper];
+      if (fromUpper) return fromUpper;
+      const labels: string[] = Object.values(ROLES as any);
+      const match = labels.find(lbl => lbl.toLowerCase() === norm.toLowerCase());
+      return match || value;
+    }
+    const roleLabel = resolveRoleLabel(input);
     const permissions = map[roleLabel as RoleKey] || [];
     return {
       perms: permissions,
@@ -41,7 +55,19 @@ export function usePermissions(): UsePermissionsResult {
   function lacks(...required: Permission[]) {
     return required.filter(p => !permSet.has(p)); // O(1) per check
   }
-  const roleLabel = user ? ((ROLES as any)[user.role] || user.role) : null;
+  // Expose resolved role label
+  const roleLabel = user ? (((): string => {
+    const input = user.role || '';
+    const direct = (ROLES as any)[input];
+    if (direct) return direct;
+    const norm = input.trim();
+    const normUpper = norm.toUpperCase().replace(/\s+/g, '_');
+    const fromUpper = (ROLES as any)[normUpper];
+    if (fromUpper) return fromUpper;
+    const labels: string[] = Object.values(ROLES as any);
+    const match = labels.find(lbl => lbl.toLowerCase() === norm.toLowerCase());
+    return match || input;
+  })()) : null;
   return { role: roleLabel, permissions: perms, can, canAny, lacks };
 }
 

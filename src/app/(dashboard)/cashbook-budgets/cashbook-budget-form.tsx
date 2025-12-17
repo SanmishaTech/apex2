@@ -126,6 +126,24 @@ export function CashbookBudgetForm({
 	const isCreate = mode === 'create';
 	const { fields, append, remove } = useFieldArray({ control, name: 'budgetItems' });
 
+	// Month options for current and next year in MM-YYYY
+	const monthOptions = useMemo(() => {
+		const now = new Date();
+		const start = new Date(now.getFullYear(), 0, 1);
+		const end = new Date(now.getFullYear() + 1, 11, 1);
+		const opts: Array<{ value: string; label: string }> = [];
+		const d = new Date(start);
+		while (d <= end) {
+			const mm = String(d.getMonth() + 1).padStart(2, '0');
+			const yyyy = String(d.getFullYear());
+			const value = `${mm}-${yyyy}`; // MM-YYYY
+			const label = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+			opts.push({ value, label });
+			d.setMonth(d.getMonth() + 1);
+		}
+		return opts;
+	}, []);
+
 	// Watch budget items for total calculation
 	const budgetItemsWatch = watch('budgetItems');
 	const totalBudget = useMemo(() => {
@@ -210,8 +228,8 @@ export function CashbookBudgetForm({
 									placeholder='Select month'
 									required
 								>
-									{MONTHS.map(month => (
-										<AppSelect.Item key={month} value={month}>{month}</AppSelect.Item>
+									{monthOptions.map(({ value, label }) => (
+										<AppSelect.Item key={value} value={value}>{label}</AppSelect.Item>
 									))}
 								</AppSelect>
 								<AppSelect

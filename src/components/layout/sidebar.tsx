@@ -39,7 +39,20 @@ export function Sidebar({
 
   const items = useMemo(() => {
     if (!user) return [] as NavItem[];
-    const roleLabel = (ROLES as any)[user.role] || user.role;
+    // Resolve role robustly: accept stored code or variant strings
+    function resolveRoleLabel(value: string): string {
+      if (!value) return value;
+      const direct = (ROLES as any)[value];
+      if (direct) return direct;
+      const norm = value.trim();
+      const normUpper = norm.toUpperCase().replace(/\s+/g, '_');
+      const fromUpper = (ROLES as any)[normUpper];
+      if (fromUpper) return fromUpper;
+      const labels: string[] = Object.values(ROLES as any);
+      const match = labels.find(lbl => lbl.toLowerCase() === norm.toLowerCase());
+      return match || value;
+    }
+    const roleLabel = resolveRoleLabel(user.role as string);
     const rolePermissions = (ROLES_PERMISSIONS as any)[roleLabel] || [];
     const permissionSet = new Set(rolePermissions);
 

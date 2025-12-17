@@ -25,6 +25,7 @@ export interface PaymentTermFormProps {
   initial?: PaymentTermFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/payment-terms'
+  mutate?: () => Promise<any>;
 }
 
 const inputSchema = z.object({
@@ -42,7 +43,7 @@ function toSubmitPayload(data: RawFormValues) {
   };
 }
 
-export function PaymentTermForm({ mode, initial, onSuccess, redirectOnSuccess = '/payment-terms' }: PaymentTermFormProps) {
+export function PaymentTermForm({ mode, initial, onSuccess, redirectOnSuccess = '/payment-terms', mutate }: PaymentTermFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -91,6 +92,9 @@ export function PaymentTermForm({ mode, initial, onSuccess, redirectOnSuccess = 
         const res = await apiPatch(`/api/payment-terms/${initial.id}`, payload);
         toast.success('Payment Term updated');
         onSuccess?.(res);
+      }
+      if (mutate) {
+        await mutate();
       }
       router.push(redirectOnSuccess);
     } catch (err) {

@@ -35,6 +35,7 @@ export interface ItemFormProps {
   initial?: ItemFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/items'
+  mutate?: () => Promise<any>;
 }
 
 const inputSchema = z.object({
@@ -64,7 +65,7 @@ function toSubmitPayload(data: RawFormValues) {
   };
 }
 
-export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items' }: ItemFormProps) {
+export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items', mutate }: ItemFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -123,6 +124,10 @@ export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items
         const res = await apiPatch('/api/items', { id: initial.id, ...payload });
         toast.success('Item updated');
         onSuccess?.(res);
+      }
+      // Invalidate and revalidate the cache similar to states/item-categories
+      if (mutate) {
+        await mutate();
       }
       router.push(redirectOnSuccess);
     } catch (err) {

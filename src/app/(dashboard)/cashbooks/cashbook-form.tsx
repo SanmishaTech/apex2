@@ -228,6 +228,44 @@ export function CashbookForm({
     name: "cashbookDetails",
   });
 
+  // Auto-calc closingBalance = openingBalance + amountReceived - amountPaid
+  useEffect(() => {
+    const subscription = form.watch((_, info) => {
+      const name = info?.name || "";
+      if (!name.startsWith("cashbookDetails.")) return;
+      const match = name.match(
+        /^cashbookDetails\.(\d+)\.(openingBalance|amountReceived|amountPaid)$/
+      );
+      if (!match) return;
+      const idx = parseInt(match[1]);
+      const ob =
+        Number(
+          form.getValues(`cashbookDetails.${idx}.openingBalance` as const) ?? 0
+        ) || 0;
+      const ar =
+        Number(
+          form.getValues(`cashbookDetails.${idx}.amountReceived` as const) ?? 0
+        ) || 0;
+      const ap =
+        Number(
+          form.getValues(`cashbookDetails.${idx}.amountPaid` as const) ?? 0
+        ) || 0;
+      const computed = ob + ar - ap;
+      const nextVal = String(Number.isFinite(computed) ? computed : 0);
+      const current = form.getValues(
+        `cashbookDetails.${idx}.closingBalance` as const
+      );
+      if (String(current ?? "") !== nextVal) {
+        form.setValue(
+          `cashbookDetails.${idx}.closingBalance` as const,
+          nextVal,
+          { shouldValidate: false, shouldDirty: true }
+        );
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   // Fetch sites, BOQs, and cashbook heads for dropdowns
   const { data: sitesData } = useSWR<SitesResponse>(
     "/api/sites?perPage=100",
@@ -241,6 +279,29 @@ export function CashbookForm({
     "/api/cashbook-heads?perPage=100",
     apiGet
   );
+
+  // Build selected head IDs to avoid duplicates across rows
+  const getSelectedHeadIds = () => {
+    const details = form.getValues("cashbookDetails") || [];
+    const ids = (details as any[]).map((d) => {
+      const v =
+        typeof d?.cashbookHeadId === "string"
+          ? parseInt(d.cashbookHeadId)
+          : d?.cashbookHeadId;
+      return Number.isFinite(v) ? Number(v) : 0;
+    });
+    return new Set(ids.filter((n: number) => n > 0));
+  };
+
+  // For a row, keep its current value visible, hide heads picked in other rows
+  const getAvailableHeadsForRow = (currentValue: string | number) => {
+    const selected = getSelectedHeadIds();
+    const curr =
+      typeof currentValue === "string" ? parseInt(currentValue) : currentValue;
+    return (cashbookHeadsData?.data || []).filter(
+      (h: any) => h.id === curr || !selected.has(h.id)
+    );
+  };
 
   // Initialize file preview for existing file when editing
   useEffect(() => {
@@ -577,19 +638,98 @@ export function CashbookForm({
                         <FormControl>
                           <AppSelect
                             value={String(field.value || "__none")}
-                            onValueChange={field.onChange}
+                            onValueChange={async (val) => {
+                              field.onChange(val);
+                              // After selecting head, try to fetch last closing balance and set as opening balance
+                              try {
+                                const siteVal = form.getValues("siteId") as
+                                  | string
+                                  | number
+                                  | undefined
+                                  | null;
+                                const boqVal = form.getValues("boqId") as
+                                  | string
+                                  | number
+                                  | undefined
+                                  | null;
+                                const siteId =
+                                  siteVal &&
+                                  siteVal !== "__none" &&
+                                  siteVal !== ""
+                                    ? Number(siteVal)
+                                    : undefined;
+                                const boqId =
+                                  boqVal && boqVal !== "__none" && boqVal !== ""
+                                    ? Number(boqVal)
+                                    : undefined;
+                                const headId =
+                                  val && val !== "__none" && val !== ""
+                                    ? Number(val)
+                                    : undefined;
+                                if (siteId && headId) {
+                                  const qs = new URLSearchParams({
+                                    siteId: String(siteId),
+                                    cashbookHeadId: String(headId),
+                                  });
+                                  if (boqId) qs.set("boqId", String(boqId));
+                                  const res = await apiGet(
+                                    `/api/cashbooks/last-balance?${qs.toString()}` as any
+                                  );
+                                  const closing =
+                                    (res as any)?.data?.closingBalance ??
+                                    (res as any)?.closingBalance ??
+                                    null;
+                                  const opening =
+                                    closing != null ? String(closing) : "0";
+                                  form.setValue(
+                                    `cashbookDetails.${index}.openingBalance` as const,
+                                    opening,
+                                    {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                      shouldTouch: true,
+                                    }
+                                  );
+                                  await form.trigger(
+                                    `cashbookDetails.${index}.openingBalance` as const
+                                  );
+                                  // Also set closing balance immediately based on current received/paid
+                                  const arRaw = form.getValues(
+                                    `cashbookDetails.${index}.amountReceived` as const
+                                  ) as any;
+                                  const apRaw = form.getValues(
+                                    `cashbookDetails.${index}.amountPaid` as const
+                                  ) as any;
+                                  const obNum = Number(opening) || 0;
+                                  const arNum = Number(arRaw ?? 0) || 0;
+                                  const apNum = Number(apRaw ?? 0) || 0;
+                                  const closingNow = String(
+                                    obNum + arNum - apNum
+                                  );
+                                  form.setValue(
+                                    `cashbookDetails.${index}.closingBalance` as const,
+                                    closingNow,
+                                    { shouldDirty: true }
+                                  );
+                                }
+                              } catch (e) {
+                                // fail-silent for UX; keep opening balance unchanged
+                              }
+                            }}
                           >
                             <AppSelect.Item value="__none">
                               Select Cashbook Head
                             </AppSelect.Item>
-                            {cashbookHeadsData?.data?.map((head: any) => (
-                              <AppSelect.Item
-                                key={head.id}
-                                value={head.id.toString()}
-                              >
-                                {head.cashbookHeadName}
-                              </AppSelect.Item>
-                            ))}
+                            {getAvailableHeadsForRow(field.value)?.map(
+                              (head: any) => (
+                                <AppSelect.Item
+                                  key={head.id}
+                                  value={head.id.toString()}
+                                >
+                                  {head.cashbookHeadName}
+                                </AppSelect.Item>
+                              )
+                            )}
                           </AppSelect>
                         </FormControl>
                         <div className="min-h-[16px]">

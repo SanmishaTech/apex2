@@ -271,10 +271,10 @@ export const PERMISSIONS = {
 
 export const ROLES = {
   ADMIN: "Admin",
-  // SITE_ADMIN: "Site Admin",
-  // COMMERCIAL_HEAD: "Commercial Head",
-  // MANAGING_DIRECTOR: "Managing Director",
-  // SITE_INCHARGE: "Site Incharge",
+  SITE_ADMIN: "Site Admin",
+  COMMERCIAL_HEAD: "Commercial Head",
+  MANAGING_DIRECTOR: "Managing Director",
+  SITE_INCHARGE: "Site Incharge",
   OFFICE_ASSISTANT: "Office Assistant",
   TECHNICAL_SUPPORT: "Technical Support",
   TRAINEE_ENGINEER: "Trainee Engineer",
@@ -316,11 +316,23 @@ export const ROLES = {
 export const ROLES_PERMISSIONS = {
   // Admin: everything
   [ROLES.ADMIN]: [...Object.values(PERMISSIONS)],
-  [ROLES.PROJECT_DIRECTOR]: [...Object.values(PERMISSIONS)],
+  [ROLES.SITE_INCHARGE]: [...Object.values(PERMISSIONS)],
 
   // Internal staff user: can view dashboard, read users & projects & project files (but no creation/upload/delete)
 
   [ROLES.TECHNICAL_SUPPORT]: [
+    // DASHBOARD
+    PERMISSIONS.VIEW_DASHBOARD,
+  ],
+  [ROLES.MANAGING_DIRECTOR]: [
+    // DASHBOARD
+    PERMISSIONS.VIEW_DASHBOARD,
+  ],
+  [ROLES.COMMERCIAL_HEAD]: [
+    // DASHBOARD
+    PERMISSIONS.VIEW_DASHBOARD,
+  ],
+  [ROLES.SITE_ADMIN]: [
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
   ],
@@ -345,10 +357,10 @@ export const ROLES_PERMISSIONS = {
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,
   ],
-  // [ROLES.PROJECT_DIRECTOR]: [
-  //   // DASHBOARD
-  //   PERMISSIONS.VIEW_DASHBOARD,
-  // ],
+  [ROLES.PROJECT_DIRECTOR]: [
+    // DASHBOARD
+    PERMISSIONS.VIEW_DASHBOARD,
+  ],
   [ROLES.HR_ASSISTANT]: [
     // DASHBOARD
     PERMISSIONS.VIEW_DASHBOARD,

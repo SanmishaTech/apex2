@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
         boq: { select: { id: true, boqNo: true } },
         createdAt: true,
         updatedAt: true,
+        _count: { select: { cashbookDetails: true } },
       },
     });
 

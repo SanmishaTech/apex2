@@ -127,7 +127,7 @@ export default function CashbooksPage() {
       header: "Details Count",
       accessor: (cashbook) => (
         <div className="text-center">
-          {cashbook.cashbookDetails?.length || 0} items
+          {(cashbook as any)?._count?.cashbookDetails ?? cashbook.cashbookDetails?.length ?? 0} items
         </div>
       ),
     },

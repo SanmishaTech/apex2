@@ -1,30 +1,34 @@
-'use client';
+"use client";
 
-import useSWR from 'swr';
-import { useParams } from 'next/navigation';
-import { apiGet } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import RentTypeForm, { RentTypeFormInitialData } from '@/app/(dashboard)/rent-types/rent-type-form';
-import { RentType } from '@/types/rent-types';
+import useSWR from "swr";
+import { useParams } from "next/navigation";
+import { apiGet } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import RentTypeForm, {
+  RentTypeFormInitialData,
+} from "@/app/(dashboard)/rent-types/rent-type-form";
+import { RentType } from "@/types/rent-types";
 
 export default function EditRentTypePage() {
   const params = useParams<{ id?: string }>();
   const id = params?.id;
 
-  const { data: rentType, error, isLoading } = useSWR<RentType>(
-    id ? `/api/rent-types/${id}` : null,
-    apiGet
-  );
+  const {
+    data: rentType,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<RentType>(id ? `/api/rent-types/${id}` : null, apiGet);
   if (error) {
-    toast.error((error as Error).message || 'Failed to load rent type');
+    toast.error((error as Error).message || "Failed to load rent type");
   }
 
   if (isLoading) {
-    return <div className='p-6'>Loading...</div>;
+    return <div className="p-6">Loading...</div>;
   }
 
   if (!rentType) {
-    return <div className='p-6'>Rent type not found</div>;
+    return <div className="p-6">Rent type not found</div>;
   }
 
   const initialData: RentTypeFormInitialData = {
@@ -32,10 +36,5 @@ export default function EditRentTypePage() {
     rentType: rentType.rentType,
   };
 
-  return (
-    <RentTypeForm 
-      mode='edit' 
-      initial={initialData}
-    />
-  );
+  return <RentTypeForm mode="edit" initial={initialData} mutate={mutate} />;
 }

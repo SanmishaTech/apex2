@@ -2,12 +2,12 @@
 // When options.manual=true it only returns flags allowing caller-controlled navigation.
 "use client";
 
-import { useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useCurrentUser } from './use-current-user';
-import { findAccessRule, Permission } from '@/config/access-control';
-import { ROLES_PERMISSIONS, ROLES } from '@/config/roles';
-import { toast } from '@/lib/toast';
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useCurrentUser } from "./use-current-user";
+import { findAccessRule, Permission } from "@/config/access-control";
+import { ROLES_PERMISSIONS, ROLES } from "@/config/roles";
+import { toast } from "@/lib/toast";
 
 export interface UseProtectPageOptions {
   /** Where to send unauthenticated users (no token / not logged in) */
@@ -19,10 +19,10 @@ export interface UseProtectPageOptions {
 }
 
 export interface UseProtectPageResult {
-  loading: boolean;           // still resolving auth/rule
-  allowed: boolean;           // user may view page content
-  requiresAuth: boolean;      // page has a rule (needs login)
-  missing: Permission[];      // permissions the user lacks
+  loading: boolean; // still resolving auth/rule
+  allowed: boolean; // user may view page content
+  requiresAuth: boolean; // page has a rule (needs login)
+  missing: Permission[]; // permissions the user lacks
   requiredPermissions: Permission[]; // full list required by rule (if any)
   user: { id: number; role: string } | null;
   /** Call to re-run redirect logic manually (useful when manual=true)*/
@@ -35,10 +35,12 @@ export interface UseProtectPageResult {
  * - Computes permission gap vs current user role.
  * - Optionally auto-redirects to login / fallback.
  */
-export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectPageResult {
+export function useProtectPage(
+  options: UseProtectPageOptions = {}
+): UseProtectPageResult {
   const {
-    redirectUnauthed = '/login',
-    redirectForbidden = '/dashboard',
+    redirectUnauthed = "/login",
+    redirectForbidden = "/dashboard",
     manual = false,
   } = options;
 
@@ -46,14 +48,32 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
   const pathname = usePathname();
   const { user, isLoading } = useCurrentUser();
 
-  const rule = findAccessRule(pathname || '');
-  const isPageRule = rule?.type === 'page';
+  const rule = findAccessRule(pathname || "");
+  const isPageRule = rule?.type === "page";
 
-  const roleLabel = user ? ((ROLES as any)[user.role] || user.role) : null;
-  const userPerms = user ? ((ROLES_PERMISSIONS as any)[roleLabel || ''] || []) : [];
+  // Resolve role robustly to label before permission lookup
+  const roleLabel = user
+    ? ((): string => {
+        const input = user.role || "";
+        const direct = (ROLES as any)[input];
+        if (direct) return direct;
+        const norm = input.trim();
+        const normUpper = norm.toUpperCase().replace(/\s+/g, "_");
+        const fromUpper = (ROLES as any)[normUpper];
+        if (fromUpper) return fromUpper;
+        const labels: string[] = Object.values(ROLES as any);
+        const match = labels.find(
+          (lbl) => lbl.toLowerCase() === norm.toLowerCase()
+        );
+        return match || input;
+      })()
+    : null;
+  const userPerms = user
+    ? (ROLES_PERMISSIONS as any)[roleLabel || ""] || []
+    : [];
   const userPermSet = new Set(userPerms); // O(1) lookups instead of O(n)
-  const required = isPageRule ? (rule?.permissions || []) : [];
-  const missing = required.filter(p => !userPermSet.has(p));
+  const required = isPageRule ? rule?.permissions || [] : [];
+  const missing = required.filter((p) => !userPermSet.has(p));
   const allowed = !isPageRule || (!!user && missing.length === 0);
   const requiresAuth = Boolean(isPageRule);
 
@@ -73,18 +93,29 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
     if (!allowed) {
       if (notifiedRef.current !== pathname) {
         const missingList = missing
-          .filter((m): m is Permission => m != null && typeof m === 'string')
-          .map(m => m.split(':').pop())
-          .filter((part): part is string => typeof part === 'string')
-          .join(', ');
-        toast.error('You do not have permission to access that page', {
+          .filter((m): m is Permission => m != null && typeof m === "string")
+          .map((m) => m.split(":").pop())
+          .filter((part): part is string => typeof part === "string")
+          .join(", ");
+        toast.error("You do not have permission to access that page", {
           description: missing.length ? `Missing: ${missingList}` : undefined,
         });
         notifiedRef.current = pathname;
       }
       router.replace(redirectForbidden);
     }
-  }, [manual, isLoading, user, allowed, requiresAuth, router, redirectUnauthed, redirectForbidden, pathname, missing]);
+  }, [
+    manual,
+    isLoading,
+    user,
+    allowed,
+    requiresAuth,
+    router,
+    redirectUnauthed,
+    redirectForbidden,
+    pathname,
+    missing,
+  ]);
 
   return {
     loading: isLoading,
@@ -95,7 +126,8 @@ export function useProtectPage(options: UseProtectPageOptions = {}): UseProtectP
     user: user ? { id: user.id, role: user.role } : null,
     recheck: () => {
       if (manual) {
-        if (!user) router.replace(redirectUnauthed); else if (!allowed) router.replace(redirectForbidden);
+        if (!user) router.replace(redirectUnauthed);
+        else if (!allowed) router.replace(redirectForbidden);
       }
     },
   };

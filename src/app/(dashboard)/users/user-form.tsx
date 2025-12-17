@@ -30,24 +30,14 @@ export interface UserFormProps {
 	redirectOnSuccess?: string; // default '/users'
 }
 
-// Helper function to get role label
-function getRoleLabel(roleValue: string): string {
-	if (roleValue === 'projectManager') return 'Project Manager';
-	if (roleValue === 'siteEngineer') return 'Site Engineer';
-	if (roleValue === 'siteIncharge') return 'Site Incharge';
-	if (roleValue === 'projectUser') return 'Project User';
-	if (roleValue === 'humanResources') return 'HR';
-	if (roleValue === 'storeIncharge') return 'Store Incharge';
-	if (roleValue === 'siteSupervisor') return 'Site Supervisor';
-	if (roleValue === 'generalManager') return 'General Manager';
-	if (roleValue === 'safetyIncharge') return 'Safety Incharge';
-	if (roleValue === 'billingAssistant') return 'Billing Assistant';
-	if (roleValue === 'purchaseManager') return 'Purchase Manager';
-	if (roleValue === 'qaqc') return 'QA/QC';
-	if (roleValue === 'businessDevelopment') return 'Business Development';
-	if (roleValue === 'internalAuditor') return 'Internal Auditor';
-	if (roleValue === 'externalAuditor') return 'External Auditor';
-	return roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
+// Use ROLES: code -> label. Store codes, display labels.
+const ROLE_ENTRIES = Object.entries(ROLES) as [string, string][];
+const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
+function toRoleCode(v?: string) {
+	if (!v) return undefined as unknown as any;
+	if ((ROLE_CODES as readonly string[]).includes(v)) return v as any;
+	const found = ROLE_ENTRIES.find(([, label]) => label === v);
+	return (found?.[0] as any) ?? (undefined as unknown as any);
 }
 
 export function UserForm({
@@ -60,8 +50,8 @@ export function UserForm({
 	const [submitting, setSubmitting] = useState(false);
 
 	// Derive allowed roles from central config
-	const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
-	const roleOptions = ROLE_VALUES.map(r => ({ value: r, label: getRoleLabel(r) }));
+	const ROLE_VALUES = Object.keys(ROLES) as [string, ...string[]];
+	const roleOptions = Object.entries(ROLES).map(([code, label]) => ({ value: code, label }));
 	const schema = z.object({
 		name: z.string().min(1, 'Name is required'),
 		email: z.string().email('Invalid email'),
@@ -83,8 +73,8 @@ export function UserForm({
 			name: initial?.name || '',
 			email: initial?.email || '',
 			password: '',
-			// role left undefined for placeholder unless editing with known role
-			role: (initial?.role && (ROLE_VALUES as readonly string[]).includes(initial.role)) ? (initial.role as any) : (undefined as unknown as any),
+			// map any legacy stored label to code; store codes going forward
+			role: toRoleCode(initial?.role),
 			status: initial?.status ?? true,
 		},
 	});

@@ -73,6 +73,51 @@ export default function EditEmployeePage() {
           : null,
         signatureImage: employee.signatureImage ?? null,
         employeeImage: employee.employeeImage ?? null,
+        // Personal Details
+        dateOfBirth: employee.dateOfBirth
+          ? new Date(employee.dateOfBirth as unknown as string).toISOString()
+          : null,
+        anniversaryDate: employee.anniversaryDate
+          ? new Date(
+              employee.anniversaryDate as unknown as string
+            ).toISOString()
+          : null,
+        spouseName: employee.spouseName ?? null,
+        bloodGroup: employee.bloodGroup ?? null,
+        // Address Details
+        addressLine1: employee.addressLine1 ?? null,
+        addressLine2: employee.addressLine2 ?? null,
+        stateId: employee.stateId ?? null,
+        cityId: employee.cityId ?? null,
+        pincode: employee.pincode ?? null,
+        // Contact Details
+        mobile1: employee.mobile1 ?? null,
+        mobile2: employee.mobile2 ?? null,
+        // Other Details
+        esic: employee.esic ?? null,
+        pf: employee.pf ?? null,
+        panNo: employee.panNo ?? null,
+        adharNo: employee.adharNo ?? null,
+        cinNo: employee.cinNo ?? null,
+        // Travel/Reporting Details
+        airTravelClass: employee.airTravelClass ?? null,
+        railwayTravelClass: employee.railwayTravelClass ?? null,
+        busTravelClass: employee.busTravelClass ?? null,
+        reporting1Id: (employee as any).reporting1Id ?? null,
+        reporting2Id: (employee as any).reporting2Id ?? null,
+        reportingSiteId: (employee as any).reportingSiteId ?? null,
+        reportingSiteAssignedDate: (employee as any).reportingSiteAssignedDate
+          ? new Date(
+              (employee as any).reportingSiteAssignedDate as unknown as string
+            ).toISOString()
+          : null,
+        // Leave Details
+        sickLeavesPerYear: (employee as any).sickLeavesPerYear ?? null,
+        paidLeavesPerYear: (employee as any).paidLeavesPerYear ?? null,
+        casualLeavesPerYear: (employee as any).casualLeavesPerYear ?? null,
+        balanceSickLeaves: (employee as any).balanceSickLeaves ?? null,
+        balancePaidLeaves: (employee as any).balancePaidLeaves ?? null,
+        balanceCasualLeaves: (employee as any).balanceCasualLeaves ?? null,
         email: employee.user?.email,
         role: employee.user?.role ?? "",
         employeeDocuments: employee.employeeDocuments?.map((doc) => ({
