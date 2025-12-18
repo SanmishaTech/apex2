@@ -152,8 +152,14 @@ async function saveAssetDoc(file: File | null, subname: string) {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
-  if (!allowed.includes(file.type || "")) throw new Error("Unsupported file type");
-  if (file.size > 20 * 1024 * 1024) throw new Error("File too large (max 20MB)");
+  if (!allowed.includes(file.type || "")) {
+    const t = file.type || 'unknown';
+    throw new Error(`Unsupported file type: ${t}`);
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    const mb = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(`File too large (${mb}MB). Max 20MB`);
+  }
   const ext = path.extname(file.name) || ".bin";
   const filename = `${Date.now()}-${subname}-${crypto.randomUUID()}${ext}`;
   const dir = path.join(process.cwd(), "uploads", "assets");
@@ -233,6 +239,29 @@ export async function POST(req: NextRequest) {
             index,
           }))
         : [];
+    }
+
+    // Pre-validate all uploaded files (type & size) BEFORE creating any DB rows
+    if (assetDocumentFiles.length > 0) {
+      const allowed = [
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+      for (const { file } of assetDocumentFiles) {
+        const type = file.type || "";
+        if (!allowed.includes(type)) {
+          const t = type || "unknown";
+          return BadRequest(`Unsupported file type: ${t}`);
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          const mb = (file.size / (1024 * 1024)).toFixed(2);
+          return BadRequest(`File too large (${mb}MB). Max 20MB`);
+        }
+      }
     }
 
     // Normalize: convert explicit nulls to undefined so optional fields pass validation/defaults
@@ -349,7 +378,14 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    if (error.code === 'P2002') {
+    // Surface specific file validation errors as 400 so UI can show them
+    if (error instanceof Error && (
+      error.message.startsWith('Unsupported file type') ||
+      error.message.startsWith('File too large')
+    )) {
+      return BadRequest(error.message);
+    }
+    if ((error as any).code === 'P2002') {
       return ApiError('Asset number already exists', 409);
     }
     console.error("Create asset error:", error);

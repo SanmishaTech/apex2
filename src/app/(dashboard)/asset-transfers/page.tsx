@@ -1,47 +1,51 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Plus, CheckCircle, XCircle } from 'lucide-react';
-import { AppCard } from '@/components/common/app-card';
-import { DataTable, SortState } from '@/components/common/data-table';
-import { Pagination } from '@/components/common/pagination';
-import { FilterBar } from '@/components/common';
-import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { AppButton } from '@/components/common/app-button';
-import { DeleteButton } from '@/components/common/delete-button';
-import { EditButton } from '@/components/common/icon-button';
-import { useProtectPage } from '@/hooks/use-protect-page';
-import { usePermissions } from '@/hooks/use-permissions';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { PERMISSIONS } from '@/config/roles';
-import useSWR from 'swr';
-import { toast } from '@/lib/toast';
-import { apiDelete, apiPatch } from '@/lib/api-client';
-import { AssetTransfer, AssetTransfersResponse, ASSET_TRANSFER_STATUS_COLORS } from '@/types/asset-transfers';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, CheckCircle, XCircle } from "lucide-react";
+import { AppCard } from "@/components/common/app-card";
+import { DataTable, SortState } from "@/components/common/data-table";
+import { Pagination } from "@/components/common/pagination";
+import { FilterBar } from "@/components/common";
+import { NonFormTextInput } from "@/components/common/non-form-text-input";
+import { AppButton } from "@/components/common/app-button";
+import { DeleteButton } from "@/components/common/delete-button";
+import { EditButton } from "@/components/common/icon-button";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import { PERMISSIONS } from "@/config/roles";
+import useSWR from "swr";
+import { toast } from "@/lib/toast";
+import { apiDelete, apiPatch } from "@/lib/api-client";
+import {
+  AssetTransfer,
+  AssetTransfersResponse,
+  ASSET_TRANSFER_STATUS_COLORS,
+} from "@/types/asset-transfers";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function AssetTransfersPage() {
   useProtectPage();
-  
-  const { pushWithScrollSave } = useScrollRestoration('asset-transfers-list');
-  
+
+  const { pushWithScrollSave } = useScrollRestoration("asset-transfers-list");
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
-    search: '',
-    sort: 'createdAt',
-    order: 'desc',
+    search: "",
+    sort: "createdAt",
+    order: "desc",
   });
   const { page, perPage, search, sort, order } = qp as unknown as {
     page: number;
     perPage: number;
     search: string;
     sort: string;
-    order: 'asc' | 'desc';
+    order: "asc" | "desc";
   };
 
   // Local filter draft state (only applied when clicking Filter)
@@ -62,8 +66,8 @@ export default function AssetTransfersPage() {
   }
 
   function clearFilters() {
-    setSearchDraft('');
-    setQp({ page: 1, search: '' });
+    setSearchDraft("");
+    setQp({ page: 1, search: "" });
   }
 
   const { can } = usePermissions();
@@ -90,22 +94,25 @@ export default function AssetTransfersPage() {
   const sortState: SortState = { field: sort, order };
 
   function toggleSort(field: string) {
-    const newOrder = sort === field && order === 'asc' ? 'desc' : 'asc';
+    const newOrder = sort === field && order === "asc" ? "desc" : "asc";
     setQp({ sort: field, order: newOrder });
   }
 
   const handleDelete = async (id: number) => {
     try {
       await apiDelete(`/api/asset-transfers/${id}`);
-      toast.success('Asset transfer deleted successfully');
+      toast.success("Asset transfer deleted successfully");
       mutate(); // Refresh the data
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete asset transfer');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete asset transfer"
+      );
     }
   };
 
-  const handleApprove = async (id: number, status: 'Accepted' | 'Rejected') => {
+  const handleApprove = async (id: number, status: "Accepted" | "Rejected") => {
     try {
       await apiPatch(`/api/asset-transfers/${id}`, {
         status,
@@ -114,74 +121,88 @@ export default function AssetTransfersPage() {
       toast.success(`Asset transfer ${status.toLowerCase()} successfully`);
       mutate(); // Refresh the data
     } catch (error) {
-      console.error('Approve error:', error);
-      toast.error(error instanceof Error ? error.message : `Failed to ${status.toLowerCase()} asset transfer`);
+      console.error("Approve error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${status.toLowerCase()} asset transfer`
+      );
     }
   };
 
   const columns = [
     {
-      key: 'challanNo',
-      header: 'Challan No',
+      key: "challanNo",
+      header: "Challan No",
       sortable: true,
       accessor: (transfer: AssetTransfer) => (
         <span className="font-medium text-blue-600">{transfer.challanNo}</span>
       ),
     },
     {
-      key: 'challanDate',
-      header: 'Challan Date',
+      key: "challanDate",
+      header: "Challan Date",
       sortable: true,
-      accessor: (transfer: AssetTransfer) => 
+      accessor: (transfer: AssetTransfer) =>
         new Date(transfer.challanDate).toLocaleDateString(),
     },
     {
-      key: 'transferType',
-      header: 'Transfer Type',
+      key: "transferType",
+      header: "Transfer Type",
       sortable: true,
       accessor: (transfer: AssetTransfer) => (
-        <Badge variant={transfer.transferType === 'New Assign' ? 'default' : 'secondary'}>
+        <Badge
+          variant={
+            transfer.transferType === "New Assign" ? "default" : "secondary"
+          }
+        >
           {transfer.transferType}
         </Badge>
       ),
     },
     {
-      key: 'fromSite',
-      header: 'From Site',
+      key: "fromSite",
+      header: "From Site",
       sortable: false,
-      accessor: (transfer: AssetTransfer) => transfer.fromSite?.site || '-',
+      accessor: (transfer: AssetTransfer) => transfer.fromSite?.site || "-",
     },
     {
-      key: 'toSite',
-      header: 'To Site',
+      key: "toSite",
+      header: "To Site",
       sortable: false,
-      accessor: (transfer: AssetTransfer) => transfer.toSite?.site || '-',
+      accessor: (transfer: AssetTransfer) => transfer.toSite?.site || "-",
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: "status",
+      header: "Status",
       sortable: true,
       accessor: (transfer: AssetTransfer) => (
-        <Badge 
+        <Badge
           variant="secondary"
-          className={ASSET_TRANSFER_STATUS_COLORS[transfer.status as keyof typeof ASSET_TRANSFER_STATUS_COLORS]}
+          className={
+            ASSET_TRANSFER_STATUS_COLORS[
+              transfer.status as keyof typeof ASSET_TRANSFER_STATUS_COLORS
+            ]
+          }
         >
           {transfer.status}
         </Badge>
       ),
     },
     {
-      key: 'assetsCount',
-      header: 'Assets',
+      key: "assetsCount",
+      header: "Assets",
       sortable: false,
-      accessor: (transfer: AssetTransfer) => 
-        `${transfer.transferItems?.length || 0} asset${(transfer.transferItems?.length || 0) !== 1 ? 's' : ''}`,
+      accessor: (transfer: AssetTransfer) =>
+        `${transfer.transferItems?.length || 0} asset${
+          (transfer.transferItems?.length || 0) !== 1 ? "s" : ""
+        }`,
     },
     {
-      key: 'createdAt',
-      header: 'Created',
+      key: "createdAt",
+      header: "Created",
       sortable: true,
-      accessor: (transfer: AssetTransfer) => 
+      accessor: (transfer: AssetTransfer) =>
         new Date(transfer.createdAt).toLocaleDateString(),
     },
   ];
@@ -210,7 +231,7 @@ export default function AssetTransfersPage() {
           </div>
           {canCreate && (
             <AppButton
-              onClick={() => pushWithScrollSave('/asset-transfers/new')}
+              onClick={() => pushWithScrollSave("/asset-transfers/new")}
               className="flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -258,20 +279,22 @@ export default function AssetTransfersPage() {
           renderRowActions={(transfer) => {
             const showActions = true; // Always show view action for users with read permission
             if (!showActions) return null;
-            
+
             return (
               <div className="flex items-center gap-1">
                 <EditButton
                   tooltip="View Transfer"
                   aria-label="View Transfer"
-                  onClick={() => pushWithScrollSave(`/asset-transfers/${transfer.id}`)}
+                  onClick={() =>
+                    pushWithScrollSave(`/asset-transfers/${transfer.id}`)
+                  }
                 />
-                {canApprove && transfer.status === 'Pending' && (
+                {canApprove && transfer.status === "Pending" && (
                   <>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleApprove(transfer.id, 'Accepted')}
+                      onClick={() => handleApprove(transfer.id, "Accepted")}
                       className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                       title="Accept Transfer"
                     >
@@ -280,7 +303,7 @@ export default function AssetTransfersPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleApprove(transfer.id, 'Rejected')}
+                      onClick={() => handleApprove(transfer.id, "Rejected")}
                       className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                       title="Reject Transfer"
                     >
@@ -288,7 +311,7 @@ export default function AssetTransfersPage() {
                     </Button>
                   </>
                 )}
-                {canDelete && transfer.status === 'Pending' && (
+                {canDelete && transfer.status === "Pending" && (
                   <DeleteButton
                     onDelete={() => handleDelete(transfer.id)}
                     itemLabel="asset transfer"

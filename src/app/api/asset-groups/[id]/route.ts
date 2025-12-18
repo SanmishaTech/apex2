@@ -1,42 +1,58 @@
-
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { Success, Error } from '@/lib/api-response';
-import { guardApiAccess } from '@/lib/access-guard';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Success, Error } from "@/lib/api-response";
+import { guardApiAccess } from "@/lib/access-guard";
 
 // GET /api/asset-groups/:id
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return Error("Invalid id", 400);
   try {
     const assetGroup = await prisma.assetGroup.findUnique({
       where: { id: idNum },
-      select: { id: true, assetGroupName: true, createdAt: true, updatedAt: true }
+      select: {
+        id: true,
+        assetGroupName: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
-    if (!assetGroup) return Error('Asset group not found', 404);
+    if (!assetGroup) return Error("Asset group not found", 404);
     return Success(assetGroup);
   } catch {
-    return Error('Failed to fetch asset group');
+    return Error("Failed to fetch asset group");
   }
 }
 
 // DELETE /api/asset-groups/:id
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return Error("Invalid id", 400);
   try {
     await prisma.assetGroup.delete({ where: { id: idNum } });
     return Success({ id: idNum }, 200);
   } catch (e: unknown) {
     const err = e as { code?: string };
-    if (err?.code === 'P2025') return Error('Asset group not found', 404);
-    return Error('Failed to delete asset group');
+    if (err?.code === "P2025") return Error("Asset group not found", 404);
+    if (err?.code === "P2003") {
+      return Error(
+        "Cannot delete this asset group because it is in use by other records. Please remove those links and try again.",
+        409
+      );
+    }
+    return Error("Failed to delete asset group");
   }
 }
