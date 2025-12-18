@@ -56,7 +56,15 @@ function BaseAppSelect(props: AppSelectRootProps) {
               </FormLabel>
             )}
             <FormControl>
-              <Select disabled={disabled} value={field.value} onValueChange={field.onChange} {...rest}>
+              <Select
+                disabled={disabled}
+                value={field.value}
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  if (typeof onValueChange === 'function') onValueChange(val);
+                }}
+                {...rest}
+              >
                 <SelectTrigger id={id} className={cn('w-full', triggerClassName)}>
                   <SelectValue placeholder={placeholder} />
                 </SelectTrigger>

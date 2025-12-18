@@ -92,7 +92,7 @@ model RefreshToken {
   id         Int       @id @default(autoincrement())
   token      String    @unique
   userId     Int
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
   revokedAt  DateTime?
@@ -489,7 +489,7 @@ model AssetCategory {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  assetGroup AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Cascade)
+  assetGroup AssetGroup @relation(fields: [assetGroupId], references: [id], onDelete: Restrict)
   assets     Asset[]
 
   @@unique([assetGroupId, category]) // Unique category per asset group
@@ -679,8 +679,8 @@ model VendorItemCategory {
   id             Int          @id @default(autoincrement())
   vendorId       Int
   itemCategoryId Int
-  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  itemCategory   ItemCategory @relation(fields: [itemCategoryId], references: [id], onDelete: Cascade)
+  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  itemCategory   ItemCategory @relation(fields: [itemCategoryId], references: [id], onDelete: Restrict)
   createdAt      DateTime     @default(now())
 
   @@unique([vendorId, itemCategoryId])
@@ -693,7 +693,7 @@ model VendorItemCategory {
 model VendorBankAccount {
   id            Int      @id @default(autoincrement())
   vendorId      Int
-  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   bank          String?
   branch        String?
   branchCode    String?
@@ -754,19 +754,19 @@ model Boq {
 model BoqItem {
   id           Int      @id @default(autoincrement())
   boqId        Int
-  boq          Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  boq          Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
   activityId   String?
   clientSrNo   String?
   item         String? // long description
   unitId       Int?
   unit         Unit?    @relation(fields: [unitId], references: [id])
-  qty          Decimal? @db.Decimal(12, 2)
-  rate         Decimal? @db.Decimal(12, 2)
-  amount       Decimal? @db.Decimal(14, 2)
-  openingQty   Decimal? @db.Decimal(12, 2)
-  openingValue Decimal? @db.Decimal(12, 2)
-  closingQty   Decimal? @db.Decimal(12, 2)
-  closingValue Decimal? @db.Decimal(12, 2)
+  qty          Decimal @db.Decimal(12, 2)   @default(0.00)
+  rate         Decimal @db.Decimal(12, 2)@default(0.00)
+  amount       Decimal @db.Decimal(14, 2) @default(0.00)
+  orderedQty   Decimal @db.Decimal(12, 2) @default(0.00)
+  orderedValue Decimal @db.Decimal(12, 2) @default(0.00)
+  remainingQty   Decimal @db.Decimal(12, 2) @default(0.00)
+  remainingValue Decimal @db.Decimal(12, 2) @default(0.00)
   isGroup      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -782,9 +782,9 @@ model BoqItem {
 model BoqTarget {
   id             Int      @id @default(autoincrement())
   siteId         Int
-  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
   boqId          Int
-  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
   activityId     String
   fromTargetDate DateTime
   toTargetDate   DateTime
@@ -1022,7 +1022,7 @@ model CashbookBudget {
 model CashbookBudgetItem {
   id              Int            @id @default(autoincrement())
   budgetId        Int
-  budget          CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budget          CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
   cashbookHeadId  Int
   cashbookHead    CashbookHead   @relation(fields: [cashbookHeadId], references: [id])
   description     String?        @db.Text
@@ -1242,7 +1242,7 @@ model Cashbook {
 model CashbookDetail {
   id             Int          @id @default(autoincrement())
   cashbookId     Int
-  cashbook       Cashbook     @relation(fields: [cashbookId], references: [id], onDelete: Cascade)
+  cashbook       Cashbook     @relation(fields: [cashbookId], references: [id], onDelete: Restrict)
   date           DateTime
   cashbookHeadId Int
   cashbookHead   CashbookHead @relation(fields: [cashbookHeadId], references: [id])
@@ -1300,7 +1300,7 @@ model AssetTransferItem {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  assetTransfer AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Cascade)
+  assetTransfer AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Restrict)
   asset         Asset         @relation(fields: [assetId], references: [id])
 
   @@map("asset_transfer_items")
@@ -1375,7 +1375,7 @@ model ManpowerTransferItem {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  manpowerTransfer ManpowerTransfer @relation(fields: [manpowerTransferId], references: [id], onDelete: Cascade)
+  manpowerTransfer ManpowerTransfer @relation(fields: [manpowerTransferId], references: [id], onDelete: Restrict)
   manpower         Manpower         @relation(fields: [manpowerId], references: [id])
 
   @@index([manpowerTransferId])
@@ -1406,7 +1406,7 @@ model PaySlip {
 model PaySlipDetail {
   id            Int      @id @default(autoincrement())
   paySlipId     Int
-  paySlip       PaySlip  @relation(fields: [paySlipId], references: [id], onDelete: Cascade)
+  paySlip       PaySlip  @relation(fields: [paySlipId], references: [id], onDelete: Restrict)
   siteId        Int
   site          Site     @relation(fields: [siteId], references: [id])
   workingDays   Decimal  @db.Decimal(6, 2)
@@ -1460,10 +1460,10 @@ model DailyProgress {
   updatedById  Int
   updatedAt    DateTime @updatedAt
 
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  boq       Boq  @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  createdBy User @relation("DailyProgressCreated", fields: [createdById], references: [id], onDelete: Cascade)
-  updatedBy User @relation("DailyProgressUpdated", fields: [updatedById], references: [id], onDelete: Cascade)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boq       Boq  @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  createdBy User @relation("DailyProgressCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("DailyProgressUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   dailyProgressHindrances DailyProgressHindrance[]
   dailyProgressDetails    DailyProgressDetail[]
@@ -1486,8 +1486,8 @@ model DailyProgressDetail {
   amount          Decimal @default(0.00) @db.Decimal(12, 2)
 
   // Relations
-  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
-  boqItems      BoqItem       @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Restrict)
+  boqItems      BoqItem       @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
 
   @@index([dailyProgressId])
   @@index([boqItemId])
@@ -1504,7 +1504,7 @@ model DailyProgressHindrance {
   reason          String?   @db.VarChar(500)
 
   // Relations
-  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Cascade)
+  dailyProgress DailyProgress @relation(fields: [dailyProgressId], references: [id], onDelete: Restrict)
 
   @@index([dailyProgressId])
   @@map("daily_progress_hindrances")
@@ -1520,10 +1520,10 @@ model SiteEmployeeLog {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  assignedBy User @relation("siteAssignedByLogs", fields: [assignedById], references: [id], onDelete: Cascade)
-  unassignedBy User? @relation("siteUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("siteAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
+  unassignedBy User? @relation("siteUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
 
 
   @@index([siteId])
@@ -1545,10 +1545,10 @@ model SiteEmployee {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  assignedBy User @relation("siteAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
-  // unassignedBy User? @relation("siteUnassignedBy", fields: [unassignedById], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("siteAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  // unassignedBy User? @relation("siteUnassignedBy", fields: [unassignedById], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([employeeId])
@@ -1565,7 +1565,7 @@ model EmployeeDocument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
   @@index([employeeId])
   @@map("employee_documents")
@@ -1579,7 +1579,7 @@ model ManpowerDocument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Cascade)
+  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
 
   @@index([manpowerId])
   @@map("manpower_documents")
@@ -1594,7 +1594,7 @@ model SiteContactPerson {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  site    Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site    Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@map("site_contact_persons")
@@ -1612,7 +1612,7 @@ model SiteDeliveryAddress {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  site    Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site    Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
   state              State?      @relation(fields: [stateId], references: [id])
   city               City?       @relation(fields: [cityId], references: [id])
 
@@ -2040,8 +2040,8 @@ model InwardDeliveryChallanDetail {
   amount                    Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
-  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Cascade)
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)
 
 
   @@index([inwardDeliveryChallanId])
@@ -2058,7 +2058,7 @@ model InwardDeliveryChallanDocuments {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_delivery_challan_documents")
@@ -2188,7 +2188,7 @@ model OutwardDeliveryChallanDetail {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   // relation (many details belong to one challan)
-  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id],onDelete: Cascade)
+  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id],onDelete: Restrict)
   item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@index([outwardDeliveryChallanId])
@@ -2206,7 +2206,7 @@ model OutwardDeliveryChallanDocuments {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  outwardDeliveryChallan    OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  outwardDeliveryChallan    OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([outwardDeliveryChallanId])
   @@map("outward_delivery_challan_documents")
@@ -2229,7 +2229,7 @@ model InwardBillDetail {
   paidAmount                Decimal    @default(0.00) @db.Decimal(12, 2)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Cascade)
+  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_bill_details")
@@ -2366,5 +2366,5 @@ model OpeningStockDetail {
 
 
 // Roles And Permission Till Payslip.
-// fix onDelete Cascade
+// fix onDelete Restrict
 //test stock adjustmtn backend functinality.

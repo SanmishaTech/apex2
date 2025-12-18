@@ -1,16 +1,19 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { Success, Error } from '@/lib/api-response';
-import { guardApiAccess } from '@/lib/access-guard';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Success, Error } from "@/lib/api-response";
+import { guardApiAccess } from "@/lib/access-guard";
 
 // GET /api/boqs/:id
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return Error("Invalid id", 400);
   try {
     const boq = await prisma.boq.findUnique({
       where: { id: idNum },
@@ -46,39 +49,43 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             clientSrNo: true,
             item: true,
             unitId: true,
+            unit: { select: { unitName: true } },
             qty: true,
             rate: true,
             amount: true,
-            openingQty: true,
-            openingValue: true,
-            closingQty: true,
-            closingValue: true,
+            orderedQty: true,
+            orderedValue: true,
+            remainingQty: true,
+            remainingValue: true,
             isGroup: true,
           },
-          orderBy: { id: 'asc' },
+          orderBy: { id: "asc" },
         },
-      }
+      },
     });
-    if (!boq) return Error('BOQ not found', 404);
+    if (!boq) return Error("BOQ not found", 404);
     return Success(boq);
   } catch {
-    return Error('Failed to fetch BOQ');
+    return Error("Failed to fetch BOQ");
   }
 }
 
 // DELETE /api/boqs/:id
-export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
   const { id } = await context.params;
   const idNum = Number(id);
-  if (Number.isNaN(idNum)) return Error('Invalid id', 400);
+  if (Number.isNaN(idNum)) return Error("Invalid id", 400);
   try {
     await prisma.boq.delete({ where: { id: idNum } });
     return Success({ id: idNum }, 200);
   } catch (e: unknown) {
     const err = e as { code?: string };
-    if (err?.code === 'P2025') return Error('BOQ not found', 404);
-    return Error('Failed to delete BOQ');
+    if (err?.code === "P2025") return Error("BOQ not found", 404);
+    return Error("Failed to delete BOQ");
   }
 }

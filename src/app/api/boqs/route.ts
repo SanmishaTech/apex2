@@ -15,7 +15,7 @@ async function generateBoqNo(): Promise<string> {
   const lastNum = last?.boqNo?.startsWith(prefix)
     ? parseInt(last.boqNo.slice(prefix.length), 10)
     : 0;
-  const nextNum = isNaN(lastNum) ? 1 : (lastNum + 1);
+  const nextNum = isNaN(lastNum) ? 1 : lastNum + 1;
   const next = `${prefix}${String(nextNum).padStart(5, "0")}`;
   return next;
 }
@@ -27,13 +27,19 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+  const perPage = Math.min(
+    100,
+    Math.max(1, Number(searchParams.get("perPage")) || 10)
+  );
   const search = (searchParams.get("search") || "").trim();
   const sort = (searchParams.get("sort") || "createdAt") as string;
-  const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+  const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
+    | "asc"
+    | "desc";
 
   type BoqWhere = {
     OR?: { workName?: { contains: string }; boqNo?: { contains: string } }[];
+    siteId?: number;
   };
   const where: BoqWhere = {};
   if (search) {
@@ -43,8 +49,16 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // Optional filter by siteId for dependent dropdowns
+  const siteIdParam = Number(searchParams.get("siteId"));
+  if (!Number.isNaN(siteIdParam) && siteIdParam > 0) {
+    where.siteId = siteIdParam;
+  }
+
   const sortableFields = new Set(["boqNo", "workName", "createdAt"]);
-  const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { createdAt: "desc" };
+  const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
+    ? { [sort]: order }
+    : { createdAt: "desc" };
 
   const result = await paginate({
     model: prisma.boq as any,
@@ -74,7 +88,11 @@ export async function POST(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   let body: unknown;
-  try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
+  try {
+    body = await req.json();
+  } catch {
+    return Error("Invalid JSON body", 400);
+  }
   const b = (body as Record<string, unknown>) || {};
 
   // Minimal validation: require workName (can adjust as needed)
@@ -92,11 +110,15 @@ export async function POST(req: NextRequest) {
         const itemsCreate = items.map((it) => {
           const qty = it.qty ?? null;
           const rate = it.rate ?? null;
-          const amount = it.amount ?? (qty != null && rate != null ? (Number(qty) * Number(rate)).toFixed(2) : null);
-          const openingQty = it.openingQty ?? null;
-          const openingValue = it.openingValue ?? null;
-          const closingQty = it.closingQty ?? null;
-          const closingValue = it.closingValue ?? null;
+          const amount =
+            it.amount ??
+            (qty != null && rate != null
+              ? (Number(qty) * Number(rate)).toFixed(2)
+              : null);
+          const orderedQty = it.orderedQty ?? null;
+          const orderedValue = it.orderedValue ?? null;
+          const remainingQty = it.remainingQty ?? null;
+          const remainingValue = it.remainingValue ?? null;
           return {
             activityId: it.activityId ?? null,
             clientSrNo: it.clientSrNo ?? null,
@@ -105,10 +127,10 @@ export async function POST(req: NextRequest) {
             qty: qty as any,
             rate: rate as any,
             amount: amount as any,
-            openingQty: openingQty as any,
-            openingValue: openingValue as any,
-            closingQty: closingQty as any,
-            closingValue: closingValue as any,
+            orderedQty: orderedQty as any,
+            orderedValue: orderedValue as any,
+            remainingQty: remainingQty as any,
+            remainingValue: remainingValue as any,
             isGroup: Boolean(it.isGroup) || false,
           };
         });
@@ -119,36 +141,52 @@ export async function POST(req: NextRequest) {
             siteId: siteId || undefined,
             workName: workName || null,
             workOrderNo: (b.workOrderNo as string | undefined) || null,
-            workOrderDate: b.workOrderDate ? new Date(String(b.workOrderDate)) : null,
+            workOrderDate: b.workOrderDate
+              ? new Date(String(b.workOrderDate))
+              : null,
             startDate: b.startDate ? new Date(String(b.startDate)) : null,
             endDate: b.endDate ? new Date(String(b.endDate)) : null,
-            totalWorkValue: b.totalWorkValue != null ? (b.totalWorkValue as any) : null,
+            totalWorkValue:
+              b.totalWorkValue != null ? (b.totalWorkValue as any) : null,
             gstRate: b.gstRate != null ? (b.gstRate as any) : null,
             agreementNo: (b.agreementNo as string | undefined) || null,
             agreementStatus: (b.agreementStatus as string | undefined) || null,
-            completionPeriod: (b.completionPeriod as string | undefined) || null,
-            completionDate: b.completionDate ? new Date(String(b.completionDate)) : null,
-            dateOfExpiry: b.dateOfExpiry ? new Date(String(b.dateOfExpiry)) : null,
-            commencementDate: b.commencementDate ? new Date(String(b.commencementDate)) : null,
-            timeExtensionDate: b.timeExtensionDate ? new Date(String(b.timeExtensionDate)) : null,
-            defectLiabilityPeriod: (b.defectLiabilityPeriod as string | undefined) || null,
-            performanceSecurityMode: (b.performanceSecurityMode as string | undefined) || null,
-            performanceSecurityDocumentNo: (b.performanceSecurityDocumentNo as string | undefined) || null,
-            performanceSecurityPeriod: (b.performanceSecurityPeriod as string | undefined) || null,
+            completionPeriod:
+              (b.completionPeriod as string | undefined) || null,
+            completionDate: b.completionDate
+              ? new Date(String(b.completionDate))
+              : null,
+            dateOfExpiry: b.dateOfExpiry
+              ? new Date(String(b.dateOfExpiry))
+              : null,
+            commencementDate: b.commencementDate
+              ? new Date(String(b.commencementDate))
+              : null,
+            timeExtensionDate: b.timeExtensionDate
+              ? new Date(String(b.timeExtensionDate))
+              : null,
+            defectLiabilityPeriod:
+              (b.defectLiabilityPeriod as string | undefined) || null,
+            performanceSecurityMode:
+              (b.performanceSecurityMode as string | undefined) || null,
+            performanceSecurityDocumentNo:
+              (b.performanceSecurityDocumentNo as string | undefined) || null,
+            performanceSecurityPeriod:
+              (b.performanceSecurityPeriod as string | undefined) || null,
             ...(itemsCreate.length ? { items: { create: itemsCreate } } : {}),
           },
           select: { id: true, boqNo: true },
         });
         break;
       } catch (e: any) {
-        if (e?.code === 'P2002') {
+        if (e?.code === "P2002") {
           // unique constraint failed; try next number
           continue;
         }
         throw e;
       }
     }
-    if (!created) return Error('Failed to create BOQ', 500);
+    if (!created) return Error("Failed to create BOQ", 500);
 
     // Return full object for client
     const full = await prisma.boq.findUnique({
@@ -157,7 +195,7 @@ export async function POST(req: NextRequest) {
     });
     return Success(full, 201);
   } catch (e: unknown) {
-    return Error('Failed to create BOQ');
+    return Error("Failed to create BOQ");
   }
 }
 
@@ -167,51 +205,137 @@ export async function PATCH(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   let body: unknown;
-  try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
+  try {
+    body = await req.json();
+  } catch {
+    return Error("Invalid JSON body", 400);
+  }
   const b = (body as Record<string, unknown>) || {};
   const id = b.id != null ? Number(b.id) : NaN;
-  if (!id || Number.isNaN(id)) return Error('BOQ id required', 400);
+  if (!id || Number.isNaN(id)) return Error("BOQ id required", 400);
 
   const data: Record<string, any> = {};
-  if (b.siteId !== undefined) data.siteId = b.siteId == null ? null : Number(b.siteId);
-  if (b.workName !== undefined) data.workName = (b.workName as string | null) ?? null;
-  if (b.workOrderNo !== undefined) data.workOrderNo = (b.workOrderNo as string | null) ?? null;
-  if (b.workOrderDate !== undefined) data.workOrderDate = b.workOrderDate ? new Date(String(b.workOrderDate)) : null;
-  if (b.startDate !== undefined) data.startDate = b.startDate ? new Date(String(b.startDate)) : null;
-  if (b.endDate !== undefined) data.endDate = b.endDate ? new Date(String(b.endDate)) : null;
-  if (b.totalWorkValue !== undefined) data.totalWorkValue = b.totalWorkValue as any;
+  if (b.siteId !== undefined)
+    data.siteId = b.siteId == null ? null : Number(b.siteId);
+  if (b.workName !== undefined)
+    data.workName = (b.workName as string | null) ?? null;
+  if (b.workOrderNo !== undefined)
+    data.workOrderNo = (b.workOrderNo as string | null) ?? null;
+  if (b.workOrderDate !== undefined)
+    data.workOrderDate = b.workOrderDate
+      ? new Date(String(b.workOrderDate))
+      : null;
+  if (b.startDate !== undefined)
+    data.startDate = b.startDate ? new Date(String(b.startDate)) : null;
+  if (b.endDate !== undefined)
+    data.endDate = b.endDate ? new Date(String(b.endDate)) : null;
+  if (b.totalWorkValue !== undefined)
+    data.totalWorkValue = b.totalWorkValue as any;
   if (b.gstRate !== undefined) data.gstRate = b.gstRate as any;
-  if (b.agreementNo !== undefined) data.agreementNo = (b.agreementNo as string | null) ?? null;
-  if (b.agreementStatus !== undefined) data.agreementStatus = (b.agreementStatus as string | null) ?? null;
-  if (b.completionPeriod !== undefined) data.completionPeriod = (b.completionPeriod as string | null) ?? null;
-  if (b.completionDate !== undefined) data.completionDate = b.completionDate ? new Date(String(b.completionDate)) : null;
-  if (b.dateOfExpiry !== undefined) data.dateOfExpiry = b.dateOfExpiry ? new Date(String(b.dateOfExpiry)) : null;
-  if (b.commencementDate !== undefined) data.commencementDate = b.commencementDate ? new Date(String(b.commencementDate)) : null;
-  if (b.timeExtensionDate !== undefined) data.timeExtensionDate = b.timeExtensionDate ? new Date(String(b.timeExtensionDate)) : null;
-  if (b.defectLiabilityPeriod !== undefined) data.defectLiabilityPeriod = (b.defectLiabilityPeriod as string | null) ?? null;
-  if (b.performanceSecurityMode !== undefined) data.performanceSecurityMode = (b.performanceSecurityMode as string | null) ?? null;
-  if (b.performanceSecurityDocumentNo !== undefined) data.performanceSecurityDocumentNo = (b.performanceSecurityDocumentNo as string | null) ?? null;
-  if (b.performanceSecurityPeriod !== undefined) data.performanceSecurityPeriod = (b.performanceSecurityPeriod as string | null) ?? null;
+  if (b.agreementNo !== undefined)
+    data.agreementNo = (b.agreementNo as string | null) ?? null;
+  if (b.agreementStatus !== undefined)
+    data.agreementStatus = (b.agreementStatus as string | null) ?? null;
+  if (b.completionPeriod !== undefined)
+    data.completionPeriod = (b.completionPeriod as string | null) ?? null;
+  if (b.completionDate !== undefined)
+    data.completionDate = b.completionDate
+      ? new Date(String(b.completionDate))
+      : null;
+  if (b.dateOfExpiry !== undefined)
+    data.dateOfExpiry = b.dateOfExpiry
+      ? new Date(String(b.dateOfExpiry))
+      : null;
+  if (b.commencementDate !== undefined)
+    data.commencementDate = b.commencementDate
+      ? new Date(String(b.commencementDate))
+      : null;
+  if (b.timeExtensionDate !== undefined)
+    data.timeExtensionDate = b.timeExtensionDate
+      ? new Date(String(b.timeExtensionDate))
+      : null;
+  if (b.defectLiabilityPeriod !== undefined)
+    data.defectLiabilityPeriod =
+      (b.defectLiabilityPeriod as string | null) ?? null;
+  if (b.performanceSecurityMode !== undefined)
+    data.performanceSecurityMode =
+      (b.performanceSecurityMode as string | null) ?? null;
+  if (b.performanceSecurityDocumentNo !== undefined)
+    data.performanceSecurityDocumentNo =
+      (b.performanceSecurityDocumentNo as string | null) ?? null;
+  if (b.performanceSecurityPeriod !== undefined)
+    data.performanceSecurityPeriod =
+      (b.performanceSecurityPeriod as string | null) ?? null;
 
-  if (Object.keys(data).length === 0) return Error('Nothing to update', 400);
+  // Allow item-only updates (when no other fields present)
+  const incomingItems = Array.isArray(b.items) ? (b.items as any[]) : null;
+  if (Object.keys(data).length === 0 && !incomingItems)
+    return Error("Nothing to update", 400);
 
   try {
-    // If items provided, replace in a transaction
-    const items = Array.isArray(b.items) ? (b.items as any[]) : null;
+    // Upsert items in a transaction
+    const items = incomingItems;
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.boq.update({ where: { id }, data, select: { id: true, boqNo: true } });
+      // Ensure BOQ exists and update fields if any
+      let updated: { id: number; boqNo: string | null };
+      if (Object.keys(data).length > 0) {
+        updated = await tx.boq.update({
+          where: { id },
+          data,
+          select: { id: true, boqNo: true },
+        });
+      } else {
+        const found = await tx.boq.findUnique({
+          where: { id },
+          select: { id: true, boqNo: true },
+        });
+        if (!found) throw { code: "P2025" } as any;
+        updated = found;
+      }
+
       if (items) {
-        await tx.boqItem.deleteMany({ where: { boqId: id } });
-        if (items.length) {
-          const rows = items.map((it) => {
-            const qty = it.qty ?? null;
-            const rate = it.rate ?? null;
-            const amount = it.amount ?? (qty != null && rate != null ? (Number(qty) * Number(rate)).toFixed(2) : null);
-            const openingQty = it.openingQty ?? null;
-            const openingValue = it.openingValue ?? null;
-            const closingQty = it.closingQty ?? null;
-            const closingValue = it.closingValue ?? null;
-            return {
+        // Fetch existing item IDs for this BOQ
+        const existing = await tx.boqItem.findMany({
+          where: { boqId: id },
+          select: { id: true },
+        });
+        const existingIds = new Set(existing.map((e) => e.id));
+
+        const toUpdate = items.filter((it) => {
+          const idVal = it.id as any;
+          if (idVal === null || idVal === undefined) return false;
+          const s = String(idVal).trim();
+          if (s === "") return false; // empty string => create
+          return !Number.isNaN(Number(s));
+        });
+        const toCreate = items.filter((it) => {
+          const idVal = it.id as any;
+          if (idVal === null || idVal === undefined) return true;
+          const s = String(idVal).trim();
+          if (s === "") return true; // empty string => create
+          return Number.isNaN(Number(s));
+        });
+
+        const keepIds: number[] = [];
+
+        // Update existing items
+        for (const it of toUpdate) {
+          const itemId = Number(it.id);
+          keepIds.push(itemId);
+          const qty = it.qty ?? null;
+          const rate = it.rate ?? null;
+          const amount =
+            it.amount ??
+            (qty != null && rate != null
+              ? (Number(qty) * Number(rate)).toFixed(2)
+              : null);
+          const orderedQty = it.orderedQty ?? null;
+          const orderedValue = it.orderedValue ?? null;
+          const remainingQty = it.remainingQty ?? null;
+          const remainingValue = it.remainingValue ?? null;
+          await tx.boqItem.update({
+            where: { id: itemId },
+            data: {
               boqId: id,
               activityId: it.activityId ?? null,
               clientSrNo: it.clientSrNo ?? null,
@@ -220,24 +344,66 @@ export async function PATCH(req: NextRequest) {
               qty: qty as any,
               rate: rate as any,
               amount: amount as any,
-              openingQty: openingQty as any,
-              openingValue: openingValue as any,
-              closingQty: closingQty as any,
-              closingValue: closingValue as any,
+              orderedQty: orderedQty as any,
+              orderedValue: orderedValue as any,
+              remainingQty: remainingQty as any,
+              remainingValue: remainingValue as any,
               isGroup: Boolean(it.isGroup) || false,
-            };
+            },
           });
-          // createMany doesn't support Decimal in some adapters; fall back to create for each if needed
-          for (const row of rows) {
-            await tx.boqItem.create({ data: row });
-          }
+        }
+
+        // Create new items
+        for (const it of toCreate) {
+          const qty = it.qty ?? null;
+          const rate = it.rate ?? null;
+          const amount =
+            it.amount ??
+            (qty != null && rate != null
+              ? (Number(qty) * Number(rate)).toFixed(2)
+              : null);
+          const orderedQty = it.orderedQty ?? null;
+          const orderedValue = it.orderedValue ?? null;
+          const remainingQty = it.remainingQty ?? null;
+          const remainingValue = it.remainingValue ?? null;
+          await tx.boqItem.create({
+            data: {
+              boqId: id,
+              activityId: it.activityId ?? null,
+              clientSrNo: it.clientSrNo ?? null,
+              item: it.item ?? null,
+              unitId: it.unitId ?? null,
+              qty: qty as any,
+              rate: rate as any,
+              amount: amount as any,
+              orderedQty: orderedQty as any,
+              orderedValue: orderedValue as any,
+              remainingQty: remainingQty as any,
+              remainingValue: remainingValue as any,
+              isGroup: Boolean(it.isGroup) || false,
+            },
+          });
+        }
+
+        // Delete items not kept (only among previously existing ones)
+        if (existingIds.size) {
+          const existingIdsArr = Array.from(existingIds);
+          await tx.boqItem.deleteMany({
+            where: {
+              boqId: id,
+              id: {
+                in: existingIdsArr,
+                notIn: keepIds.length ? keepIds : [0],
+              },
+            },
+          });
         }
       }
       return updated;
     });
     return Success(result);
   } catch (e: any) {
-    if (e?.code === 'P2025') return Error('BOQ not found', 404);
-    return Error('Failed to update BOQ');
+    if (e?.code === "P2025") return Error("BOQ not found", 404);
+    return Error("Failed to update BOQ");
   }
 }

@@ -11,6 +11,40 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   const { searchParams } = new URL(req.url);
+  // Aggregate: doneQty sum for given siteId, boqId and boqItemId
+  const metric = (searchParams.get("metric") || "").trim();
+  const siteIdAgg = Number(searchParams.get("siteId"));
+  const boqIdAgg = Number(searchParams.get("boqId"));
+  const boqItemIdAgg = Number(searchParams.get("boqItemId"));
+  if (
+    metric === "doneQtySum" &&
+    Number.isFinite(siteIdAgg) &&
+    Number.isFinite(boqIdAgg) &&
+    Number.isFinite(boqItemIdAgg)
+  ) {
+    try {
+      const agg = await prisma.dailyProgressDetail.aggregate({
+        _sum: { doneQty: true },
+        where: {
+          boqItemId: boqItemIdAgg,
+          dailyProgress: {
+            siteId: siteIdAgg,
+            boqId: boqIdAgg,
+          },
+        },
+      });
+      const sumDoneQty = (agg._sum.doneQty as any) ?? 0;
+      const item = await prisma.boqItem.findUnique({
+        where: { id: boqItemIdAgg },
+        select: { remainingQty: true },
+      });
+      const remainingQty = (item?.remainingQty as any) ?? 0;
+      const balanceQty = Number(remainingQty) - Number(sumDoneQty);
+      return Success({ sumDoneQty, remainingQty, balanceQty });
+    } catch {
+      return Error("Failed to aggregate done qty");
+    }
+  }
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(
     100,

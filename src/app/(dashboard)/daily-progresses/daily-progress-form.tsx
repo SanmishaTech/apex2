@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -141,6 +141,7 @@ export function DailyProgressForm({
   const [submitting, setSubmitting] = useState(false);
   const [filteredBoqs, setFilteredBoqs] = useState<any[]>([]);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [balances, setBalances] = useState<Record<string, number>>({});
 
   const isCreate = mode === "create";
 
@@ -149,24 +150,40 @@ export function DailyProgressForm({
 
   const form = useForm<RawFormValues>({
     resolver: zodResolver(inputSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       siteId: initial?.siteId ? String(initial.siteId) : "",
       boqId: initial?.boqId ? String(initial.boqId) : "",
       progressDate: initial?.progressDate
         ? initial.progressDate.split("T")[0]
         : "",
-      details:
-        initial?.dailyProgressDetails?.map((d) => ({
-          boqItemId: d.boqItemId ? String(d.boqItemId) : "",
-          clientSerialNo: d.clientSerialNo || "",
-          activityId: d.activityId || "",
-          item: d.item || "",
-          unit: d.unit || "",
-          boqQty: d.boqQty ? String(d.boqQty) : "",
-          doneQty: d.doneQty ? String(d.doneQty) : "",
-          particulars: d.particulars || "",
-          amount: d.amount ? String(d.amount) : "",
-        })) || [],
+      details: ((initial?.dailyProgressDetails ?? initial?.details) || []).map(
+        (d: any) => {
+          const bi = d?.boqItems;
+          return {
+            boqItemId: d?.boqItemId ? String(d.boqItemId) : "",
+            clientSerialNo: d?.clientSerialNo || "",
+            activityId: d?.activityId || "",
+            item: d?.item || (bi?.item ?? ""),
+            unit: d?.unit || (bi?.unit?.unitName ?? ""),
+            boqQty:
+              d?.boqQty != null && d?.boqQty !== ""
+                ? String(d.boqQty)
+                : bi?.remainingQty != null
+                ? String(bi.remainingQty)
+                : "",
+            doneQty: d?.doneQty ? String(d.doneQty) : "",
+            particulars: d?.particulars || "",
+            amount:
+              d?.amount != null && d?.amount !== ""
+                ? String(d.amount)
+                : bi?.remainingQty != null
+                ? String(bi.remainingQty)
+                : "",
+          };
+        }
+      ),
       hindrances:
         initial?.dailyProgressHindrances?.map((h) => ({
           from: utcToISTTime(h.from ?? null),
@@ -178,7 +195,15 @@ export function DailyProgressForm({
     },
   });
 
-  const { control, handleSubmit, watch, setValue, getValues } = form;
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    getValues,
+    setError,
+    clearErrors,
+  } = form;
 
   const details = useWatch({ control, name: "details" });
 
@@ -197,7 +222,7 @@ export function DailyProgressForm({
         detail.item !== selected.item ||
         detail.unit !== selected.unit ||
         detail.boqQty !== selected.boqQty ||
-        detail.amount !== selected.boqQty
+        detail.amount !== selected.amount
       ) {
         setValue(`details.${index}.clientSerialNo`, selected.clientSrNo);
         setValue(`details.${index}.activityId`, selected.activityId);
@@ -215,11 +240,25 @@ export function DailyProgressForm({
   const siteId = watch("siteId");
   const boqId = watch("boqId");
 
+  // When Site changes, clear BOQ selection (and details via the effect below)
+  const didMountSiteRef = useRef(false);
+  useEffect(() => {
+    if (!didMountSiteRef.current) {
+      didMountSiteRef.current = true;
+      return;
+    }
+    setValue("boqId", "", { shouldValidate: true, shouldDirty: true });
+  }, [siteId, setValue]);
+
   const {
     fields: detailFields,
     append: appendDetail,
     remove: removeDetail,
   } = useFieldArray({ control, name: "details" });
+  const { replace: replaceDetail } = useFieldArray({
+    control,
+    name: "details",
+  });
   const {
     fields: hindranceFields,
     append: appendHindrance,
@@ -239,22 +278,61 @@ export function DailyProgressForm({
       return;
     }
     (async () => {
-      const res: unknown = await apiGet(`/api/boqs/${boqId}`);
-      /** ✅ Safe guard for unknown type */
-      if (res && typeof res === "object" && Array.isArray((res as any).items)) {
-        const mapped = (res as any).items.map((it: any) => ({
+      const res: any = await apiGet(`/api/boqs/${boqId}`);
+      const boq = res?.data ?? res;
+      const items = boq?.items;
+      if (Array.isArray(items)) {
+        const mapped = items.map((it: any) => ({
           id: it.id,
           activityId: it.activityId || null,
           clientSrNo: it.clientSrNo || "-",
           item: it.item || "-",
-          unit: it.unit || "-",
-          boqQty: it.qty || "0",
-          amount: it.qty || "0",
+          unit: (it.unit && (it.unit.unitName || it.unit)) || "-",
+          boqQty: it.remainingQty || "0",
+          amount: it.remainingQty || "0",
         }));
         setBoqItems(mapped);
-      } else setBoqItems([]);
+      } else {
+        setBoqItems([]);
+      }
     })();
   }, [boqId]);
+
+  // Reset details when Site or BOQ changes (but not on initial mount)
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    // Clear details and balances when either selection changes
+    replaceDetail([]);
+    setBalances({});
+  }, [siteId, boqId, replaceDetail]);
+
+  // Preload balances for prefilled edit form rows
+  useEffect(() => {
+    const sid = siteId;
+    const bid = boqId;
+    if (!sid || !bid) return;
+    (details || []).forEach((d, idx) => {
+      const id = d?.boqItemId ? String(d.boqItemId) : "";
+      if (!id) return;
+      if (balances[id] !== undefined) return; // already loaded
+      (async () => {
+        try {
+          const agg: any = await apiGet(
+            `/api/daily-progresses?metric=doneQtySum&siteId=${sid}&boqId=${bid}&boqItemId=${id}`
+          );
+          const balance = agg?.data?.balanceQty ?? agg?.balanceQty ?? 0;
+          setBalances((prev) => ({ ...prev, [id]: Number(balance) || 0 }));
+        } catch {
+          // ignore
+        }
+      })();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [details, siteId, boqId]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -317,6 +395,13 @@ export function DailyProgressForm({
                   placeholder="Select BOQ"
                   triggerClassName="h-9 w-full"
                   disabled={!siteId}
+                  onValueChange={(value) => {
+                    setValue("boqId", value, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                    clearErrors("boqId");
+                  }}
                 >
                   {filteredBoqs.map((b: any) => (
                     <AppSelect.Item key={b.id} value={String(b.id)}>
@@ -345,7 +430,14 @@ export function DailyProgressForm({
             >
               <div className="flex flex-col gap-4">
                 {detailFields.map((field, index) => {
-                  const detail = getValues(`details.${index}`);
+                  const detail = (details || [])[index] as any;
+                  const selectedIds = new Set(
+                    (details || [])
+                      .map((d: any) =>
+                        d?.boqItemId ? String(d.boqItemId) : ""
+                      )
+                      .filter(Boolean)
+                  );
 
                   return (
                     <div
@@ -378,51 +470,81 @@ export function DailyProgressForm({
                               );
                               setValue(`details.${index}.item`, selected.item);
                               setValue(`details.${index}.unit`, selected.unit);
-                              setValue(`details.${index}.boqQty`, selected.qty);
                               setValue(
-                                `details.${index}.doneQty`,
-                                selected.qty
+                                `details.${index}.boqQty`,
+                                selected.boqQty
                               );
-                              setValue(`details.${index}.amount`, selected.qty);
+                              setValue(`details.${index}.doneQty`, "");
+                              setValue(
+                                `details.${index}.amount`,
+                                selected.boqQty
+                              );
                             }
+                            (async () => {
+                              try {
+                                const agg: any = await apiGet(
+                                  `/api/daily-progresses?metric=doneQtySum&siteId=${siteId}&boqId=${boqId}&boqItemId=${value}`
+                                );
+                                const balance = (agg as any)?.balanceQty ?? 0;
+                                setBalances((prev) => ({
+                                  ...prev,
+                                  [String(value)]: Number(balance) || 0,
+                                }));
+                              } catch (e) {
+                                // ignore balance fetch errors for UX
+                              }
+                            })();
                           }}
                         >
                           {boqItems.length === 0
                             ? ""
-                            : boqItems.map((it) => (
-                                <AppSelect.Item
-                                  key={it.id}
-                                  value={String(it.id)}
-                                >
-                                  {it.activityId ??
-                                    it.item ??
-                                    "Unnamed Activity"}
-                                </AppSelect.Item>
-                              ))}
+                            : boqItems
+                                .filter(
+                                  (it) =>
+                                    !selectedIds.has(String(it.id)) ||
+                                    String(it.id) ===
+                                      String(detail?.boqItemId || "")
+                                )
+                                .map((it) => (
+                                  <AppSelect.Item
+                                    key={it.id}
+                                    value={String(it.id)}
+                                  >
+                                    {it.activityId ??
+                                      it.item ??
+                                      "Unnamed Activity"}
+                                  </AppSelect.Item>
+                                ))}
                         </AppSelect>
 
                         <div className="col-span-12 md:col-span-4">
                           <FormLabel>Client Sr No</FormLabel>
                           <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail.clientSerialNo || "-"}
+                            {detail?.clientSerialNo || "-"}
                           </div>
                         </div>
                         <div className="col-span-12 md:col-span-4">
                           <FormLabel>Unit</FormLabel>
                           <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail.unit || "-"}
+                            {detail?.unit || "-"}
                           </div>
                         </div>
                         <div className="col-span-12 md:col-span-2">
-                          <FormLabel>BOQ Qty</FormLabel>
+                          <FormLabel>Remaining Qty</FormLabel>
                           <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail.boqQty || "-"}
+                            {detail?.boqQty || "-"}
+                          </div>
+                        </div>
+                        <div className="col-span-12 md:col-span-2">
+                          <FormLabel>Balance Qty</FormLabel>
+                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
+                            {balances[String(detail?.boqItemId || "")] ?? 0}
                           </div>
                         </div>
                         <div className="col-span-12 md:col-span-12">
                           <FormLabel>Item</FormLabel>
                           <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail.item || "-"}
+                            {detail?.item || "-"}
                           </div>
                         </div>
 
@@ -433,6 +555,34 @@ export function DailyProgressForm({
                             label="Done Today"
                             type="number"
                             className="col-span-12 md:col-span-2"
+                            onInput={(e) => {
+                              const v = (e as React.FormEvent<HTMLInputElement>)
+                                .currentTarget.value;
+                              const entered = Number(v);
+                              const curId = String(
+                                getValues(`details.${index}.boqItemId`) || ""
+                              );
+                              const bal = Number(balances[curId] || 0);
+                              if (
+                                isFinite(entered) &&
+                                isFinite(bal) &&
+                                entered > bal
+                              ) {
+                                setError(`details.${index}.doneQty` as any, {
+                                  type: "manual",
+                                  message:
+                                    "Done qty cannot be greater than Balance qty",
+                                });
+                                setValue(
+                                  `details.${index}.doneQty` as any,
+                                  String(bal),
+                                  {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  }
+                                );
+                              }
+                            }}
                           />
                         </div>
                         <div className="col-span-12 md:col-span-10">

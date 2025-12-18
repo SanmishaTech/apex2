@@ -55,10 +55,10 @@ export interface BoqFormInitialData {
     qty?: string | number | null;
     rate?: string | number | null;
     amount?: string | number | null;
-    openingQty?: string | number | null;
-    openingValue?: string | number | null;
-    closingQty?: string | number | null;
-    closingValue?: string | number | null;
+    orderedQty?: string | number | null;
+    orderedValue?: string | number | null;
+    remainingQty?: string | number | null;
+    remainingValue?: string | number | null;
     isGroup?: boolean | null;
   }> | null;
 }
@@ -92,19 +92,32 @@ const inputSchema = z.object({
   performanceSecurityPeriod: z.string().optional(),
   items: z
     .array(
-      z.object({
-        activityId: z.string().optional(),
-        clientSrNo: z.string().optional(),
-        item: z.string().optional(),
-        unitId: z.string().optional(),
-        qty: z.string().optional(),
-        rate: z.string().optional(),
-        openingQty: z.string().optional(),
-        openingValue: z.string().optional(),
-        closingQty: z.string().optional(),
-        closingValue: z.string().optional(),
-        isGroup: z.boolean().optional().default(false),
-      })
+      z
+        .object({
+          id: z.string().optional(),
+          activityId: z.string().optional(),
+          clientSrNo: z.string().optional(),
+          item: z.string().optional(),
+          unitId: z.string().optional(),
+          qty: z.string().optional(),
+          rate: z.string().optional(),
+          orderedQty: z.string().optional(),
+          orderedValue: z.string().optional(),
+          remainingQty: z.string().optional(),
+          remainingValue: z.string().optional(),
+          isGroup: z.boolean().optional().default(false),
+        })
+        .superRefine((val, ctx) => {
+          const qty = Number(val.qty ?? 0);
+          const ordered = Number(val.orderedQty ?? 0);
+          if (isFinite(qty) && isFinite(ordered) && ordered > qty) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Ordered qty cannot be greater than Qty",
+              path: ["orderedQty"],
+            });
+          }
+        })
     )
     .optional()
     .default([]),
@@ -160,18 +173,24 @@ function toSubmitPayload(data: RawFormValues) {
       data.performanceSecurityDocumentNo?.trim() || null,
     performanceSecurityPeriod: data.performanceSecurityPeriod?.trim() || null,
     items: (data.items || []).map((it) => ({
+      // Always include id key: number for existing, "" for new
+      id:
+        it.id === undefined || it.id === "" ? "" : parseInt(it.id),
       activityId: it.activityId?.trim() || null,
       clientSrNo: it.clientSrNo?.trim() || null,
       item: it.item?.trim() || null,
       unitId: it.unitId && it.unitId !== "" ? parseInt(it.unitId) : null,
       qty: it.qty && it.qty !== "" ? it.qty : null,
       rate: it.rate && it.rate !== "" ? it.rate : null,
-      openingQty: it.openingQty && it.openingQty !== "" ? it.openingQty : null,
-      openingValue:
-        it.openingValue && it.openingValue !== "" ? it.openingValue : null,
-      closingQty: it.closingQty && it.closingQty !== "" ? it.closingQty : null,
-      closingValue:
-        it.closingValue && it.closingValue !== "" ? it.closingValue : null,
+      orderedQty: it.orderedQty && it.orderedQty !== "" ? it.orderedQty : null,
+      orderedValue:
+        it.orderedValue && it.orderedValue !== "" ? it.orderedValue : null,
+      remainingQty:
+        it.remainingQty && it.remainingQty !== "" ? it.remainingQty : null,
+      remainingValue:
+        it.remainingValue && it.remainingValue !== ""
+          ? it.remainingValue
+          : null,
       isGroup: Boolean(it.isGroup) || false,
     })),
   };
@@ -252,16 +271,18 @@ export function BoqForm({
       performanceSecurityPeriod: initial?.performanceSecurityPeriod || "",
       items:
         (initial?.items || [])?.map((it) => ({
+          id: it.id != null ? String(it.id) : "",
           activityId: it.activityId || "",
           clientSrNo: it.clientSrNo || "",
           item: it.item || "",
           unitId: it.unitId ? String(it.unitId) : "",
           qty: it.qty != null ? String(it.qty) : "",
           rate: it.rate != null ? String(it.rate) : "",
-          openingQty: it.openingQty != null ? String(it.openingQty) : "",
-          openingValue: it.openingValue != null ? String(it.openingValue) : "",
-          closingQty: it.closingQty != null ? String(it.closingQty) : "",
-          closingValue: it.closingValue != null ? String(it.closingValue) : "",
+          orderedQty: it.orderedQty != null ? String(it.orderedQty) : "",
+          orderedValue: it.orderedValue != null ? String(it.orderedValue) : "",
+          remainingQty: it.remainingQty != null ? String(it.remainingQty) : "",
+          remainingValue:
+            it.remainingValue != null ? String(it.remainingValue) : "",
           isGroup: Boolean(it.isGroup) || false,
         })) || [],
     },
@@ -280,26 +301,26 @@ export function BoqForm({
     return (q * r).toFixed(2);
   }
 
-  // Auto-calculate Opening/Closing values = qty * rate
+  // Auto-calculate Ordered/Remaining values = qty * rate
   useEffect(() => {
     (itemsWatch || []).forEach((row, index) => {
       const r = Number(row?.rate);
-      const oq = Number(row?.openingQty);
-      const cq = Number(row?.closingQty);
+      const oq = Number(row?.orderedQty);
+      const cq = Number(row?.remainingQty);
 
-      const openingValue =
+      const orderedValue =
         isFinite(oq) && isFinite(r) ? (oq * r).toFixed(2) : "";
-      const closingValue =
+      const remainingValue =
         isFinite(cq) && isFinite(r) ? (cq * r).toFixed(2) : "";
 
-      if ((row?.openingValue ?? "") !== openingValue) {
-        setValue(`items.${index}.openingValue` as any, openingValue, {
+      if ((row?.orderedValue ?? "") !== orderedValue) {
+        setValue(`items.${index}.orderedValue` as any, orderedValue, {
           shouldValidate: true,
           shouldDirty: true,
         });
       }
-      if ((row?.closingValue ?? "") !== closingValue) {
-        setValue(`items.${index}.closingValue` as any, closingValue, {
+      if ((row?.remainingValue ?? "") !== remainingValue) {
+        setValue(`items.${index}.remainingValue` as any, remainingValue, {
           shouldValidate: true,
           shouldDirty: true,
         });
@@ -627,6 +648,26 @@ export function BoqForm({
                             placeholder="0"
                             span={4}
                             spanFrom="md"
+                            onInput={(e) => {
+                              const v = (e as React.FormEvent<HTMLInputElement>)
+                                .currentTarget.value;
+                              const q = Number(v);
+                              const oq = Number(
+                                itemsWatch?.[index]?.orderedQty
+                              );
+                              const remainingQty =
+                                isFinite(q) && isFinite(oq)
+                                  ? (q - oq).toFixed(2)
+                                  : "";
+                              setValue(
+                                `items.${index}.remainingQty` as any,
+                                remainingQty,
+                                {
+                                  shouldValidate: true,
+                                  shouldDirty: true,
+                                }
+                              );
+                            }}
                           />
                           <TextInput
                             control={control}
@@ -641,24 +682,24 @@ export function BoqForm({
                                 .currentTarget.value;
                               const row = itemsWatch?.[index];
                               const r = Number(v);
-                              const oq = Number(row?.openingQty);
-                              const cq = Number(row?.closingQty);
-                              const openingValue =
+                              const oq = Number(row?.orderedQty);
+                              const cq = Number(row?.remainingQty);
+                              const orderedValue =
                                 isFinite(oq) && isFinite(r)
                                   ? (oq * r).toFixed(2)
                                   : "";
-                              const closingValue =
+                              const remainingValue =
                                 isFinite(cq) && isFinite(r)
                                   ? (cq * r).toFixed(2)
                                   : "";
                               setValue(
-                                `items.${index}.openingValue` as any,
-                                openingValue,
+                                `items.${index}.orderedValue` as any,
+                                orderedValue,
                                 { shouldValidate: true, shouldDirty: true }
                               );
                               setValue(
-                                `items.${index}.closingValue` as any,
-                                closingValue,
+                                `items.${index}.remainingValue` as any,
+                                remainingValue,
                                 { shouldValidate: true, shouldDirty: true }
                               );
                             }}
@@ -692,11 +733,11 @@ export function BoqForm({
                         <div className="grid grid-cols-12 gap-6 mt-3">
                           <div className="col-span-12 md:col-span-6 lg:col-span-6">
                             <FormLabel className="text-xs text-muted-foreground">
-                              Opening Qty
+                              Ordered Qty
                             </FormLabel>
                             <TextInput
                               control={control}
-                              name={`items.${index}.openingQty`}
+                              name={`items.${index}.orderedQty`}
                               label=""
                               type="number"
                               placeholder="0"
@@ -706,13 +747,23 @@ export function BoqForm({
                                 ).currentTarget.value;
                                 const r = Number(itemsWatch?.[index]?.rate);
                                 const oq = Number(v);
-                                const openingValue =
+                                const orderedValue =
                                   isFinite(oq) && isFinite(r)
                                     ? (oq * r).toFixed(2)
                                     : "";
                                 setValue(
-                                  `items.${index}.openingValue` as any,
-                                  openingValue,
+                                  `items.${index}.orderedValue` as any,
+                                  orderedValue,
+                                  { shouldValidate: true, shouldDirty: true }
+                                );
+                                const q = Number(itemsWatch?.[index]?.qty);
+                                const remainingQty =
+                                  isFinite(q) && isFinite(oq)
+                                    ? (q - oq).toFixed(2)
+                                    : "";
+                                setValue(
+                                  `items.${index}.remainingQty` as any,
+                                  remainingQty,
                                   { shouldValidate: true, shouldDirty: true }
                                 );
                               }}
@@ -724,7 +775,7 @@ export function BoqForm({
                             </FormLabel>
                             <TextInput
                               control={control}
-                              name={`items.${index}.openingValue`}
+                              name={`items.${index}.orderedValue`}
                               label=""
                               type="number"
                               placeholder="0.00"
@@ -733,27 +784,28 @@ export function BoqForm({
                           </div>
                           <div className="col-span-12 md:col-span-6 lg:col-span-6">
                             <FormLabel className="text-xs text-muted-foreground">
-                              Closing Qty
+                              Remaining Qty
                             </FormLabel>
                             <TextInput
                               control={control}
-                              name={`items.${index}.closingQty`}
+                              name={`items.${index}.remainingQty`}
                               label=""
                               type="number"
                               placeholder="0"
+                              disabled
                               onInput={(e) => {
                                 const v = (
                                   e as React.FormEvent<HTMLInputElement>
                                 ).currentTarget.value;
                                 const r = Number(itemsWatch?.[index]?.rate);
                                 const cq = Number(v);
-                                const closingValue =
+                                const remainingValue =
                                   isFinite(cq) && isFinite(r)
                                     ? (cq * r).toFixed(2)
                                     : "";
                                 setValue(
-                                  `items.${index}.closingValue` as any,
-                                  closingValue,
+                                  `items.${index}.remainingValue` as any,
+                                  remainingValue,
                                   { shouldValidate: true, shouldDirty: true }
                                 );
                               }}
@@ -765,7 +817,7 @@ export function BoqForm({
                             </FormLabel>
                             <TextInput
                               control={control}
-                              name={`items.${index}.closingValue`}
+                              name={`items.${index}.remainingValue`}
                               label=""
                               type="number"
                               placeholder="0.00"
@@ -794,16 +846,17 @@ export function BoqForm({
                       iconName="Plus"
                       onClick={() =>
                         append({
+                          id: "",
                           activityId: "",
                           clientSrNo: "",
                           item: "",
                           unitId: "",
                           qty: "",
                           rate: "",
-                          openingQty: "",
-                          openingValue: "",
-                          closingQty: "",
-                          closingValue: "",
+                          orderedQty: "",
+                          orderedValue: "",
+                          remainingQty: "",
+                          remainingValue: "",
                           isGroup: false,
                         })
                       }
