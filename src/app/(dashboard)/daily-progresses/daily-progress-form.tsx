@@ -141,6 +141,8 @@ export function DailyProgressForm({
   const [submitting, setSubmitting] = useState(false);
   const [filteredBoqs, setFilteredBoqs] = useState<any[]>([]);
   const [boqItems, setBoqItems] = useState<any[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  const [selectedBoqId, setSelectedBoqId] = useState<string>("");
   const [balances, setBalances] = useState<Record<string, number>>({});
 
   const isCreate = mode === "create";
@@ -207,6 +209,13 @@ export function DailyProgressForm({
 
   const details = useWatch({ control, name: "details" });
 
+  const {
+    fields: detailFields,
+    append: appendDetail,
+    remove: removeDetail,
+    replace: replaceDetail,
+  } = useFieldArray({ control, name: "details" });
+
   useEffect(() => {
     details.forEach((detail, index) => {
       const boqItemId = detail?.boqItemId;
@@ -240,25 +249,30 @@ export function DailyProgressForm({
   const siteId = watch("siteId");
   const boqId = watch("boqId");
 
-  // When Site changes, clear BOQ selection (and details via the effect below)
-  const didMountSiteRef = useRef(false);
+  // Track selected site/boq like BOQ Targets and clear dependent fields only after first change
   useEffect(() => {
-    if (!didMountSiteRef.current) {
-      didMountSiteRef.current = true;
-      return;
+    if (siteId !== selectedSiteId) {
+      if (selectedSiteId) {
+        setValue("boqId", "", { shouldValidate: true, shouldDirty: true });
+        replaceDetail([]);
+        setBalances({});
+        setSelectedBoqId("");
+      }
+      setSelectedSiteId(siteId);
     }
-    setValue("boqId", "", { shouldValidate: true, shouldDirty: true });
-  }, [siteId, setValue]);
+  }, [siteId, selectedSiteId, setValue, replaceDetail]);
 
-  const {
-    fields: detailFields,
-    append: appendDetail,
-    remove: removeDetail,
-  } = useFieldArray({ control, name: "details" });
-  const { replace: replaceDetail } = useFieldArray({
-    control,
-    name: "details",
-  });
+  useEffect(() => {
+    if (boqId !== selectedBoqId) {
+      if (selectedBoqId) {
+        replaceDetail([]);
+        setBalances({});
+      }
+      setSelectedBoqId(boqId);
+    }
+  }, [boqId, selectedBoqId, replaceDetail]);
+
+  
   const {
     fields: hindranceFields,
     append: appendHindrance,
@@ -273,12 +287,12 @@ export function DailyProgressForm({
   }, [boqsData, siteId]);
 
   useEffect(() => {
-    if (!boqId) {
+    if (!selectedBoqId) {
       setBoqItems([]);
       return;
     }
     (async () => {
-      const res: any = await apiGet(`/api/boqs/${boqId}`);
+      const res: any = await apiGet(`/api/boqs/${selectedBoqId}`);
       const boq = res?.data ?? res;
       const items = boq?.items;
       if (Array.isArray(items)) {
@@ -296,19 +310,9 @@ export function DailyProgressForm({
         setBoqItems([]);
       }
     })();
-  }, [boqId]);
+  }, [selectedBoqId]);
 
-  // Reset details when Site or BOQ changes (but not on initial mount)
-  const didMountRef = useRef(false);
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    // Clear details and balances when either selection changes
-    replaceDetail([]);
-    setBalances({});
-  }, [siteId, boqId, replaceDetail]);
+  // Removed generic reset effect; handled in selectedSite/Boq effects above
 
   // Preload balances for prefilled edit form rows
   useEffect(() => {

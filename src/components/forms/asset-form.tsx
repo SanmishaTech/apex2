@@ -10,6 +10,7 @@ import { AppCard } from '@/components/common/app-card';
 import { FormSection, FormRow } from '@/components/common/app-form';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { toast } from 'sonner';
+import { ValidationError } from '@/lib/form-errors';
 import { z } from 'zod';
 import { Asset, AssetFormData, AssetGroup, AssetCategory, ASSET_STATUS_OPTIONS, ASSET_USE_STATUS_OPTIONS } from '@/types/assets';
 import { formatDateForInput } from '@/lib/locales';
@@ -139,8 +140,12 @@ export function AssetForm({ asset, onSubmit, onCancel, isSubmitting = false }: A
         });
         setErrors(fieldErrors);
         toast.error('Please correct the form errors');
+      } else if (error instanceof ValidationError) {
+        setErrors(error.fieldErrors || {});
+        toast.error('Please correct the form errors');
       } else {
-        toast.error('An unexpected error occurred');
+        const msg = (error instanceof Error && error.message) ? error.message : 'An unexpected error occurred';
+        toast.error(msg);
       }
     }
   };

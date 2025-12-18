@@ -44,6 +44,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === 'P2025') return Error('Asset category not found', 404);
+    if (err?.code === 'P2003') {
+      return Error(
+        'Cannot delete this asset category because it is in use by other records. Please remove those links and try again.',
+        409
+      );
+    }
     return Error('Failed to delete asset category');
   }
 }

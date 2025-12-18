@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { guardApiAccess } from '@/lib/access-guard';
-import { prisma } from '@/lib/prisma';
-import fs from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
+import { NextRequest, NextResponse } from "next/server";
+import { guardApiAccess } from "@/lib/access-guard";
+import { prisma } from "@/lib/prisma";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -18,7 +18,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const transferId = parseInt(id, 10);
 
     if (isNaN(transferId)) {
-      return NextResponse.json({ error: 'Invalid transfer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid transfer ID" },
+        { status: 400 }
+      );
     }
 
     const assetTransfer = await prisma.assetTransfer.findUnique({
@@ -36,13 +39,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         transferItems: {
           include: {
             asset: {
-              select: { 
-                id: true, 
-                assetNo: true, 
-                assetName: true, 
+              select: {
+                id: true,
+                assetNo: true,
+                assetName: true,
                 make: true,
                 assetGroup: { select: { assetGroupName: true } },
-                assetCategory: { select: { category: true } }
+                assetCategory: { select: { category: true } },
               },
             },
           },
@@ -54,14 +57,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     if (!assetTransfer) {
-      return NextResponse.json({ error: 'Asset transfer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Asset transfer not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(assetTransfer);
   } catch (error) {
-    console.error('Asset transfer GET error:', error);
+    console.error("Asset transfer GET error:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch asset transfer' },
+      { error: "Failed to fetch asset transfer" },
       { status: 500 }
     );
   }
@@ -76,17 +82,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const transferId = parseInt(id, 10);
 
     if (isNaN(transferId)) {
-      return NextResponse.json({ error: 'Invalid transfer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid transfer ID" },
+        { status: 400 }
+      );
     }
 
-    const contentType = request.headers.get('content-type') || '';
+    const contentType = request.headers.get("content-type") || "";
     let status: string | undefined;
     let remarks: string | null | undefined;
     let approvedById: number | undefined;
 
     // If JSON, parse status early for approval flow
     let jsonBody: any = undefined;
-    if (!contentType.includes('multipart/form-data')) {
+    if (!contentType.includes("multipart/form-data")) {
       jsonBody = await request.json();
       status = jsonBody.status;
       remarks = jsonBody.remarks;
@@ -102,14 +111,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
 
     if (!existingTransfer) {
-      return NextResponse.json({ error: 'Asset transfer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Asset transfer not found" },
+        { status: 404 }
+      );
     }
 
     // Handle status updates (approval/rejection)
-    if (status && ['Accepted', 'Rejected'].includes(status)) {
-      if (existingTransfer.status !== 'Pending') {
+    if (status && ["Accepted", "Rejected"].includes(status)) {
+      if (existingTransfer.status !== "Pending") {
         return NextResponse.json(
-          { error: 'Only pending transfers can be approved or rejected' },
+          { error: "Only pending transfers can be approved or rejected" },
           { status: 400 }
         );
       }
@@ -126,23 +138,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           },
         });
 
-        const assetIds = existingTransfer.transferItems.map(item => item.assetId);
+        const assetIds = existingTransfer.transferItems.map(
+          (item) => item.assetId
+        );
 
-        if (status === 'Accepted') {
+        if (status === "Accepted") {
           // Update assets: set currentSiteId to toSiteId and transferStatus to Assigned
           await tx.asset.updateMany({
             where: { id: { in: assetIds } },
             data: {
               currentSiteId: existingTransfer.toSiteId,
-              transferStatus: 'Assigned',
+              transferStatus: "Assigned",
             },
           });
-        } else if (status === 'Rejected') {
+        } else if (status === "Rejected") {
           // Revert assets: set transferStatus back to Available and restore fromSiteId if it was a transfer
           await tx.asset.updateMany({
             where: { id: { in: assetIds } },
             data: {
-              transferStatus: 'Available',
+              transferStatus: "Available",
               ...(existingTransfer.fromSiteId && {
                 currentSiteId: existingTransfer.fromSiteId,
               }),
@@ -169,13 +183,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           transferItems: {
             include: {
               asset: {
-                select: { 
-                  id: true, 
-                  assetNo: true, 
-                  assetName: true, 
+                select: {
+                  id: true,
+                  assetNo: true,
+                  assetName: true,
                   make: true,
                   assetGroup: { select: { assetGroupName: true } },
-                  assetCategory: { select: { category: true } }
+                  assetCategory: { select: { category: true } },
                 },
               },
             },
@@ -190,9 +204,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     // Handle regular field updates (only if still pending)
-    if (existingTransfer.status !== 'Pending') {
+    if (existingTransfer.status !== "Pending") {
       return NextResponse.json(
-        { error: 'Cannot update approved or rejected transfers' },
+        { error: "Cannot update approved or rejected transfers" },
         { status: 400 }
       );
     }
@@ -200,63 +214,83 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Parse input for regular updates
     let challanDate: string | undefined;
     let challanCopyUrl: string | null | undefined;
-    let documentMetadata: Array<{ id?: number; documentName?: string; documentUrl?: string; index: number }> = [];
+    let documentMetadata: Array<{
+      id?: number;
+      documentName?: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
     const documentFiles: Array<{ index: number; file: File }> = [];
 
     const saveTransferDoc = async (file: File | null) => {
       if (!file || file.size === 0) return null;
       const allowed = [
-        'application/pdf',
-        'image/png',
-        'image/jpeg',
-        'image/webp',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ];
-      if (!allowed.includes(file.type || '')) throw new Error('Unsupported file type');
-      if (file.size > 20 * 1024 * 1024) throw new Error('File too large (max 20MB)');
-      const ext = path.extname(file.name) || '.bin';
+      if (!allowed.includes(file.type || ""))
+        throw new Error("Unsupported file type");
+      if (file.size > 20 * 1024 * 1024)
+        throw new Error("File too large (max 20MB)");
+      const ext = path.extname(file.name) || ".bin";
       const filename = `${Date.now()}-asset-transfer-doc-${crypto.randomUUID()}${ext}`;
-      const dir = path.join(process.cwd(), 'uploads', 'asset-transfers');
+      const dir = path.join(process.cwd(), "uploads", "asset-transfers");
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+      await fs.writeFile(
+        path.join(dir, filename),
+        Buffer.from(await file.arrayBuffer())
+      );
       return `/uploads/asset-transfers/${filename}`;
     };
 
-    if (contentType.includes('multipart/form-data')) {
+    if (contentType.includes("multipart/form-data")) {
       const form = await request.formData();
-      challanDate = (form.get('challanDate') as string) || undefined;
-      remarks = (form.get('remarks') as string) || undefined;
-      const challanCopyFile = form.get('challanCopy') as File;
+      challanDate = (form.get("challanDate") as string) || undefined;
+      remarks = (form.get("remarks") as string) || undefined;
+      const challanCopyFile = form.get("challanCopy") as File;
       if (challanCopyFile && challanCopyFile.size > 0) {
         const saved = await saveTransferDoc(challanCopyFile);
         challanCopyUrl = saved ?? undefined;
-      } else if (form.has('challanCopyUrl')) {
-        challanCopyUrl = (form.get('challanCopyUrl') as string) ?? null;
+      } else if (form.has("challanCopyUrl")) {
+        challanCopyUrl = (form.get("challanCopyUrl") as string) ?? null;
       }
 
-      const docsJson = form.get('assetTransferDocuments');
-      if (typeof docsJson === 'string' && docsJson.trim() !== '') {
+      const docsJson = form.get("assetTransferDocuments");
+      if (typeof docsJson === "string" && docsJson.trim() !== "") {
         try {
           const parsed = JSON.parse(docsJson);
           if (Array.isArray(parsed)) {
             documentMetadata = parsed
-              .filter((d: any) => d && typeof d === 'object')
+              .filter((d: any) => d && typeof d === "object")
               .map((d: any, index: number) => ({
-                id: typeof d.id === 'number' && Number.isFinite(d.id) ? d.id : undefined,
-                documentName: typeof d.documentName === 'string' ? d.documentName : undefined,
-                documentUrl: typeof d.documentUrl === 'string' ? d.documentUrl : undefined,
+                id:
+                  typeof d.id === "number" && Number.isFinite(d.id)
+                    ? d.id
+                    : undefined,
+                documentName:
+                  typeof d.documentName === "string"
+                    ? d.documentName
+                    : undefined,
+                documentUrl:
+                  typeof d.documentUrl === "string" ? d.documentUrl : undefined,
                 index,
               }));
           }
         } catch {}
       }
       form.forEach((value, key) => {
-        const m = key.match(/^assetTransferDocuments\[(\d+)\]\[documentFile\]$/);
+        const m = key.match(
+          /^assetTransferDocuments\[(\d+)\]\[documentFile\]$/
+        );
         if (!m) return;
         const idx = Number(m[1]);
         const fileVal = value as unknown;
-        if (fileVal instanceof File) documentFiles.push({ index: idx, file: fileVal });
+        if (fileVal instanceof File)
+          documentFiles.push({ index: idx, file: fileVal });
       });
     } else {
       challanDate = jsonBody?.challanDate;
@@ -264,9 +298,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       remarks = jsonBody?.remarks ?? undefined;
       documentMetadata = Array.isArray(jsonBody?.assetTransferDocuments)
         ? jsonBody.assetTransferDocuments.map((d: any, index: number) => ({
-            id: typeof d?.id === 'number' && Number.isFinite(d.id) ? d.id : undefined,
-            documentName: typeof d?.documentName === 'string' ? d.documentName : undefined,
-            documentUrl: typeof d?.documentUrl === 'string' ? d.documentUrl : undefined,
+            id:
+              typeof d?.id === "number" && Number.isFinite(d.id)
+                ? d.id
+                : undefined,
+            documentName:
+              typeof d?.documentName === "string" ? d.documentName : undefined,
+            documentUrl:
+              typeof d?.documentUrl === "string" ? d.documentUrl : undefined,
             index,
           }))
         : [];
@@ -287,7 +326,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Documents create/update/delete
       if (documentMetadata.length > 0 || documentFiles.length > 0) {
         const filesByIndex = new Map<number, File>();
-        documentFiles.forEach(({ index, file }) => filesByIndex.set(index, file));
+        documentFiles.forEach(({ index, file }) =>
+          filesByIndex.set(index, file)
+        );
 
         const existingDocs = await tx.assetTransferDocument.findMany({
           where: { assetTransferId: transferId },
@@ -295,15 +336,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         });
         const existingIds = new Set(existingDocs.map((d) => d.id));
 
-        const incomingById = new Map<number, { documentName: string; documentUrl: string }>();
-        const toCreate: Array<{ assetTransferId: number; documentName: string; documentUrl: string }> = [];
+        const incomingById = new Map<
+          number,
+          { documentName: string; documentUrl: string }
+        >();
+        const toCreate: Array<{
+          assetTransferId: number;
+          documentName: string;
+          documentUrl: string;
+        }> = [];
         const toDelete: number[] = [];
 
         for (const meta of documentMetadata) {
-          const name = meta.documentName?.trim() || '';
+          const name = meta.documentName?.trim() || "";
           const file = filesByIndex.get(meta.index ?? -1);
           const trimmedUrl = meta.documentUrl?.trim();
-          let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+          let finalUrl =
+            trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
           if (file) {
             const saved = await saveTransferDoc(file);
             finalUrl = saved ?? finalUrl;
@@ -314,10 +363,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               toDelete.push(meta.id);
               continue;
             }
-            incomingById.set(meta.id, { documentName: name, documentUrl: finalUrl });
+            incomingById.set(meta.id, {
+              documentName: name,
+              documentUrl: finalUrl,
+            });
           } else {
             if (!name || !finalUrl) continue;
-            toCreate.push({ assetTransferId: transferId, documentName: name, documentUrl: finalUrl });
+            toCreate.push({
+              assetTransferId: transferId,
+              documentName: name,
+              documentUrl: finalUrl,
+            });
           }
         }
 
@@ -334,11 +390,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           if (!payload) continue;
           await tx.assetTransferDocument.update({
             where: { id: docId },
-            data: { documentName: payload.documentName, documentUrl: payload.documentUrl },
+            data: {
+              documentName: payload.documentName,
+              documentUrl: payload.documentUrl,
+            },
           });
         }
         if (toDelete.length > 0) {
-          await tx.assetTransferDocument.deleteMany({ where: { id: { in: toDelete } } });
+          await tx.assetTransferDocument.deleteMany({
+            where: { id: { in: toDelete } },
+          });
         }
       }
 
@@ -366,15 +427,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             },
           },
         },
-        assetTransferDocuments: { select: { id: true, documentName: true, documentUrl: true } },
+        assetTransferDocuments: {
+          select: { id: true, documentName: true, documentUrl: true },
+        },
       },
     });
 
     return NextResponse.json(updatedTransfer);
   } catch (error) {
-    console.error('Asset transfer PATCH error:', error);
+    console.error("Asset transfer PATCH error:", error);
     return NextResponse.json(
-      { error: 'Failed to update asset transfer' },
+      { error: "Failed to update asset transfer" },
       { status: 500 }
     );
   }
@@ -389,7 +452,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const transferId = parseInt(id, 10);
 
     if (isNaN(transferId)) {
-      return NextResponse.json({ error: 'Invalid transfer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid transfer ID" },
+        { status: 400 }
+      );
     }
 
     // Check if transfer exists and is pending
@@ -401,24 +467,29 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     });
 
     if (!existingTransfer) {
-      return NextResponse.json({ error: 'Asset transfer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Asset transfer not found" },
+        { status: 404 }
+      );
     }
 
-    if (existingTransfer.status !== 'Pending') {
+    if (existingTransfer.status !== "Pending") {
       return NextResponse.json(
-        { error: 'Cannot delete approved or rejected transfers' },
+        { error: "Cannot delete approved or rejected transfers" },
         { status: 400 }
       );
     }
 
     // Delete transfer and revert asset status in transaction
     await prisma.$transaction(async (tx) => {
-      const assetIds = existingTransfer.transferItems.map(item => item.assetId);
+      const assetIds = existingTransfer.transferItems.map(
+        (item) => item.assetId
+      );
 
       // Revert asset transfer status to Available
       await tx.asset.updateMany({
         where: { id: { in: assetIds } },
-        data: { transferStatus: 'Available' },
+        data: { transferStatus: "Available" },
       });
 
       // Delete transfer (will cascade delete transfer items)
@@ -427,11 +498,23 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       });
     });
 
-    return NextResponse.json({ message: 'Asset transfer deleted successfully' });
+    return NextResponse.json({
+      message: "Asset transfer deleted successfully",
+    });
   } catch (error) {
-    console.error('Asset transfer DELETE error:', error);
+    console.error("Asset transfer DELETE error:", error);
+    const code = (error as any)?.code as string | undefined;
+    if (code === "P2003") {
+      return NextResponse.json(
+        {
+          message:
+            "Cannot delete this asset transfer because it is in use by other records. Please remove those links and try again.",
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
-      { error: 'Failed to delete asset transfer' },
+      { message: "Failed to delete asset transfer" },
       { status: 500 }
     );
   }
