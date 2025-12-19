@@ -76,7 +76,6 @@ const cashbookDetailSchema = z.object({
       "Cashbook head is required"
     )
     .transform((val) => parseInt(val)),
-  date: z.string().min(1, "Date is required"),
   description: z.string().optional(),
   openingBalance: z
     .union([z.string(), z.number(), z.null(), z.undefined()])
@@ -141,7 +140,6 @@ type FormData = {
   attachVoucherCopyUrl?: string;
   cashbookDetails: {
     cashbookHeadId: string | number;
-    date: string;
     description?: string;
     openingBalance?: string | number | null;
     closingBalance?: string | number | null;
@@ -199,9 +197,6 @@ export function CashbookForm({
         cashbookHeadId: detail.cashbookHeadId
           ? String(detail.cashbookHeadId)
           : "__none",
-        date: detail.date
-          ? formatDateForInput(detail.date)
-          : formatDateForInput(new Date().toISOString()),
         description: detail.description || "",
         openingBalance: detail.openingBalance || "",
         closingBalance: detail.closingBalance || "",
@@ -211,7 +206,6 @@ export function CashbookForm({
       })) || [
         {
           cashbookHeadId: "__none",
-          date: formatDateForInput(new Date().toISOString()),
           description: "",
           openingBalance: "",
           closingBalance: "",
@@ -422,9 +416,6 @@ export function CashbookForm({
           cashbookHeadId: detail.cashbookHeadId
             ? String(detail.cashbookHeadId)
             : "__none",
-          date: detail.date
-            ? formatDateForInput(detail.date)
-            : formatDateForInput(new Date().toISOString()),
           description: detail.description || "",
           openingBalance: detail.openingBalance || "",
           closingBalance: detail.closingBalance || "",
@@ -434,7 +425,6 @@ export function CashbookForm({
         })) || [
           {
             cashbookHeadId: "__none",
-            date: formatDateForInput(new Date().toISOString()),
             description: "",
             openingBalance: "",
             closingBalance: "",
@@ -450,7 +440,6 @@ export function CashbookForm({
   const addDetail = () => {
     append({
       cashbookHeadId: "__none",
-      date: formatDateForInput(new Date().toISOString()),
       description: "",
       openingBalance: "",
       closingBalance: "",
@@ -558,7 +547,6 @@ export function CashbookForm({
         attachVoucherCopyUrl: transformedData.attachVoucherCopyUrl || null,
         cashbookDetails: transformedData.cashbookDetails.map((detail) => ({
           cashbookHeadId: detail.cashbookHeadId,
-          date: detail.date,
           description: detail.description || null,
           openingBalance: detail.openingBalance,
           closingBalance: detail.closingBalance,
@@ -613,7 +601,6 @@ export function CashbookForm({
       <table className="w-full">
         <thead className="bg-muted/50">
           <tr>
-            <th className="text-left p-2 font-medium text-sm">Date *</th>
             <th className="text-left p-2 font-medium text-sm">
               Cashbook Head *
             </th>
@@ -634,22 +621,6 @@ export function CashbookForm({
           {fields.map((detailField, index) => (
             <Fragment key={detailField.id}>
               <tr className="border-t">
-                <td className="p-2">
-                  <FormField
-                    control={form.control}
-                    name={`cashbookDetails.${index}.date`}
-                    render={({ field }) => (
-                      <FormItem className="space-y-0">
-                        <FormControl>
-                          <Input {...field} type="date" className="text-sm" />
-                        </FormControl>
-                        <div className="min-h-[16px]">
-                          <FormMessage className="text-xs" />
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </td>
                 <td className="p-2">
                   <FormField
                     control={form.control}

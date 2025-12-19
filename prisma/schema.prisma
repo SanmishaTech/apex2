@@ -1004,7 +1004,6 @@ model CashbookBudget {
   acceptedBy_user         User?    @relation("CashbookBudgetAccepted", fields: [acceptedBy], references: [id])
   acceptedDatetime        DateTime?
   
-  totalReceivedAmount      Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -1028,10 +1027,8 @@ model CashbookBudgetItem {
   cashbookHead    CashbookHead   @relation(fields: [cashbookHeadId], references: [id])
   description     String?        @db.Text
   amount          Decimal        @db.Decimal(12, 2)
-  date            DateTime?    
   approvedAmount  Decimal?       @db.Decimal(12, 2)
   approved1Amount Decimal?       @db.Decimal(12, 2)  
-  receivedAmount  Decimal      @db.Decimal(12, 2)  @default(0.00)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -1245,7 +1242,6 @@ model CashbookDetail {
   id             Int          @id @default(autoincrement())
   cashbookId     Int
   cashbook       Cashbook     @relation(fields: [cashbookId], references: [id], onDelete: Cascade)
-  date           DateTime
   cashbookHeadId Int
   cashbookHead   CashbookHead @relation(fields: [cashbookHeadId], references: [id])
   description    String?      @db.Text

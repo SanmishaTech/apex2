@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const createSchema = z.object({
   city: z.string().min(1, "City name is required"),
-  stateId: z.number().optional().nullable(),
+  stateId: z.number().int({ message: "State is required" }),
 });
 
 // GET /api/cities?search=&page=1&perPage=10&sort=city&order=asc

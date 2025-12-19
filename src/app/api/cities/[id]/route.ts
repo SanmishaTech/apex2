@@ -6,7 +6,8 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   city: z.string().min(1, "City name is required").optional(),
-  stateId: z.number().optional().nullable(),
+  stateId: z
+    .preprocess((v) => (v === null ? undefined : v), z.number().int().optional()),
 });
 
 // GET /api/cities/[id] - Get single city

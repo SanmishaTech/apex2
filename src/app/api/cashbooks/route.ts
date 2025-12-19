@@ -10,23 +10,25 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
-import { recomputeBudgetForCashbook } from "@/lib/cashbook-budget-utils";
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
   siteId: z.number().nullable().optional(),
   boqId: z.number().nullable().optional(),
   attachVoucherCopyUrl: z.string().nullable().optional(),
-  cashbookDetails: z.array(z.object({
-    cashbookHeadId: z.number().min(1, "Cashbook head is required"),
-    date: z.string().min(1, "Date is required"),
-    description: z.string().nullable().optional(),
-    openingBalance: z.number().nullable().optional(),
-    closingBalance: z.number().nullable().optional(),
-    amountReceived: z.number().nullable().optional(),
-    amountPaid: z.number().nullable().optional(),
-    documentUrl: z.string().nullable().optional(),
-  })).min(1, "At least one cashbook detail is required"),
+  cashbookDetails: z
+    .array(
+      z.object({
+        cashbookHeadId: z.coerce.number().min(1, "Cashbook head is required"),
+        description: z.string().nullable().optional(),
+        openingBalance: z.coerce.number().nullable().optional(),
+        closingBalance: z.coerce.number().nullable().optional(),
+        amountReceived: z.coerce.number().nullable().optional(),
+        amountPaid: z.coerce.number().nullable().optional(),
+        documentUrl: z.string().nullable().optional(),
+      })
+    )
+    .min(1, "At least one cashbook detail is required"),
 });
 
 const CASHBOOK_UPLOAD_CONFIG: UploadConfig = {
@@ -57,11 +59,16 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+    const perPage = Math.min(
+      100,
+      Math.max(1, Number(searchParams.get("perPage")) || 10)
+    );
     const search = searchParams.get("search")?.trim() || "";
     const isVoucher = searchParams.get("isVoucher")?.trim() || "";
     const sort = (searchParams.get("sort") || "voucherDate") as string;
-    const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+    const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
+      | "asc"
+      | "desc";
 
     const where: any = {};
     if (search) {
@@ -76,16 +83,22 @@ export async function GET(req: NextRequest) {
     if (isVoucher === "yes") {
       where.OR = where.OR || [];
       where.OR.push({ attachVoucherCopyUrl: { not: null } });
-      where.OR.push({ cashbookDetails: { some: { documentUrl: { not: null } } } });
+      where.OR.push({
+        cashbookDetails: { some: { documentUrl: { not: null } } },
+      });
     } else if (isVoucher === "no") {
       where.AND = where.AND || [];
       where.AND.push({ attachVoucherCopyUrl: null });
-      where.AND.push({ cashbookDetails: { none: { documentUrl: { not: null } } } });
+      where.AND.push({
+        cashbookDetails: { none: { documentUrl: { not: null } } },
+      });
     }
 
     // Allow listed sortable fields only
     const sortableFields = new Set(["voucherNo", "voucherDate", "createdAt"]);
-    const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { voucherDate: "desc" };
+    const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
+      ? { [sort]: order }
+      : { voucherDate: "desc" };
 
     const result = await paginate({
       model: prisma.cashbook as any,
@@ -196,9 +209,9 @@ export async function POST(req: NextRequest) {
     const lastCashbook = await prisma.cashbook.findFirst({
       where: { voucherNo: { not: null } },
       orderBy: { voucherNo: "desc" },
-      select: { voucherNo: true }
+      select: { voucherNo: true },
     });
-    
+
     let nextNumber = 1;
     if (lastCashbook?.voucherNo) {
       const match = lastCashbook.voucherNo.match(/VCH-(\d+)/);
@@ -206,8 +219,8 @@ export async function POST(req: NextRequest) {
         nextNumber = parseInt(match[1]) + 1;
       }
     }
-    const voucherNo = `VCH-${nextNumber.toString().padStart(5, '0')}`;
-    
+    const voucherNo = `VCH-${nextNumber.toString().padStart(5, "0")}`;
+
     const created = await prisma.cashbook.create({
       data: {
         voucherNo,
@@ -218,30 +231,28 @@ export async function POST(req: NextRequest) {
         cashbookDetails: {
           create: cashbookDetails.map((detail, detailIndex) => ({
             cashbookHeadId: detail.cashbookHeadId,
-            date: new Date(detail.date),
-            description: detail.description,
-            openingBalance: detail.openingBalance ? parseFloat(detail.openingBalance.toString()) : null,
-            closingBalance: detail.closingBalance ? parseFloat(detail.closingBalance.toString()) : null,
-            amountReceived: detail.amountReceived ? parseFloat(detail.amountReceived.toString()) : null,
-            amountPaid: detail.amountPaid ? parseFloat(detail.amountPaid.toString()) : null,
+            description: detail.description ?? null,
+            openingBalance: detail.openingBalance ?? null,
+            closingBalance: detail.closingBalance ?? null,
+            amountReceived: detail.amountReceived ?? null,
+            amountPaid: detail.amountPaid ?? null,
             documentUrl:
               detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
-          }))
-        }
+          })),
+        },
       },
       include: {
         site: { select: { id: true, site: true } },
         boq: { select: { id: true, boqNo: true } },
         cashbookDetails: {
           include: {
-            cashbookHead: { select: { id: true, cashbookHeadName: true } }
-          }
-        }
+            cashbookHead: { select: { id: true, cashbookHeadName: true } },
+          },
+        },
       },
     });
-    // Recompute corresponding cashbook budget received amounts for this context
-    await recomputeBudgetForCashbook(created.id);
-    
+    // Budget recompute disabled: received amount tracking removed
+
     return Success(created, 201);
   } catch (error) {
     if (error instanceof z.ZodError) {

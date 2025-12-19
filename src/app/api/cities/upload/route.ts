@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (!data || data.length === 0) return ApiError('No data found in Excel file', 400);
 
     const errors: string[] = [];
-    const records: { city: string; stateName?: string | null }[] = [];
+    const records: { city: string; stateName: string }[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -50,6 +50,10 @@ export async function POST(req: NextRequest) {
       const stateName = val(row['State'] ?? row['state'] ?? row['State Name'] ?? row['stateName']);
       if (!city) {
         errors.push(`Row ${rowNum}: City is required`);
+        continue;
+      }
+      if (!stateName) {
+        errors.push(`Row ${rowNum}: State is required`);
         continue;
       }
       records.push({ city, stateName });
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Normalize within file and dedupe by city name
-    const unique = new Map<string, { city: string; stateName?: string | null }>();
+    const unique = new Map<string, { city: string; stateName: string }>();
     for (const r of records) {
       const key = r.city.trim();
       if (!unique.has(key)) unique.set(key, r);
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
     const uniqueRecords = Array.from(unique.values());
 
     // Resolve state names to IDs (optional)
-    const stateNames = Array.from(new Set(uniqueRecords.map(r => r.stateName).filter(Boolean))) as string[];
+    const stateNames = Array.from(new Set(uniqueRecords.map(r => r.stateName)));
     const states = stateNames.length
       ? await prisma.state.findMany({ where: { state: { in: stateNames } }, select: { id: true, state: true } })
       : [];
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const toInsert = uniqueRecords
       .filter(r => !existingSet.has(r.city))
-      .map(r => ({ city: r.city, stateId: r.stateName ? stateMap.get(r.stateName) ?? undefined : undefined }));
+      .map(r => ({ city: r.city, stateId: stateMap.get(r.stateName)! }));
 
     if (toInsert.length === 0) {
       return Success({ message: 'No new cities to import', count: 0 }, 200);

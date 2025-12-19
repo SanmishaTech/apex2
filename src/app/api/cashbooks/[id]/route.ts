@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  NotFound,
+} from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
 import {
@@ -9,7 +14,6 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
-import { recomputeBudgetForCashbook, recomputeBudgetByKey } from "@/lib/cashbook-budget-utils";
 
 const updateSchema = z.object({
   voucherDate: z.string().optional(),
@@ -20,13 +24,12 @@ const updateSchema = z.object({
     .array(
       z.object({
         id: z.number().optional(), // For existing details
-        cashbookHeadId: z.number().min(1, "Cashbook head is required"),
-        date: z.string().min(1, "Date is required"),
+        cashbookHeadId: z.coerce.number().min(1, "Cashbook head is required"),
         description: z.string().nullable().optional(),
-        openingBalance: z.number().nullable().optional(),
-        closingBalance: z.number().nullable().optional(),
-        amountReceived: z.number().nullable().optional(),
-        amountPaid: z.number().nullable().optional(),
+        openingBalance: z.coerce.number().nullable().optional(),
+        closingBalance: z.coerce.number().nullable().optional(),
+        amountReceived: z.coerce.number().nullable().optional(),
+        amountPaid: z.coerce.number().nullable().optional(),
         documentUrl: z.string().nullable().optional(),
       })
     )
@@ -152,7 +155,7 @@ export async function PATCH(
         id: true,
         siteId: true,
         boqId: true,
-        createdAt: true,
+        voucherDate: true,
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
@@ -195,20 +198,11 @@ export async function PATCH(
       updateData.cashbookDetails = {
         create: cashbookDetails.map((detail, detailIndex) => ({
           cashbookHeadId: detail.cashbookHeadId,
-          date: new Date(detail.date),
-          description: detail.description,
-          openingBalance: detail.openingBalance
-            ? parseFloat(detail.openingBalance.toString())
-            : null,
-          closingBalance: detail.closingBalance
-            ? parseFloat(detail.closingBalance.toString())
-            : null,
-          amountReceived: detail.amountReceived
-            ? parseFloat(detail.amountReceived.toString())
-            : null,
-          amountPaid: detail.amountPaid
-            ? parseFloat(detail.amountPaid.toString())
-            : null,
+          description: detail.description ?? null,
+          openingBalance: detail.openingBalance ?? null,
+          closingBalance: detail.closingBalance ?? null,
+          amountReceived: detail.amountReceived ?? null,
+          amountPaid: detail.amountPaid ?? null,
           documentUrl:
             detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
         })),
@@ -228,23 +222,7 @@ export async function PATCH(
         },
       },
     });
-    // Recompute budgets for old context (in case details/heads/site/boq moved away from it)
-    if (existing) {
-      const oldMonth = ((): string => {
-        const d = new Date(existing.createdAt);
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        return `${mm}-${yyyy}`;
-      })();
-      await recomputeBudgetByKey({
-        siteId: existing.siteId ?? null,
-        boqId: existing.boqId ?? null,
-        month: oldMonth,
-      });
-    }
-
-    // Recompute budgets for new context
-    await recomputeBudgetForCashbook(updated.id);
+    // Budget recompute disabled: received amount tracking removed
 
     return Success(updated);
   } catch (error) {
@@ -277,23 +255,14 @@ export async function DELETE(
         id: true,
         siteId: true,
         boqId: true,
-        createdAt: true,
+        voucherDate: true,
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
 
     await prisma.cashbook.delete({ where: { id } });
 
-    // Recompute for deleted record's context
-    if (existing) {
-      const d = new Date(existing.createdAt);
-      const month = `${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-      await recomputeBudgetByKey({
-        siteId: existing.siteId ?? null,
-        boqId: existing.boqId ?? null,
-        month,
-      });
-    }
+    // Budget recompute disabled: received amount tracking removed
 
     return Success({ message: "Cashbook deleted successfully" });
   } catch (error) {
