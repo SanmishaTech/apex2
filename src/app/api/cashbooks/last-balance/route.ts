@@ -38,11 +38,10 @@ export async function GET(req: NextRequest) {
       },
       orderBy: [
         { cashbook: { id: "desc" } },
-        { date: "desc" },
+        { id: "desc" },
       ],
       select: {
         id: true,
-        date: true,
         closingBalance: true,
         cashbookId: true,
       },
@@ -52,7 +51,6 @@ export async function GET(req: NextRequest) {
       closingBalance: lastDetail?.closingBalance ?? null,
       id: lastDetail?.id ?? null,
       cashbookId: lastDetail?.cashbookId ?? null,
-      date: lastDetail?.date ?? null,
     });
   } catch (error) {
     console.error("Last balance lookup failed:", error);

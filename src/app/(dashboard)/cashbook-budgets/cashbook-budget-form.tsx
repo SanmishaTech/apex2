@@ -20,7 +20,6 @@ import { TextareaInput } from "@/components/common/textarea-input";
 import { AppSelect } from "@/components/common/app-select";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import { apiPost, apiPatch, apiGet } from "@/lib/api-client";
-import { formatDateForInput } from "@/lib/locales";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
@@ -40,7 +39,6 @@ export interface CashbookBudgetFormInitialData {
     cashbookHeadId?: number;
     description?: string;
     amount?: string;
-    date?: string | null;
     cashbookHead?: { id: number; cashbookHeadName: string };
   }>;
 }
@@ -74,7 +72,6 @@ const budgetItemSchema = z.object({
       const num = Number(val);
       return !isNaN(num) && num > 0;
     }, "Amount must be a valid positive number"),
-  date: z.string().optional(),
 });
 
 const schema = z.object({
@@ -148,13 +145,12 @@ export function CashbookBudgetForm({
       remarksForFinalApproval: initial?.remarksForFinalApproval || "",
       budgetItems: (
         initial?.budgetItems || [
-          { cashbookHeadId: "", description: "", amount: "", date: "" },
+          { cashbookHeadId: "", description: "", amount: "" },
         ]
       ).map((item) => ({
         cashbookHeadId: item.cashbookHeadId ? String(item.cashbookHeadId) : "",
         description: item.description || "",
         amount: item.amount || "",
-        date: item.date ? formatDateForInput(new Date(item.date)) : "",
       })),
     },
   });
@@ -239,7 +235,6 @@ export function CashbookBudgetForm({
           cashbookHeadId: Number(item.cashbookHeadId),
           description: item.description?.trim() || "",
           amount: item.amount,
-          date: item.date || null,
         })),
       };
       if (isCreate) {
@@ -263,7 +258,7 @@ export function CashbookBudgetForm({
   }
 
   function addBudgetItem() {
-    append({ cashbookHeadId: "", description: "", amount: "", date: "" });
+    append({ cashbookHeadId: "", description: "", amount: "" });
   }
 
   function removeBudgetItem(index: number) {
@@ -358,11 +353,8 @@ export function CashbookBudgetForm({
                   <div className="col-span-4 px-4 py-3 font-medium text-sm text-muted-foreground border-r">
                     Cashbook Head
                   </div>
-                  <div className="col-span-3 px-4 py-3 font-medium text-sm text-muted-foreground border-r">
+                  <div className="col-span-5 px-4 py-3 font-medium text-sm text-muted-foreground border-r">
                     Description
-                  </div>
-                  <div className="col-span-2 px-4 py-3 font-medium text-sm text-muted-foreground border-r">
-                    Date
                   </div>
                   <div className="col-span-2 px-4 py-3 font-medium text-sm text-muted-foreground border-r">
                     Amount
@@ -404,7 +396,7 @@ export function CashbookBudgetForm({
                         )}
                       />
                     </div>
-                    <div className="col-span-3 p-3 border-r">
+                    <div className="col-span-5 p-3 border-r">
                       <FormField
                         control={control}
                         name={`budgetItems.${index}.description`}
@@ -412,20 +404,6 @@ export function CashbookBudgetForm({
                           <Input
                             {...field}
                             placeholder="Enter description (optional)"
-                            className="w-full h-10 border"
-                            value={field.value ?? ""}
-                          />
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-2 p-3 border-r">
-                      <FormField
-                        control={control}
-                        name={`budgetItems.${index}.date`}
-                        render={({ field }) => (
-                          <Input
-                            {...field}
-                            type="date"
                             className="w-full h-10 border"
                             value={field.value ?? ""}
                           />
