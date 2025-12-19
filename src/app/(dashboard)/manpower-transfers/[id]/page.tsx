@@ -284,7 +284,7 @@ export default function ViewManpowerTransferPage() {
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
                   <Calendar className="h-4 w-4 mr-2 inline" />
-                  Challan Date
+                  Date
                 </label>
                 <div className="text-foreground font-medium">
                   {formatDate(transfer.challanDate)}

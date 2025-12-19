@@ -92,6 +92,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     return Success({ message: "State deleted successfully" });
   } catch (error: any) {
     if (error.code === 'P2025') return NotFound('State not found');
+    if (error.code === 'P2003') {
+      return Error(
+        'Cannot delete this state because it is in use by other records. Please remove those links and try again.',
+        409
+      );
+    }
     console.error("Delete state error:", error);
     return Error("Failed to delete state");
   }

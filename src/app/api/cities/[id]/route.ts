@@ -100,6 +100,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     return Success({ message: "City deleted successfully" });
   } catch (error: any) {
     if (error.code === 'P2025') return NotFound('City not found');
+    if (error.code === 'P2003') {
+      return Error(
+        'Cannot delete this city because it is in use by other records. Please remove those links and try again.',
+        409
+      );
+    }
     console.error("Delete city error:", error);
     return Error("Failed to delete city");
   }

@@ -466,6 +466,17 @@ export async function DELETE(
       error.code === "P2025"
     )
       return NotFound("Company not found");
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2003"
+    ) {
+      return ApiError(
+        "Cannot delete this company because it is in use by other records. Please remove those links and try again.",
+        409
+      );
+    }
     console.error("Delete company error:", error);
     return ApiError("Failed to delete company");
   }

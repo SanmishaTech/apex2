@@ -152,7 +152,6 @@ export default function MarkAttendancePage({
           return {
             ...m,
             isPresent,
-            isIdle: isPresent ? false : m.isIdle,
           };
         }
 
@@ -161,7 +160,7 @@ export default function MarkAttendancePage({
           return {
             ...m,
             isIdle,
-            isPresent: isIdle ? false : m.isPresent,
+            isPresent: isIdle ? true : m.isPresent,
           };
         }
 
@@ -181,11 +180,6 @@ export default function MarkAttendancePage({
       return;
     }
 
-    const hasSelection = manpowerData.some((m) => m.isPresent || m.isIdle);
-    if (!hasSelection) {
-      toast.error('Mark at least one worker as Present or Idle before saving');
-      return;
-    }
 
     setSaving(true);
     try {

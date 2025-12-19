@@ -1,34 +1,45 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import useSWR from 'swr';
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
-import { useProtectPage } from '@/hooks/use-protect-page';
-import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS } from '@/config/roles';
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
-import { DataTable, type Column, type SortState } from '@/components/common/data-table';
-import { formatDate } from '@/lib/locales';
-import { Plus, Eye, MoreHorizontal, FileText, Check, X } from 'lucide-react';
-import { toast } from 'sonner';
-import type { ManpowerTransfersResponse, ManpowerTransfer } from '@/types/manpower-transfers';
+import { useState } from "react";
+import useSWR from "swr";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import {
+  DataTable,
+  type Column,
+  type SortState,
+} from "@/components/common/data-table";
+import { formatDate } from "@/lib/locales";
+import { Plus, Eye, MoreHorizontal, FileText, Check, X } from "lucide-react";
+import { toast } from "sonner";
+import type {
+  ManpowerTransfersResponse,
+  ManpowerTransfer,
+} from "@/types/manpower-transfers";
 
 // API client function
-async function fetchManpowerTransfers(url: string): Promise<ManpowerTransfersResponse> {
+async function fetchManpowerTransfers(
+  url: string
+): Promise<ManpowerTransfersResponse> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch manpower transfers');
+  if (!res.ok) throw new Error("Failed to fetch manpower transfers");
   return res.json();
 }
 
 export default function ManpowerTransfersPage() {
-  const { pushWithScrollSave } = useScrollRestoration('manpower-transfers-list');
-  
+  const { pushWithScrollSave } = useScrollRestoration(
+    "manpower-transfers-list"
+  );
+
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('createdAt');
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("createdAt");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   // Check permissions
@@ -63,7 +74,7 @@ export default function ManpowerTransfersPage() {
 
   // Handle sort change
   const sortState: SortState = { field: sort, order };
-  
+
   const handleSortChange = (newSort: SortState) => {
     setSort(newSort.field);
     setOrder(newSort.order);
@@ -72,7 +83,7 @@ export default function ManpowerTransfersPage() {
 
   // Navigation helpers
   const goToNew = () => {
-    pushWithScrollSave('/manpower-transfers/new');
+    pushWithScrollSave("/manpower-transfers/new");
   };
 
   const goToView = (transfer: ManpowerTransfer) => {
@@ -80,28 +91,33 @@ export default function ManpowerTransfersPage() {
   };
 
   // Handle approve/reject
-  const handleStatusUpdate = async (transfer: ManpowerTransfer, status: 'Accepted' | 'Rejected') => {
+  const handleStatusUpdate = async (
+    transfer: ManpowerTransfer,
+    status: "Accepted" | "Rejected"
+  ) => {
     setUpdatingId(transfer.id);
     try {
       const res = await fetch(`/api/manpower-transfers/${transfer.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           status,
           approvedById: 1, // TODO: Get from user context
         }),
       });
-      
+
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to update transfer');
+        throw new Error(error.error || "Failed to update transfer");
       }
-      
+
       toast.success(`Transfer ${status.toLowerCase()} successfully`);
       mutate(); // Refresh the list
     } catch (error: any) {
-      console.error('Status update error:', error);
-      toast.error(error.message || `Failed to ${status.toLowerCase()} transfer`);
+      console.error("Status update error:", error);
+      toast.error(
+        error.message || `Failed to ${status.toLowerCase()} transfer`
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -110,13 +126,19 @@ export default function ManpowerTransfersPage() {
   // Status badge component
   const StatusBadge = ({ status }: { status: string }) => {
     const colors = {
-      Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-      Accepted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      Rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+      Pending:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+      Accepted:
+        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      Rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     };
-    
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'}`}>
+      <span
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
+        }`}
+      >
         {status}
       </span>
     );
@@ -125,64 +147,66 @@ export default function ManpowerTransfersPage() {
   // Table columns
   const columns: Column<ManpowerTransfer>[] = [
     {
-      key: 'challanNo',
-      header: 'Challan No',
+      key: "challanNo",
+      header: "Number",
       sortable: true,
       accessor: (transfer: ManpowerTransfer) => (
         <span className="font-mono text-sm">{transfer.challanNo}</span>
       ),
     },
     {
-      key: 'challanDate',
-      header: 'Challan Date',
+      key: "challanDate",
+      header: "Date",
       sortable: true,
       accessor: (transfer: ManpowerTransfer) => (
         <span>{formatDate(transfer.challanDate)}</span>
       ),
     },
     {
-      key: 'fromSite',
-      header: 'From Site',
+      key: "fromSite",
+      header: "From Site",
       sortable: false,
       accessor: (transfer: ManpowerTransfer) => (
         <span className="font-medium">{transfer.fromSite.site}</span>
       ),
     },
     {
-      key: 'toSite',
-      header: 'To Site',
+      key: "toSite",
+      header: "To Site",
       sortable: false,
       accessor: (transfer: ManpowerTransfer) => (
         <span className="font-medium">{transfer.toSite.site}</span>
       ),
     },
     {
-      key: 'transferItems',
-      header: 'Manpower Count',
+      key: "transferItems",
+      header: "Manpower Count",
       sortable: false,
       accessor: (transfer: ManpowerTransfer) => (
-        <span className="text-center block">{transfer.transferItems?.length || 0}</span>
+        <span className="text-center block">
+          {transfer.transferItems?.length || 0}
+        </span>
       ),
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: "status",
+      header: "Status",
       sortable: true,
       accessor: (transfer: ManpowerTransfer) => (
         <StatusBadge status={transfer.status} />
       ),
     },
     {
-      key: 'approvedBy',
-      header: 'Approved By',
+      key: "approvedBy",
+      header: "Approved By",
       sortable: false,
       accessor: (transfer: ManpowerTransfer) => (
-        <span>{transfer.approvedBy?.name || '-'}</span>
+        <span>{transfer.approvedBy?.name || "-"}</span>
       ),
     },
     {
-      key: 'createdAt',
-      header: 'Created At',
+      key: "createdAt",
+      header: "Created At",
       sortable: true,
       accessor: (transfer: ManpowerTransfer) => (
         <span>{formatDate(transfer.createdAt)}</span>
@@ -192,8 +216,8 @@ export default function ManpowerTransfersPage() {
 
   // Row actions
   const renderRowActions = (transfer: ManpowerTransfer) => {
-    const isPending = transfer.status === 'Pending';
-    
+    const isPending = transfer.status === "Pending";
+
     return (
       <div className="flex items-center gap-1">
         <AppButton
@@ -209,7 +233,7 @@ export default function ManpowerTransfersPage() {
             <AppButton
               variant="ghost"
               size="sm"
-              onClick={() => handleStatusUpdate(transfer, 'Accepted')}
+              onClick={() => handleStatusUpdate(transfer, "Accepted")}
               disabled={updatingId === transfer.id}
               title="Approve transfer"
               className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20"
@@ -219,7 +243,7 @@ export default function ManpowerTransfersPage() {
             <AppButton
               variant="ghost"
               size="sm"
-              onClick={() => handleStatusUpdate(transfer, 'Rejected')}
+              onClick={() => handleStatusUpdate(transfer, "Rejected")}
               disabled={updatingId === transfer.id}
               title="Reject transfer"
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
@@ -231,7 +255,6 @@ export default function ManpowerTransfersPage() {
       </div>
     );
   };
-
 
   return (
     <AppCard>
@@ -261,7 +284,7 @@ export default function ManpowerTransfersPage() {
             className="w-full max-w-md px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring"
           />
         </div>
-        
+
         <DataTable
           columns={columns}
           data={data?.data || []}
@@ -271,12 +294,14 @@ export default function ManpowerTransfersPage() {
           renderRowActions={renderRowActions}
           emptyMessage="No manpower transfers found"
         />
-        
+
         {/* Pagination */}
         {data && data.meta.totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              Showing {((data.meta.page - 1) * data.meta.perPage) + 1} to {Math.min(data.meta.page * data.meta.perPage, data.meta.total)} of {data.meta.total} transfers
+              Showing {(data.meta.page - 1) * data.meta.perPage + 1} to{" "}
+              {Math.min(data.meta.page * data.meta.perPage, data.meta.total)} of{" "}
+              {data.meta.total} transfers
             </div>
             <div className="flex items-center gap-2">
               <AppButton

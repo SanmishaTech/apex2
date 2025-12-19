@@ -94,7 +94,7 @@ export function UserNav() {
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();
-            router.push("/dashboard/profile");
+            router.push("/profile");
           }}
         >
           <UserIcon className="size-4" /> Profile

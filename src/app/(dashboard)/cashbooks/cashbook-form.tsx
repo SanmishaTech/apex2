@@ -271,14 +271,35 @@ export function CashbookForm({
     "/api/sites?perPage=100",
     apiGet
   );
-  const { data: boqsData } = useSWR<BoqsResponse>(
-    "/api/boqs?perPage=100",
-    apiGet
-  );
+  // Filter BOQs by selected site
+  const selectedSiteId = form.watch("siteId");
+  const resolvedSiteId =
+    typeof selectedSiteId === "string"
+      ? selectedSiteId && selectedSiteId !== "__none" && selectedSiteId !== ""
+        ? Number(selectedSiteId)
+        : undefined
+      : selectedSiteId;
+  const boqsKey = resolvedSiteId
+    ? `/api/boqs?perPage=100&siteId=${resolvedSiteId}`
+    : null;
+  const { data: boqsData } = useSWR<BoqsResponse>(boqsKey, apiGet);
   const { data: cashbookHeadsData } = useSWR<{ data: any[] }>(
     "/api/cashbook-heads?perPage=100",
     apiGet
   );
+
+  // Reset BOQ when Site changes (prevents cross-site selections)
+  const prevSiteIdRef = useRef<string | number | undefined>(
+    form.getValues("siteId")
+  );
+  useEffect(() => {
+    const curr = form.getValues("siteId");
+    if (prevSiteIdRef.current !== curr) {
+      prevSiteIdRef.current = curr as any;
+      // Clear BOQ selection on site change
+      form.setValue("boqId", "__none", { shouldDirty: true, shouldValidate: true });
+    }
+  }, [selectedSiteId, form]);
 
   // Build selected head IDs to avoid duplicates across rows
   const getSelectedHeadIds = () => {
