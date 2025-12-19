@@ -238,7 +238,7 @@ export default function NewManpowerTransferPage() {
             <FormRow>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
-                  Challan Date <span className="text-red-500">*</span>
+                  Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"

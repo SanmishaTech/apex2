@@ -10,6 +10,7 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
+import { recomputeBudgetForCashbook } from "@/lib/cashbook-budget-utils";
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
@@ -238,6 +239,8 @@ export async function POST(req: NextRequest) {
         }
       },
     });
+    // Recompute corresponding cashbook budget received amounts for this context
+    await recomputeBudgetForCashbook(created.id);
     
     return Success(created, 201);
   } catch (error) {

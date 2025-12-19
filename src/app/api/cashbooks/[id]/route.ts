@@ -9,6 +9,7 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
+import { recomputeBudgetForCashbook, recomputeBudgetByKey } from "@/lib/cashbook-budget-utils";
 
 const updateSchema = z.object({
   voucherDate: z.string().optional(),
@@ -144,6 +145,18 @@ export async function PATCH(
       cashbookDetails,
     } = updateSchema.parse(payloadData);
 
+    // Fetch existing record to compute old context before update
+    const existing = await prisma.cashbook.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        siteId: true,
+        boqId: true,
+        createdAt: true,
+        cashbookDetails: { select: { cashbookHeadId: true } },
+      },
+    });
+
     const updateData: any = {};
     if (voucherDate) updateData.voucherDate = new Date(voucherDate);
     if (siteId !== undefined) updateData.siteId = siteId;
@@ -215,6 +228,23 @@ export async function PATCH(
         },
       },
     });
+    // Recompute budgets for old context (in case details/heads/site/boq moved away from it)
+    if (existing) {
+      const oldMonth = ((): string => {
+        const d = new Date(existing.createdAt);
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${mm}-${yyyy}`;
+      })();
+      await recomputeBudgetByKey({
+        siteId: existing.siteId ?? null,
+        boqId: existing.boqId ?? null,
+        month: oldMonth,
+      });
+    }
+
+    // Recompute budgets for new context
+    await recomputeBudgetForCashbook(updated.id);
 
     return Success(updated);
   } catch (error) {
@@ -240,9 +270,30 @@ export async function DELETE(
     const id = parseInt(idParam);
     if (isNaN(id)) return BadRequest("Invalid ID");
 
-    await prisma.cashbook.delete({
+    // Fetch context before delete
+    const existing = await prisma.cashbook.findUnique({
       where: { id },
+      select: {
+        id: true,
+        siteId: true,
+        boqId: true,
+        createdAt: true,
+        cashbookDetails: { select: { cashbookHeadId: true } },
+      },
     });
+
+    await prisma.cashbook.delete({ where: { id } });
+
+    // Recompute for deleted record's context
+    if (existing) {
+      const d = new Date(existing.createdAt);
+      const month = `${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+      await recomputeBudgetByKey({
+        siteId: existing.siteId ?? null,
+        boqId: existing.boqId ?? null,
+        month,
+      });
+    }
 
     return Success({ message: "Cashbook deleted successfully" });
   } catch (error) {

@@ -1,22 +1,25 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import useSWR from 'swr';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import useSWR from "swr";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // UI Components
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
 
 // Utils and API
-import { swrFetcher } from '@/lib/api-client';
+import { swrFetcher } from "@/lib/api-client";
 
 // Hooks
-import { useProtectPage } from '@/hooks/use-protect-page';
+import { useProtectPage } from "@/hooks/use-protect-page";
 
 // Types
-import type { AttendanceWithRelations, EditAttendanceRequest } from '@/types/attendances';
+import type {
+  AttendanceWithRelations,
+  EditAttendanceRequest,
+} from "@/types/attendances";
 
 interface Site {
   id: number;
@@ -51,21 +54,25 @@ export default function EditAttendancePage() {
 
   const router = useRouter();
   const [siteId, setSiteId] = useState<number | null>(null);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [attendances, setAttendances] = useState<AttendanceEdit[]>([]);
-  const [edits, setEdits] = useState<Record<number, Partial<AttendanceEdit>>>({});
+  const [edits, setEdits] = useState<Record<number, Partial<AttendanceEdit>>>(
+    {}
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch sites
   const { data: sitesData } = useSWR<{ data: Site[] }>(
-    '/api/sites?perPage=1000',
+    "/api/sites?perPage=1000",
     swrFetcher
   );
 
   // Fetch assigned manpower for the site
   const { data: manpowerData } = useSWR<{ data: AssignedManpower[] }>(
-    siteId ? `/api/manpower?currentSiteId=${siteId}&isAssigned=true&perPage=1000` : null,
+    siteId
+      ? `/api/manpower?currentSiteId=${siteId}&isAssigned=true&perPage=1000`
+      : null,
     swrFetcher
   );
 
@@ -85,11 +92,15 @@ export default function EditAttendancePage() {
     const dates: string[] = [];
     const startDate = new Date(start);
     const endDate = new Date(end);
-    
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d).toISOString().split('T')[0]);
+
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      dates.push(new Date(d).toISOString().split("T")[0]);
     }
-    
+
     return dates;
   };
 
@@ -106,7 +117,7 @@ export default function EditAttendancePage() {
     // Create a map of existing attendance records for quick lookup
     const attendanceMap = new Map<string, AttendanceWithRelations>();
     existingAttendance.forEach((att) => {
-      const dateKey = new Date(att.date).toISOString().split('T')[0];
+      const dateKey = new Date(att.date).toISOString().split("T")[0];
       const key = `${dateKey}-${att.manpowerId}`;
       attendanceMap.set(key, att);
     });
@@ -119,14 +130,14 @@ export default function EditAttendancePage() {
       assignedManpower.forEach((manpower) => {
         const key = `${date}-${manpower.id}`;
         const existingAtt = attendanceMap.get(key);
-        
+
         const fullName = [
           manpower.firstName,
           manpower.middleName,
           manpower.lastName,
         ]
           .filter(Boolean)
-          .join(' ');
+          .join(" ");
 
         if (existingAtt) {
           // Existing attendance record
@@ -178,13 +189,19 @@ export default function EditAttendancePage() {
     }));
   };
 
-  const getEditedValue = (uniqueKey: string, field: keyof AttendanceEdit, attendance: AttendanceEdit) => {
-    return edits[uniqueKey]?.[field] !== undefined ? edits[uniqueKey][field] : attendance[field];
+  const getEditedValue = (
+    uniqueKey: string,
+    field: keyof AttendanceEdit,
+    attendance: AttendanceEdit
+  ) => {
+    return edits[uniqueKey]?.[field] !== undefined
+      ? edits[uniqueKey][field]
+      : attendance[field];
   };
 
   const handleSave = async () => {
     if (!siteId) {
-      toast.error('Please select a site');
+      toast.error("Please select a site");
       return;
     }
 
@@ -192,39 +209,43 @@ export default function EditAttendancePage() {
     const updatesToExisting: any[] = [];
     const newEntriesToCreate: Map<string, any[]> = new Map(); // Group by date
 
-    Object.entries(edits)
-      .filter(([_, changes]) => Object.keys(changes).length > 0)
-      .forEach(([uniqueKey, changes]) => {
-        const attendance = attendances.find(
-          (a) => `${a.date}-${a.manpowerId}` === uniqueKey
-        );
-        if (!attendance) return;
+    // Build payloads from the full attendance matrix so that new entries can be created
+    // even if the user hasn't manually edited (e.g., saving all as absent).
+    attendances.forEach((attendance) => {
+      const uniqueKey = `${attendance.date}-${attendance.manpowerId}`;
+      const changes = edits[uniqueKey] || {};
 
-        const finalData = {
-          manpowerId: attendance.manpowerId,
-          isPresent: changes.isPresent !== undefined ? changes.isPresent : attendance.isPresent,
-          isIdle: changes.isIdle !== undefined ? changes.isIdle : attendance.isIdle,
-          ot: changes.ot !== undefined ? changes.ot : attendance.ot,
-        };
+      const finalData = {
+        manpowerId: attendance.manpowerId,
+        isPresent:
+          changes.isPresent !== undefined
+            ? changes.isPresent
+            : attendance.isPresent,
+        isIdle:
+          changes.isIdle !== undefined ? changes.isIdle : attendance.isIdle,
+        ot: changes.ot !== undefined ? changes.ot : attendance.ot,
+      };
 
-        if (attendance.isNew || attendance.id === null) {
-          // New entry - group by date for bulk POST
-          const dateKey = attendance.date;
-          if (!newEntriesToCreate.has(dateKey)) {
-            newEntriesToCreate.set(dateKey, []);
-          }
-          newEntriesToCreate.get(dateKey)!.push(finalData);
-        } else {
-          // Existing record - update via PATCH
+      if (attendance.isNew || attendance.id === null) {
+        // New entry - group by date for bulk POST
+        const dateKey = attendance.date;
+        if (!newEntriesToCreate.has(dateKey)) {
+          newEntriesToCreate.set(dateKey, []);
+        }
+        newEntriesToCreate.get(dateKey)!.push(finalData);
+      } else {
+        // Existing record - include only if there are any changes to persist
+        if (Object.keys(changes).length > 0) {
           updatesToExisting.push({
             id: attendance.id,
             ...finalData,
           });
         }
-      });
+      }
+    });
 
     if (updatesToExisting.length === 0 && newEntriesToCreate.size === 0) {
-      toast.info('No changes to save');
+      toast.info("No changes to save");
       return;
     }
 
@@ -239,13 +260,14 @@ export default function EditAttendancePage() {
           attendances: updatesToExisting,
         };
 
-        const updateRes = await fetch('/api/attendances', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+        const updateRes = await fetch("/api/attendances", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatePayload),
         });
 
-        if (!updateRes.ok) throw new Error('Failed to update existing attendance');
+        if (!updateRes.ok)
+          throw new Error("Failed to update existing attendance");
         updateCount = updatesToExisting.length;
       }
 
@@ -257,26 +279,27 @@ export default function EditAttendancePage() {
           attendances,
         };
 
-        const createRes = await fetch('/api/attendances', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const createRes = await fetch("/api/attendances", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(createPayload),
         });
 
-        if (!createRes.ok) throw new Error(`Failed to create attendance for ${date}`);
+        if (!createRes.ok)
+          throw new Error(`Failed to create attendance for ${date}`);
         createCount += attendances.length;
       }
 
       const message: string[] = [];
       if (updateCount > 0) message.push(`Updated ${updateCount} record(s)`);
       if (createCount > 0) message.push(`Created ${createCount} record(s)`);
-      
-      toast.success(message.join(', '));
+
+      toast.success(message.join(", "));
       setEdits({});
       refetchAttendances();
     } catch (error) {
-      console.error('Save error:', error);
-      toast.error((error as Error).message || 'Failed to save attendance');
+      console.error("Save error:", error);
+      toast.error((error as Error).message || "Failed to save attendance");
     } finally {
       setIsSaving(false);
     }
@@ -286,7 +309,7 @@ export default function EditAttendancePage() {
 
   // Group attendances by date
   const attendancesByDate = attendances.reduce((acc, att) => {
-    const dateKey = new Date(att.date).toISOString().split('T')[0];
+    const dateKey = new Date(att.date).toISOString().split("T")[0];
     if (!acc[dateKey]) {
       acc[dateKey] = [];
     }
@@ -316,14 +339,16 @@ export default function EditAttendancePage() {
                 Site <span className="text-red-500">*</span>
               </label>
               <select
-                value={siteId || ''}
-                onChange={(e) => setSiteId(e.target.value ? parseInt(e.target.value) : null)}
+                value={siteId || ""}
+                onChange={(e) =>
+                  setSiteId(e.target.value ? parseInt(e.target.value) : null)
+                }
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Select Site</option>
                 {sitesData?.data.map((site) => (
                   <option key={site.id} value={site.id}>
-                    {site.site} {site.shortName ? `(${site.shortName})` : ''}
+                    {site.site} {site.shortName ? `(${site.shortName})` : ""}
                   </option>
                 ))}
               </select>
@@ -337,7 +362,7 @@ export default function EditAttendancePage() {
               <input
                 type="date"
                 value={fromDate}
-                max={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split("T")[0]}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
@@ -368,26 +393,22 @@ export default function EditAttendancePage() {
               <div>
                 <AppCard.Title>Attendance Records</AppCard.Title>
                 <AppCard.Description>
-                  Showing {attendances.length} record(s) from {fromDate} to {toDate}
+                  Showing {attendances.length} record(s) from {fromDate} to{" "}
+                  {toDate}
                   {manpowerData?.data && (
                     <span className="ml-2 text-sm">
-                      ({manpowerData.data.length} assigned manpower × {sortedDates.length} days)
+                      ({manpowerData.data.length} assigned manpower ×{" "}
+                      {sortedDates.length} days)
                     </span>
                   )}
                 </AppCard.Description>
               </div>
               <div className="flex gap-2">
-                <AppButton
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
+                <AppButton variant="outline" onClick={() => router.back()}>
                   Cancel
                 </AppButton>
-                <AppButton
-                  onClick={handleSave}
-                  disabled={!hasChanges || isSaving}
-                >
-                  {isSaving ? 'Saving...' : `Save Changes${hasChanges ? ` (${Object.keys(edits).length})` : ''}`}
+                <AppButton onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </AppButton>
               </div>
             </div>
@@ -398,42 +419,64 @@ export default function EditAttendancePage() {
               {sortedDates.map((dateKey) => {
                 const records = attendancesByDate[dateKey];
                 const dateObj = new Date(dateKey);
-                const formattedDate = dateObj.toLocaleDateString('en-IN', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
+                const formattedDate = dateObj.toLocaleDateString("en-IN", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 });
 
                 return (
-                  <div key={dateKey} className="border border-border rounded-lg overflow-hidden">
+                  <div
+                    key={dateKey}
+                    className="border border-border rounded-lg overflow-hidden"
+                  >
                     <div className="bg-muted px-4 py-3 border-b border-border">
-                      <h3 className="font-semibold text-foreground">{formattedDate}</h3>
+                      <h3 className="font-semibold text-foreground">
+                        {formattedDate}
+                      </h3>
                     </div>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-muted/50 border-b border-border">
                           <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Sr.</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Manpower Name</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Category</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Skill Set</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">Present</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">Idle</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">OT Hours</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
+                              Sr.
+                            </th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
+                              Manpower Name
+                            </th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
+                              Category
+                            </th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
+                              Skill Set
+                            </th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">
+                              Present
+                            </th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">
+                              Idle
+                            </th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-foreground">
+                              OT Hours
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {records.map((record, idx) => {
                             const uniqueKey = `${record.date}-${record.manpowerId}`;
-                            const isNewEntry = record.isNew || record.id === null;
-                            
+                            const isNewEntry =
+                              record.isNew || record.id === null;
+
                             return (
                               <tr
                                 key={uniqueKey}
                                 className={`hover:bg-muted/30 transition-colors ${
-                                  isNewEntry ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
+                                  isNewEntry
+                                    ? "bg-blue-50/50 dark:bg-blue-950/20"
+                                    : ""
                                 }`}
                               >
                                 <td className="px-4 py-3 text-sm text-foreground">
@@ -448,17 +491,27 @@ export default function EditAttendancePage() {
                                   {record.manpowerName}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {record.category || '-'}
+                                  {record.category || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {record.skillSet || '-'}
+                                  {record.skillSet || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                   <input
                                     type="checkbox"
-                                    checked={getEditedValue(uniqueKey, 'isPresent', record) as boolean}
+                                    checked={
+                                      getEditedValue(
+                                        uniqueKey,
+                                        "isPresent",
+                                        record
+                                      ) as boolean
+                                    }
                                     onChange={(e) =>
-                                      handleFieldChange(uniqueKey, 'isPresent', e.target.checked)
+                                      handleFieldChange(
+                                        uniqueKey,
+                                        "isPresent",
+                                        e.target.checked
+                                      )
                                     }
                                     className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
                                   />
@@ -466,10 +519,29 @@ export default function EditAttendancePage() {
                                 <td className="px-4 py-3 text-center">
                                   <input
                                     type="checkbox"
-                                    checked={getEditedValue(uniqueKey, 'isIdle', record) as boolean}
-                                    onChange={(e) =>
-                                      handleFieldChange(uniqueKey, 'isIdle', e.target.checked)
+                                    checked={
+                                      getEditedValue(
+                                        uniqueKey,
+                                        "isIdle",
+                                        record
+                                      ) as boolean
                                     }
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      handleFieldChange(
+                                        uniqueKey,
+                                        "isIdle",
+                                        checked
+                                      );
+                                      if (checked) {
+                                        // If a person is marked idle, they must also be present.
+                                        handleFieldChange(
+                                          uniqueKey,
+                                          "isPresent",
+                                          true
+                                        );
+                                      }
+                                    }}
                                     className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
                                   />
                                 </td>
@@ -477,12 +549,20 @@ export default function EditAttendancePage() {
                                   <input
                                     type="number"
                                     step="0.5"
-                                    value={getEditedValue(uniqueKey, 'ot', record) as number || ''}
+                                    value={
+                                      (getEditedValue(
+                                        uniqueKey,
+                                        "ot",
+                                        record
+                                      ) as number) || ""
+                                    }
                                     onChange={(e) =>
                                       handleFieldChange(
                                         uniqueKey,
-                                        'ot',
-                                        e.target.value ? parseFloat(e.target.value) : null
+                                        "ot",
+                                        e.target.value
+                                          ? parseFloat(e.target.value)
+                                          : null
                                       )
                                     }
                                     className="w-20 px-2 py-1 border border-input rounded bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-ring"
@@ -507,7 +587,9 @@ export default function EditAttendancePage() {
         <AppCard>
           <AppCard.Content>
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Loading attendance records...</p>
+              <p className="text-muted-foreground">
+                Loading attendance records...
+              </p>
             </div>
           </AppCard.Content>
         </AppCard>
@@ -519,13 +601,13 @@ export default function EditAttendancePage() {
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 {manpowerData.data?.length === 0
-                  ? 'No manpower assigned to this site.'
-                  : 'No attendance records found for the selected filters.'}
+                  ? "No manpower assigned to this site."
+                  : "No attendance records found for the selected filters."}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 {manpowerData.data?.length === 0
-                  ? 'Please assign manpower to this site first.'
-                  : 'Try selecting a different date range or site.'}
+                  ? "Please assign manpower to this site first."
+                  : "Try selecting a different date range or site."}
               </p>
             </div>
           </AppCard.Content>

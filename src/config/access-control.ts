@@ -8,6 +8,8 @@ import { PERMISSIONS } from "@/config/roles";
 export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Dashboard
   { prefix: "/dashboard", permissions: [PERMISSIONS.VIEW_DASHBOARD] },
+  // Profile (auth only)
+  { prefix: "/profile", permissions: [] },
   { prefix: "/users/new", permissions: [PERMISSIONS.EDIT_USERS] }, // create user page
   { prefix: "/users/", permissions: [PERMISSIONS.EDIT_USERS] }, // edit user pages (/users/:id/...)
   { prefix: "/users", permissions: [PERMISSIONS.READ_USERS] }, // users list (view only)
@@ -269,6 +271,14 @@ export type ApiAccessRule = {
 };
 
 export const API_ACCESS_RULES: ApiAccessRule[] = [
+  // Current user profile (auth only)
+  {
+    prefix: "/api/me",
+    methods: {
+      GET: [],
+      PATCH: [],
+    },
+  },
   {
     prefix: "/api/users",
     methods: {
