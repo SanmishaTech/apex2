@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useParams } from 'next/navigation';
-import useSWR from 'swr';
-import { apiGet } from '@/lib/api-client';
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
-import { formatDate, formatDateTime } from '@/lib/locales';
+import { useParams } from "next/navigation";
+import useSWR from "swr";
+import { apiGet } from "@/lib/api-client";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import { formatDate, formatDateTime } from "@/lib/locales";
 
 type CashbookBudgetData = {
   id: number;
@@ -46,7 +46,7 @@ type CashbookBudgetData = {
 
 export default function ViewCashbookBudgetPage() {
   const params = useParams<{ id: string }>();
-  
+
   const { data, isLoading, error } = useSWR<CashbookBudgetData>(
     params?.id ? `/api/cashbook-budgets/${params.id}` : null,
     apiGet
@@ -83,7 +83,11 @@ export default function ViewCashbookBudgetPage() {
                 {data.name} - {data.month}
               </AppCard.Description>
             </div>
-            <AppButton onClick={handlePrint} className="print:hidden" iconName="Printer">
+            <AppButton
+              onClick={handlePrint}
+              className="print:hidden"
+              iconName="Printer"
+            >
               Print
             </AppButton>
           </div>
@@ -93,63 +97,125 @@ export default function ViewCashbookBudgetPage() {
           {/* Budget Header Information */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg print:bg-white print:border print:border-gray-300">
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Budget Name</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Budget Name
+              </div>
               <div className="font-medium dark:text-white">{data.name}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Month</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Month
+              </div>
               <div className="font-medium dark:text-white">{data.month}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Site</div>
-              <div className="font-medium dark:text-white">{data.site.site}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Site
+              </div>
+              <div className="font-medium dark:text-white">
+                {data.site.site}
+              </div>
             </div>
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">BOQ</div>
-              <div className="font-medium dark:text-white">{data.boq?.boqNo || 'N/A'}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                BOQ
+              </div>
+              <div className="font-medium dark:text-white">
+                {data.boq?.boqNo || "N/A"}
+              </div>
             </div>
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Created Date</div>
-              <div className="font-medium dark:text-white">{formatDate(data.createdAt)}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Created Date
+              </div>
+              <div className="font-medium dark:text-white">
+                {new Date(data.createdAt).toLocaleString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  year: "numeric",
+                  month: "short",
+                  day: "2-digit",
+                })}
+              </div>
             </div>
           </div>
 
           {/* Budget Items Table */}
           <div>
-            <h3 className="font-semibold text-lg mb-3 dark:text-white">Budget Items</h3>
+            <h3 className="font-semibold text-lg mb-3 dark:text-white">
+              Budget Items
+            </h3>
             <div className="border dark:border-gray-700 rounded-lg overflow-hidden print:border-gray-400">
               <table className="w-full">
                 <thead className="bg-gray-100 dark:bg-gray-800 print:bg-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Cashbook Head</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Description</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Date</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Budget Amount</th>
-                    {data.approvedBy && (
-                      <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">Approved Amount</th>
-                    )}
+                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Cashbook Head
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Budget Amount
+                    </th>
                     {data.approved1By && (
-                      <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-200">Final Approved</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                        Approved Amount
+                      </th>
+                    )}
+                    {data.approvedBy && (
+                      <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-200">
+                        Final Approved
+                      </th>
                     )}
                   </tr>
                 </thead>
                 <tbody>
                   {data.budgetItems.map((item, index) => (
-                    <tr key={item.id} className="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 print:hover:bg-white">
-                      <td className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">{item.cashbookHead.cashbookHeadName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.description || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.date ? formatDate(item.date) : '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                        ₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <tr
+                      key={item.id}
+                      className="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 print:hover:bg-white"
+                    >
+                      <td className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">
+                        {item.cashbookHead.cashbookHeadName}
                       </td>
-                      {data.approvedBy && (
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">
+                        {item.description || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">
+                        {item.date
+                          ? new Date(item.date).toLocaleDateString("en-IN", {
+                              timeZone: "Asia/Kolkata",
+                              year: "numeric",
+                              month: "short",
+                              day: "2-digit",
+                            })
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
+                        ₹
+                        {Number(item.amount).toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      {data.approved1By && (
                         <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                          ₹{Number(item.approvedAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹
+                          {Number(item.approved1Amount || 0).toLocaleString(
+                            "en-IN",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
                       )}
-                      {data.approved1By && (
+                      {data.approvedBy && (
                         <td className="px-4 py-3 text-right font-mono text-green-600 dark:text-green-400">
-                          ₹{Number(item.approved1Amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹
+                          {Number(item.approvedAmount || 0).toLocaleString(
+                            "en-IN",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
                       )}
                     </tr>
@@ -157,18 +223,34 @@ export default function ViewCashbookBudgetPage() {
                 </tbody>
                 <tfoot className="bg-gray-100 dark:bg-gray-800 font-bold print:bg-gray-200">
                   <tr>
-                    <td colSpan={3} className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">Total</td>
-                    <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                      ₹{Number(data.totalBudget).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <td
+                      colSpan={3}
+                      className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200"
+                    >
+                      Total
                     </td>
-                    {data.approvedBy && (
+                    <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
+                      ₹
+                      {Number(data.totalBudget).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </td>
+                    {data.approved1By && (
                       <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                        ₹{Number(data.approvedBudgetAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹
+                        {Number(data.approved1BudgetAmount || 0).toLocaleString(
+                          "en-IN",
+                          { minimumFractionDigits: 2 }
+                        )}
                       </td>
                     )}
-                    {data.approved1By && (
+                    {data.approvedBy && (
                       <td className="px-4 py-3 text-right font-mono text-green-600 dark:text-green-400">
-                        ₹{Number(data.approved1BudgetAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹
+                        {Number(data.approvedBudgetAmount || 0).toLocaleString(
+                          "en-IN",
+                          { minimumFractionDigits: 2 }
+                        )}
                       </td>
                     )}
                   </tr>
@@ -180,32 +262,85 @@ export default function ViewCashbookBudgetPage() {
           {/* Approval Information */}
           {(data.approvedBy || data.approved1By || data.acceptedBy) && (
             <div className="space-y-3">
-              <h3 className="font-semibold text-lg dark:text-white">Approval Status</h3>
+              <h3 className="font-semibold text-lg dark:text-white">
+                Approval Status
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.approvedBy && (
+                {data.approved1By && (
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 dark:border dark:border-blue-800 rounded-lg print:border print:border-blue-200">
-                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">First Approval</div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      First Approval
+                    </div>
                     <div className="mt-1 text-sm dark:text-gray-300">
-                      <div>By: {data.approvedBy_user?.name || 'Unknown'}</div>
-                      <div>Date: {data.approvedDatetime ? formatDateTime(data.approvedDatetime) : 'N/A'}</div>
+                      <div>By: {data.approved1By_user?.name || "Unknown"}</div>
+                      <div>
+                        Date:{" "}
+                        {data.approved1Datetime
+                          ? new Date(data.approved1Datetime).toLocaleString(
+                              "en-IN",
+                              {
+                                timeZone: "Asia/Kolkata",
+                                year: "numeric",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "N/A"}
+                      </div>
                     </div>
                   </div>
                 )}
-                {data.approved1By && (
+                {data.approvedBy && (
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 dark:border dark:border-green-800 rounded-lg print:border print:border-green-200">
-                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">Final Approval</div>
+                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                      Final Approval
+                    </div>
                     <div className="mt-1 text-sm dark:text-gray-300">
-                      <div>By: {data.approved1By_user?.name || 'Unknown'}</div>
-                      <div>Date: {data.approved1Datetime ? formatDateTime(data.approved1Datetime) : 'N/A'}</div>
+                      <div>By: {data.approvedBy_user?.name || "Unknown"}</div>
+                      <div>
+                        Date:{" "}
+                        {data.approvedDatetime
+                          ? new Date(data.approvedDatetime).toLocaleString(
+                              "en-IN",
+                              {
+                                timeZone: "Asia/Kolkata",
+                                year: "numeric",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "N/A"}
+                      </div>
                     </div>
                   </div>
                 )}
                 {data.acceptedBy && (
                   <div className="p-4 bg-purple-50 dark:bg-purple-900/20 dark:border dark:border-purple-800 rounded-lg print:border print:border-purple-200">
-                    <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">Accepted</div>
+                    <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                      Accepted
+                    </div>
                     <div className="mt-1 text-sm dark:text-gray-300">
-                      <div>By: {data.acceptedBy_user?.name || 'Unknown'}</div>
-                      <div>Date: {data.acceptedDatetime ? formatDateTime(data.acceptedDatetime) : 'N/A'}</div>
+                      <div>By: {data.acceptedBy_user?.name || "Unknown"}</div>
+                      <div>
+                        Date:{" "}
+                        {data.acceptedDatetime
+                          ? new Date(data.acceptedDatetime).toLocaleString(
+                              "en-IN",
+                              {
+                                timeZone: "Asia/Kolkata",
+                                year: "numeric",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "N/A"}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -219,7 +354,9 @@ export default function ViewCashbookBudgetPage() {
               <h3 className="font-semibold text-lg dark:text-white">Remarks</h3>
               {data.approved1Remarks && (
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">First Approval Remarks</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    First Approval Remarks
+                  </div>
                   <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-800 dark:text-gray-200 rounded border dark:border-gray-700 print:border-gray-300">
                     {data.approved1Remarks}
                   </div>
@@ -227,7 +364,9 @@ export default function ViewCashbookBudgetPage() {
               )}
               {data.remarksForFinalApproval && (
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Final Approval Remarks</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Final Approval Remarks
+                  </div>
                   <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-800 dark:text-gray-200 rounded border dark:border-gray-700 print:border-gray-300">
                     {data.remarksForFinalApproval}
                   </div>

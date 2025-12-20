@@ -118,14 +118,13 @@ const createInputSchema = z.object({
       if (!val || val === "__none" || val === "") return null;
       return typeof val === "string" ? parseInt(val) : val;
     }),
-  boqId: z
-    .union([z.string(), z.number(), z.undefined(), z.null()])
-    .optional()
-    .nullable()
-    .transform((val) => {
-      if (!val || val === "__none" || val === "") return null;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+  boqId: z.preprocess(
+    (v) => String(v ?? ""),
+    z
+      .string()
+      .regex(/^[1-9]\d*$/, "Bill of Quantity is required")
+      .transform((val) => parseInt(val, 10))
+  ),
   attachVoucherCopyUrl: z.string().optional(),
   cashbookDetails: z
     .array(cashbookDetailSchema)
@@ -291,7 +290,10 @@ export function CashbookForm({
     if (prevSiteIdRef.current !== curr) {
       prevSiteIdRef.current = curr as any;
       // Clear BOQ selection on site change
-      form.setValue("boqId", "__none", { shouldDirty: true, shouldValidate: true });
+      form.setValue("boqId", "__none", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
     }
   }, [selectedSiteId, form]);
 

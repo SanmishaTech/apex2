@@ -40,7 +40,7 @@ export default function ApproveCashbookBudgetPage() {
   const [submitting, setSubmitting] = useState(false);
   const [approvedRemarks, setApprovedRemarks] = useState('');
   
-  const { data, isLoading, error } = useSWR<CashbookBudgetData>(
+  const { data, isLoading, error, mutate } = useSWR<CashbookBudgetData>(
     params?.id ? `/api/cashbook-budgets/${params.id}` : null,
     apiGet
   );
@@ -112,6 +112,9 @@ export default function ApproveCashbookBudgetPage() {
       }
 
       toast.success('Final approval completed successfully');
+      if (mutate) {
+        await mutate();
+      }
       router.push('/cashbook-budgets');
     } catch (err) {
       toast.error((err as Error).message || 'Failed to approve budget');
