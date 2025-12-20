@@ -41,7 +41,7 @@ export default function EditCashbookBudgetPage() {
 		redirectForbidden: '/cashbook-budgets'
 	});
 
-	const { data, error, isLoading } = useSWR<CashbookBudgetResponse>(
+	const { data, error, isLoading,mutate } = useSWR<CashbookBudgetResponse>(
 		id ? `/api/cashbook-budgets/${id}` : null,
 		apiGet
 	);
@@ -89,5 +89,5 @@ export default function EditCashbookBudgetPage() {
 		})),
 	};
 
-	return <CashbookBudgetForm mode='edit' initial={initialData} />;
+	return <CashbookBudgetForm mode='edit' initial={initialData} mutate={mutate} />;
 }

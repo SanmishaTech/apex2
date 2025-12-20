@@ -48,6 +48,7 @@ export interface CashbookBudgetFormProps {
   initial?: CashbookBudgetFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string;
+  mutate?: () => Promise<any>;
 }
 
 type SitesResponse = {
@@ -116,6 +117,7 @@ export function CashbookBudgetForm({
   initial,
   onSuccess,
   redirectOnSuccess = "/cashbook-budgets",
+  mutate,
 }: CashbookBudgetFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -248,6 +250,9 @@ export function CashbookBudgetForm({
         });
         toast.success("Cashbook budget updated");
         onSuccess?.(res);
+      }
+      if (mutate) {
+        await mutate();
       }
       router.push(redirectOnSuccess);
     } catch (err) {

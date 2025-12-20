@@ -1022,7 +1022,7 @@ model CashbookBudget {
 model CashbookBudgetItem {
   id              Int            @id @default(autoincrement())
   budgetId        Int
-  budget          CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  budget          CashbookBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   cashbookHeadId  Int
   cashbookHead    CashbookHead   @relation(fields: [cashbookHeadId], references: [id])
   description     String?        @db.Text
