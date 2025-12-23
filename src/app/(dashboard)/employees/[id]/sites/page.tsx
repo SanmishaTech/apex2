@@ -82,7 +82,9 @@ export default function EmployeeAssignedSitesPage({ params }: PageProps) {
         });
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   }, [baseAssignments]);
 
   const filteredAssignments = useMemo<SiteRow[]>(() => {
@@ -345,7 +347,9 @@ export default function EmployeeAssignedSitesPage({ params }: PageProps) {
           loading={isLoading}
           stickyColumns={2}
           simpleStyle
-          emptyMessage={siteFilter ? "No sites matched your filter" : "No sites assigned"}
+          emptyMessage={
+            siteFilter ? "No sites matched your filter" : "No sites assigned"
+          }
         />
       </AppCard.Content>
       <AppCard.Footer className="flex justify-between gap-4">

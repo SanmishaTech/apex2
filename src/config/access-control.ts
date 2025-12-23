@@ -239,6 +239,15 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/assign-manpower",
     permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
   },
+  // Assign Employees
+  {
+    prefix: "/assign-employees/",
+    permissions: [PERMISSIONS.READ_EMPLOYEES],
+  },
+  {
+    prefix: "/assign-employees",
+    permissions: [PERMISSIONS.READ_EMPLOYEES],
+  },
   // Manpower Transfers
   {
     prefix: "/manpower-transfers/new",
@@ -636,7 +645,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       GET: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
       POST: [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS],
       // PATCH: [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS],
-      // DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
+      DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
     },
   },
   {
@@ -672,6 +681,14 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/cashbook-budget-pdf",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    },
+  },
+  {
+    prefix: "/api/employee-assignments",
+    methods: {
+      GET: [PERMISSIONS.READ_EMPLOYEES],
+      POST: [PERMISSIONS.EDIT_EMPLOYEES],
+      DELETE: [PERMISSIONS.EDIT_EMPLOYEES],
     },
   },
   // add more API rules here

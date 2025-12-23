@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Success, Error } from '@/lib/api-response';
 import { guardApiAccess } from '@/lib/access-guard';
+import { ROLES } from '@/config/roles';
 
 // GET - List all sites with last attendance date and manpower count
 export async function GET(req: NextRequest) {
@@ -26,6 +27,30 @@ export async function GET(req: NextRequest) {
     // Search across site name
     if (search) {
       where.site = { contains: search };
+    }
+
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === 'number');
+
+      // If no assigned sites, return empty set early
+      if (!assignedSiteIds || assignedSiteIds.length === 0) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+
+      // Restrict to assigned site IDs
+      where.id = { in: assignedSiteIds };
     }
 
     // Get total count

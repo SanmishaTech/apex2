@@ -1,9 +1,10 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { Success, Error, BadRequest } from '@/lib/api-response';
-import { guardApiAccess } from '@/lib/access-guard';
-import { paginate } from '@/lib/paginate';
-import { z } from 'zod';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Success, Error, BadRequest } from "@/lib/api-response";
+import { guardApiAccess } from "@/lib/access-guard";
+import { paginate } from "@/lib/paginate";
+import { z } from "zod";
+import { ROLES } from "@/config/roles";
 
 // Schema for creating attendance
 const createAttendanceSchema = z.object({
@@ -39,14 +40,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, Number(searchParams.get('page')) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get('perPage')) || 10));
-    const search = searchParams.get('search')?.trim() || '';
-    const siteId = searchParams.get('siteId');
-    const date = searchParams.get('date');
-    const fromDate = searchParams.get('fromDate');
-    const toDate = searchParams.get('toDate');
-    const manpowerId = searchParams.get('manpowerId');
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const perPage = Math.min(
+      100,
+      Math.max(1, Number(searchParams.get("perPage")) || 10)
+    );
+    const search = searchParams.get("search")?.trim() || "";
+    const siteId = searchParams.get("siteId");
+    const date = searchParams.get("date");
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
+    const manpowerId = searchParams.get("manpowerId");
 
     const where: any = {};
 
@@ -65,7 +69,7 @@ export async function GET(req: NextRequest) {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(targetDate);
       endOfDay.setHours(23, 59, 59, 999);
-      
+
       where.date = {
         gte: startOfDay,
         lte: endOfDay,
@@ -114,10 +118,51 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged =
+      role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    let assignedSiteIds: number[] | null = null;
+    const requestedSiteId = siteId ? parseInt(siteId) : null;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      assignedSiteIds = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      // If no site filter is provided and no assigned sites, return empty set
+      if (
+        !requestedSiteId &&
+        (!assignedSiteIds || assignedSiteIds.length === 0)
+      ) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+
+      if (requestedSiteId && !isNaN(requestedSiteId)) {
+        // If requesting a specific site not among assignments, return empty
+        if (assignedSiteIds && !assignedSiteIds.includes(requestedSiteId)) {
+          return Success({
+            data: [],
+            meta: { page, perPage, total: 0, totalPages: 1 },
+          });
+        }
+        // else keep where.siteId as already set above
+      } else if (assignedSiteIds && assignedSiteIds.length > 0) {
+        // No specific site requested; restrict to assigned sites
+        where.siteId = { in: assignedSiteIds };
+      }
+    }
+
     const result = await paginate({
       model: prisma.attendance as any,
       where,
-      orderBy: { date: 'desc' },
+      orderBy: { date: "desc" },
       page,
       perPage,
       select: {
@@ -151,8 +196,8 @@ export async function GET(req: NextRequest) {
 
     return Success(result);
   } catch (error) {
-    console.error('Get attendances error:', error);
-    return Error('Failed to fetch attendances');
+    console.error("Get attendances error:", error);
+    return Error("Failed to fetch attendances");
   }
 }
 
@@ -169,8 +214,9 @@ export async function POST(req: NextRequest) {
 
     // Use upsert to handle cases where attendance already exists for the date
     const results = await Promise.all(
-      attendances.map((att) =>
-        prisma.attendance.upsert({
+      attendances.map((att) => {
+        const derivedIsPresent = att.isIdle ? true : att.isPresent;
+        return prisma.attendance.upsert({
           where: {
             date_siteId_manpowerId: {
               date: attendanceDate,
@@ -179,7 +225,7 @@ export async function POST(req: NextRequest) {
             },
           },
           update: {
-            isPresent: att.isPresent,
+            isPresent: derivedIsPresent,
             isIdle: att.isIdle,
             ot: att.ot !== undefined ? att.ot : null,
           },
@@ -187,7 +233,7 @@ export async function POST(req: NextRequest) {
             date: attendanceDate,
             siteId,
             manpowerId: att.manpowerId,
-            isPresent: att.isPresent,
+            isPresent: derivedIsPresent,
             isIdle: att.isIdle,
             ot: att.ot !== undefined ? att.ot : null,
           },
@@ -200,17 +246,17 @@ export async function POST(req: NextRequest) {
             isIdle: true,
             ot: true,
           },
-        })
-      )
+        });
+      })
     );
 
     return Success({ count: results.length, attendances: results }, 201);
   } catch (error) {
-    console.error('Create attendance error:', error);
+    console.error("Create attendance error:", error);
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    return Error('Failed to create attendance');
+    return Error("Failed to create attendance");
   }
 }
 
@@ -225,11 +271,12 @@ export async function PATCH(req: NextRequest) {
 
     // Update each attendance record
     const results = await Promise.all(
-      attendances.map((att) =>
-        prisma.attendance.update({
+      attendances.map((att) => {
+        const derivedIsPresent = att.isIdle ? true : att.isPresent;
+        return prisma.attendance.update({
           where: { id: att.id },
           data: {
-            isPresent: att.isPresent,
+            isPresent: derivedIsPresent,
             isIdle: att.isIdle,
             ot: att.ot !== undefined && att.ot !== null ? att.ot : null,
           },
@@ -242,16 +289,16 @@ export async function PATCH(req: NextRequest) {
             isIdle: true,
             ot: true,
           },
-        })
-      )
+        });
+      })
     );
 
     return Success({ count: results.length, attendances: results });
   } catch (error) {
-    console.error('Edit attendance error:', error);
+    console.error("Edit attendance error:", error);
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
-    return Error('Failed to update attendance');
+    return Error("Failed to update attendance");
   }
 }

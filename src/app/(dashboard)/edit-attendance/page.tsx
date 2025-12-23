@@ -506,14 +506,27 @@ export default function EditAttendancePage() {
                                         record
                                       ) as boolean
                                     }
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                      const isIdleNow = getEditedValue(
+                                        uniqueKey,
+                                        "isIdle",
+                                        record
+                                      ) as boolean;
+                                      if (isIdleNow && !e.target.checked) return;
                                       handleFieldChange(
                                         uniqueKey,
                                         "isPresent",
                                         e.target.checked
-                                      )
-                                    }
+                                      );
+                                    }}
                                     className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
+                                    disabled={
+                                      (getEditedValue(
+                                        uniqueKey,
+                                        "isIdle",
+                                        record
+                                      ) as boolean) === true
+                                    }
                                   />
                                 </td>
                                 <td className="px-4 py-3 text-center">

@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const statusParam = searchParams.get("status");
     const sort = (searchParams.get("sort") || "site") as string;
+    const idParam = searchParams.get("id");
     const order = (searchParams.get("order") === "desc" ? "desc" : "asc") as
       | "asc"
       | "desc";
@@ -216,7 +217,13 @@ export async function GET(req: NextRequest) {
 
     const result = await paginate({
       model: prisma.site,
-      where: where as any,
+      where: ((): any => {
+        const w: any = { ...(where as any) };
+        if (idParam && !isNaN(Number(idParam))) {
+          w.id = Number(idParam);
+        }
+        return w;
+      })(),
       orderBy,
       page,
       perPage,
@@ -259,6 +266,7 @@ export async function GET(req: NextRequest) {
           select: {
             assignedManpower: true,
             siteBudgets: true,
+            siteEmployees: true,
           },
         },
       },
