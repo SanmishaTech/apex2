@@ -149,6 +149,10 @@ export default function MarkAttendancePage({
 
         if (field === 'isPresent') {
           const isPresent = Boolean(value);
+          // If idle is selected, do not allow unchecking present
+          if (m.isIdle && !isPresent) {
+            return m; // ignore attempt to uncheck present while idle
+          }
           return {
             ...m,
             isPresent,
@@ -404,7 +408,7 @@ export default function MarkAttendancePage({
                                 handleFieldChange(manpower.id, 'isPresent', e.target.checked)
                               }
                               className="w-4 h-4 cursor-pointer"
-                              disabled={manpower.isLocked}
+                              disabled={manpower.isLocked || manpower.isIdle}
                             />
                           </td>
                           <td className="px-3 py-2 text-center">

@@ -282,31 +282,6 @@ export default function EmployeesPage() {
 
             return (
               <div className="flex flex-wrap justify-end gap-2">
-                {canViewAssignedSites && (
-                  <AppButton
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    onClick={() =>
-                      pushWithScrollSave(`/employees/${employee.id}/sites`)
-                    }
-                  >
-                    View Assigned
-                  </AppButton>
-                )}
-                {canAssignSites && (
-                  <AppButton
-                    size="sm"
-                    type="button"
-                    onClick={() =>
-                      pushWithScrollSave(
-                        `/employees/${employee.id}/sites/assign`
-                      )
-                    }
-                  >
-                    Assign Sites
-                  </AppButton>
-                )}
                 {canEditEmployee && (
                   <EditButton
                     tooltip="Edit Employee"

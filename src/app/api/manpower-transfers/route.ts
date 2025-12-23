@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiAccess } from "@/lib/access-guard";
 import { prisma } from "@/lib/prisma";
+import { ROLES } from "@/config/roles";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * perPage;
 
     // Build where clause for search
-    const where = search
+    const where: any = search
       ? {
           OR: [
             { challanNo: { contains: search, mode: "insensitive" as const } },
@@ -36,6 +37,41 @@ export async function GET(request: NextRequest) {
           ],
         }
       : {};
+
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = guardResult.user.role;
+    const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: guardResult.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      // If no assigned sites, return empty set early
+      if (!assignedSiteIds || assignedSiteIds.length === 0) {
+        return NextResponse.json({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+
+      // Restrict visibility to transfers involving assigned sites (either from or to)
+      const siteVisibility = {
+        OR: [
+          { fromSiteId: { in: assignedSiteIds } },
+          { toSiteId: { in: assignedSiteIds } },
+        ],
+      } as const;
+
+      if (Object.keys(where).length > 0) {
+        where.AND = where.AND ? [...where.AND, siteVisibility] : [siteVisibility];
+      } else {
+        Object.assign(where, siteVisibility);
+      }
+    }
 
     // Get total count for pagination
     const total = await prisma.manpowerTransfer.count({ where });

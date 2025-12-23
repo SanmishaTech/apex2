@@ -151,6 +151,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_MANPOWER_ASSIGNMENTS,
       },
       {
+        title: "Assign Employees",
+        href: "/assign-employees",
+        icon: UserPlus,
+        permission: PERMISSIONS.READ_EMPLOYEES,
+      },
+      {
         title: "Manpower Transfers",
         href: "/manpower-transfers",
         icon: ArrowUpDown,
@@ -294,6 +300,12 @@ export const NAV_ITEMS: NavItem[] = [
             href: "/reports/cashbook-budget",
             icon: FileText,
             permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+          },
+          {
+            title: "Daily Cashbook Report",
+            href: "/reports/daily-cashbook",
+            icon: FileText,
+            permission: PERMISSIONS.READ_CASHBOOKS,
           },
         ],
       },

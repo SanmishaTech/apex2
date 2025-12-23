@@ -55,7 +55,7 @@ export const apiGet = <T = unknown>(path: string, opts?: ApiClientOptions) => re
 export const apiPost = <T = unknown, B = unknown>(path: string, body: B, opts?: ApiClientOptions) => request<T>('POST', path, body, opts);
 export const apiPut =  <T = unknown, B = unknown>(path: string, body: B, opts?: ApiClientOptions) => request<T>('PUT', path, body, opts);
 export const apiPatch =<T = unknown, B = unknown>(path: string, body: B, opts?: ApiClientOptions) => request<T>('PATCH', path, body, opts);
-export const apiDelete = <T = unknown>(path: string, opts?: ApiClientOptions) => request<T>('DELETE', path, undefined, opts);
+export const apiDelete = <T = unknown, B = unknown>(path: string, body?: B, opts?: ApiClientOptions) => request<T>('DELETE', path, body, opts);
 
 // Multipart/FormData upload helper.
 // Usage: apiUpload('/api/resource', formData) // POST by default
