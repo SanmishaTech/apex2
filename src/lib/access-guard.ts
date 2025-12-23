@@ -5,6 +5,8 @@ import { verifyAccessToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { Unauthorized, Error as ApiError, Forbidden } from "@/lib/api-response";
 import { ROLES_PERMISSIONS, ROLES } from "@/config/roles";
+import fs from "fs/promises";
+import path from "path";
 import { API_ACCESS_RULES, Permission } from "@/config/access-control";
 
 // Return shape reused by both guard functions
@@ -58,7 +60,19 @@ export async function guardApiPermissions(
     return input; // fallback
   }
   const roleLabel = resolveRoleLabel(roleInput);
-  const perms = (ROLES_PERMISSIONS as any)[roleLabel] || [];
+  // Merge/override with saved role permissions if present
+  async function getRolePermissions(role: string): Promise<string[]> {
+    try {
+      const file = path.join(process.cwd(), "data", "role-permissions.json");
+      const buf = await fs.readFile(file, "utf8");
+      const json = JSON.parse(buf) as Record<string, string[]>;
+      if (json && json[role]) return Array.from(new Set(json[role]));
+    } catch {
+      // ignore
+    }
+    return (ROLES_PERMISSIONS as any)[role] || [];
+  }
+  const perms = await getRolePermissions(roleLabel);
   if (required.length) {
     const missing = required.filter((p) => !(perms as string[]).includes(p));
     if (missing.length) return { ok: false, response: Forbidden() };

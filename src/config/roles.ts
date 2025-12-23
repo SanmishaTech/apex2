@@ -267,7 +267,23 @@ export const PERMISSIONS = {
 
   // Attendance Report Permissions
   VIEW_ATTENDANCE_REPORTS: "VIEW:ATTENDANCE:REPORTS",
+
+  // satrt
+  PERMISSION_GROUPS: "PERMISSION_GROUPS",
+  VIEW_ROLES: "VIEW:ROLES",
+  EDIT_ROLES_PERMISSIONS: "EDIT:ROLES:PERMISSIONS",
+  // end
 } as const;
+
+// Optional: manual grouping of permissions for UI sections. Some UI files import
+// PERMISSION_GROUPS directly. Provide a minimal, safe default here so those
+// imports work without changing existing call-sites. Consumers may override or
+// extend this later if they need custom ordering/grouping.
+export const PERMISSION_GROUPS: {
+  key: string;
+  label: string;
+  permissions: string[];
+}[] = [];
 
 export const ROLES = {
   ADMIN: "Admin",

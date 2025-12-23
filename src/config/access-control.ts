@@ -17,17 +17,32 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/cities/new", permissions: [PERMISSIONS.EDIT_CITIES] },
   { prefix: "/cities/", permissions: [PERMISSIONS.EDIT_CITIES] },
   { prefix: "/cities", permissions: [PERMISSIONS.READ_CITIES] },
-   // StockAdjustments
-  { prefix: "/stock-adjustments/new", permissions: [PERMISSIONS.CREATE_STOCK_ADJUSTMENTS] },
-  { prefix: "/stock-adjustments/", permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS] },
-  { prefix: "/stock-adjustments", permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS] },
+  // StockAdjustments
+  {
+    prefix: "/stock-adjustments/new",
+    permissions: [PERMISSIONS.CREATE_STOCK_ADJUSTMENTS],
+  },
+  {
+    prefix: "/stock-adjustments/",
+    permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS],
+  },
+  {
+    prefix: "/stock-adjustments",
+    permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS],
+  },
   // States
   { prefix: "/states/new", permissions: [PERMISSIONS.EDIT_STATES] },
   { prefix: "/states/", permissions: [PERMISSIONS.EDIT_STATES] },
   { prefix: "/states", permissions: [PERMISSIONS.READ_STATES] },
-    // DailyConsumtions
-  { prefix: "/daily-consumptions/new", permissions: [PERMISSIONS.CREATE_DAILY_CONSUMPTIONS] },
-  { prefix: "/daily-consumptions", permissions: [PERMISSIONS.READ_DAILY_CONSUMPTIONS] },
+  // DailyConsumtions
+  {
+    prefix: "/daily-consumptions/new",
+    permissions: [PERMISSIONS.CREATE_DAILY_CONSUMPTIONS],
+  },
+  {
+    prefix: "/daily-consumptions",
+    permissions: [PERMISSIONS.READ_DAILY_CONSUMPTIONS],
+  },
   // Payslips
   { prefix: "/payslips", permissions: [PERMISSIONS.READ_PAYSLIPS] },
   // Companies
@@ -255,6 +270,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.READ_RENTS],
   },
   { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.READ_PAYSLIPS] },
+  {
+    prefix: "/reports/cashbook-budget",
+    permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+  },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -335,7 +354,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_COMPANIES],
     },
   },
-   {
+  {
     prefix: "/api/payslips",
     methods: {
       GET: [PERMISSIONS.READ_PAYSLIPS],
@@ -484,7 +503,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_INDENTS],
       // Let the handler enforce granular permissions: approve1/approve2/complete/suspend
       PATCH: [],
-      DELETE: [PERMISSIONS.DELETE_INDENTS],
+      // DELETE: [PERMISSIONS.DELETE_INDENTS],
     },
   },
   {
@@ -494,7 +513,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_PURCHASE_ORDERS],
       // Let the handler enforce granular permissions (approve1/approve2/suspend/complete)
       PATCH: [],
-      DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
+      // DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
     },
   },
   {
@@ -520,7 +539,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN],
       POST: [PERMISSIONS.CREATE_INWARD_DELIVERY_CHALLAN],
-      PATCH: [PERMISSIONS.EDIT_INWARD_DELIVERY_CHALLAN],
+      // PATCH: [PERMISSIONS.EDIT_INWARD_DELIVERY_CHALLAN],
     },
   },
   {
@@ -605,7 +624,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       GET: [PERMISSIONS.READ_ASSET_TRANSFERS],
       POST: [PERMISSIONS.CREATE_ASSET_TRANSFERS],
       PATCH: [
-        PERMISSIONS.EDIT_ASSET_TRANSFERS,
+        // PERMISSIONS.EDIT_ASSET_TRANSFERS,
         PERMISSIONS.APPROVE_ASSET_TRANSFERS,
       ],
       DELETE: [PERMISSIONS.DELETE_ASSET_TRANSFERS],
@@ -616,8 +635,8 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
       POST: [PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS],
-      PATCH: [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS],
-      DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
+      // PATCH: [PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS],
+      // DELETE: [PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS],
     },
   },
   {
@@ -625,8 +644,8 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
       POST: [PERMISSIONS.CREATE_MANPOWER_TRANSFERS],
-      PATCH: [PERMISSIONS.EDIT_MANPOWER_TRANSFERS],
-      DELETE: [PERMISSIONS.DELETE_MANPOWER_TRANSFERS],
+      // PATCH: [PERMISSIONS.EDIT_MANPOWER_TRANSFERS],
+      // DELETE: [PERMISSIONS.DELETE_MANPOWER_TRANSFERS],
     },
   },
   {
@@ -647,6 +666,12 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/rent-registration",
     methods: {
       GET: [PERMISSIONS.READ_RENTS],
+    },
+  },
+  {
+    prefix: "/api/reports/cashbook-budget-pdf",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
     },
   },
   // add more API rules here
