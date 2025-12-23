@@ -1,6 +1,6 @@
 // Type declarations for jspdf-autotable
-declare module 'jspdf-autotable' {
-  import { jsPDF } from 'jspdf';
+declare module "jspdf-autotable" {
+  import { jsPDF } from "jspdf";
 
   export interface CellDef {
     content?: string;
@@ -16,16 +16,17 @@ declare module 'jspdf-autotable' {
   export interface Styles {
     font?: string;
     fontStyle?: string;
-    overflow?: 'linebreak' | 'ellipsize' | 'visible' | 'hidden';
+    overflow?: "linebreak" | "ellipsize" | "visible" | "hidden";
     fillColor?: number | [number, number, number] | false;
     textColor?: number | [number, number, number];
     cellPadding?: number;
     fontSize?: number;
     minCellHeight?: number;
     minCellWidth?: number;
-    halign?: 'left' | 'center' | 'right';
-    valign?: 'top' | 'middle' | 'bottom';
-    cellWidth?: number | 'auto' | 'wrap';
+    halign?: "left" | "center" | "right";
+    valign?: "top" | "middle" | "bottom";
+    cellWidth?: number | "auto" | "wrap";
+    lineWidth?: number;
   }
 
   export interface CellHookData {
@@ -35,13 +36,13 @@ declare module 'jspdf-autotable' {
     };
     row: {
       index: number;
-      section: 'head' | 'body' | 'foot';
+      section: "head" | "body" | "foot";
     };
     column: {
       index: number;
       dataKey?: string | number;
     };
-    section: 'head' | 'body' | 'foot';
+    section: "head" | "body" | "foot";
   }
 
   export interface UserOptions {
@@ -50,11 +51,12 @@ declare module 'jspdf-autotable' {
     foot?: (string | CellDef)[][];
     startY?: number;
     margin?: number;
-    theme?: 'striped' | 'grid' | 'plain';
+    theme?: "striped" | "grid" | "plain";
     styles?: Partial<Styles>;
     headStyles?: Partial<Styles>;
     bodyStyles?: Partial<Styles>;
     footStyles?: Partial<Styles>;
+    showFoot?: "everyPage" | "lastPage" | "never";
     columnStyles?: { [key: number]: Partial<Styles> };
     didParseCell?: (data: CellHookData) => void;
     willDrawCell?: (data: CellHookData) => void;

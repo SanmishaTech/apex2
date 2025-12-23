@@ -284,6 +284,19 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
       },
+      {
+        type: "group",
+        title: "Reports",
+        icon: FileText,
+        children: [
+          {
+            title: "Cashbook Budget Report",
+            href: "/reports/cashbook-budget",
+            icon: FileText,
+            permission: PERMISSIONS.READ_CASHBOOK_BUDGETS,
+          },
+        ],
+      },
     ],
   },
 
@@ -484,6 +497,12 @@ export const NAV_ITEMS: NavItem[] = [
 
     icon: Settings,
     children: [
+      // {
+      //   title: "Roles",
+      //   href: "/roles",
+      //   icon: Users,
+      //   permission: PERMISSIONS.VIEW_ROLES,
+      // },
       {
         title: "Users",
         href: "/users",

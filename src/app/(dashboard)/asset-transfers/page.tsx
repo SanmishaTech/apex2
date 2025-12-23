@@ -72,7 +72,7 @@ export default function AssetTransfersPage() {
 
   const { can } = usePermissions();
 
-  const canEdit = can(PERMISSIONS.EDIT_ASSET_TRANSFERS);
+  const canEdit = can(PERMISSIONS.READ_ASSET_TRANSFERS);
   const canCreate = can(PERMISSIONS.CREATE_ASSET_TRANSFERS);
   const canDelete = can(PERMISSIONS.DELETE_ASSET_TRANSFERS);
   const canApprove = can(PERMISSIONS.APPROVE_ASSET_TRANSFERS);
