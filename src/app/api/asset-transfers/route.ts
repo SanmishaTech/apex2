@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { ROLES } from '@/config/roles';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * perPage;
 
     // Build where clause for search
-    const where = search
+    const where: any = search
       ? {
           OR: [
             { challanNo: { contains: search, mode: 'insensitive' as const } },
@@ -32,6 +33,23 @@ export async function GET(request: NextRequest) {
           ],
         }
       : {};
+
+    // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+    if ((guardResult as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (guardResult as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === 'number');
+      const inIds = assignedSiteIds.length > 0 ? assignedSiteIds : [-1];
+      // limit by either fromSiteId or toSiteId belonging to assigned sites
+      where.AND = [
+        ...(where.AND || []),
+        { OR: [{ fromSiteId: { in: inIds } }, { toSiteId: { in: inIds } }] },
+      ];
+    }
 
     // Get total count for pagination
     const total = await prisma.assetTransfer.count({ where });

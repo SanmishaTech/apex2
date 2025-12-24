@@ -2363,6 +2363,3 @@ model OpeningStockDetail {
 
 
 
-// Roles And Permission Till Payslip.
-// fix onDelete Restrict
-//test stock adjustmtn backend functinality.

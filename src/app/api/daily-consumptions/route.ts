@@ -5,6 +5,7 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { ROLES } from "@/config/roles";
 
 async function generateDailyConsumptionNumber(
   tx: Prisma.TransactionClient
@@ -125,6 +126,20 @@ export async function GET(req: NextRequest) {
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
       : { dailyConsumptionNo: "asc" };
+
+    // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      (where as any).siteId = {
+        in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1],
+      };
+    }
 
     const result = await paginate({
       model: prisma.dailyConsumption as any,

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 // GET /api/daily-progresses?search=&page=1&perPage=10&sort=progressDate&order=desc
 export async function GET(req: NextRequest) {
@@ -76,6 +77,18 @@ export async function GET(req: NextRequest) {
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
     ? { [sort]: order }
     : { progressDate: "desc" };
+
+  // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+  if ((auth as any).user?.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: (auth as any).user?.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+  }
 
   const result = await paginate({
     model: prisma.dailyProgress as any,

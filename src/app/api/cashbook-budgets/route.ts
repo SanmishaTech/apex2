@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 // GET /api/cashbook-budgets?search=&page=1&perPage=10&sort=name&order=desc&month=&siteId=&boqId=
 export async function GET(req: NextRequest) {
@@ -51,6 +52,18 @@ export async function GET(req: NextRequest) {
 
   if (search) {
     where.OR = [{ name: { contains: search } }];
+  }
+
+  // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
   }
 
   // Allow listed sortable fields only

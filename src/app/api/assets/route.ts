@@ -7,6 +7,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { ROLES } from "@/config/roles";
 
 const createSchema = z.object({
   assetGroupId: z.number().int().positive(),
@@ -31,7 +32,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+    const perPage = Math.min(
+      100,
+      Math.max(1, Number(searchParams.get("perPage")) || 10)
+    );
     const search = searchParams.get("search")?.trim() || "";
     const status = searchParams.get("status")?.trim() || "";
     const assetGroupId = searchParams.get("assetGroupId");
@@ -73,6 +77,26 @@ export async function GET(req: NextRequest) {
     const orderBy: any = {};
     orderBy[sort] = order;
 
+    // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      const inIds = assignedSiteIds.length > 0 ? assignedSiteIds : [-1];
+      if (currentSiteId) {
+        const requested = parseInt(currentSiteId);
+        (where as any).currentSiteId = inIds.includes(requested)
+          ? requested
+          : -1;
+      } else {
+        (where as any).currentSiteId = { in: inIds };
+      }
+    }
+
     const result = await paginate({
       model: prisma.asset as any,
       where,
@@ -94,13 +118,13 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             assetGroupName: true,
-          }
+          },
         },
         assetCategory: {
           select: {
             id: true,
             category: true,
-          }
+          },
         },
         transferStatus: true,
         currentSiteId: true,
@@ -109,22 +133,22 @@ export async function GET(req: NextRequest) {
             id: true,
             shortName: true,
             site: true,
-          }
+          },
         },
         createdAt: true,
         updatedAt: true,
-      }
+      },
     });
 
     // Debug: Log pagination result
-    console.log('Assets API Debug:', {
+    console.log("Assets API Debug:", {
       requestedPage: page,
       requestedPerPage: perPage,
       where,
       resultTotal: result.total,
       resultTotalPages: result.totalPages,
       resultDataLength: result.data.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     return Success({
@@ -153,7 +177,7 @@ async function saveAssetDoc(file: File | null, subname: string) {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
   if (!allowed.includes(file.type || "")) {
-    const t = file.type || 'unknown';
+    const t = file.type || "unknown";
     throw new Error(`Unsupported file type: ${t}`);
   }
   if (file.size > 20 * 1024 * 1024) {
@@ -164,7 +188,10 @@ async function saveAssetDoc(file: File | null, subname: string) {
   const filename = `${Date.now()}-${subname}-${crypto.randomUUID()}${ext}`;
   const dir = path.join(process.cwd(), "uploads", "assets");
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  await fs.writeFile(
+    path.join(dir, filename),
+    Buffer.from(await file.arrayBuffer())
+  );
   return `/uploads/assets/${filename}`;
 }
 
@@ -176,7 +203,12 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
     let body: any = {};
-    let assetDocumentMetadata: Array<{ id?: number; documentName: string; documentUrl?: string; index: number }> = [];
+    let assetDocumentMetadata: Array<{
+      id?: number;
+      documentName: string;
+      documentUrl?: string;
+      index: number;
+    }> = [];
     const assetDocumentFiles: Array<{ index: number; file: File }> = [];
 
     if (contentType.includes("multipart/form-data")) {
@@ -205,10 +237,14 @@ export async function POST(req: NextRequest) {
             assetDocumentMetadata = parsed
               .filter((doc: any) => doc && typeof doc === "object")
               .map((doc: any, index: number) => ({
-                id: typeof doc.id === "number" && Number.isFinite(doc.id) ? doc.id : undefined,
+                id:
+                  typeof doc.id === "number" && Number.isFinite(doc.id)
+                    ? doc.id
+                    : undefined,
                 documentName: String(doc.documentName || ""),
                 documentUrl:
-                  typeof doc.documentUrl === "string" && doc.documentUrl.trim() !== ""
+                  typeof doc.documentUrl === "string" &&
+                  doc.documentUrl.trim() !== ""
                     ? doc.documentUrl
                     : undefined,
                 index,
@@ -224,16 +260,21 @@ export async function POST(req: NextRequest) {
         if (!match) return;
         const idx = Number(match[1]);
         const fileVal = value as unknown;
-        if (fileVal instanceof File) assetDocumentFiles.push({ index: idx, file: fileVal });
+        if (fileVal instanceof File)
+          assetDocumentFiles.push({ index: idx, file: fileVal });
       });
     } else {
       body = await req.json();
       assetDocumentMetadata = Array.isArray((body as any)?.assetDocuments)
         ? (body as any).assetDocuments.map((doc: any, index: number) => ({
-            id: typeof doc?.id === "number" && Number.isFinite(doc.id) ? doc.id : undefined,
+            id:
+              typeof doc?.id === "number" && Number.isFinite(doc.id)
+                ? doc.id
+                : undefined,
             documentName: String(doc?.documentName || ""),
             documentUrl:
-              typeof doc?.documentUrl === "string" && doc.documentUrl.trim() !== ""
+              typeof doc?.documentUrl === "string" &&
+              doc.documentUrl.trim() !== ""
                 ? doc.documentUrl
                 : undefined,
             index,
@@ -265,7 +306,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Normalize: convert explicit nulls to undefined so optional fields pass validation/defaults
-    if (body && typeof body === 'object') {
+    if (body && typeof body === "object") {
       Object.entries(body).forEach(([k, v]) => {
         if (v === null) (body as any)[k] = undefined;
       });
@@ -273,15 +314,19 @@ export async function POST(req: NextRequest) {
 
     const validatedData = createSchema.parse({
       ...body,
-      assetGroupId: body.assetGroupId ? Number(body.assetGroupId) : body.assetGroupId,
-      assetCategoryId: body.assetCategoryId ? Number(body.assetCategoryId) : body.assetCategoryId,
+      assetGroupId: body.assetGroupId
+        ? Number(body.assetGroupId)
+        : body.assetGroupId,
+      assetCategoryId: body.assetCategoryId
+        ? Number(body.assetCategoryId)
+        : body.assetCategoryId,
     });
-    
+
     // Convert datetime strings to Date objects
     const data: any = {
       ...validatedData,
     };
-    
+
     if (validatedData.purchaseDate) {
       data.purchaseDate = new Date(validatedData.purchaseDate);
     }
@@ -291,7 +336,7 @@ export async function POST(req: NextRequest) {
 
     // Verify asset group exists
     const assetGroup = await prisma.assetGroup.findUnique({
-      where: { id: validatedData.assetGroupId }
+      where: { id: validatedData.assetGroupId },
     });
     if (!assetGroup) {
       return BadRequest("Asset group not found");
@@ -299,25 +344,27 @@ export async function POST(req: NextRequest) {
 
     // Verify asset category exists and belongs to the asset group
     const assetCategory = await prisma.assetCategory.findUnique({
-      where: { id: validatedData.assetCategoryId }
+      where: { id: validatedData.assetCategoryId },
     });
     if (!assetCategory) {
       return BadRequest("Asset category not found");
     }
     if (assetCategory.assetGroupId !== validatedData.assetGroupId) {
-      return BadRequest("Asset category does not belong to the selected asset group");
+      return BadRequest(
+        "Asset category does not belong to the selected asset group"
+      );
     }
 
     // Generate asset number from last assetNo (e.g., AST-00001 -> AST-00002)
     const lastByAssetNo = await prisma.asset.findFirst({
-      orderBy: { assetNo: 'desc' },
-      select: { assetNo: true }
+      orderBy: { assetNo: "desc" },
+      select: { assetNo: true },
     });
-    const lastNo = lastByAssetNo?.assetNo || '';
+    const lastNo = lastByAssetNo?.assetNo || "";
     const match = lastNo.match(/(\d+)$/);
     const lastSeq = match ? parseInt(match[1], 10) : 0;
     const nextSeq = lastSeq + 1;
-    const assetNo = `AST-${nextSeq.toString().padStart(5, '0')}`;
+    const assetNo = `AST-${nextSeq.toString().padStart(5, "0")}`;
 
     const created = await prisma.asset.create({
       data: {
@@ -339,34 +386,45 @@ export async function POST(req: NextRequest) {
           select: {
             id: true,
             assetGroupName: true,
-          }
+          },
         },
         assetCategory: {
           select: {
             id: true,
             category: true,
-          }
+          },
         },
-      }
+      },
     });
-    
+
     // After asset is created, persist any assetDocuments (metadata + files)
     if (assetDocumentMetadata.length > 0 || assetDocumentFiles.length > 0) {
       const filesByIndex = new Map<number, File>();
-      assetDocumentFiles.forEach(({ index, file }) => filesByIndex.set(index, file));
+      assetDocumentFiles.forEach(({ index, file }) =>
+        filesByIndex.set(index, file)
+      );
 
-      const createPayload: Array<{ assetId: number; documentName: string; documentUrl: string }> = [];
+      const createPayload: Array<{
+        assetId: number;
+        documentName: string;
+        documentUrl: string;
+      }> = [];
       for (const docMeta of assetDocumentMetadata) {
-        const name = (docMeta.documentName || '').trim();
+        const name = (docMeta.documentName || "").trim();
         const file = filesByIndex.get(docMeta.index ?? -1);
         const trimmedUrl = docMeta.documentUrl?.trim();
-        let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+        let finalUrl =
+          trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
         if (file) {
-          const saved = await saveAssetDoc(file, 'asset-doc');
+          const saved = await saveAssetDoc(file, "asset-doc");
           finalUrl = saved ?? undefined;
         }
         if (!name || !finalUrl) continue;
-        createPayload.push({ assetId: created.id, documentName: name, documentUrl: finalUrl });
+        createPayload.push({
+          assetId: created.id,
+          documentName: name,
+          documentUrl: finalUrl,
+        });
       }
       if (createPayload.length > 0) {
         await prisma.assetDocument.createMany({ data: createPayload });
@@ -379,14 +437,15 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     // Surface specific file validation errors as 400 so UI can show them
-    if (error instanceof Error && (
-      error.message.startsWith('Unsupported file type') ||
-      error.message.startsWith('File too large')
-    )) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith("Unsupported file type") ||
+        error.message.startsWith("File too large"))
+    ) {
       return BadRequest(error.message);
     }
-    if ((error as any).code === 'P2002') {
-      return ApiError('Asset number already exists', 409);
+    if ((error as any).code === "P2002") {
+      return ApiError("Asset number already exists", 409);
     }
     console.error("Create asset error:", error);
     return ApiError("Failed to create asset");

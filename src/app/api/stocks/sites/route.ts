@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 // GET /api/stock/sites?search=&page=1&perPage=10&sort=site|itemCount&order=asc|desc
 export async function GET(req: NextRequest) {
@@ -21,14 +22,26 @@ export async function GET(req: NextRequest) {
       | "asc"
       | "desc";
 
-    const where = search
+    const where: any = search
       ? {
           OR: [
             { site: { contains: search } },
             { siteCode: { contains: search } },
           ],
         }
-      : undefined;
+      : {};
+
+    // Non-admin users: limit to assigned sites
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      (where as any).id = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+    }
 
     const total = await prisma.site.count({ where });
 

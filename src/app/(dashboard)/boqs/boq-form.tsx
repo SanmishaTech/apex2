@@ -174,8 +174,7 @@ function toSubmitPayload(data: RawFormValues) {
     performanceSecurityPeriod: data.performanceSecurityPeriod?.trim() || null,
     items: (data.items || []).map((it) => ({
       // Always include id key: number for existing, "" for new
-      id:
-        it.id === undefined || it.id === "" ? "" : parseInt(it.id),
+      id: it.id === undefined || it.id === "" ? "" : parseInt(it.id),
       activityId: it.activityId?.trim() || null,
       clientSrNo: it.clientSrNo?.trim() || null,
       item: it.item?.trim() || null,
@@ -227,7 +226,7 @@ export function BoqForm({
 
   // Fetch sites for dropdown
   const { data: sitesData } = useSWR<SitesResponse>(
-    "/api/sites?perPage=100",
+    "/api/sites/options",
     apiGet
   );
   // Fetch units for dropdown

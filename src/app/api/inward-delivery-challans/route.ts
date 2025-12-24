@@ -8,6 +8,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
+import { ROLES } from "@/config/roles";
 async function generateInwardChallanNumber(
   tx: Prisma.TransactionClient
 ): Promise<string> {
@@ -193,6 +194,18 @@ export async function GET(req: NextRequest) {
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
       : { inwardChallanNo: "asc" };
+
+    // Site-based visibility: only ADMIN can see all; others restricted to assigned sites
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+    }
 
     const result = await paginate({
       model: prisma.inwardDeliveryChallan as any,
