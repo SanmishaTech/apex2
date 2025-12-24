@@ -10,6 +10,7 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
+import { ROLES } from "@/config/roles";
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
@@ -99,6 +100,19 @@ export async function GET(req: NextRequest) {
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
       : { voucherDate: "desc" };
+
+    // Site-based visibility: only ADMIN can see all cashbooks; others only assigned sites
+    if (auth.user.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      // Apply restrictive filter (will yield empty if none)
+      where.siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+    }
 
     const result = await paginate({
       model: prisma.cashbook as any,

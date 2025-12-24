@@ -7,6 +7,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { ROLES } from "@/config/roles";
 
 // Helper to coerce optional numeric fields that may arrive as strings from forms
 function toOptionalNumber(v: unknown): number | undefined {
@@ -166,6 +167,28 @@ export async function GET(req: NextRequest) {
     }
     if (toDate) {
       where.dueDate = { ...where.dueDate, lte: new Date(toDate) };
+    }
+
+    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    const role = auth.user.role;
+    const isPrivileged = role === ROLES.ADMIN;
+    if (!isPrivileged) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      if (!assignedSiteIds || assignedSiteIds.length === 0) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 1 },
+        });
+      }
+
+      where.siteId = { in: assignedSiteIds };
     }
 
     const result = await paginate({
@@ -343,13 +366,15 @@ export async function POST(req: NextRequest) {
     });
 
     // Resolve document files/urls once so we can attach the same set to every created monthly record
-    const resolvedDocs: Array<{ documentName: string; documentUrl: string }> = [];
+    const resolvedDocs: Array<{ documentName: string; documentUrl: string }> =
+      [];
     if (rentDocumentMetadata.length > 0 || filesByIndex.size > 0) {
       for (const docMeta of rentDocumentMetadata) {
         const name = (docMeta.documentName || "").trim();
         const file = filesByIndex.get(docMeta.index ?? -1);
         const trimmedUrl = docMeta.documentUrl?.trim();
-        let finalUrl = trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
+        let finalUrl =
+          trimmedUrl && trimmedUrl.length > 0 ? trimmedUrl : undefined;
         if (file) {
           const saved = await saveRentDoc(file, "rent-doc");
           finalUrl = saved ?? undefined;

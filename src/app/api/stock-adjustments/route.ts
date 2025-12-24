@@ -5,6 +5,7 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { ROLES } from "@/config/roles";
 
 const createSchema = z.object({
   date: z
@@ -81,6 +82,24 @@ export async function GET(req: NextRequest) {
     else if (sort === "createdAt") orderBy = { createdAt: order };
     else if (sort === "site") orderBy = { site: { site: order } };
     else if (sort === "createdBy") orderBy = { createdBy: { name: order } };
+
+    // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      const inIds = assignedSiteIds.length > 0 ? assignedSiteIds : [-1];
+      if (siteIdParam && !isNaN(Number(siteIdParam))) {
+        const requested = Number(siteIdParam);
+        (where as any).siteId = inIds.includes(requested) ? requested : -1;
+      } else {
+        (where as any).siteId = { in: inIds } as any;
+      }
+    }
 
     const result = await paginate({
       model: prisma.stockAdjustment as any,
