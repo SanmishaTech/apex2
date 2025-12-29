@@ -17,6 +17,7 @@ import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
+import { BulkBillingAddressesUploadDialog } from '@/components/common/bulk-billing-addresses-upload-dialog';
 
 // Types
 
@@ -55,6 +56,7 @@ type BillingAddressesResponse = {
 };
 
 export default function BillingAddressesPage() {
+  const [importOpen, setImportOpen] = useState(false);
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -208,11 +210,22 @@ export default function BillingAddressesPage() {
         <AppCard.Description>Manage billing addresses.</AppCard.Description>
         {can(PERMISSIONS.CREATE_BILLING_ADDRESSES) && (
           <AppCard.Action>
-            <Link href='/billing-addresses/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
+            <div className="flex gap-2">
+              <AppButton
+                size='sm'
+                variant='outline'
+                iconName='Upload'
+                type='button'
+                onClick={() => setImportOpen(true)}
+              >
+                Import
               </AppButton>
-            </Link>
+              <Link href='/billing-addresses/new'>
+                <AppButton size='sm' iconName='Plus' type='button'>
+                  Add
+                </AppButton>
+              </Link>
+            </div>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -286,6 +299,11 @@ export default function BillingAddressesPage() {
           disabled={isLoading}
         />
       </AppCard.Footer>
+      <BulkBillingAddressesUploadDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onUploadSuccess={() => mutate()}
+      />
     </AppCard>
   );
 }
