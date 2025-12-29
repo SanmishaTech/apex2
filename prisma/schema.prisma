@@ -306,15 +306,22 @@ model RentType {
 // Employee master data for workforce management
 model Employee {
   id   Int    @id @default(autoincrement())
+  employeeNumber String @unique
   name String
-
+  designationId Int?
+  designation Designation? @relation(fields: [designationId], references: [id], onDelete:Restrict)
+  previousWorkExperience String?
+  emergencyContactPerson String?
+  emergencyContactNo String?
+  emergencyContactRelation String?
+  joinDate DateTime?
   // User Relation (each employee is linked to a user account)
   userId Int?  @unique
   user   User? @relation(fields: [userId], references: [id])
 
   // Department Relation
   departmentId Int?
-  department   Department? @relation(fields: [departmentId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete:Restrict)
 
   // Reporting Site
   reportingSiteId           Int?
@@ -331,8 +338,8 @@ model Employee {
   bloodGroup      String?
 
   // Address Details
-  addressLine1 String?
-  addressLine2 String?
+  correspondenceAddress String?
+  permanentAddress String?
   stateId      Int?
   state        State?  @relation(fields: [stateId], references: [id])
   cityId       Int?
@@ -450,6 +457,20 @@ model State {
   siteDeliveryAddresses SiteDeliveryAddress[]
 
   @@map("states")
+}
+
+
+model Designation {
+  id        Int      @id @default(autoincrement())
+  designationName     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+ 
+  employees        Employee[]
+  
+  @@map("designations")
 }
 
 // Unit master data

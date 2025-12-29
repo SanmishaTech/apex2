@@ -1,24 +1,32 @@
 export interface Employee {
   id: number;
+  employeeNumber: string;
   name: string;
   userId: number | null;
   departmentId: number | null;
   siteId: number | null;
+  joinDate: Date | null;
   resignDate: Date | null;
+  // Employment Details
+  designationId?: number | null;
+  previousWorkExperience?: string | null;
   // Personal Details
   dateOfBirth: Date | null;
   anniversaryDate: Date | null;
   spouseName: string | null;
   bloodGroup: string | null;
   // Address Details
-  addressLine1: string | null;
-  addressLine2: string | null;
+  correspondenceAddress: string | null;
+  permanentAddress: string | null;
   stateId: number | null;
   cityId: number | null;
   pincode: string | null;
   // Contact Details
   mobile1: string | null;
   mobile2: string | null;
+  emergencyContactPerson?: string | null;
+  emergencyContactNo?: string | null;
+  emergencyContactRelation?: string | null;
   // Other Details
   esic: string | null;
   pf: string | null;
@@ -95,6 +103,7 @@ export interface CreateEmployeeData {
   name: string;
   departmentId?: number;
   siteId?: number;
+  joinDate?: string;
   resignDate?: string;
 }
 
@@ -102,6 +111,7 @@ export interface UpdateEmployeeData {
   name?: string;
   departmentId?: number;
   siteId?: number;
+  joinDate?: string;
   resignDate?: string;
 }
 

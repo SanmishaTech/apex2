@@ -74,6 +74,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_CITIES,
       },
       {
+        title: "Designations",
+        href: "/designations",
+        icon: MapPin,
+        permission: PERMISSIONS.VIEW_DESIGNATIONS,
+      },
+      {
         title: "Companies",
         href: "/companies",
         icon: Building2,

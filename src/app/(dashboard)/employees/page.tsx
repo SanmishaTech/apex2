@@ -129,6 +129,13 @@ export default function EmployeesPage() {
 
   const columns: Column<Employee>[] = [
     {
+      key: "employeeNumber",
+      header: "Emp No",
+      sortable: false,
+      accessor: (r) => (r as any).employeeNumber || "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
       key: "name",
       header: "Name",
       sortable: true,
@@ -136,28 +143,26 @@ export default function EmployeesPage() {
       cellClassName: "font-medium whitespace-nowrap",
     },
     {
-      key: "department",
-      header: "Department",
+      key: "designation",
+      header: "Designation",
       sortable: false,
-      accessor: (r) => r.department?.department || "—",
+      accessor: (r) => ((r as any).designation?.designationName as string) || "—",
       cellClassName: "whitespace-nowrap",
     },
-
     {
-      key: "resignDate",
-      header: "Resign Date",
+      key: "joinDate",
+      header: "Date of Joining",
       sortable: true,
       className: "whitespace-nowrap",
       cellClassName: "text-muted-foreground whitespace-nowrap",
-      accessor: (r) => (r.resignDate ? formatDate(r.resignDate) : "—"),
+      accessor: (r) => ((r as any).joinDate ? formatDate((r as any).joinDate) : "—"),
     },
     {
-      key: "createdAt",
-      header: "Created",
-      sortable: true,
-      className: "whitespace-nowrap",
-      cellClassName: "text-muted-foreground whitespace-nowrap",
-      accessor: (r) => formatDate(r.createdAt),
+      key: "mobile1",
+      header: "Mobile 1",
+      sortable: false,
+      accessor: (r) => ((r as any).mobile1 as string) || "—",
+      cellClassName: "whitespace-nowrap",
     },
   ];
 

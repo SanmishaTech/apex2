@@ -5,6 +5,7 @@ import { TextInput } from "@/components/common/text-input";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
+import type { DesignationsResponse } from "@/types/designations";
 import { ROLES } from "@/config/roles";
 import Image from "next/image";
 import { DocumentUploadArray } from "./DocumentUploadArray";
@@ -14,6 +15,7 @@ interface Props {
   isCreate: boolean;
   departmentsData?: DepartmentsResponse;
   sitesData?: SitesResponse;
+  designationsData?: DesignationsResponse;
   onSignatureChange?: (file: File | null) => void;
   onProfilePicChange?: (file: File | null) => void;
   initialProfilePicUrl?: string;
@@ -32,6 +34,7 @@ export default function EmployeeDetailsTab({
   isCreate,
   departmentsData,
   sitesData,
+  designationsData,
   onSignatureChange,
   onProfilePicChange,
   initialProfilePicUrl,
@@ -114,7 +117,19 @@ export default function EmployeeDetailsTab({
             placeholder="Enter employee full name"
             required
           />
-          <div />
+          <AppSelect
+            control={control}
+            name="designationId"
+            label="Designation"
+            triggerClassName="h-9 w-full"
+            placeholder="Select designation"
+          >
+            {designationsData?.data?.map((desig) => (
+              <AppSelect.Item key={desig.id} value={String(desig.id)}>
+                {desig.designationName}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
         </FormRow>
         <FormRow cols={2}>
           <AppSelect
@@ -130,9 +145,21 @@ export default function EmployeeDetailsTab({
               </AppSelect.Item>
             ))}
           </AppSelect>
-          <div />
+          <TextInput
+            control={control}
+            name="previousWorkExperience"
+            label="Previous Work Experience"
+            placeholder="Enter previous work experience"
+          />
         </FormRow>
         <FormRow cols={2}>
+          <TextInput
+            control={control}
+            name="joinDate"
+            label="Join Date"
+            type="date"
+            placeholder="Select join date (optional)"
+          />
           <TextInput
             control={control}
             name="resignDate"
@@ -140,7 +167,6 @@ export default function EmployeeDetailsTab({
             type="date"
             placeholder="Select resign date (optional)"
           />
-          <div />
         </FormRow>
       </FormSection>
 

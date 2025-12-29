@@ -24,6 +24,13 @@ const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
   siteId: z.union([z.number(), z.array(z.number())]).optional(),
+  joinDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
   resignDate: z
     .string()
     .optional()
@@ -31,6 +38,9 @@ const updateSchema = z.object({
       if (!val) return undefined;
       return new Date(val);
     }),
+  // Employment Details
+  designationId: z.number().optional(),
+  previousWorkExperience: z.string().optional(),
   // Personal Details
   dateOfBirth: z
     .string()
@@ -49,14 +59,18 @@ const updateSchema = z.object({
   spouseName: z.string().optional(),
   bloodGroup: z.string().optional(),
   // Address Details
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
+  correspondenceAddress: z.string().optional(),
+  permanentAddress: z.string().optional(),
   stateId: z.number().optional(),
   cityId: z.number().optional(),
   pincode: z.string().optional(),
   // Contact Details
   mobile1: z.string().optional(),
   mobile2: z.string().optional(),
+  // Emergency Contact
+  emergencyContactPerson: z.string().optional(),
+  emergencyContactNo: z.string().optional(),
+  emergencyContactRelation: z.string().optional(),
   // Other Details
   esic: z.string().optional(),
   pf: z.string().optional(),
@@ -115,21 +129,29 @@ export async function GET(
       where: { id },
       select: {
         id: true,
+        employeeNumber: true,
         name: true,
+        designationId: true,
+        designation: { select: { id: true, designationName: true } },
+        previousWorkExperience: true,
         departmentId: true,
         userId: true,
+        joinDate: true,
         resignDate: true,
         dateOfBirth: true,
         anniversaryDate: true,
         spouseName: true,
         bloodGroup: true,
-        addressLine1: true,
-        addressLine2: true,
+        correspondenceAddress: true,
+        permanentAddress: true,
         stateId: true,
         cityId: true,
         pincode: true,
         mobile1: true,
         mobile2: true,
+        emergencyContactPerson: true,
+        emergencyContactNo: true,
+        emergencyContactRelation: true,
         esic: true,
         pf: true,
         panNo: true,
@@ -252,6 +274,7 @@ export async function PATCH(
       const mapped: any = {};
       const numericKeys = new Set([
         "departmentId",
+        "designationId",
         "stateId",
         "cityId",
         "reporting1Id",
@@ -415,6 +438,7 @@ export async function PATCH(
     for (const [key, value] of Object.entries(updateDataWithoutDocs)) {
       if (
         key === "departmentId" ||
+        key === "designationId" ||
         key === "siteId" ||
         key === "stateId" ||
         key === "cityId" ||
@@ -560,9 +584,11 @@ export async function PATCH(
         data: processedData,
         select: {
           id: true,
+          employeeNumber: true,
           name: true,
           departmentId: true,
           userId: true,
+          joinDate: true,
           resignDate: true,
           createdAt: true,
           updatedAt: true,

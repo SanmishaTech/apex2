@@ -17,6 +17,7 @@ import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
 import type { StatesResponse } from "@/types/states";
 import type { CitiesResponse } from "@/types/cities";
+import type { DesignationsResponse } from "@/types/designations";
 import { ROLES } from "@/config/roles";
 
 // Code-split tabs
@@ -29,7 +30,10 @@ import ReportingSitesTab from "./tabs/ReportingSitesTab";
 export interface EmployeeFormInitialData {
   id?: number;
   name?: string;
+  designationId?: number | null;
+  previousWorkExperience?: string | null;
   departmentId?: number | null;
+  joinDate?: string | null;
   resignDate?: string | null;
   // Personal Details
   dateOfBirth?: string | null;
@@ -37,14 +41,17 @@ export interface EmployeeFormInitialData {
   spouseName?: string | null;
   bloodGroup?: string | null;
   // Address Details
-  addressLine1?: string | null;
-  addressLine2?: string | null;
+  correspondenceAddress?: string | null;
+  permanentAddress?: string | null;
   stateId?: number | null;
   cityId?: number | null;
   pincode?: string | null;
   // Contact Details
   mobile1?: string | null;
   mobile2?: string | null;
+  emergencyContactPerson?: string | null;
+  emergencyContactNo?: string | null;
+  emergencyContactRelation?: string | null;
   // Other Details
   esic?: string | null;
   pf?: string | null;
@@ -129,7 +136,10 @@ const documentSchema = z.object({
 const createInputSchema = z
   .object({
     name: z.string().min(1, "Employee name is required"),
+    designationId: z.string().optional(),
+    previousWorkExperience: z.string().optional(),
     departmentId: z.string().optional(),
+    joinDate: z.string().optional(),
     resignDate: z.string().optional(),
     // Personal Details
     dateOfBirth: z.string().optional(),
@@ -137,14 +147,18 @@ const createInputSchema = z
     spouseName: z.string().optional(),
     bloodGroup: z.string().optional(),
     // Address Details
-    addressLine1: z.string().optional(),
-    addressLine2: z.string().optional(),
+    correspondenceAddress: z.string().optional(),
+    permanentAddress: z.string().optional(),
     stateId: z.string().optional(),
     cityId: z.string().optional(),
     pincode: z.string().optional(),
     // Contact Details
     mobile1: z.string().optional(),
     mobile2: z.string().optional(),
+    // Emergency Contact
+    emergencyContactPerson: z.string().optional(),
+    emergencyContactNo: z.string().optional(),
+    emergencyContactRelation: z.string().optional(),
     // Other Details
     esic: z.string().optional(),
     pf: z.string().optional(),
@@ -186,7 +200,10 @@ const createInputSchema = z
 const editInputSchema = z
   .object({
     name: z.string().min(1, "Employee name is required"),
+    designationId: z.string().optional(),
+    previousWorkExperience: z.string().optional(),
     departmentId: z.string().optional(),
+    joinDate: z.string().optional(),
     resignDate: z.string().optional(),
     // Personal Details
     dateOfBirth: z.string().optional(),
@@ -194,14 +211,18 @@ const editInputSchema = z
     spouseName: z.string().optional(),
     bloodGroup: z.string().optional(),
     // Address Details
-    addressLine1: z.string().optional(),
-    addressLine2: z.string().optional(),
+    correspondenceAddress: z.string().optional(),
+    permanentAddress: z.string().optional(),
     stateId: z.string().optional(),
     cityId: z.string().optional(),
     pincode: z.string().optional(),
     // Contact Details
     mobile1: z.string().optional(),
     mobile2: z.string().optional(),
+    // Emergency Contact
+    emergencyContactPerson: z.string().optional(),
+    emergencyContactNo: z.string().optional(),
+    emergencyContactRelation: z.string().optional(),
     // Other Details
     esic: z.string().optional(),
     pf: z.string().optional(),
@@ -256,12 +277,18 @@ const editInputSchema = z
 
 const createSchema = createInputSchema.transform((data) => ({
   ...data,
+  designationId:
+    data.designationId && data.designationId !== ""
+      ? parseInt(data.designationId)
+      : null,
   departmentId:
     data.departmentId && data.departmentId !== ""
       ? parseInt(data.departmentId)
       : null,
   stateId: data.stateId && data.stateId !== "" ? parseInt(data.stateId) : null,
   cityId: data.cityId && data.cityId !== "" ? parseInt(data.cityId) : null,
+  joinDate:
+    data.joinDate && data.joinDate !== "" ? new Date(data.joinDate) : null,
   resignDate:
     data.resignDate && data.resignDate !== ""
       ? new Date(data.resignDate)
@@ -321,12 +348,18 @@ const createSchema = createInputSchema.transform((data) => ({
 
 const editSchema = editInputSchema.transform((data) => ({
   ...data,
+  designationId:
+    data.designationId && data.designationId !== ""
+      ? parseInt(data.designationId)
+      : null,
   departmentId:
     data.departmentId && data.departmentId !== ""
       ? parseInt(data.departmentId)
       : null,
   stateId: data.stateId && data.stateId !== "" ? parseInt(data.stateId) : null,
   cityId: data.cityId && data.cityId !== "" ? parseInt(data.cityId) : null,
+  joinDate:
+    data.joinDate && data.joinDate !== "" ? new Date(data.joinDate) : null,
   resignDate:
     data.resignDate && data.resignDate !== ""
       ? new Date(data.resignDate)
@@ -420,8 +453,12 @@ export function EmployeeForm({
     reValidateMode: "onChange",
     defaultValues: {
       name: initial?.name || "",
+      designationId:
+        initial?.designationId != null ? String(initial.designationId) : "",
+      previousWorkExperience: initial?.previousWorkExperience || "",
       departmentId: initial?.departmentId ? String(initial.departmentId) : "",
       // siteId: [],
+      joinDate: initial?.joinDate ? initial.joinDate.split("T")[0] : "",
       resignDate: initial?.resignDate ? initial.resignDate.split("T")[0] : "",
       // Personal Details
       dateOfBirth: initial?.dateOfBirth
@@ -433,14 +470,17 @@ export function EmployeeForm({
       spouseName: initial?.spouseName || "",
       bloodGroup: initial?.bloodGroup || "",
       // Address Details
-      addressLine1: initial?.addressLine1 || "",
-      addressLine2: initial?.addressLine2 || "",
+      correspondenceAddress: initial?.correspondenceAddress || "",
+      permanentAddress: initial?.permanentAddress || "",
       stateId: initial?.stateId ? String(initial.stateId) : "",
       cityId: initial?.cityId ? String(initial.cityId) : "",
       pincode: initial?.pincode || "",
       // Contact Details
       mobile1: initial?.mobile1 || "",
       mobile2: initial?.mobile2 || "",
+      emergencyContactPerson: initial?.emergencyContactPerson || "",
+      emergencyContactNo: initial?.emergencyContactNo || "",
+      emergencyContactRelation: initial?.emergencyContactRelation || "",
       // Other Details
       esic: initial?.esic || "",
       pf: initial?.pf || "",
@@ -504,9 +544,15 @@ export function EmployeeForm({
           ...form.getValues(),
           ...{
             name: initial.name || "",
+            designationId:
+              initial.designationId != null
+                ? String(initial.designationId)
+                : "",
+            previousWorkExperience: initial.previousWorkExperience || "",
             departmentId: initial.departmentId
               ? String(initial.departmentId)
               : "",
+            joinDate: initial.joinDate ? initial.joinDate.split("T")[0] : "",
             resignDate: initial.resignDate
               ? initial.resignDate.split("T")[0]
               : "",
@@ -518,13 +564,16 @@ export function EmployeeForm({
               : "",
             spouseName: initial.spouseName || "",
             bloodGroup: initial.bloodGroup || "",
-            addressLine1: initial.addressLine1 || "",
-            addressLine2: initial.addressLine2 || "",
+            correspondenceAddress: initial.correspondenceAddress || "",
+            permanentAddress: initial.permanentAddress || "",
             stateId: initial.stateId ? String(initial.stateId) : "",
             cityId: initial.cityId ? String(initial.cityId) : "",
             pincode: initial.pincode || "",
             mobile1: initial.mobile1 || "",
             mobile2: initial.mobile2 || "",
+            emergencyContactPerson: initial.emergencyContactPerson || "",
+            emergencyContactNo: initial.emergencyContactNo || "",
+            emergencyContactRelation: initial.emergencyContactRelation || "",
             esic: initial.esic || "",
             pf: initial.pf || "",
             panNo: initial.panNo || "",
@@ -606,6 +655,12 @@ export function EmployeeForm({
     apiGet
   );
 
+  // Fetch designations for dropdown
+  const { data: designationsData } = useSWR<DesignationsResponse>(
+    "/api/designations?perPage=100",
+    apiGet
+  );
+
   // Fetch cities for dropdown (filtered by selected state)
   const selectedStateId = watch("stateId");
   const { data: citiesData } = useSWR<CitiesResponse>(
@@ -667,8 +722,13 @@ export function EmployeeForm({
         if (shouldUseMultipart) {
           const fd = new FormData();
           fd.append("name", data.name);
+          if (data.designationId != null)
+            fd.append("designationId", String(data.designationId));
+          if (data.previousWorkExperience)
+            fd.append("previousWorkExperience", data.previousWorkExperience);
           if (data.departmentId)
             fd.append("departmentId", String(data.departmentId));
+          if (data.joinDate) fd.append("joinDate", data.joinDate.toISOString());
           if (data.resignDate)
             fd.append("resignDate", data.resignDate.toISOString());
           if (data.dateOfBirth)
@@ -677,13 +737,24 @@ export function EmployeeForm({
             fd.append("anniversaryDate", data.anniversaryDate.toISOString());
           if (data.spouseName) fd.append("spouseName", data.spouseName);
           if (data.bloodGroup) fd.append("bloodGroup", data.bloodGroup);
-          if (data.addressLine1) fd.append("addressLine1", data.addressLine1);
-          if (data.addressLine2) fd.append("addressLine2", data.addressLine2);
+          if (data.correspondenceAddress)
+            fd.append("correspondenceAddress", data.correspondenceAddress);
+          if (data.permanentAddress)
+            fd.append("permanentAddress", data.permanentAddress);
           if (data.stateId) fd.append("stateId", String(data.stateId));
           if (data.cityId) fd.append("cityId", String(data.cityId));
           if (data.pincode) fd.append("pincode", data.pincode);
           if (data.mobile1) fd.append("mobile1", data.mobile1);
           if (data.mobile2) fd.append("mobile2", data.mobile2);
+          if (data.emergencyContactPerson)
+            fd.append("emergencyContactPerson", data.emergencyContactPerson);
+          if (data.emergencyContactNo)
+            fd.append("emergencyContactNo", data.emergencyContactNo);
+          if (data.emergencyContactRelation)
+            fd.append(
+              "emergencyContactRelation",
+              data.emergencyContactRelation
+            );
           if (data.esic) fd.append("esic", data.esic);
           if (data.pf) fd.append("pf", data.pf);
           if (data.panNo) fd.append("panNo", data.panNo);
@@ -770,7 +841,10 @@ export function EmployeeForm({
         }
         submitData = {
           name: data.name,
+          designationId: data.designationId ?? undefined,
+          previousWorkExperience: data.previousWorkExperience || undefined,
           departmentId: data.departmentId || undefined,
+          joinDate: data.joinDate?.toISOString() || undefined,
           resignDate: data.resignDate?.toISOString() || undefined,
           // Personal Details
           dateOfBirth: data.dateOfBirth?.toISOString() || undefined,
@@ -778,14 +852,17 @@ export function EmployeeForm({
           spouseName: data.spouseName || undefined,
           bloodGroup: data.bloodGroup || undefined,
           // Address Details
-          addressLine1: data.addressLine1 || undefined,
-          addressLine2: data.addressLine2 || undefined,
+          correspondenceAddress: data.correspondenceAddress || undefined,
+          permanentAddress: data.permanentAddress || undefined,
           stateId: data.stateId || undefined,
           cityId: data.cityId || undefined,
           pincode: data.pincode || undefined,
           // Contact Details
           mobile1: data.mobile1 || undefined,
           mobile2: data.mobile2 || undefined,
+          emergencyContactPerson: data.emergencyContactPerson || undefined,
+          emergencyContactNo: data.emergencyContactNo || undefined,
+          emergencyContactRelation: data.emergencyContactRelation || undefined,
           // Other Details
           esic: data.esic || undefined,
           pf: data.pf || undefined,
@@ -863,6 +940,10 @@ export function EmployeeForm({
         if (shouldUseMultipart) {
           const fd = new FormData();
           fd.append("name", data.name);
+          if (data.designationId != null)
+            fd.append("designationId", String(data.designationId));
+          if (data.previousWorkExperience)
+            fd.append("previousWorkExperience", data.previousWorkExperience);
           if (data.departmentId)
             fd.append("departmentId", String(data.departmentId));
           if (data.siteId) {
@@ -872,6 +953,7 @@ export function EmployeeForm({
               fd.append("siteId", String(data.siteId));
             }
           }
+          if (data.joinDate) fd.append("joinDate", data.joinDate.toISOString());
           if (data.resignDate)
             fd.append("resignDate", data.resignDate.toISOString());
           if (data.dateOfBirth)
@@ -880,13 +962,24 @@ export function EmployeeForm({
             fd.append("anniversaryDate", data.anniversaryDate.toISOString());
           if (data.spouseName) fd.append("spouseName", data.spouseName);
           if (data.bloodGroup) fd.append("bloodGroup", data.bloodGroup);
-          if (data.addressLine1) fd.append("addressLine1", data.addressLine1);
-          if (data.addressLine2) fd.append("addressLine2", data.addressLine2);
+          if (data.correspondenceAddress)
+            fd.append("correspondenceAddress", data.correspondenceAddress);
+          if (data.permanentAddress)
+            fd.append("permanentAddress", data.permanentAddress);
           if (data.stateId) fd.append("stateId", String(data.stateId));
           if (data.cityId) fd.append("cityId", String(data.cityId));
           if (data.pincode) fd.append("pincode", data.pincode);
           if (data.mobile1) fd.append("mobile1", data.mobile1);
           if (data.mobile2) fd.append("mobile2", data.mobile2);
+          if (data.emergencyContactPerson)
+            fd.append("emergencyContactPerson", data.emergencyContactPerson);
+          if (data.emergencyContactNo)
+            fd.append("emergencyContactNo", data.emergencyContactNo);
+          if (data.emergencyContactRelation)
+            fd.append(
+              "emergencyContactRelation",
+              data.emergencyContactRelation
+            );
           if (data.esic) fd.append("esic", data.esic);
           if (data.pf) fd.append("pf", data.pf);
           if (data.panNo) fd.append("panNo", data.panNo);
@@ -978,8 +1071,11 @@ export function EmployeeForm({
         }
         submitData = {
           name: data.name,
+          designationId: data.designationId ?? undefined,
+          previousWorkExperience: data.previousWorkExperience || undefined,
           departmentId: data.departmentId || undefined,
           siteId: data.siteId || undefined,
+          joinDate: data.joinDate?.toISOString() || undefined,
           resignDate: data.resignDate?.toISOString() || undefined,
           // Personal Details
           dateOfBirth: data.dateOfBirth?.toISOString() || undefined,
@@ -987,14 +1083,17 @@ export function EmployeeForm({
           spouseName: data.spouseName || undefined,
           bloodGroup: data.bloodGroup || undefined,
           // Address Details
-          addressLine1: data.addressLine1 || undefined,
-          addressLine2: data.addressLine2 || undefined,
+          correspondenceAddress: data.correspondenceAddress || undefined,
+          permanentAddress: data.permanentAddress || undefined,
           stateId: data.stateId || undefined,
           cityId: data.cityId || undefined,
           pincode: data.pincode || undefined,
           // Contact Details
           mobile1: data.mobile1 || undefined,
           mobile2: data.mobile2 || undefined,
+          emergencyContactPerson: data.emergencyContactPerson || undefined,
+          emergencyContactNo: data.emergencyContactNo || undefined,
+          emergencyContactRelation: data.emergencyContactRelation || undefined,
           // Other Details
           esic: data.esic || undefined,
           pf: data.pf || undefined,
@@ -1097,6 +1196,7 @@ export function EmployeeForm({
                 isCreate={isCreate}
                 departmentsData={departmentsData}
                 sitesData={sitesData}
+                designationsData={designationsData}
                 onSignatureChange={setSignatureFile}
                 onProfilePicChange={setProfilePicFile}
                 initialProfilePicUrl={profilePicUrl}

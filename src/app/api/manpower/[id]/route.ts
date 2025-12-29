@@ -30,6 +30,8 @@ export async function GET(
         location: true,
         mobileNumber: true,
         wage: true,
+        category: true,
+        skillSet: true,
         bank: true,
         branch: true,
         accountNumber: true,
