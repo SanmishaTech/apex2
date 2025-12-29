@@ -25,6 +25,13 @@ const createSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
   departmentId: z.number().optional(),
   siteId: z.union([z.number(), z.array(z.number())]).optional(),
+  joinDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return new Date(val);
+    }),
   resignDate: z
     .string()
     .optional()
@@ -35,6 +42,9 @@ const createSchema = z.object({
   role: z
     .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
     .default(ROLES.SITE_SUPERVISOR),
+  // Employment Details
+  designationId: z.number().optional(),
+  previousWorkExperience: z.string().optional(),
   // Personal Details
   dateOfBirth: z
     .string()
@@ -53,14 +63,18 @@ const createSchema = z.object({
   spouseName: z.string().optional(),
   bloodGroup: z.string().optional(),
   // Address Details
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
+  correspondenceAddress: z.string().optional(),
+  permanentAddress: z.string().optional(),
   stateId: z.number().optional(),
   cityId: z.number().optional(),
   pincode: z.string().optional(),
   // Contact Details
   mobile1: z.string().optional(),
   mobile2: z.string().optional(),
+  // Emergency Contact
+  emergencyContactPerson: z.string().optional(),
+  emergencyContactNo: z.string().optional(),
+  emergencyContactRelation: z.string().optional(),
   // Other Details
   esic: z.string().optional(),
   pf: z.string().optional(),
@@ -147,7 +161,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const sortableFields = new Set(["name", "createdAt", "resignDate"]);
+    const sortableFields = new Set(["name", "createdAt", "resignDate", "joinDate"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
       ? { [sort]: order }
       : { name: "asc" };
@@ -160,11 +174,20 @@ export async function GET(req: NextRequest) {
       perPage,
       select: {
         id: true,
+        employeeNumber: true,
         name: true,
         departmentId: true,
+        joinDate: true,
         resignDate: true,
+        mobile1: true,
         createdAt: true,
         updatedAt: true,
+        designation: {
+          select: {
+            id: true,
+            designationName: true,
+          },
+        },
         department: {
           select: {
             id: true,
@@ -250,10 +273,18 @@ export async function POST(req: NextRequest) {
               return [Number(siteIdValue)];
             })()
           : undefined,
+        joinDate: form.get("joinDate")
+          ? String(form.get("joinDate"))
+          : undefined,
         resignDate: form.get("resignDate")
           ? String(form.get("resignDate"))
           : undefined,
         role: String(form.get("role") || ROLES.SITE_SUPERVISOR),
+        designationId: form.get("designationId")
+          ? Number(form.get("designationId"))
+          : undefined,
+        previousWorkExperience:
+          (form.get("previousWorkExperience") as string) || undefined,
         dateOfBirth: form.get("dateOfBirth")
           ? String(form.get("dateOfBirth"))
           : undefined,
@@ -262,13 +293,21 @@ export async function POST(req: NextRequest) {
           : undefined,
         spouseName: (form.get("spouseName") as string) || undefined,
         bloodGroup: (form.get("bloodGroup") as string) || undefined,
-        addressLine1: (form.get("addressLine1") as string) || undefined,
-        addressLine2: (form.get("addressLine2") as string) || undefined,
+        correspondenceAddress:
+          (form.get("correspondenceAddress") as string) || undefined,
+        permanentAddress:
+          (form.get("permanentAddress") as string) || undefined,
         stateId: form.get("stateId") ? Number(form.get("stateId")) : undefined,
         cityId: form.get("cityId") ? Number(form.get("cityId")) : undefined,
         pincode: (form.get("pincode") as string) || undefined,
         mobile1: (form.get("mobile1") as string) || undefined,
         mobile2: (form.get("mobile2") as string) || undefined,
+        emergencyContactPerson:
+          (form.get("emergencyContactPerson") as string) || undefined,
+        emergencyContactNo:
+          (form.get("emergencyContactNo") as string) || undefined,
+        emergencyContactRelation:
+          (form.get("emergencyContactRelation") as string) || undefined,
         esic: (form.get("esic") as string) || undefined,
         pf: (form.get("pf") as string) || undefined,
         panNo: (form.get("panNo") as string) || undefined,
@@ -429,12 +468,25 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Generate next employee number: EMP0001, EMP0002, ... (based on highest existing)
+      const rawMax: Array<{ maxNo: any | null }> = await tx.$queryRaw`
+        SELECT MAX(CAST(SUBSTRING(employeeNumber, 4) AS UNSIGNED)) AS maxNo
+        FROM employees
+      `;
+      const maxNoRaw = (rawMax?.[0]?.maxNo ?? 0) as any;
+      const nextSeq = Number(maxNoRaw) + 1;
+      const empNo = `EMP${String(nextSeq).padStart(4, "0")}`;
+
       const employee = await tx.employee.create({
         data: {
+          employeeNumber: empNo,
           name: parsedData.name,
           // Relations via nested connect (avoid unknown argument errors on scalar FKs)
           ...(parsedData.departmentId != null
             ? { department: { connect: { id: parsedData.departmentId } } }
+            : {}),
+          ...(parsedData.designationId != null
+            ? { designation: { connect: { id: parsedData.designationId } } }
             : {}),
           ...(parsedData.stateId != null
             ? { state: { connect: { id: parsedData.stateId } } }
@@ -453,19 +505,25 @@ export async function POST(req: NextRequest) {
             : {}),
           ...(profilePhotoUrl ? { employeeImage: profilePhotoUrl } : {}),
           ...(signaturePhotoUrl ? { signatureImage: signaturePhotoUrl } : {}),
+          joinDate: parsedData.joinDate || null,
           resignDate: parsedData.resignDate || null,
+          previousWorkExperience: parsedData.previousWorkExperience || null,
           // Personal Details
           dateOfBirth: parsedData.dateOfBirth || null,
           anniversaryDate: parsedData.anniversaryDate || null,
           spouseName: parsedData.spouseName || null,
           bloodGroup: parsedData.bloodGroup || null,
           // Address Details
-          addressLine1: parsedData.addressLine1 || null,
-          addressLine2: parsedData.addressLine2 || null,
+          correspondenceAddress: parsedData.correspondenceAddress || null,
+          permanentAddress: parsedData.permanentAddress || null,
           pincode: parsedData.pincode || null,
           // Contact Details
           mobile1: parsedData.mobile1 || null,
           mobile2: parsedData.mobile2 || null,
+          emergencyContactPerson: parsedData.emergencyContactPerson || null,
+          emergencyContactNo: parsedData.emergencyContactNo || null,
+          emergencyContactRelation:
+            parsedData.emergencyContactRelation || null,
           // Other Details
           esic: parsedData.esic || null,
           pf: parsedData.pf || null,
@@ -491,8 +549,10 @@ export async function POST(req: NextRequest) {
         },
         select: {
           id: true,
+          employeeNumber: true,
           name: true,
           departmentId: true,
+          joinDate: true,
           resignDate: true,
           userId: true,
           createdAt: true,

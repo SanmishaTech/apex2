@@ -58,15 +58,15 @@ export default function PersonalDetailsTab({ control, statesData, citiesData }: 
         <FormRow className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
           <TextInput
             control={control}
-            name='addressLine1'
-            label='Address Line 1'
-            placeholder='Enter address line 1'
+            name='correspondenceAddress'
+            label='Correspondence Address'
+            placeholder='Enter correspondence address'
           />
           <TextInput
             control={control}
-            name='addressLine2'
-            label='Address Line 2'
-            placeholder='Enter address line 2'
+            name='permanentAddress'
+            label='Permanent Address'
+            placeholder='Enter permanent address'
           />
         </FormRow>
         <FormRow className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
@@ -103,6 +103,32 @@ export default function PersonalDetailsTab({ control, statesData, citiesData }: 
             name='pincode'
             label='Pincode'
             placeholder='Enter pin code'
+          />
+          <div />
+        </FormRow>
+      </FormSection>
+
+      <FormSection legend='Emergency Contact'>
+        <FormRow className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+          <TextInput
+            control={control}
+            name='emergencyContactPerson'
+            label='Contact Person'
+            placeholder='Enter contact person name'
+          />
+          <TextInput
+            control={control}
+            name='emergencyContactNo'
+            label='Contact No'
+            placeholder='Enter contact number'
+          />
+        </FormRow>
+        <FormRow className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+          <TextInput
+            control={control}
+            name='emergencyContactRelation'
+            label='Relation'
+            placeholder='Enter relation with employee'
           />
           <div />
         </FormRow>

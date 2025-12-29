@@ -66,8 +66,13 @@ export default function EditEmployeePage() {
       initial={{
         id: employee.id,
         name: employee.name,
+        designationId: employee.designationId ?? null,
+        previousWorkExperience: employee.previousWorkExperience ?? null,
         departmentId: employee.departmentId,
         siteEmployees: employee.siteEmployees,
+        joinDate: employee.joinDate
+          ? new Date(employee.joinDate as unknown as string).toISOString()
+          : null,
         resignDate: employee.resignDate
           ? new Date(employee.resignDate as unknown as string).toISOString()
           : null,
@@ -85,14 +90,17 @@ export default function EditEmployeePage() {
         spouseName: employee.spouseName ?? null,
         bloodGroup: employee.bloodGroup ?? null,
         // Address Details
-        addressLine1: employee.addressLine1 ?? null,
-        addressLine2: employee.addressLine2 ?? null,
+        correspondenceAddress: employee.correspondenceAddress ?? null,
+        permanentAddress: employee.permanentAddress ?? null,
         stateId: employee.stateId ?? null,
         cityId: employee.cityId ?? null,
         pincode: employee.pincode ?? null,
         // Contact Details
         mobile1: employee.mobile1 ?? null,
         mobile2: employee.mobile2 ?? null,
+        emergencyContactPerson: employee.emergencyContactPerson ?? null,
+        emergencyContactNo: employee.emergencyContactNo ?? null,
+        emergencyContactRelation: employee.emergencyContactRelation ?? null,
         // Other Details
         esic: employee.esic ?? null,
         pf: employee.pf ?? null,
