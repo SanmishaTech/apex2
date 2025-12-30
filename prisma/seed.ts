@@ -34,11 +34,11 @@ async function main() {
       const user = await upsertUser(email, roleCode, name, passwordHash);
       // For all users except ADMIN, ensure an Employee row linked to this user exists
       if (roleCode !== "ADMIN") {
-        await prisma.employee.upsert({
-          where: { userId: user.id },
-          update: { name },
-          create: { name, userId: user.id },
-        });
+        // await prisma.employee.upsert({
+        //   where: { userId: user.id },
+        //   update: { name },
+        //   create: { name, userId: user.id },
+        // });
       }
       created.push({ id: user.id, email: user.email, role: user.role });
     }
@@ -48,18 +48,18 @@ async function main() {
   // Required counts
   const admins = await seedRoleBatch("ADMIN", 1, "admin");
   // const siteAdmins = await seedRoleBatch("SITE_ADMIN", 2, "siteadmin");
-  const projectManagers = await seedRoleBatch("PROJECT_MANAGER", 2, "pm");
-  const projectDirectors = await seedRoleBatch("PROJECT_DIRECTOR", 1, "pd");
-  const purchaseExecutives = await seedRoleBatch("PURCHASE_EXECUTIVE", 2, "pe");
+  // const projectManagers = await seedRoleBatch("PROJECT_MANAGER", 2, "pm");
+  // const projectDirectors = await seedRoleBatch("PROJECT_DIRECTOR", 1, "pd");
+  // const purchaseExecutives = await seedRoleBatch("PURCHASE_EXECUTIVE", 2, "pe");
   // const commercialHeads = await seedRoleBatch("COMMERCIAL_HEAD", 2, "ch");
   // const managingDirectors = await seedRoleBatch("MANAGING_DIRECTOR", 1, "md");
   // const siteIncharges = await seedRoleBatch("SITE_INCHARGE", 2, "si");
-  const projectCoordinators = await seedRoleBatch(
-    "PROJECT_COORDINATOR",
-    2,
-    "pc"
-  );
-  const technicalDirectors = await seedRoleBatch("TECHNICAL_DIRECTOR", 2, "td");
+  // const projectCoordinators = await seedRoleBatch(
+  //   "PROJECT_COORDINATOR",
+  //   2,
+  //   "pc"
+  // );
+  // const technicalDirectors = await seedRoleBatch("TECHNICAL_DIRECTOR", 2, "td");
 
   // Issue refresh tokens for the first Admin and first Site Admin for convenience
   const admin = admins[0];
@@ -82,14 +82,14 @@ async function main() {
     totals: {
       ADMIN: admins.length,
       // SITE_ADMIN: siteAdmins.length,
-      PROJECT_MANAGER: projectManagers.length,
-      PROJECT_DIRECTOR: projectDirectors.length,
-      PURCHASE_EXECUTIVE: purchaseExecutives.length,
+      // PROJECT_MANAGER: projectManagers.length,
+      // PROJECT_DIRECTOR: projectDirectors.length,
+      // PURCHASE_EXECUTIVE: purchaseExecutives.length,
       // COMMERCIAL_HEAD: commercialHeads.length,
       // MANAGING_DIRECTOR: managingDirectors.length,
       // SITE_INCHARGE: siteIncharges.length,
-      PROJECT_COORDINATOR: projectCoordinators.length,
-      TECHNICAL_DIRECTOR: technicalDirectors.length,
+      // PROJECT_COORDINATOR: projectCoordinators.length,
+      // TECHNICAL_DIRECTOR: technicalDirectors.length,
     },
     sampleTokens: {
       // admin: { email: admin.email, role: admin.role, refreshToken: adminRefresh },

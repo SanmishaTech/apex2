@@ -146,7 +146,8 @@ export default function EmployeesPage() {
       key: "designation",
       header: "Designation",
       sortable: false,
-      accessor: (r) => ((r as any).designation?.designationName as string) || "—",
+      accessor: (r) =>
+        ((r as any).designation?.designationName as string) || "—",
       cellClassName: "whitespace-nowrap",
     },
     {
@@ -155,7 +156,8 @@ export default function EmployeesPage() {
       sortable: true,
       className: "whitespace-nowrap",
       cellClassName: "text-muted-foreground whitespace-nowrap",
-      accessor: (r) => ((r as any).joinDate ? formatDate((r as any).joinDate) : "—"),
+      accessor: (r) =>
+        (r as any).joinDate ? formatDate((r as any).joinDate) : "—",
     },
     {
       key: "mobile1",
@@ -186,7 +188,7 @@ export default function EmployeesPage() {
         <AppCard.Action className="flex flex-wrap gap-2">
           {can(PERMISSIONS.EDIT_EMPLOYEES) && (
             <>
-              {/* <AppButton
+              <AppButton
                 size="sm"
                 variant="outline"
                 iconName="Upload"
@@ -194,7 +196,7 @@ export default function EmployeesPage() {
                 onClick={() => setImportOpen(true)}
               >
                 Import
-              </AppButton> */}
+              </AppButton>
               <AppButton
                 size="sm"
                 iconName="Plus"

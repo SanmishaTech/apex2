@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
       joiningDate?: string | null; // parsed but not persisted
       spouseName?: string | null;
       bloodGroup?: string | null;
+      correspondenceAddress?: string | null;
+      permanentAddress?: string | null;
       addressLine1?: string | null;
       addressLine2?: string | null;
       state?: string | null;
@@ -133,8 +135,14 @@ export async function POST(req: NextRequest) {
       );
       const spouseName = val(row["spouseName"]) as string | null;
       const bloodGroup = val(row["bloodGroup"]) as string | null;
-      const addressLine1 = val(row["addressLine1"]) as string | null;
-      const addressLine2 = val(row["addressLine2"]) as string | null;
+      // Accept new headers correspondenceAddress/permanentAddress; fallback to legacy addressLine1/addressLine2; also accept common misspelling 'correpondenceAddress'
+      const correspondenceAddress =
+        (val(row["correspondenceAddress"]) as string | null) ??
+        (val(row["correpondenceAddress"]) as string | null) ??
+        (val(row["addressLine1"]) as string | null);
+      const permanentAddress =
+        (val(row["permanentAddress"]) as string | null) ??
+        (val(row["addressLine2"]) as string | null);
       const state = val(row["state"]) as string | null;
       const city = val(row["city"]) as string | null;
       const pincode =
@@ -224,8 +232,8 @@ export async function POST(req: NextRequest) {
         joiningDate,
         spouseName,
         bloodGroup,
-        addressLine1,
-        addressLine2,
+        correspondenceAddress,
+        permanentAddress,
         state,
         city,
         pincode,
@@ -312,6 +320,12 @@ export async function POST(req: NextRequest) {
     const createdCount = await prisma.$transaction(
       async (tx) => {
         let count = 0;
+        // Generate next employee numbers in-sequence based on current max
+        const rawMax: Array<{ maxNo: any | null }> = await tx.$queryRaw`
+          SELECT MAX(CAST(SUBSTRING(employeeNumber, 4) AS UNSIGNED)) AS maxNo
+          FROM employees
+        `;
+        let nextSeq = Number(rawMax?.[0]?.maxNo ?? 0) + 1;
         for (const p of prepared) {
           const r = p.row;
           const user = await tx.user.create({
@@ -327,6 +341,7 @@ export async function POST(req: NextRequest) {
 
           const employee = await tx.employee.create({
             data: {
+              employeeNumber: `EMP${String(nextSeq).padStart(4, "0")}`,
               name: r.name,
               user: { connect: { id: user.id } },
               ...(r.department && deptMap.get(r.department)
@@ -340,11 +355,13 @@ export async function POST(req: NextRequest) {
               ...(r.city && cityMap.get(r.city)
                 ? { city: { connect: { id: cityMap.get(r.city)! } } }
                 : {}),
-              addressLine1: r.addressLine1 || null,
-              addressLine2: r.addressLine2 || null,
+              correspondenceAddress: r.correspondenceAddress || null,
+              permanentAddress: r.permanentAddress || null,
               pincode: r.pincode || null,
               mobile1: r.mobile1 || null,
               mobile2: r.mobile2 || null,
+              // Persist join date if provided via joiningDate
+              joinDate: r.joiningDate ? new Date(r.joiningDate) : null,
               resignDate: r.resignDate ? new Date(r.resignDate) : null,
               dateOfBirth: r.dateOfBirth ? new Date(r.dateOfBirth) : null,
               spouseName: r.spouseName || null,
@@ -367,6 +384,7 @@ export async function POST(req: NextRequest) {
             select: { id: true },
           });
           if (employee?.id) count += 1;
+          nextSeq += 1;
         }
         return count;
       },
