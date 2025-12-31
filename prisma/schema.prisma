@@ -193,7 +193,11 @@ model Site {
 
   // File Upload
   attachCopyUrl String?
-
+  startDate    DateTime? @db.Date()
+  endDate      DateTime? @db.Date()
+  completionPeriodInMonths Int?
+  extension1EndDate DateTime? @db.Date()
+  extension2EndDate DateTime? @db.Date()
 
 
   // Address Details

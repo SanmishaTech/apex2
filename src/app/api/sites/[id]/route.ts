@@ -72,6 +72,30 @@ const updateSchema = z.object({
     .refine((val) => !val || validateCIN(val), {
       message: "Invalid CIN format. Format: U99999AA9999AAA999999",
     }),
+  startDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  endDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  extension1EndDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  extension2EndDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  completionPeriodInMonths: z
+    .preprocess((v) => (v === "" || v === null || typeof v === "undefined" ? null : Number(v)), z.number().optional().nullable())
+    .optional()
+    .nullable(),
 });
 
 // GET /api/sites/[id] - Get specific site
@@ -96,6 +120,11 @@ export async function GET(
         companyId: true,
         status: true,
         attachCopyUrl: true,
+        startDate: true,
+        endDate: true,
+        completionPeriodInMonths: true,
+        extension1EndDate: true,
+        extension2EndDate: true,
         addressLine1: true,
         addressLine2: true,
         pinCode: true,
@@ -192,6 +221,11 @@ export async function PATCH(
         gstNo: form.get("gstNo") || undefined,
         tanNo: form.get("tanNo") || undefined,
         cinNo: form.get("cinNo") || undefined,
+        startDate: form.get("startDate") || undefined,
+        endDate: form.get("endDate") || undefined,
+        extension1EndDate: form.get("extension1EndDate") || undefined,
+        extension2EndDate: form.get("extension2EndDate") || undefined,
+        completionPeriodInMonths: form.get("completionPeriodInMonths") || undefined,
       };
 
       const contactPersonsRaw = form.get("contactPersons") as string | null;
@@ -316,6 +350,11 @@ export async function PATCH(
           companyId: true,
           status: true,
           attachCopyUrl: true,
+          startDate: true,
+          endDate: true,
+          completionPeriodInMonths: true,
+          extension1EndDate: true,
+          extension2EndDate: true,
           // legacy top-level contact fields omitted
           addressLine1: true,
           addressLine2: true,
@@ -488,6 +527,11 @@ export async function PATCH(
           companyId: true,
           status: true,
           attachCopyUrl: true,
+          startDate: true,
+          endDate: true,
+          completionPeriodInMonths: true,
+          extension1EndDate: true,
+          extension2EndDate: true,
           addressLine1: true,
           addressLine2: true,
           pinCode: true,
