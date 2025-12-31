@@ -7,6 +7,11 @@ export interface Site {
   status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
 
   attachCopyUrl?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  completionPeriodInMonths?: number | null;
+  extension1EndDate?: string | null;
+  extension2EndDate?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
   addressLine1?: string | null;
@@ -79,6 +84,11 @@ export interface CreateSiteData {
   companyId?: number | null;
   status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  completionPeriodInMonths?: number | null;
+  extension1EndDate?: string | null;
+  extension2EndDate?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
   addressLine1?: string | null;
@@ -101,6 +111,11 @@ export interface UpdateSiteData {
   companyId?: number | null;
   status?: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  completionPeriodInMonths?: number | null;
+  extension1EndDate?: string | null;
+  extension2EndDate?: string | null;
   contactPerson?: string | null;
   contactNo?: string | null;
   addressLine1?: string | null;

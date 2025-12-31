@@ -89,6 +89,30 @@ const createSchema = z.object({
     .refine((val) => !val || validateCIN(val), {
       message: "Invalid CIN format. Format: U99999AA9999AAA999999",
     }),
+  startDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  endDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  extension1EndDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  extension2EndDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v as any) : null)),
+  completionPeriodInMonths: z
+    .preprocess((v) => (v === "" || v === null || typeof v === "undefined" ? null : Number(v)), z.number().optional().nullable())
+    .optional()
+    .nullable(),
 });
 
 // GET /api/sites?search=&status=Ongoing|Hold|Monitor&page=1&perPage=10&sort=site&order=asc
@@ -235,6 +259,11 @@ export async function GET(req: NextRequest) {
         companyId: true,
         status: true,
         attachCopyUrl: true,
+        startDate: true,
+        endDate: true,
+        completionPeriodInMonths: true,
+        extension1EndDate: true,
+        extension2EndDate: true,
         createdAt: true,
         updatedAt: true,
         // legacy top-level address fields (kept if present)
@@ -354,6 +383,11 @@ export async function POST(req: NextRequest) {
         gstNo: form.get("gstNo") || null,
         tanNo: form.get("tanNo") || null,
         cinNo: form.get("cinNo") || null,
+        startDate: form.get("startDate") || null,
+        endDate: form.get("endDate") || null,
+        extension1EndDate: form.get("extension1EndDate") || null,
+        extension2EndDate: form.get("extension2EndDate") || null,
+        completionPeriodInMonths: form.get("completionPeriodInMonths") || null,
       };
     } else {
       // Handle JSON data
@@ -397,6 +431,11 @@ export async function POST(req: NextRequest) {
           companyId: validatedData.companyId,
           status: validatedData.status,
           attachCopyUrl: validatedData.attachCopyUrl,
+          startDate: validatedData.startDate ?? null,
+          endDate: validatedData.endDate ?? null,
+          completionPeriodInMonths: validatedData.completionPeriodInMonths ?? null,
+          extension1EndDate: validatedData.extension1EndDate ?? null,
+          extension2EndDate: validatedData.extension2EndDate ?? null,
           addressLine1: validatedData.addressLine1,
           addressLine2: validatedData.addressLine2,
           stateId: validatedData.stateId,
