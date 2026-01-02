@@ -87,6 +87,11 @@ export interface SiteFormInitialData {
   gstNo?: string;
   tanNo?: string;
   cinNo?: string;
+  startDate?: string;
+  endDate?: string;
+  completionPeriodInMonths?: number | null;
+  extension1EndDate?: string;
+  extension2EndDate?: string;
 }
 
 export interface SiteFormProps {
@@ -193,9 +198,33 @@ export function SiteForm({
       .refine((val) => !val || validateCIN(val), {
         message: "Invalid CIN format. Format: U99999AA9999AAA999999",
       }),
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+    extension1EndDate: z.string().optional().nullable(),
+    extension2EndDate: z.string().optional().nullable(),
+    completionPeriodInMonths: z
+      .preprocess(
+        (v) =>
+          v === "" || v === null || typeof v === "undefined" ? null : Number(v),
+        z.number().optional().nullable()
+      )
+      .optional()
+      .nullable(),
   });
 
   type FormValues = z.infer<typeof schema>;
+
+  const toYMD = (v: any): string => {
+    if (!v) return "";
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    try {
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return "";
+      return d.toISOString().slice(0, 10);
+    } catch {
+      return "";
+    }
+  };
 
   const defaultContactPersons = initial?.siteContactPersons?.length
     ? initial.siteContactPersons.map((person) => ({
@@ -239,6 +268,12 @@ export function SiteForm({
     gstNo: initial?.gstNo || "",
     tanNo: initial?.tanNo || "",
     cinNo: initial?.cinNo || "",
+    startDate: toYMD((initial as any)?.startDate),
+    endDate: toYMD((initial as any)?.endDate),
+    extension1EndDate: toYMD((initial as any)?.extension1EndDate),
+    extension2EndDate: toYMD((initial as any)?.extension2EndDate),
+    completionPeriodInMonths:
+      (initial as any)?.completionPeriodInMonths ?? null,
     deliveryAddresses: initial?.deliveryAddresses
       ? initial.deliveryAddresses
       : [
@@ -500,9 +535,11 @@ export function SiteForm({
       } else if (error?.message) {
         errs.push(error.message);
       }
-      setSubmitErrors(errs.length ? errs : [
-        `Failed to ${mode === "create" ? "create" : "update"} site`,
-      ]);
+      setSubmitErrors(
+        errs.length
+          ? errs
+          : [`Failed to ${mode === "create" ? "create" : "update"} site`]
+      );
     } finally {
       setSubmitting(false);
     }
@@ -710,6 +747,44 @@ export function SiteForm({
                   name="latitude"
                   label="Latitude"
                   placeholder="Enter latitude"
+                />
+              </FormRow>
+            </FormSection>
+
+            {/* Timeline */}
+            <FormSection legend="Timeline">
+              <FormRow cols={3}>
+                <TextInput
+                  control={control}
+                  name="startDate"
+                  label="Start Date"
+                  type="date"
+                />
+                <TextInput
+                  control={control}
+                  name="endDate"
+                  label="End Date"
+                  type="date"
+                />
+                <TextInput
+                  control={control}
+                  name="completionPeriodInMonths"
+                  label="Completion Period (months)"
+                  type="number"
+                />
+              </FormRow>
+              <FormRow cols={2}>
+                <TextInput
+                  control={control}
+                  name="extension1EndDate"
+                  label="Extension 1 Date"
+                  type="date"
+                />
+                <TextInput
+                  control={control}
+                  name="extension2EndDate"
+                  label="Extension 2 Date"
+                  type="date"
                 />
               </FormRow>
             </FormSection>

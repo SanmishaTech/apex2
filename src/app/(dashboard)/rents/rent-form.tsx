@@ -489,13 +489,13 @@ export function RentForm({ mode, initial, onSuccess }: RentFormProps) {
                       render={({ field, fieldState }) => (
                         <FormItem>
                           <FormLabel>
-                            Rent Day <span className="text-red-500">*</span>
+                            Rent Due Date <span className="text-red-500">*</span>
                           </FormLabel>
                           <FormControl>
                             <AppSelect
                               value={field.value || ""}
                               onValueChange={field.onChange}
-                              placeholder="Select rent day"
+                              placeholder="Select rent due date"
                             >
                               {RENT_DAY_OPTIONS.map((option) => (
                                 <AppSelect.Item

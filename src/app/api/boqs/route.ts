@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
             (qty != null && rate != null
               ? (Number(qty) * Number(rate)).toFixed(2)
               : null);
-          const orderedQty = it.orderedQty ?? null;
+          const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
           const remainingQty = it.remainingQty ?? null;
           const remainingValue = it.remainingValue ?? null;
@@ -342,7 +342,7 @@ export async function PATCH(req: NextRequest) {
             (qty != null && rate != null
               ? (Number(qty) * Number(rate)).toFixed(2)
               : null);
-          const orderedQty = it.orderedQty ?? null;
+          const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
           const remainingQty = it.remainingQty ?? null;
           const remainingValue = it.remainingValue ?? null;
@@ -375,7 +375,7 @@ export async function PATCH(req: NextRequest) {
             (qty != null && rate != null
               ? (Number(qty) * Number(rate)).toFixed(2)
               : null);
-          const orderedQty = it.orderedQty ?? null;
+          const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
           const remainingQty = it.remainingQty ?? null;
           const remainingValue = it.remainingValue ?? null;

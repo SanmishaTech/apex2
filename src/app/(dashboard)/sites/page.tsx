@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { useMemo, useState, useEffect } from "react";
+import { format as dfFormat } from "date-fns";
 import { apiGet, apiDelete } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { Pagination } from "@/components/common/pagination";
@@ -153,27 +154,6 @@ export default function SitesPage() {
       cellClassName: "whitespace-nowrap",
     },
     {
-      key: "location",
-      header: "Location",
-      accessor: (r) => (
-        <div className="text-sm">
-          {r.addressLine1 && <div>{r.addressLine1}</div>}
-          {(r.city || r.state) && (
-            <div className="text-muted-foreground">
-              {[r.city?.city, r.state?.state].filter(Boolean).join(", ")}
-              {r.pinCode && ` - ${r.pinCode}`}
-            </div>
-          )}
-          {(r.longitude || r.latitude) && (
-            <div className="text-xs text-muted-foreground font-mono">
-              {r.latitude}, {r.longitude}
-            </div>
-          )}
-        </div>
-      ),
-      cellClassName: "max-w-48",
-    },
-    {
       key: "status",
       header: "Status",
       sortable: true,
@@ -210,18 +190,33 @@ export default function SitesPage() {
       cellClassName: "whitespace-nowrap",
     },
     {
+      key: "startDate",
+      header: "Start Date",
+      accessor: (r) =>
+        r.startDate ? dfFormat(new Date(r.startDate), "dd/MM/yyyy") : "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "endDate",
+      header: "End Date",
+      accessor: (r) =>
+        r.endDate ? dfFormat(new Date(r.endDate), "dd/MM/yyyy") : "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "period",
+      header: "Period (months)",
+      accessor: (r) =>
+        typeof r.completionPeriodInMonths === "number"
+          ? r.completionPeriodInMonths
+          : "—",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
       key: "gstNo",
       header: "GST No",
       accessor: (r) => r.gstNo || "—",
       cellClassName: "font-mono text-sm whitespace-nowrap",
-    },
-    {
-      key: "createdAt",
-      header: "Created",
-      sortable: true,
-      className: "whitespace-nowrap",
-      cellClassName: "text-muted-foreground whitespace-nowrap",
-      accessor: (r) => formatDate(r.createdAt),
     },
   ];
 
