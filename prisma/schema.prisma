@@ -588,7 +588,7 @@ model Item {
   id             Int           @id @default(autoincrement())
   itemCode       String        @unique // auto-generated
   hsnCode        String?
-  item           String        @unique   
+  item           String          
   itemCategoryId Int?
   itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
   unitId         Int?

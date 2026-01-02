@@ -72,6 +72,12 @@ export default function EditSitePage() {
         gstNo: site.gstNo ?? undefined,
         tanNo: site.tanNo ?? undefined,
         cinNo: site.cinNo ?? undefined,
+        startDate: (site as any).startDate ?? undefined,
+        endDate: (site as any).endDate ?? undefined,
+        completionPeriodInMonths:
+          (site as any).completionPeriodInMonths ?? undefined,
+        extension1EndDate: (site as any).extension1EndDate ?? undefined,
+        extension2EndDate: (site as any).extension2EndDate ?? undefined,
         siteContactPersons: site.siteContactPersons ?? undefined,
         deliveryAddresses: site.siteDeliveryAddresses
           ? site.siteDeliveryAddresses.map((a) => ({

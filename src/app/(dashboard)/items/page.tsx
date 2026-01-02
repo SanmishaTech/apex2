@@ -18,6 +18,7 @@ import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import * as XLSX from 'xlsx';
+import { BulkItemsUploadDialog } from '@/components/common/bulk-items-upload-dialog';
 
 // Types
 
@@ -50,6 +51,7 @@ type ItemsResponse = {
 };
 
 export default function ItemsPage() {
+  const [importOpen, setImportOpen] = useState(false);
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -262,11 +264,22 @@ export default function ItemsPage() {
         <AppCard.Description>Manage items.</AppCard.Description>
         {can(PERMISSIONS.CREATE_ITEMS) && (
           <AppCard.Action>
-            <Link href='/items/new'>
-              <AppButton size='sm' iconName='Plus' type='button'>
-                Add
-              </AppButton>
-            </Link>
+            <div className='flex gap-2'>
+              {/* <AppButton
+                size='sm'
+                variant='outline'
+                iconName='Upload'
+                type='button'
+                onClick={() => setImportOpen(true)}
+              >
+                Import
+              </AppButton> */}
+              <Link href='/items/new'>
+                <AppButton size='sm' iconName='Plus' type='button'>
+                  Add
+                </AppButton>
+              </Link>
+            </div>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -349,6 +362,11 @@ export default function ItemsPage() {
           disabled={isLoading}
         />
       </AppCard.Footer>
+      <BulkItemsUploadDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onUploadSuccess={() => mutate()}
+      />
     </AppCard>
   );
 }
