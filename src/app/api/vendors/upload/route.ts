@@ -1,6 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { guardApiAccess } from "@/lib/access-guard";
-import { Success, Error as ApiError } from "@/lib/api-response";
+import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 
@@ -24,8 +24,15 @@ export async function POST(req: NextRequest) {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "application/vnd.ms-excel",
     ];
-    if (!validTypes.includes(file.type) && !file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
-      return ApiError("Invalid file type. Please upload an Excel file (.xlsx or .xls)", 400);
+    if (
+      !validTypes.includes(file.type) &&
+      !file.name.endsWith(".xlsx") &&
+      !file.name.endsWith(".xls")
+    ) {
+      return ApiError(
+        "Invalid file type. Please upload an Excel file (.xlsx or .xls)",
+        400
+      );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -34,15 +41,16 @@ export async function POST(req: NextRequest) {
     if (!sheetName) return ApiError("Excel file is empty", 400);
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet) as any[];
-    if (!data || data.length === 0) return ApiError("No data found in Excel file", 400);
+    if (!data || data.length === 0)
+      return ApiError("No data found in Excel file", 400);
 
     type Row = {
       vendorName: string;
       contactPersonName: string;
       addressLine1: string;
       addressLine2?: string | null;
-      state: string;
-      city: string;
+      state?: string | null;
+      city?: string | null;
       pincode?: string | null;
       mobile1?: string | null;
       mobile2?: string | null;
@@ -70,29 +78,41 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
     const records: Row[] = [];
 
+    // Preload State and City maps for validation and mapping
+    const [allStates, allCities] = await Promise.all([
+      prisma.state.findMany({ select: { id: true, state: true } }),
+      prisma.city.findMany({ select: { id: true, city: true } }),
+    ]);
+    const stateMap = new Map(
+      allStates.map((s) => [s.state.toLowerCase(), s.id])
+    );
+    const cityMap = new Map(allCities.map((c) => [c.city.toLowerCase(), c.id]));
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowNum = i + 2;
       const vendorName = val(row["vendorName*"] ?? row["vendorName"]);
-      const contactPersonName = val(row["contactPersonName*"] ?? row["contactPersonName"]);
+      const contactPersonName = val(
+        row["contactPersonName*"] ?? row["contactPersonName"]
+      );
       const addressLine1 = val(row["addressLine1*"] ?? row["addressLine1"]);
       const addressLine2 = val(row["addressLine2*"] ?? row["addressLine2"]);
       const state = val(row["state*"] ?? row["state"]);
       const city = val(row["city*"] ?? row["city"]);
 
       if (!vendorName) errors.push(`Row ${rowNum}: vendorName is required`);
-      if (!contactPersonName) errors.push(`Row ${rowNum}: contactPersonName is required`);
+      if (!contactPersonName)
+        errors.push(`Row ${rowNum}: contactPersonName is required`);
       if (!addressLine1) errors.push(`Row ${rowNum}: addressLine1 is required`);
-      if (!state) errors.push(`Row ${rowNum}: state is required`);
-      if (!city) errors.push(`Row ${rowNum}: city is required`);
+      // state and city are optional in import
 
       const rec: Row = {
         vendorName: vendorName || "",
         contactPersonName: contactPersonName || "",
         addressLine1: addressLine1 || "",
         addressLine2: addressLine2 || null,
-        state: state || "",
-        city: city || "",
+        state: state || null,
+        city: city || null,
         pincode: val(row["pincode"]) || null,
         mobile1: val(row["mobile1"]) || null,
         mobile2: val(row["mobile2"]) || null,
@@ -117,39 +137,41 @@ export async function POST(req: NextRequest) {
         stateCode: val(row["stateCode"]) || null,
       };
       records.push(rec);
+
+      const stateName = (rec.state || "").toLowerCase();
+      const cityName = (rec.city || "").toLowerCase();
+      if (stateName && !stateMap.has(stateName)) {
+        errors.push(`Row ${rowNum}: state '${rec.state}' not found in States master`);
+      }
+      if (cityName && !cityMap.has(cityName)) {
+        errors.push(`Row ${rowNum}: city '${rec.city}' not found in Cities master`);
+      }
     }
 
     if (errors.length) {
-      const msg = `Found ${errors.length} validation error(s): ${errors.slice(0, 10).join("; ")}${errors.length > 10 ? `; ... and ${errors.length - 10} more` : ""}`;
-      return ApiError(msg, 400);
+      return NextResponse.json(
+        { message: `Found ${errors.length} validation error(s)`, errors },
+        { status: 400 }
+      );
     }
 
     if (!records.length) return ApiError("No valid rows to import", 400);
 
-    // Preload State and City maps
-    const [allStates, allCities] = await Promise.all([
-      prisma.state.findMany({ select: { id: true, state: true } }),
-      prisma.city.findMany({ select: { id: true, city: true } }),
-    ]);
-    const stateMap = new Map(allStates.map((s) => [s.state.toLowerCase(), s.id]));
-    const cityMap = new Map(allCities.map((c) => [c.city.toLowerCase(), c.id]));
-
     let createdCount = 0;
     await prisma.$transaction(async (tx) => {
       for (const r of records) {
-        const stateId = stateMap.get((r.state || "").toLowerCase());
-        const cityId = cityMap.get((r.city || "").toLowerCase());
-        if (!stateId || !cityId) {
-          throw new Error(`Missing reference: State '${r.state}' or City '${r.city}' not found`);
-        }
+        const stateName = (r.state || "").toLowerCase();
+        const cityName = (r.city || "").toLowerCase();
+        const stateId = stateName ? stateMap.get(stateName) ?? null : null;
+        const cityId = cityName ? cityMap.get(cityName) ?? null : null;
         await tx.vendor.create({
           data: {
             vendorName: r.vendorName,
             contactPerson: r.contactPersonName,
             addressLine1: r.addressLine1,
             addressLine2: r.addressLine2,
-            stateId,
-            cityId,
+            stateId: stateId ?? null,
+            cityId: cityId ?? null,
             pincode: r.pincode,
             mobile1: r.mobile1,
             mobile2: r.mobile2,
@@ -178,7 +200,13 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return Success({ message: `Successfully uploaded ${createdCount} vendor(s)`, count: createdCount }, 201);
+    return Success(
+      {
+        message: `Successfully uploaded ${createdCount} vendor(s)`,
+        count: createdCount,
+      },
+      201
+    );
   } catch (e: any) {
     console.error("Vendors upload error:", e);
     return ApiError(e?.message || "Failed to process uploaded file");

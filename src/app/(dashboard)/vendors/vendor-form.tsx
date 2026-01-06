@@ -71,8 +71,8 @@ const inputSchema = z.object({
   contactPerson: z.string().min(1, "Contact person is required"),
   addressLine1: z.string().min(1, "Address line 1 is required"),
   addressLine2: z.string().optional(),
-  stateId: z.string().min(1, "State is required"),
-  cityId: z.string().min(1, "City is required"),
+  stateId: z.string().optional().or(z.literal("")),
+  cityId: z.string().optional().or(z.literal("")),
   pincode: z
     .string()
     .regex(/^\d{6}$/, "Pincode must be 6 digits")
@@ -512,7 +512,7 @@ export function VendorForm({
                   <SelectInput
                     control={control}
                     name="stateId"
-                    label="State *"
+                    label="State"
                     placeholder="Select state"
                     options={stateOptions}
                     span={1}
@@ -521,7 +521,7 @@ export function VendorForm({
                   <SelectInput
                     control={control}
                     name="cityId"
-                    label="City *"
+                    label="City"
                     placeholder="Select city"
                     options={cityOptions}
                     span={1}

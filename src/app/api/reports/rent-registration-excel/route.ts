@@ -109,6 +109,11 @@ export async function GET(req: NextRequest) {
         "Status",
         "Deposit Amount",
         "Rent Amount",
+        "Bank Name",
+        "Branch",
+        "Account No",
+        "Account Name",
+        "IFSC Code",
       ]);
 
       // Add data rows
@@ -118,7 +123,10 @@ export async function GET(req: NextRequest) {
       group.rents.forEach((rent: any) => {
         const depositAmt = Number(rent.depositAmount || 0);
         const rentAmt = Number(rent.rentAmount || 0);
-        groupTotalDeposit += depositAmt;
+        const isFirst = (rent.listStatus === "First") || (Number(rent.srNo) === 1);
+        if (isFirst) {
+          groupTotalDeposit += depositAmt;
+        }
         groupTotalRent += rentAmt;
 
         sheetData.push([
@@ -128,8 +136,13 @@ export async function GET(req: NextRequest) {
           rent.description || "-",
           rent.dueDate ? new Date(rent.dueDate).toLocaleDateString() : "N/A",
           rent.status || "N/A",
-          depositAmt,
+          isFirst ? depositAmt : "",
           rentAmt,
+          rent.bank || "N/A",
+          rent.branch || "N/A",
+          rent.accountNo || "N/A",
+          rent.accountName || "N/A",
+          rent.ifscCode || "N/A",
         ]);
       });
 
@@ -143,6 +156,11 @@ export async function GET(req: NextRequest) {
         "Total",
         groupTotalDeposit,
         groupTotalRent,
+        "",
+        "",
+        "",
+        "",
+        "",
       ]);
 
       grandTotalDeposit += groupTotalDeposit;
@@ -160,6 +178,11 @@ export async function GET(req: NextRequest) {
       "Grand Total",
       grandTotalDeposit,
       grandTotalRent,
+      "",
+      "",
+      "",
+      "",
+      "",
     ]);
 
     // Create worksheet from data
@@ -178,6 +201,11 @@ export async function GET(req: NextRequest) {
       { wch: 10 }, // Status
       { wch: 15 }, // Deposit Amount
       { wch: 15 }, // Rent Amount
+      { wch: 18 }, // Bank Name
+      { wch: 14 }, // Branch
+      { wch: 20 }, // Account No
+      { wch: 20 }, // Account Name
+      { wch: 16 }, // IFSC Code
     ];
 
     // Add worksheet to workbook
