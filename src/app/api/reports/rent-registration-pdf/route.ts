@@ -134,7 +134,10 @@ export async function GET(req: NextRequest) {
       group.rents.forEach((rent: any) => {
         const depositAmt = Number(rent.depositAmount || 0);
         const rentAmt = Number(rent.rentAmount || 0);
-        groupTotalDeposit += depositAmt;
+        const isFirst = (rent.listStatus === "First") || (Number(rent.srNo) === 1);
+        if (isFirst) {
+          groupTotalDeposit += depositAmt;
+        }
         groupTotalRent += rentAmt;
 
         tableData.push([
@@ -144,8 +147,13 @@ export async function GET(req: NextRequest) {
           rent.description || "-",
           rent.dueDate ? new Date(rent.dueDate).toLocaleDateString() : "N/A",
           rent.status || "N/A",
-          depositAmt.toFixed(2),
+          isFirst ? depositAmt.toFixed(2) : "",
           rentAmt.toFixed(2),
+          rent.bank || "N/A",
+          rent.branch || "N/A",
+          rent.accountNo || "N/A",
+          rent.accountName || "N/A",
+          rent.ifscCode || "N/A",
         ]);
       });
 
@@ -164,6 +172,11 @@ export async function GET(req: NextRequest) {
           content: groupTotalRent.toFixed(2),
           styles: { fontStyle: "bold", halign: "right" },
         },
+        "",
+        "",
+        "",
+        "",
+        "",
       ]);
 
       grandTotalDeposit += groupTotalDeposit;
@@ -180,6 +193,11 @@ export async function GET(req: NextRequest) {
             "Status",
             "Deposit Amount",
             "Rent Amount",
+            "Bank Name",
+            "Branch",
+            "Account No",
+            "Account Name",
+            "IFSC Code",
           ],
         ],
         body: tableData,

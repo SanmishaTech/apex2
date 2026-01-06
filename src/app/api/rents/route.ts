@@ -429,6 +429,10 @@ export async function POST(req: NextRequest) {
 
         if (srNo === 1) {
           rentData.listStatus = "First";
+          // Keep provided depositAmount on first record
+        } else {
+          // For subsequent monthly records, do not carry forward depositAmount
+          rentData.depositAmount = null;
         }
 
         const nextDueDate = new Date(dueDate);
