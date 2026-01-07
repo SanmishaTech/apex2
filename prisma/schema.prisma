@@ -737,7 +737,7 @@ model Boq {
   boqNo                         String?     @unique // auto-generated like BOQ-00001
   siteId                        Int?
   site                          Site?       @relation(fields: [siteId], references: [id])
-  workName                      String?
+  workName                      String? @db.Text
   workOrderNo                   String?
   workOrderDate                 DateTime?
   startDate                     DateTime?
@@ -782,7 +782,7 @@ model BoqItem {
   boq          Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
   activityId   String?
   clientSrNo   String?
-  item         String? // long description
+  item         String?  @db.Text// long description
   unitId       Int?
   unit         Unit?    @relation(fields: [unitId], references: [id])
   qty          Decimal @db.Decimal(12, 2)   @default(0.00)

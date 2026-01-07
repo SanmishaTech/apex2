@@ -342,10 +342,38 @@ export function BoqForm({
       }
       router.push(redirectOnSuccess);
     } catch (err) {
-      toast.error((err as Error).message || "Failed");
+      const e = err as any;
+      const serverErrors = e?.data?.errors;
+      if (Array.isArray(serverErrors) && serverErrors.length) {
+        const msg = serverErrors
+          .map((it: any) => (typeof it?.message === "string" ? it.message : ""))
+          .filter(Boolean)
+          .join("\n");
+        toast.error(msg || e?.message || "Failed");
+      } else {
+        toast.error(e?.message || "Failed");
+      }
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function onInvalid(errors: Record<string, any>) {
+    const messages: string[] = [];
+    const collect = (err: any) => {
+      if (!err) return;
+      if (Array.isArray(err)) {
+        err.forEach(collect);
+        return;
+      }
+      if (typeof err === "object") {
+        if (typeof err.message === "string" && err.message) messages.push(err.message);
+        Object.values(err).forEach(collect);
+      }
+    };
+    collect(errors);
+    const msg = Array.from(new Set(messages)).filter(Boolean).slice(0, 3).join("\n");
+    toast.error(msg || "Please fix validation errors");
   }
 
   return (
@@ -366,7 +394,7 @@ export function BoqForm({
               {isCreate ? "Add a new Bill of Quantity." : "Update BOQ details."}
             </AppCard.Description>
           </AppCard.Header>
-          <form noValidate onSubmit={handleSubmit(onSubmit)}>
+          <form noValidate onSubmit={handleSubmit(onSubmit, onInvalid)}>
             <AppCard.Content>
               {!isCreate && initial?.boqNo ? (
                 <div className="mb-4">
