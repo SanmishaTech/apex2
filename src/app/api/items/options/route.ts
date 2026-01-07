@@ -9,7 +9,19 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const assetParam = searchParams.get("asset");
+    const siteIdParam = searchParams.get("siteId");
+    const where: any = {};
+    if (assetParam === "true") where.asset = true;
+    if (assetParam === "false") where.asset = false;
+    const siteIdNum = siteIdParam ? Number(siteIdParam) : undefined;
+    if (siteIdNum && !Number.isNaN(siteIdNum)) {
+      where.siteItems = { some: { siteId: siteIdNum } };
+    }
+
     const items = await prisma.item.findMany({
+      where,
       select: {
         id: true,
         itemCode: true,
@@ -17,7 +29,6 @@ export async function GET(req: NextRequest) {
         unit: { select: { unitName: true } },
       },
       orderBy: [{ itemCode: "asc" }, { item: "asc" }],
-      take: 2000,
     });
     return Success({ data: items });
   } catch (error) {

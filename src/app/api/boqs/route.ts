@@ -207,8 +207,10 @@ export async function POST(req: NextRequest) {
       select: { id: true, boqNo: true },
     });
     return Success(full, 201);
-  } catch (e: unknown) {
-    return Error("Failed to create BOQ");
+  } catch (e: any) {
+    const code = e?.code ? ` (${e.code})` : "";
+    const msg = typeof e?.message === "string" && e.message ? e.message : "Failed to create BOQ";
+    return Error(`${msg}${code}`);
   }
 }
 
@@ -417,6 +419,8 @@ export async function PATCH(req: NextRequest) {
     return Success(result);
   } catch (e: any) {
     if (e?.code === "P2025") return Error("BOQ not found", 404);
-    return Error("Failed to update BOQ");
+    const code = e?.code ? ` (${e.code})` : "";
+    const msg = typeof e?.message === "string" && e.message ? e.message : "Failed to update BOQ";
+    return Error(`${msg}${code}`);
   }
 }

@@ -53,7 +53,10 @@ export default function DailyConsumptionForm() {
   );
 
   const { data: sitesData } = useSWR<any>("/api/sites?perPage=1000", apiGet);
-  const { data: itemsData } = useSWR<any>("/api/items?perPage=1000&order=asc&sort=item", apiGet);
+  const { data: itemsData } = useSWR<any>(
+    siteIdVal ? `/api/items/options?asset=false&siteId=${siteIdVal}` : null,
+    apiGet
+  );
   // Fetch closing stock for all items at the selected site (SiteItem table)
   const { data: siteItemsData } = useSWR<any>(
     siteIdVal ? `/api/site-items?siteId=${siteIdVal}` : null,
@@ -217,7 +220,7 @@ export default function DailyConsumptionForm() {
                         <ComboboxInput
                           control={control}
                           name={`items.${index}.itemId`}
-                          options={itemOptions}
+                          options={siteIdVal ? itemOptions : []}
                           placeholder="Select item"
                         />
                       </div>
