@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 // GET /api/items/options - minimal item options for select boxes (with unit)
 export async function GET(req: NextRequest) {
@@ -16,8 +17,37 @@ export async function GET(req: NextRequest) {
     if (assetParam === "true") where.asset = true;
     if (assetParam === "false") where.asset = false;
     const siteIdNum = siteIdParam ? Number(siteIdParam) : undefined;
-    if (siteIdNum && !Number.isNaN(siteIdNum)) {
-      where.siteItems = { some: { siteId: siteIdNum } };
+
+    // Restrict items to assigned sites for non-admin users
+    if ((auth as any).user?.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: (auth as any).user?.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      if (siteIdNum && !Number.isNaN(siteIdNum)) {
+        // Intersect selected site with assigned sites
+        where.siteItems = {
+          some: {
+            siteId: {
+              in: assignedSiteIds.includes(siteIdNum) ? [siteIdNum] : [-1],
+            },
+          },
+        };
+      } else {
+        where.siteItems = {
+          some: {
+            siteId: { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] },
+          },
+        };
+      }
+    } else {
+      // Admins: optional filter by siteId if provided
+      if (siteIdNum && !Number.isNaN(siteIdNum)) {
+        where.siteItems = { some: { siteId: siteIdNum } };
+      }
     }
 
     const items = await prisma.item.findMany({

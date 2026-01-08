@@ -22,7 +22,9 @@ interface Props {
   initialSignatureUrl?: string;
 }
 
-const ROLE_KEYS = Object.keys(ROLES) as Array<keyof typeof ROLES>;
+const ROLE_KEYS = Object.keys(ROLES).filter((key) => key !== "ADMIN") as Array<
+  keyof typeof ROLES
+>;
 
 const roleOptions = ROLE_KEYS.map((key) => ({
   value: key as string,
@@ -65,7 +67,11 @@ export default function EmployeeDetailsTab({
               <div className="mt-2">
                 <div className="relative h-12 w-44 border rounded overflow-hidden">
                   <Image
-                    src={initialSignatureUrl.startsWith("http") ? initialSignatureUrl : `/api${initialSignatureUrl}`}
+                    src={
+                      initialSignatureUrl.startsWith("http")
+                        ? initialSignatureUrl
+                        : `/api${initialSignatureUrl}`
+                    }
                     alt="Signature Preview"
                     fill
                     className="object-contain"
@@ -92,7 +98,11 @@ export default function EmployeeDetailsTab({
               <div className="mt-2">
                 <div className="relative h-16 w-16 border rounded-full overflow-hidden">
                   <Image
-                    src={initialProfilePicUrl.startsWith("http") ? initialProfilePicUrl : `/api${initialProfilePicUrl}`}
+                    src={
+                      initialProfilePicUrl.startsWith("http")
+                        ? initialProfilePicUrl
+                        : `/api${initialProfilePicUrl}`
+                    }
                     alt="Profile Pic Preview"
                     fill
                     className="object-cover"
@@ -186,7 +196,11 @@ export default function EmployeeDetailsTab({
             name="email"
             label="Email"
             type="email"
-            placeholder={isCreate ? "Enter email address" : "Update email address (optional)"}
+            placeholder={
+              isCreate
+                ? "Enter email address"
+                : "Update email address (optional)"
+            }
             required={isCreate}
           />
         </FormRow>
@@ -196,7 +210,11 @@ export default function EmployeeDetailsTab({
             name="password"
             label={isCreate ? "Password" : "Set New Password"}
             type="password"
-            placeholder={isCreate ? "Enter password (min 6 characters)" : "Leave blank to keep current password"}
+            placeholder={
+              isCreate
+                ? "Enter password (min 6 characters)"
+                : "Leave blank to keep current password"
+            }
             required={isCreate}
           />
           <TextInput
@@ -204,7 +222,11 @@ export default function EmployeeDetailsTab({
             name="confirmPassword"
             label={isCreate ? "Verify Password" : "Confirm New Password"}
             type="password"
-            placeholder={isCreate ? "Re-enter password" : "Re-enter new password if changing"}
+            placeholder={
+              isCreate
+                ? "Re-enter password"
+                : "Re-enter new password if changing"
+            }
             required={isCreate}
           />
         </FormRow>

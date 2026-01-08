@@ -5,12 +5,14 @@ import { BadRequest, NotFound } from "@/lib/api-response";
 import jsPDF from "jspdf";
 import autoTable, { type CellDef } from "jspdf-autotable";
 import { format } from "date-fns";
+import fs from "fs/promises";
+import path from "path";
 
 function formatDateSafe(value?: Date | string | null) {
   if (!value) return "-";
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "-";
-  return format(date, "dd-MM-yyyy");
+  return format(date, "dd/MM/yyyy");
 }
 
 function formatCurrency(value: unknown) {
@@ -92,6 +94,32 @@ function drawWrappedLines(
   return currentY;
 }
 
+// Try to load a logo image from public/ with reasonable fallbacks
+async function loadLogoDataUrl(): Promise<{
+  dataUrl: string;
+  format: "PNG" | "JPEG";
+} | null> {
+  const candidates = [path.join("images", "DCTPL-logo.png")]; // check png/jpg
+  for (const name of candidates) {
+    try {
+      const p = path.join(process.cwd(), "public", name);
+      const buf = await fs.readFile(p);
+      const isPng = name.toLowerCase().endsWith(".png");
+      const fmt = isPng
+        ? "PNG"
+        : name.toLowerCase().endsWith(".jpg") ||
+          name.toLowerCase().endsWith(".jpeg")
+        ? "JPEG"
+        : "PNG";
+      const dataUrl = `data:image/${
+        isPng ? "png" : "jpeg"
+      };base64,${buf.toString("base64")}`;
+      return { dataUrl, format: fmt as "PNG" | "JPEG" };
+    } catch {}
+  }
+  return null;
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -114,6 +142,7 @@ export async function GET(
       quotationDate: true,
       transport: true,
       note: true,
+      remarks: true,
       terms: true,
       paymentTermsInDays: true,
       paymentTerm: {
@@ -270,16 +299,29 @@ export async function GET(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 8; // tighter margins to help fit one page
   const usableWidth = pageWidth - margin * 2;
+  const footerArea = 12; // reserve space below main border for footer outside
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);
-  doc.rect(margin, margin, usableWidth, pageHeight - margin * 2);
+  const mainBoxHeight = pageHeight - margin * 2 - footerArea;
+  doc.rect(margin, margin, usableWidth, mainBoxHeight);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.rect(margin, margin, usableWidth, 10);
+  // Place the company logo from public/ (fallbacks supported) - top-right
+  try {
+    const logo = await loadLogoDataUrl();
+    if (logo) {
+      const logoY = margin + 1.5;
+      const logoH = 7; // compact header logo within 10mm header
+      const logoW = 32; // a bit wider to match screenshot proportion
+      const logoX = pageWidth - margin - 2 - logoW;
+      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoW, logoH);
+    }
+  } catch {}
   doc.text("PURCHASE ORDER", pageWidth / 2, margin + 7, {
     align: "center",
   });
@@ -392,7 +434,7 @@ export async function GET(
   ];
   // Compute dynamic heights for top/bottom halves and draw the box & dividers
   const colTextWidth = halfWidth - 4; // padding 2mm on each side
-  const lineHeight = 3.2;
+  const lineHeight = 3.6; // normal line height for readability
   const vendorHeight = measureWrappedLinesHeight(
     doc,
     vendorLines,
@@ -484,7 +526,7 @@ export async function GET(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const summaryText =
-    "Dear Sir/Madam :\nWe are pleased to confirm our purchase order against your Quotation. You are requested to supply the following items as per terms and\nconditions attached. Please quote purchase order no in challan,invoice and related correspondence.";
+    "Dear Sir/Madam: Kindly supply the following items as per agreed terms and conditions. Please quote this PO number in all related documents.";
   const summarySpec = [{ text: summaryText }];
   const summaryHeight = measureWrappedLinesHeight(
     doc,
@@ -501,7 +543,7 @@ export async function GET(
     lineHeight
   );
 
-  const tableStartY = summaryYStart + summaryHeight + 4;
+  const tableStartY = summaryYStart + summaryHeight + 6;
   // Build item rows matching screenshot format
   const itemRows = purchaseOrder.purchaseOrderDetails.map((detail, index) => [
     (index + 1).toString(),
@@ -553,10 +595,10 @@ export async function GET(
   ];
 
   const itemTableStyles: any = {
-    fontSize: 7,
-    cellPadding: 1.5,
+    fontSize: 7, // slightly smaller than normal, improved from 6
+    cellPadding: 0.8,
     valign: "top",
-    lineWidth: 0.4,
+    lineWidth: 0.2,
   };
 
   autoTable(doc, {
@@ -568,10 +610,11 @@ export async function GET(
     headStyles: {
       fillColor: [220, 220, 220],
       textColor: 0,
+      fontSize: 7,
     },
     margin: margin,
     columnStyles: {
-      0: { halign: "center", cellWidth: 10 },
+      0: { halign: "center", cellWidth: 9 },
       2: { halign: "center" },
       3: { halign: "center" },
       4: { halign: "right" },
@@ -703,9 +746,9 @@ export async function GET(
   ]);
 
   const chargesTableStyles: any = {
-    fontSize: 8,
-    cellPadding: 1.2,
-    lineWidth: 0.4,
+    fontSize: 8, // slightly smaller than normal
+    cellPadding: 1.0,
+    lineWidth: 0.2,
   };
 
   autoTable(doc, {
@@ -737,75 +780,107 @@ export async function GET(
 
   const afterChargesY = chargesTableEndY + 4;
 
-  let termsStartY = afterChargesY + 4;
-  doc.setFont("helvetica", "bold");
-  doc.text("Terms & Conditions", margin, termsStartY);
-  doc.setFont("helvetica", "normal");
-  const termLines = [
-    "Material shall be subject to approval for quality assurance and performance parameters as per the datasheet. Any rejections shall be on the supplier’s account.",
-    "Material Test Certificate (MTC) must be sent along with the material.",
-    "Material should be dispatched as per the given dispatch schedule.",
-    "Material should be delivered in sealed-pack condition with a minimum shelf life of 6 months.",
-    "All invoices must be sent in duplicate to the Head Office for smooth release of payment and must include the Purchase Order number.",
-  ];
-  const termsSpec = [{ text: termLines.join("\n") }];
-  const termsHeight = measureWrappedLinesHeight(
-    doc,
-    termsSpec,
-    usableWidth,
-    lineHeight
-  );
-
-  const signatureBoxHeight = 20;
+  // Start after charges table
+  let cursorY = afterChargesY + 4;
+  const signatureBoxHeight = 16; // compact signature box
   const footerSpace = 10;
-  const totalNeeded = 5 + termsHeight + 6 + signatureBoxHeight + footerSpace;
-  if (termsStartY + totalNeeded > pageHeight - margin) {
-    doc.addPage();
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.4);
-    doc.rect(margin, margin, usableWidth, pageHeight - margin * 2);
-    termsStartY = margin + 14;
-    doc.setFont("helvetica", "bold");
-    doc.text("Terms & Conditions", margin, termsStartY);
-    doc.setFont("helvetica", "normal");
+
+  // Remarks section (always show heading, content if present)
+  const padX = margin + 4; // extra left padding to avoid touching border
+  doc.setFont("helvetica", "bold");
+  doc.text("Remarks:", padX, cursorY);
+  doc.setFont("helvetica", "normal");
+  const remarksText = (
+    purchaseOrder.remarks ||
+    purchaseOrder.note ||
+    ""
+  ).trim();
+  let remarksHeight = 0;
+  if (remarksText) {
+    const maxRemarksHeight =
+      pageHeight - margin - signatureBoxHeight - footerSpace - (cursorY + 5);
+    const wrappedRemarks = doc.splitTextToSize(remarksText, usableWidth);
+    const maxRemarksLines = Math.max(
+      0,
+      Math.floor(maxRemarksHeight / lineHeight)
+    );
+    const truncatedRemarks = Array.isArray(wrappedRemarks)
+      ? (wrappedRemarks as string[]).slice(0, maxRemarksLines)
+      : [String(wrappedRemarks)].slice(0, maxRemarksLines);
+    const remarksSpec = [{ text: truncatedRemarks.join("\n") }];
+    remarksHeight = measureWrappedLinesHeight(
+      doc,
+      remarksSpec as any,
+      usableWidth,
+      lineHeight
+    );
+    drawWrappedLines(
+      doc,
+      remarksSpec as any,
+      padX,
+      cursorY + 6,
+      usableWidth - 4,
+      lineHeight
+    );
+    cursorY = cursorY + 5 + remarksHeight + 5;
+  } else {
+    cursorY = cursorY + 6; // spacing when no remarks body
   }
 
-  drawWrappedLines(
-    doc,
-    termsSpec as any,
-    margin,
-    termsStartY + 5,
-    usableWidth,
-    lineHeight
-  );
-
-  const signatureBoxY = termsStartY + 5 + termsHeight + 6;
-  doc.rect(margin, signatureBoxY, usableWidth, signatureBoxHeight);
-  doc.line(
-    margin + usableWidth / 2,
-    signatureBoxY,
-    margin + usableWidth / 2,
-    signatureBoxY + signatureBoxHeight
-  );
+  // Terms & Conditions section (always show heading; body only if present)
+  const termsText = (purchaseOrder.terms || "").trim();
   doc.setFont("helvetica", "bold");
-  doc.text("Signature", margin + 4, signatureBoxY + signatureBoxHeight - 8);
-  doc.text(
-    "Authorised Signatory",
-    margin + usableWidth / 2 + 4,
-    signatureBoxY + signatureBoxHeight - 8
-  );
+  doc.text("Terms & Conditions:", padX, cursorY);
+  doc.setFont("helvetica", "normal");
+  let termsHeight = 0;
+  if (termsText) {
+    const maxTermsHeight =
+      pageHeight - margin - signatureBoxHeight - footerSpace - (cursorY + 5);
+    const wrappedTerms = doc.splitTextToSize(termsText, usableWidth);
+    const maxLines = Math.max(0, Math.floor(maxTermsHeight / lineHeight));
+    const truncatedTerms = Array.isArray(wrappedTerms)
+      ? (wrappedTerms as string[]).slice(0, maxLines)
+      : [String(wrappedTerms)].slice(0, maxLines);
+    const termsSpec = [{ text: truncatedTerms.join("\n") }];
+    termsHeight = measureWrappedLinesHeight(
+      doc,
+      termsSpec as any,
+      usableWidth,
+      lineHeight
+    );
+    drawWrappedLines(
+      doc,
+      termsSpec as any,
+      padX,
+      cursorY + 6,
+      usableWidth - 4,
+      lineHeight
+    );
+  }
+
+  const signatureBoxY = cursorY + 6 + termsHeight + 8;
+  // Place 'Authorised Signatory' on the right side with 25% right padding
+  doc.setFont("helvetica", "bold");
+  const rightPadX = margin + usableWidth * 0.75; // start at 75% width
+  doc.text("Authorised Signatory", rightPadX, signatureBoxY + 18);
 
   const totalPages = doc.getNumberOfPages();
   doc.setFontSize(8);
-  const footerText = `Apex Constructions    Generated on ${format(
+  doc.setFont("helvetica", "bold");
+  const footerLeft = "DCTPL";
+  const footerCenter = `Generated on ${format(
     new Date(),
-    "dd-MM-yyyy HH:mm"
+    "dd/MM/yyyy hh:mm a"
   )}`;
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    const y = pageHeight - margin;
-    doc.text(footerText, margin, y);
-    doc.text(`Page ${i}/${totalPages}`, pageWidth - margin, y, {
+    // Draw a horizontal line below the outer border and place footer outside the box
+    const lineY = pageHeight - margin + 1;
+    doc.line(margin, lineY, pageWidth - margin, lineY);
+    const y = lineY + 5; // footer below the line
+    doc.text(footerLeft, padX, y);
+    doc.text(footerCenter, pageWidth / 2, y, { align: "center" });
+    doc.text(`Page ${i}/${totalPages}`, pageWidth - padX, y, {
       align: "right",
     });
   }

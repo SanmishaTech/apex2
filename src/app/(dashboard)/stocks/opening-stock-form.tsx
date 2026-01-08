@@ -285,9 +285,7 @@ export function OpeningStockForm() {
                                     .filter((it) => !usedIds.has(String(it.id)))
                                     .map((it) => ({
                                       value: String(it.id),
-                                      label: it.itemCode
-                                        ? `${it.itemCode} - ${it.item}`
-                                        : it.item,
+                                      label: it.item,
                                     }));
                                   return (
                                     <ComboboxInput

@@ -429,6 +429,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
       },
+      // {
+      //   title: "Work Done",
+      //   href: "/boqs/work-done",
+      //   icon: FileText,
+      //   permission: PERMISSIONS.READ_BOQS,
+      // },
     ],
   },
   {
@@ -497,6 +503,12 @@ export const NAV_ITEMS: NavItem[] = [
       {
         title: "Stocks",
         href: "/stocks",
+        icon: Building2,
+        permission: PERMISSIONS.VIEW_STOCKS,
+      },
+      {
+        title: "Overall Stock",
+        href: "/stocks/overall",
         icon: Building2,
         permission: PERMISSIONS.VIEW_STOCKS,
       },

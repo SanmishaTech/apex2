@@ -389,7 +389,12 @@ export function PurchaseOrderForm({
       quotationDate: formatDateField(initial?.quotationDate, today),
       transport: initial?.transport ?? "",
       note: initial?.note ?? "",
-      terms: initial?.terms ?? "",
+      terms:
+        isApprovalMode
+          ? initial?.terms ?? ""
+          : (initial?.terms && initial?.terms.trim() !== ""
+              ? initial?.terms
+              : `1) Material Shall be Subject to approval for quality assurance & performance parameters as per datasheet. Rejections, if any, shall be on your\naccount.\n2) Material Test Certificate (MTC) should be sent along with the material.\n3) Material should be dispatched as per given dispatch schedule.\n4) Material should be delivered in seal pack condition with minimum 6 months shelf life.\n5) All invoices must be sent in duplicate to the head office for smooth release of payment and must include the purchase order number.`),
       poStatus: initial?.poStatus ?? null,
       paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
       deliverySchedule: initial?.deliverySchedule ?? "",
