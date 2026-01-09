@@ -143,8 +143,6 @@ export function DailyProgressForm({
   const [boqItems, setBoqItems] = useState<any[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
   const [selectedBoqId, setSelectedBoqId] = useState<string>("");
-  const [balances, setBalances] = useState<Record<string, number>>({});
-
   const isCreate = mode === "create";
 
   const { data: sitesData } = useSWR<any>("/api/sites?perPage=100", apiGet);
@@ -255,7 +253,6 @@ export function DailyProgressForm({
       if (selectedSiteId) {
         setValue("boqId", "", { shouldValidate: true, shouldDirty: true });
         replaceDetail([]);
-        setBalances({});
         setSelectedBoqId("");
       }
       setSelectedSiteId(siteId);
@@ -266,7 +263,6 @@ export function DailyProgressForm({
     if (boqId !== selectedBoqId) {
       if (selectedBoqId) {
         replaceDetail([]);
-        setBalances({});
       }
       setSelectedBoqId(boqId);
     }
@@ -313,30 +309,6 @@ export function DailyProgressForm({
   }, [selectedBoqId]);
 
   // Removed generic reset effect; handled in selectedSite/Boq effects above
-
-  // Preload balances for prefilled edit form rows
-  useEffect(() => {
-    const sid = siteId;
-    const bid = boqId;
-    if (!sid || !bid) return;
-    (details || []).forEach((d, idx) => {
-      const id = d?.boqItemId ? String(d.boqItemId) : "";
-      if (!id) return;
-      if (balances[id] !== undefined) return; // already loaded
-      (async () => {
-        try {
-          const agg: any = await apiGet(
-            `/api/daily-progresses?metric=doneQtySum&siteId=${sid}&boqId=${bid}&boqItemId=${id}`
-          );
-          const balance = agg?.data?.balanceQty ?? agg?.balanceQty ?? 0;
-          setBalances((prev) => ({ ...prev, [id]: Number(balance) || 0 }));
-        } catch {
-          // ignore
-        }
-      })();
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [details, siteId, boqId]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -484,20 +456,6 @@ export function DailyProgressForm({
                                 selected.boqQty
                               );
                             }
-                            (async () => {
-                              try {
-                                const agg: any = await apiGet(
-                                  `/api/daily-progresses?metric=doneQtySum&siteId=${siteId}&boqId=${boqId}&boqItemId=${value}`
-                                );
-                                const balance = (agg as any)?.balanceQty ?? 0;
-                                setBalances((prev) => ({
-                                  ...prev,
-                                  [String(value)]: Number(balance) || 0,
-                                }));
-                              } catch (e) {
-                                // ignore balance fetch errors for UX
-                              }
-                            })();
                           }}
                         >
                           {boqItems.length === 0
@@ -539,12 +497,6 @@ export function DailyProgressForm({
                             {detail?.boqQty || "-"}
                           </div>
                         </div>
-                        <div className="col-span-12 md:col-span-2">
-                          <FormLabel>Balance Qty</FormLabel>
-                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {balances[String(detail?.boqItemId || "")] ?? 0}
-                          </div>
-                        </div>
                         <div className="col-span-12 md:col-span-12">
                           <FormLabel>Item</FormLabel>
                           <div className="border mt-2 px-2 py-1 rounded bg-muted">
@@ -559,34 +511,6 @@ export function DailyProgressForm({
                             label="Done Today"
                             type="number"
                             className="col-span-12 md:col-span-2"
-                            onInput={(e) => {
-                              const v = (e as React.FormEvent<HTMLInputElement>)
-                                .currentTarget.value;
-                              const entered = Number(v);
-                              const curId = String(
-                                getValues(`details.${index}.boqItemId`) || ""
-                              );
-                              const bal = Number(balances[curId] || 0);
-                              if (
-                                isFinite(entered) &&
-                                isFinite(bal) &&
-                                entered > bal
-                              ) {
-                                setError(`details.${index}.doneQty` as any, {
-                                  type: "manual",
-                                  message:
-                                    "Done qty cannot be greater than Balance qty",
-                                });
-                                setValue(
-                                  `details.${index}.doneQty` as any,
-                                  String(bal),
-                                  {
-                                    shouldValidate: true,
-                                    shouldDirty: true,
-                                  }
-                                );
-                              }
-                            }}
                           />
                         </div>
                         <div className="col-span-12 md:col-span-10">

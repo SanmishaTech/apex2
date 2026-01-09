@@ -1,10 +1,56 @@
 // /app/api/daily-progresses/route.ts
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 import { ROLES } from "@/config/roles";
+
+// Helper: sum doneQty by BOQ item id
+function sumDoneQtyByBoqItem(
+  details: { boqItemId?: number | null; doneQty?: any }[]
+) {
+  const map = new Map<number, number>();
+  for (const d of details) {
+    const id = Number(d.boqItemId);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    const qty = Number(d.doneQty || 0);
+    map.set(id, (map.get(id) || 0) + qty);
+  }
+  return map;
+}
+
+// Apply qty deltas to BOQ items (increment ordered*, recompute remaining*)
+async function applyBoqItemDeltas(
+  tx: Prisma.TransactionClient,
+  deltas: Map<number, number>
+) {
+  for (const [itemId, delta] of deltas) {
+    if (!Number.isFinite(delta) || delta === 0) continue;
+    const item = await tx.boqItem.findUnique({
+      where: { id: itemId },
+      select: { qty: true, rate: true, orderedQty: true },
+    });
+    if (!item) continue;
+
+    const qty = Number(item.qty || 0);
+    const rate = Number(item.rate || 0);
+    const currentOrdered = Number(item.orderedQty || 0);
+    const nextOrdered = Math.max(0, currentOrdered + Number(delta));
+    const remainingQty = qty - nextOrdered; // allow negative when over-ordered
+
+    await tx.boqItem.update({
+      where: { id: itemId },
+      data: {
+        orderedQty: nextOrdered as any,
+        orderedValue: (nextOrdered * rate) as any,
+        remainingQty: remainingQty as any,
+        remainingValue: (remainingQty * rate) as any, // can be negative
+      },
+    });
+  }
+}
 
 // GET /api/daily-progresses?search=&page=1&perPage=10&sort=progressDate&order=desc
 export async function GET(req: NextRequest) {
@@ -160,22 +206,30 @@ export async function POST(req: NextRequest) {
         }))
       : [];
 
-    const created = await prisma.dailyProgress.create({
-      data: {
-        siteId,
-        boqId,
-        progressDate,
-        amount: totalDoneQty, // 🔹 use total doneQty as dailyProgress.amount
-        createdById: userId, // ✅ automatic
-        updatedById: userId, // ✅ automatic
-        ...(details.length
-          ? { dailyProgressDetails: { create: details } }
-          : {}),
-        ...(hindrances.length
-          ? { dailyProgressHindrances: { create: hindrances } }
-          : {}),
-      },
-      select: { id: true, progressDate: true },
+    const created = await prisma.$transaction(async (tx) => {
+      const dp = await tx.dailyProgress.create({
+        data: {
+          siteId,
+          boqId,
+          progressDate,
+          amount: totalDoneQty, // 🔹 use total doneQty as dailyProgress.amount
+          createdById: userId, // ✅ automatic
+          updatedById: userId, // ✅ automatic
+          ...(details.length
+            ? { dailyProgressDetails: { create: details } }
+            : {}),
+          ...(hindrances.length
+            ? { dailyProgressHindrances: { create: hindrances } }
+            : {}),
+        },
+        select: { id: true, progressDate: true },
+      });
+
+      // 🔄 Increment ordered/remaining using deltas from submitted details
+      const deltas = sumDoneQtyByBoqItem(details);
+      await applyBoqItemDeltas(tx, deltas);
+
+      return dp;
     });
 
     return Success(created, 201);
@@ -210,15 +264,22 @@ export async function PATCH(req: NextRequest) {
     data.progressDate = b.progressDate
       ? new Date(String(b.progressDate))
       : null;
-  if (b.amount !== undefined) data.amount = b.amount ?? 0;
   data.updatedById = userId; // ✅ automatic on update
-  data.amount = b.details.reduce((sum, d) => sum + Number(d.doneQty || 0), 0);
+  if (Array.isArray(b.details)) {
+    data.amount = b.details.reduce((sum, d) => sum + Number(d.doneQty || 0), 0);
+  } else if (b.amount !== undefined) {
+    data.amount = b.amount ?? 0;
+  }
   if (Object.keys(data).length === 0 && !b.details && !b.hindrances)
     return Error("Nothing to update", 400);
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // 🔹 Calculate total doneQty
+      // Capture impacted BOQ items and qty deltas
+      const existingDetails = await tx.dailyProgressDetail.findMany({
+        where: { dailyProgressId: id },
+        select: { boqItemId: true, doneQty: true },
+      });
 
       const updated = await tx.dailyProgress.update({
         where: { id },
@@ -261,6 +322,26 @@ export async function PATCH(req: NextRequest) {
             },
           });
         }
+      }
+
+      // 🔄 Apply deltas: new - old to adjust ordered/remaining
+      if (Array.isArray(b.details)) {
+        const newDetails = b.details.map((d: any) => ({
+          boqItemId: d.boqItemId,
+          doneQty: d.doneQty,
+        }));
+        const prevMap = sumDoneQtyByBoqItem(existingDetails);
+        const nextMap = sumDoneQtyByBoqItem(newDetails);
+        const deltaMap = new Map<number, number>();
+
+        for (const [itemId, qty] of prevMap.entries()) {
+          deltaMap.set(itemId, (deltaMap.get(itemId) || 0) - qty);
+        }
+        for (const [itemId, qty] of nextMap.entries()) {
+          deltaMap.set(itemId, (deltaMap.get(itemId) || 0) + qty);
+        }
+
+        await applyBoqItemDeltas(tx, deltaMap);
       }
 
       return updated;

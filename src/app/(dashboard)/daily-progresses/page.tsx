@@ -247,14 +247,14 @@ export default function DailyProgressPage() {
                     />
                   </Link>
                 )}
-                {can(PERMISSIONS.DELETE_DAILY_PROGRESSES) && (
+                {/* {can(PERMISSIONS.DELETE_DAILY_PROGRESSES) && (
                   <DeleteButton
                     onDelete={() => handleDelete(row.id)}
                     itemLabel="Daily Progress"
                     title="Delete Daily Progress?"
                     description={`This will permanently remove Daily Progress record #${row.id}. This action cannot be undone.`}
                   />
-                )}
+                )} */}
               </div>
             );
           }}
