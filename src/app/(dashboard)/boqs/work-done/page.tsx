@@ -1,19 +1,18 @@
 "use client";
 
 import useSWR from "swr";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AppCard } from "@/components/common";
 import { DataTable, Column } from "@/components/common/data-table";
 import type { SortState } from "@/components/common/data-table";
 import { Pagination } from "@/components/common/pagination";
-import { FilterBar } from "@/components/common/filter-bar";
-import { NonFormTextInput } from "@/components/common/non-form-text-input";
-import { AppSelect } from "@/components/common/app-select";
 import { useProtectPage } from "@/hooks/use-protect-page";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { apiGet } from "@/lib/api-client";
+import { AppCombobox } from "@/components/common/app-combobox";
 
 interface Row {
+  srNo?: number;
   id: number;
   boqId: number;
   boqNo: string;
@@ -29,83 +28,83 @@ interface Row {
   amount: number;
   orderedAmount: number;
   remainingAmount: number;
+  orderedPct?: number;
+  remainingPct?: number;
 }
 
 interface ListResponse {
   data: Row[];
-  meta?: { page: number; perPage: number; totalPages: number; total: number };
+  totals?: {
+    amount: number;
+    orderedAmount: number;
+    remainingAmount: number;
+    orderedPctTotal: number;
+    remainingPctTotal: number;
+  };
 }
 
 export default function WorkDoneListPage() {
   useProtectPage();
 
   const [qp, setQp] = useQueryParamsState({
-    page: 1,
-    perPage: 10,
-    search: "",
-    siteId: "",
-    sort: "boqNo",
-    order: "asc",
+    boqId: "",
   });
 
-  const { page, perPage, search, siteId, sort, order } = qp as unknown as {
-    page: number;
-    perPage: number;
-    search: string;
-    siteId: string;
-    sort: string;
-    order: "asc" | "desc";
+  const { boqId } = qp as unknown as {
+    boqId: string;
   };
 
-  const [searchDraft, setSearchDraft] = useState(search);
-  const [siteDraft, setSiteDraft] = useState(siteId);
+  const [selectedBoqId, setSelectedBoqId] = useState<string>(boqId || "");
 
-  useEffect(() => setSearchDraft(search), [search]);
-  useEffect(() => setSiteDraft(siteId), [siteId]);
-
-  const filtersDirty = searchDraft !== search || siteDraft !== siteId;
-
-  function applyFilters() {
-    setQp({ page: 1, search: searchDraft.trim(), siteId: siteDraft });
-  }
-  function clearFilters() {
-    setSearchDraft("");
-    setSiteDraft("");
-    setQp({ page: 1, search: "", siteId: "" });
-  }
+  useEffect(() => {
+    setSelectedBoqId(boqId || "");
+  }, [boqId]);
 
   const query = useMemo(() => {
+    if (!selectedBoqId) return null;
     const sp = new URLSearchParams();
-    sp.set("page", String(page));
-    sp.set("perPage", String(perPage));
-    sp.set("sort", sort);
-    sp.set("order", order);
-    if (search) sp.set("search", search);
-    if (siteId) sp.set("siteId", siteId);
+    sp.set("boqId", selectedBoqId);
     return `/api/boqs/work-done?${sp.toString()}`;
-  }, [page, perPage, search, siteId, sort, order]);
+  }, [selectedBoqId]);
 
-  const { data, isLoading } = useSWR<ListResponse>(query, apiGet);
-  const { data: sitesOptions } = useSWR<any>("/api/sites/options", apiGet);
+  const { data, isLoading } = useSWR<ListResponse>(query, apiGet, {
+    revalidateOnFocus: false,
+    revalidateIfStale: false,
+    revalidateOnReconnect: false,
+  });
+  const { data: boqsOptions } = useSWR<any>("/api/boqs?perPage=100", apiGet);
+
+  const tableData: Row[] = selectedBoqId
+    ? (data?.data || []).map((row, idx) => ({ ...row, srNo: idx + 1 }))
+    : [];
+
+  const fmt = (num: number, suffix = "") =>
+    `${Number(num || 0).toFixed(2)}${suffix}`;
+  const highlight = (num: number, suffix = "") => {
+    const isNeg = Number(num) < 0;
+    const content = fmt(num, suffix);
+    if (!isNeg) return content;
+    return (
+      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded">
+        {content}
+      </span>
+    );
+  };
 
   const columns: Column<Row>[] = [
-    { key: "boqNo", header: "BOQ Code", accessor: (r) => r.boqNo, sortable: true },
-    { key: "description", header: "BOQ Item Description", accessor: (r) => r.description, sortable: true },
-    { key: "site", header: "Site", accessor: (r) => r.site || "-", sortable: true },
-    { key: "qty", header: "BOQ Qty", accessor: (r) => Number(r.qty || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "unit", header: "Unit", accessor: (r) => r.unit || "-", sortable: true },
-    { key: "orderedQty", header: "Ordered Qty", accessor: (r) => Number(r.orderedQty || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "remainingQty", header: "Remaining Qty", accessor: (r) => Number(r.remainingQty || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "rate", header: "Rate", accessor: (r) => Number(r.rate || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "amount", header: "BOQ Amount", accessor: (r) => Number(r.amount || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "orderedAmount", header: "Ordered Amount", accessor: (r) => Number(r.orderedAmount || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
-    { key: "remainingAmount", header: "Remaining Amount", accessor: (r) => Number(r.remainingAmount || 0).toFixed(2), sortable: true, className: "text-right", cellClassName: "text-right" },
+    { key: "srNo", header: "Sr. No.", accessor: (r) => r.srNo ?? "" },
+    { key: "description", header: "BOQ Item Description", accessor: (r) => r.description, sortable: false },
+    { key: "qty", header: "BOQ Qty", accessor: (r) => highlight(r.qty), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "unit", header: "Unit", accessor: (r) => r.unit || "-", sortable: false },
+    { key: "orderedQty", header: "Ordered Qty", accessor: (r) => highlight(r.orderedQty), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "remainingQty", header: "Remaining Qty", accessor: (r) => highlight(r.remainingQty), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "rate", header: "Rate", accessor: (r) => fmt(r.rate), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "amount", header: "BOQ Amount", accessor: (r) => highlight(r.amount), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "orderedAmount", header: "Ordered Amount", accessor: (r) => highlight(r.orderedAmount), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "remainingAmount", header: "Remaining Amount", accessor: (r) => highlight(r.remainingAmount), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "orderedPct", header: "Ordered %", accessor: (r) => highlight(r.orderedPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "remainingPct", header: "Remaining %", accessor: (r) => highlight(r.remainingPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
   ];
-
-  function onSortChange(s: SortState) {
-    const newOrder = sort === s.field && order === "asc" ? "desc" : "asc";
-    setQp({ sort: s.field, order: newOrder });
-  }
 
   return (
     <AppCard>
@@ -116,62 +115,80 @@ export default function WorkDoneListPage() {
         </div>
       </AppCard.Header>
       <AppCard.Content>
-        <FilterBar title="Search & Filter">
-          <NonFormTextInput
-            aria-label="Search work done"
-            placeholder="Search by BOQ code or item..."
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-            containerClassName="w-full"
-          />
-          <AppSelect
-            value={siteDraft || "__all"}
-            onValueChange={(v) => setSiteDraft(v === "__all" ? "" : v)}
-            placeholder="Site"
-          >
-            <AppSelect.Item value="__all">All Sites</AppSelect.Item>
-            {(sitesOptions?.data || []).map((s: any) => (
-              <AppSelect.Item key={s.id} value={String(s.id)}>
-                {s.site}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
-          <button
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90 h-9 px-4"
-            onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft && !siteDraft}
-          >
-            Filter
-          </button>
-          {(search || siteId) && (
-            <button
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:opacity-90 h-9 px-4"
-              onClick={clearFilters}
-            >
-              Reset
-            </button>
-          )}
-        </FilterBar>
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-semibold">Search</div>
+              <div className="text-xs text-muted-foreground">
+                Select a BOQ to view its work done summary.
+              </div>
+              {selectedBoqId && (
+                <div className="text-xs text-muted-foreground">
+                  Site:{" "}
+                  {
+                    (boqsOptions?.data || []).find(
+                      (b: any) => String(b.id) === selectedBoqId
+                    )?.site?.site ?? "-"
+                  }
+                </div>
+              )}
+            </div>
+            <div className="w-72">
+              <AppCombobox
+                value={selectedBoqId}
+                onValueChange={(val) => {
+                  setSelectedBoqId(val);
+                  setQp({ boqId: val });
+                }}
+                options={(boqsOptions?.data || []).map((b: any) => ({
+                  value: String(b.id),
+                  label: b.boqNo || b.workName || `BOQ #${b.id}`,
+                }))}
+                placeholder="Select BOQ"
+                searchPlaceholder="Search BOQ..."
+                emptyText="No BOQ found"
+              />
+            </div>
+          </div>
+        </div>
 
         <DataTable
           columns={columns}
-          data={data?.data || []}
-          loading={isLoading}
-          sort={{ field: sort, order }}
-          onSortChange={(s) => onSortChange(s)}
+          data={tableData}
+          loading={!!selectedBoqId && isLoading}
+          minTableWidth={1400}
         />
       </AppCard.Content>
-      <AppCard.Footer className="justify-end">
-        <Pagination
-          page={data?.meta?.page || page}
-          totalPages={data?.meta?.totalPages || 1}
-          total={data?.meta?.total}
-          perPage={data?.meta?.perPage || perPage}
-          onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
-          onPageChange={(p) => setQp({ page: p })}
-          showPageNumbers
-          disabled={isLoading}
-        />
+      <AppCard.Footer className="justify-between items-center flex-wrap gap-4">
+        <div className="text-sm text-muted-foreground">
+          {selectedBoqId
+            ? "Showing all items for selected BOQ."
+            : "Select a BOQ to view work done."}
+        </div>
+        {selectedBoqId && (
+          <div className="flex flex-wrap gap-4 text-sm">
+            <div>
+              <span className="font-semibold">Total BOQ Amount: </span>
+              {Number(data?.totals?.amount || 0).toFixed(2)}
+            </div>
+            <div>
+              <span className="font-semibold">Ordered Amount: </span>
+              {Number(data?.totals?.orderedAmount || 0).toFixed(2)}
+            </div>
+            <div>
+              <span className="font-semibold">Remaining Amount: </span>
+              {Number(data?.totals?.remainingAmount || 0).toFixed(2)}
+            </div>
+            <div>
+              <span className="font-semibold">Ordered % (Total): </span>
+              {Number(data?.totals?.orderedPctTotal || 0).toFixed(2)}%
+            </div>
+            <div>
+              <span className="font-semibold">Remaining % (Total): </span>
+              {Number(data?.totals?.remainingPctTotal || 0).toFixed(2)}%
+            </div>
+          </div>
+        )}
       </AppCard.Footer>
     </AppCard>
   );

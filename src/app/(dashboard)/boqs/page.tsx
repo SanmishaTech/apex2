@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { useMemo, useState, useEffect } from 'react';
-import { apiGet, apiDelete } from '@/lib/api-client';
+import { apiGet } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { Pagination } from '@/components/common/pagination';
 import { NonFormTextInput } from '@/components/common/non-form-text-input';
@@ -10,7 +10,6 @@ import { FilterBar } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
@@ -172,16 +171,6 @@ export default function BoqsPage() {
 
   const sortState: SortState = { field: sort, order };
 
-  async function handleDelete(id: number) {
-    try {
-      await apiDelete(`/api/boqs/${id}`);
-      toast.success('BOQ deleted');
-      await mutate();
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }
-
   return (
     <AppCard>
       <AppCard.Header>
@@ -240,14 +229,6 @@ export default function BoqsPage() {
                   <Link href={`/boqs/${row.id}/edit`}>
                     <EditButton tooltip='Edit BOQ' aria-label='Edit BOQ' />
                   </Link>
-                )}
-                {can(PERMISSIONS.DELETE_BOQS) && (
-                  <DeleteButton
-                    onDelete={() => handleDelete(row.id)}
-                    itemLabel='BOQ'
-                    title='Delete BOQ?'
-                    description={`This will permanently remove BOQ "${row.boqNo || row.id}". This action cannot be undone.`}
-                  />
                 )}
               </div>
             );

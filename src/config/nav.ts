@@ -429,12 +429,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
       },
-      // {
-      //   title: "Work Done",
-      //   href: "/boqs/work-done",
-      //   icon: FileText,
-      //   permission: PERMISSIONS.READ_BOQS,
-      // },
+      {
+        title: "Work Done",
+        href: "/boqs/work-done",
+        icon: FileText,
+        permission: PERMISSIONS.READ_BOQS,
+      },
     ],
   },
   {

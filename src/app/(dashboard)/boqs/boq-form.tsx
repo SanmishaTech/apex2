@@ -92,32 +92,20 @@ const inputSchema = z.object({
   performanceSecurityPeriod: z.string().optional(),
   items: z
     .array(
-      z
-        .object({
-          id: z.string().optional(),
-          activityId: z.string().optional(),
-          clientSrNo: z.string().optional(),
-          item: z.string().optional(),
-          unitId: z.string().optional(),
-          qty: z.string().optional(),
-          rate: z.string().optional(),
-          orderedQty: z.string().optional(),
-          orderedValue: z.string().optional(),
-          remainingQty: z.string().optional(),
-          remainingValue: z.string().optional(),
-          isGroup: z.boolean().optional().default(false),
-        })
-        .superRefine((val, ctx) => {
-          const qty = Number(val.qty ?? 0);
-          const ordered = Number(val.orderedQty ?? 0);
-          if (isFinite(qty) && isFinite(ordered) && ordered > qty) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: "Ordered qty cannot be greater than Qty",
-              path: ["orderedQty"],
-            });
-          }
-        })
+      z.object({
+        id: z.string().optional(),
+        activityId: z.string().optional(),
+        clientSrNo: z.string().optional(),
+        item: z.string().optional(),
+        unitId: z.string().optional(),
+        qty: z.string().optional(),
+        rate: z.string().optional(),
+        orderedQty: z.string().optional(),
+        orderedValue: z.string().optional(),
+        remainingQty: z.string().optional(),
+        remainingValue: z.string().optional(),
+        isGroup: z.boolean().optional().default(false),
+      })
     )
     .optional()
     .default([]),

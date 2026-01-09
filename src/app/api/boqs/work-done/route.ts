@@ -5,29 +5,28 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { ROLES } from "@/config/roles";
 
 // GET /api/boqs/work-done
-// Returns paginated list of BOQ items with ordered/remaining fields
+// Returns all BOQ items with ordered/remaining fields for a BOQ (no pagination)
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
   try {
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const perPage = Math.max(
-      1,
-      Math.min(100, parseInt(searchParams.get("perPage") || "10", 10))
-    );
+    const boqIdParam = searchParams.get("boqId");
     const search = (searchParams.get("search") || "").trim();
     const siteIdParam = searchParams.get("siteId");
-    const sort = (searchParams.get("sort") || "boqNo").toString();
-    const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
-      | "asc"
-      | "desc";
-
     const siteId = siteIdParam ? Number(siteIdParam) : undefined;
+    const boqId = boqIdParam ? Number(boqIdParam) : undefined;
+
+    if (!Number.isFinite(boqId)) {
+      return ApiError("boqId is required", 400);
+    }
 
     // Build where clause on BoqItem with relations
     const where: any = {};
+    if (Number.isFinite(boqId as number)) {
+      where.boqId = boqId;
+    }
 
     // Restrict to assigned sites for non-admin users
     if ((auth as any).user?.role !== ROLES.ADMIN) {
@@ -59,24 +58,6 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Sorting mapping
-    const orderBy: any[] = [];
-    if (sort === "boqNo") orderBy.push({ boq: { boqNo: order } });
-    else if (sort === "description") orderBy.push({ item: order });
-    else if (sort === "qty") orderBy.push({ qty: order });
-    else if (sort === "unit") orderBy.push({ unit: { unitName: order } });
-    else if (sort === "orderedQty") orderBy.push({ orderedQty: order });
-    else if (sort === "remainingQty") orderBy.push({ remainingQty: order });
-    else if (sort === "rate") orderBy.push({ rate: order });
-    else if (sort === "amount") orderBy.push({ amount: order });
-    else if (sort === "orderedAmount") orderBy.push({ orderedValue: order });
-    else if (sort === "remainingAmount")
-      orderBy.push({ remainingValue: order });
-    else if (sort === "site") orderBy.push({ boq: { site: { site: order } } });
-    else orderBy.push({ boq: { boqNo: "asc" } });
-
-    const total = await prisma.boqItem.count({ where });
-
     const rows = await prisma.boqItem.findMany({
       where,
       select: {
@@ -100,11 +81,12 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: orderBy.length ? orderBy : undefined,
-      skip: (page - 1) * perPage,
-      take: perPage,
+      orderBy: [{ id: "asc" }],
     });
 
+    let totalAmount = 0;
+    let totalOrderedAmount = 0;
+    let totalRemainingAmount = 0;
     const data = rows.map((r) => ({
       id: r.id,
       boqId: r.boqId,
@@ -121,15 +103,34 @@ export async function GET(req: NextRequest) {
       amount: Number(r.amount || 0),
       orderedAmount: Number(r.orderedValue || 0),
       remainingAmount: Number(r.remainingValue || 0),
+      orderedPct:
+        Number(r.qty || 0) === 0
+          ? 0
+          : (Number(r.orderedQty || 0) / Number(r.qty || 0)) * 100,
+      remainingPct:
+        Number(r.qty || 0) === 0
+          ? 0
+          : (Number(r.remainingQty || 0) / Number(r.qty || 0)) * 100,
     }));
+
+    data.forEach((d) => {
+      totalAmount += d.amount;
+      totalOrderedAmount += d.orderedAmount;
+      totalRemainingAmount += d.remainingAmount;
+    });
+    const orderedPctTotal =
+      totalAmount === 0 ? 0 : (totalOrderedAmount / totalAmount) * 100;
+    const remainingPctTotal =
+      totalAmount === 0 ? 0 : (totalRemainingAmount / totalAmount) * 100;
 
     return Success({
       data,
-      meta: {
-        page,
-        perPage,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / perPage)),
+      totals: {
+        amount: totalAmount,
+        orderedAmount: totalOrderedAmount,
+        remainingAmount: totalRemainingAmount,
+        orderedPctTotal,
+        remainingPctTotal,
       },
     });
   } catch (error) {
