@@ -17,6 +17,7 @@ type FormValues = {
   toDate: string;
   siteId: string;
   boqId: string;
+  format: "pdf" | "excel";
 };
 
 export default function DailyCashbookReportPage() {
@@ -31,7 +32,7 @@ export default function DailyCashbookReportPage() {
 
   const form = useForm<FormValues>({
     mode: "onChange",
-    defaultValues: { fromDate: "", toDate: "", siteId: "", boqId: "" },
+    defaultValues: { fromDate: "", toDate: "", siteId: "", boqId: "", format: "pdf" },
   });
   const { control, getValues, watch } = form;
 
@@ -58,18 +59,22 @@ export default function DailyCashbookReportPage() {
     () =>
       (boqsData?.data || []).map((b) => ({
         value: String(b.id),
-        label: `${b.boqNo}${b.workName ? " - " + b.workName : ""}`,
+        label: `${b.boqNo ?? ""}`,
       })),
     [boqsData]
   );
 
   function handleGenerate() {
-    const { fromDate, toDate, siteId, boqId } = getValues();
+    const { fromDate, toDate, siteId, boqId, format } = getValues();
     if (!fromDate || !toDate || !siteId || !boqId) {
       alert("All fields are mandatory");
       return;
     }
-    const url = `/api/reports/daily-cashbook-pdf?fromDate=${encodeURIComponent(
+    const base =
+      format === "excel"
+        ? "/api/reports/daily-cashbook-excel"
+        : "/api/reports/daily-cashbook-pdf";
+    const url = `${base}?fromDate=${encodeURIComponent(
       fromDate
     )}&toDate=${encodeURIComponent(toDate)}&siteId=${siteId}&boqId=${boqId}`;
     window.open(url, "_blank");
@@ -81,7 +86,7 @@ export default function DailyCashbookReportPage() {
         <AppCard.Header>
           <AppCard.Title>Daily Cashbook Report</AppCard.Title>
           <AppCard.Description>
-            Select date range, site and BOQ. Generates a PDF.
+            Select date range, site and BOQ. Generate PDF or Excel.
           </AppCard.Description>
         </AppCard.Header>
         <AppCard.Content>
@@ -127,11 +132,21 @@ export default function DailyCashbookReportPage() {
                 </AppSelect.Item>
               ))}
             </AppSelect>
+            <AppSelect
+              control={control}
+              name="format"
+              label="Format"
+              placeholder="Select format"
+              required
+            >
+              <AppSelect.Item value="pdf">PDF</AppSelect.Item>
+              <AppSelect.Item value="excel">Excel</AppSelect.Item>
+            </AppSelect>
           </div>
         </AppCard.Content>
         <AppCard.Footer className="justify-end">
           <AppButton type="button" onClick={handleGenerate}>
-            Generate PDF
+            Generate
           </AppButton>
         </AppCard.Footer>
       </AppCard>

@@ -585,14 +585,14 @@ export default function PurchaseOrdersPage() {
                 // Always show Print
                 return (
                   <div className="flex gap-2">
-                    {/* <AppButton
+                    <AppButton
                       size="sm"
                       variant="outline"
                       iconName="Printer"
                       onClick={() => handlePrint(po)}
                     >
                       Print
-                    </AppButton> */}
+                    </AppButton>
                     {canAnyAction && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

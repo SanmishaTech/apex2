@@ -1157,7 +1157,7 @@ export function PurchaseOrderForm({
   // Format number input
   return (
     <Form {...form}>
-      <AppCard className="max-w-6xl mx-auto">
+      <AppCard className="w-auto mx-auto">
         <AppCard.Header>
           <AppCard.Title>
             {isCreate

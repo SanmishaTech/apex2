@@ -39,61 +39,51 @@ export async function GET(req: NextRequest) {
     new Date(toDateStr).getTime() + 24 * 60 * 60 * 1000
   );
 
-  // Fetch vouchers in range
-  const vouchers = await prisma.cashbook.findMany({
+  const formatDdMmYyyy = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+  const formatDdMmYyyyTime = (d: Date) => {
+    const ddmm = formatDdMmYyyy(d);
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const seconds = String(d.getSeconds()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    const hh = String(hours).padStart(2, "0");
+    return `${ddmm} ${hh}:${minutes}:${seconds}${ampm}`;
+  };
+
+  // Fetch vouchers with details in range
+  const cashbooks = await prisma.cashbook.findMany({
     where: {
       voucherDate: { gte: fromDate, lt: toDateExclusive },
       siteId: Number(siteId),
       boqId: Number(boqId),
     },
-    select: { id: true, voucherDate: true },
+    select: {
+      id: true,
+      voucherNo: true,
+      voucherDate: true,
+      createdAt: true,
+      cashbookDetails: {
+        select: {
+          cashbookHead: { select: { cashbookHeadName: true } },
+          description: true,
+          openingBalance: true,
+          closingBalance: true,
+          amountReceived: true,
+          amountPaid: true,
+          documentUrl: true,
+        },
+        orderBy: { id: "asc" },
+      },
+    },
     orderBy: { voucherDate: "asc" },
   });
-  const voucherIds = vouchers.map((v) => v.id);
-
-  // Group details by day
-  let rows: { date: string; received: number; paid: number }[] = [];
-  if (voucherIds.length) {
-    // Get sums per voucher first
-    const details = await prisma.cashbookDetail.groupBy({
-      by: ["cashbookId"],
-      where: { cashbookId: { in: voucherIds } },
-      _sum: { amountReceived: true, amountPaid: true },
-    });
-    const sumsByVoucher = new Map<number, { received: number; paid: number }>();
-    for (const d of details) {
-      sumsByVoucher.set(d.cashbookId, {
-        received: Number(d._sum.amountReceived || 0),
-        paid: Number(d._sum.amountPaid || 0),
-      });
-    }
-    // Aggregate per day
-    const map = new Map<string, { received: number; paid: number }>();
-    for (const v of vouchers) {
-      const key = new Date(v.voucherDate).toLocaleDateString("en-GB");
-      const sums = sumsByVoucher.get(v.id) || { received: 0, paid: 0 };
-      const cur = map.get(key) || { received: 0, paid: 0 };
-      cur.received += sums.received;
-      cur.paid += sums.paid;
-      map.set(key, cur);
-    }
-    rows = Array.from(map.entries())
-      .sort((a, b) => {
-        const [da, db] = [a[0].split("/"), b[0].split("/")];
-        const ta = new Date(
-          Number(da[2]),
-          Number(da[1]) - 1,
-          Number(da[0])
-        ).getTime();
-        const tb = new Date(
-          Number(db[2]),
-          Number(db[1]) - 1,
-          Number(db[0])
-        ).getTime();
-        return ta - tb;
-      })
-      .map(([date, s]) => ({ date, received: s.received, paid: s.paid }));
-  }
 
   // Fetch header meta
   const siteMeta = await prisma.site.findUnique({
@@ -123,12 +113,8 @@ export async function GET(req: NextRequest) {
   // Filters
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  const fromText = `From Date: ${new Date(fromDate).toLocaleDateString(
-    "en-GB"
-  )}`;
-  const toText = `To Date: ${new Date(
-    new Date(toDateExclusive).getTime() - 1
-  ).toLocaleDateString("en-GB")}`;
+  const fromText = `From Date: ${formatDdMmYyyy(fromDate)}`;
+  const toText = `To Date: ${formatDdMmYyyy(new Date(toDateStr))}`;
   const siteText = `Site: ${siteMeta?.site ?? "-"}`;
   const boqText = `Boq No: ${boqMeta?.boqNo ?? "-"}`;
   let y = 48;
@@ -140,28 +126,65 @@ export async function GET(req: NextRequest) {
   y += 5;
   doc.text(boqText, 16, y);
 
-  // Build table
+  // Build detail rows
+  const body: any[][] = [];
   let totalReceived = 0;
   let totalPaid = 0;
-  const body = rows.map((r) => {
-    totalReceived += r.received;
-    totalPaid += r.paid;
-    return [r.date, `Rs.${r.received.toFixed(2)}`, `Rs.${r.paid.toFixed(2)}`];
-  });
+  for (const cb of cashbooks) {
+    const createdAt = new Date(cb.createdAt || cb.voucherDate || fromDate);
+    const createdAtStr = formatDdMmYyyy(createdAt);
+    const voucherDateStr = cb.voucherDate
+      ? formatDdMmYyyy(new Date(cb.voucherDate))
+      : "-";
+    const voucherNo = cb.voucherNo || "-";
+    for (const det of cb.cashbookDetails || []) {
+      const head = det.cashbookHead?.cashbookHeadName || "-";
+      const desc = det.description || "";
+      const supportingBill = det.documentUrl ? "Yes" : "No";
+      const ob = Number(det.openingBalance ?? 0);
+      const ar = Number(det.amountReceived ?? 0);
+      const ap = Number(det.amountPaid ?? 0);
+      const cbalance = Number(det.closingBalance ?? ob + ar - ap);
+      totalReceived += ar;
+      totalPaid += ap;
+      body.push([
+        createdAtStr,
+        voucherDateStr,
+        head,
+        desc,
+        supportingBill,
+        voucherNo,
+        ob.toFixed(2),
+        ar.toFixed(2),
+        ap.toFixed(2),
+        cbalance.toFixed(2),
+      ]);
+    }
+  }
 
   autoTable(doc, {
     startY: y + 10,
-    head: [["Date", "Received", "Expense"]],
+    head: [
+      [
+        "Created At",
+        "Voucher Date",
+        "Cashbook Head",
+        "Description",
+        "Supporting Bill",
+        "Voucher Number",
+        "Opening Balance",
+        "Amount Received",
+        "Amount Paid",
+        "Closing Balance",
+      ],
+    ],
     body,
     foot: [
       [
-        {
-          content: "Total",
-          colSpan: 1,
-          styles: { fontStyle: "bold", halign: "right" },
-        },
-        `Rs.${totalReceived.toFixed(2)}`,
-        `Rs.${totalPaid.toFixed(2)}`,
+        { content: "Total", colSpan: 7, styles: { fontStyle: "bold", halign: "right" } },
+        totalReceived.toFixed(2),
+        totalPaid.toFixed(2),
+        "",
       ],
     ],
     showFoot: "lastPage",
@@ -169,25 +192,15 @@ export async function GET(req: NextRequest) {
     headStyles: { fillColor: [200, 200, 200], textColor: 0, halign: "center" },
     theme: "grid",
     columnStyles: {
-      1: { halign: "right" },
-      2: { halign: "right" },
+      6: { halign: "right" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right" },
     },
   });
 
   // Footer with date/time and pages
-  const format12h = (d: Date) => {
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm2 = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy2 = d.getFullYear();
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    if (hours === 0) hours = 12;
-    const hh = String(hours).padStart(2, "0");
-    return `${dd}/${mm2}/${yyyy2} ${hh}:${minutes} ${ampm}`;
-  };
-  const nowStr = format12h(new Date());
+  const nowStr = formatDdMmYyyyTime(new Date());
   const pageCount = (doc as any).getNumberOfPages();
   doc.setFontSize(9);
   for (let i = 1; i <= pageCount; i++) {

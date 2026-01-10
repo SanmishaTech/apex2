@@ -94,6 +94,20 @@ function drawWrappedLines(
   return currentY;
 }
 
+function ensureSpace(
+  doc: jsPDF,
+  currentY: number,
+  neededHeight: number,
+  margin: number
+) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (currentY + neededHeight > pageHeight - margin - 10) {
+    doc.addPage();
+    return margin;
+  }
+  return currentY;
+}
+
 // Try to load a logo image from public/ with reasonable fallbacks
 async function loadLogoDataUrl(): Promise<{
   dataUrl: string;
@@ -301,43 +315,51 @@ export async function GET(
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 8; // tighter margins to help fit one page
   const usableWidth = pageWidth - margin * 2;
-  const footerArea = 12; // reserve space below main border for footer outside
-
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.4);
-  const mainBoxHeight = pageHeight - margin * 2 - footerArea;
-  doc.rect(margin, margin, usableWidth, mainBoxHeight);
+  const approval = (purchaseOrder.approvalStatus || "").toLowerCase();
+  const watermarkText = approval.includes("draft")
+    ? "DRAFT"
+    : approval.includes("level 1")
+    ? "LEVEL 1 APPROVED"
+    : null;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.rect(margin, margin, usableWidth, 10);
-  // Place the company logo from public/ (fallbacks supported) - top-right
+  // Place the company logo from public/ (fallbacks supported) - top-right with larger sizing
+  const logoHeight = 22;
+  const logoWidth = 78;
+  const logoY = margin;
   try {
     const logo = await loadLogoDataUrl();
     if (logo) {
-      const logoY = margin + 1.5;
-      const logoH = 7; // compact header logo within 10mm header
-      const logoW = 32; // a bit wider to match screenshot proportion
-      const logoX = pageWidth - margin - 2 - logoW;
-      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoW, logoH);
+      const logoX = pageWidth - margin - logoWidth;
+      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
     }
   } catch {}
-  doc.text("PURCHASE ORDER", pageWidth / 2, margin + 7, {
+
+  const headerY = logoY + logoHeight + 4;
+  const headerHeight = 12;
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.4);
+  doc.rect(margin, headerY, usableWidth, headerHeight);
+  doc.text("PURCHASE ORDER", pageWidth / 2, headerY + headerHeight / 2 + 2, {
     align: "center",
   });
 
-  doc.saveGraphicsState();
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(60);
-  doc.setTextColor(230);
-  doc.text(purchaseOrder.approvalStatus ?? "DRAFT", pageWidth / 2, 160, {
-    align: "center",
-    angle: -40,
-  });
-  doc.restoreGraphicsState();
-  doc.setTextColor(0);
+  // Watermark based on approval status
+  if (watermarkText) {
+    doc.saveGraphicsState();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(58);
+    doc.setTextColor(230);
+    doc.text(watermarkText, pageWidth / 2, pageHeight * 0.55, {
+      align: "center",
+      angle: -40,
+    });
+    doc.restoreGraphicsState();
+    doc.setTextColor(0);
+  }
 
-  const topBoxY = margin + 14;
+  const topBoxY = headerY + headerHeight + 6;
   const halfWidth = usableWidth / 2;
   const topBoxX = margin;
 
@@ -595,7 +617,7 @@ export async function GET(
   ];
 
   const itemTableStyles: any = {
-    fontSize: 7, // slightly smaller than normal, improved from 6
+    fontSize: 9, // normal readable size
     cellPadding: 0.8,
     valign: "top",
     lineWidth: 0.2,
@@ -610,7 +632,7 @@ export async function GET(
     headStyles: {
       fillColor: [220, 220, 220],
       textColor: 0,
-      fontSize: 7,
+      fontSize: 9,
     },
     margin: margin,
     columnStyles: {
@@ -746,7 +768,7 @@ export async function GET(
   ]);
 
   const chargesTableStyles: any = {
-    fontSize: 8, // slightly smaller than normal
+    fontSize: 9, // normal readable size to match items table
     cellPadding: 1.0,
     lineWidth: 0.2,
   };
@@ -784,82 +806,67 @@ export async function GET(
   let cursorY = afterChargesY + 4;
   const signatureBoxHeight = 16; // compact signature box
   const footerSpace = 10;
-
-  // Remarks section (always show heading, content if present)
   const padX = margin + 4; // extra left padding to avoid touching border
-  doc.setFont("helvetica", "bold");
-  doc.text("Remarks:", padX, cursorY);
-  doc.setFont("helvetica", "normal");
-  const remarksText = (
+
+  // Remarks section (always show heading; render "-" if empty) with pagination
+  const remarksTextRaw = (
     purchaseOrder.remarks ||
     purchaseOrder.note ||
     ""
   ).trim();
-  let remarksHeight = 0;
-  if (remarksText) {
-    const maxRemarksHeight =
-      pageHeight - margin - signatureBoxHeight - footerSpace - (cursorY + 5);
-    const wrappedRemarks = doc.splitTextToSize(remarksText, usableWidth);
-    const maxRemarksLines = Math.max(
-      0,
-      Math.floor(maxRemarksHeight / lineHeight)
-    );
-    const truncatedRemarks = Array.isArray(wrappedRemarks)
-      ? (wrappedRemarks as string[]).slice(0, maxRemarksLines)
-      : [String(wrappedRemarks)].slice(0, maxRemarksLines);
-    const remarksSpec = [{ text: truncatedRemarks.join("\n") }];
-    remarksHeight = measureWrappedLinesHeight(
-      doc,
-      remarksSpec as any,
-      usableWidth,
-      lineHeight
-    );
-    drawWrappedLines(
-      doc,
-      remarksSpec as any,
-      padX,
-      cursorY + 6,
-      usableWidth - 4,
-      lineHeight
-    );
-    cursorY = cursorY + 5 + remarksHeight + 5;
-  } else {
-    cursorY = cursorY + 6; // spacing when no remarks body
-  }
+  const remarksText = remarksTextRaw || "-";
+  doc.setFont("helvetica", "bold");
+  const remarksHeadingHeight = lineHeight + 2;
+  const remarksLines = doc.splitTextToSize(remarksText, usableWidth);
+  const remarksHeight =
+    (Array.isArray(remarksLines) ? remarksLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    remarksHeadingHeight + remarksHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text("Remarks:", padX, cursorY);
+  doc.setFont("helvetica", "normal");
+  const remarksBlock = Array.isArray(remarksLines)
+    ? remarksLines.map((t) => ({ text: t }))
+    : [{ text: String(remarksLines) }];
+  drawWrappedLines(doc, remarksBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+  cursorY = cursorY + 5 + remarksHeight + 5;
 
-  // Terms & Conditions section (always show heading; body only if present)
+  // Terms & Conditions section (always show heading; body only if present) with pagination
   const termsText = (purchaseOrder.terms || "").trim();
   doc.setFont("helvetica", "bold");
-  doc.text("Terms & Conditions:", padX, cursorY);
-  doc.setFont("helvetica", "normal");
-  let termsHeight = 0;
+  const termsHeadingHeight = lineHeight + 2;
+  const termsLines = termsText
+    ? doc.splitTextToSize(termsText, usableWidth)
+    : [];
+  const termsHeight =
+    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
   if (termsText) {
-    const maxTermsHeight =
-      pageHeight - margin - signatureBoxHeight - footerSpace - (cursorY + 5);
-    const wrappedTerms = doc.splitTextToSize(termsText, usableWidth);
-    const maxLines = Math.max(0, Math.floor(maxTermsHeight / lineHeight));
-    const truncatedTerms = Array.isArray(wrappedTerms)
-      ? (wrappedTerms as string[]).slice(0, maxLines)
-      : [String(wrappedTerms)].slice(0, maxLines);
-    const termsSpec = [{ text: truncatedTerms.join("\n") }];
-    termsHeight = measureWrappedLinesHeight(
+    cursorY = ensureSpace(
       doc,
-      termsSpec as any,
-      usableWidth,
-      lineHeight
+      cursorY,
+      termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
+      margin
     );
-    drawWrappedLines(
-      doc,
-      termsSpec as any,
-      padX,
-      cursorY + 6,
-      usableWidth - 4,
-      lineHeight
-    );
+    doc.text("Terms & Conditions:", padX, cursorY);
+    doc.setFont("helvetica", "normal");
+    const termsBlock = Array.isArray(termsLines)
+      ? termsLines.map((t) => ({ text: t }))
+      : [{ text: String(termsLines) }];
+    drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+    cursorY = cursorY + 5 + termsHeight + 5;
   }
 
-  const signatureBoxY = cursorY + 6 + termsHeight + 8;
-  // Place 'Authorised Signatory' on the right side with 25% right padding
+  // Signature section: ensure room, otherwise push to next page
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    signatureBoxHeight + footerSpace + 6,
+    margin
+  );
+  const signatureBoxY = cursorY + 6;
   doc.setFont("helvetica", "bold");
   const rightPadX = margin + usableWidth * 0.75; // start at 75% width
   doc.text("Authorised Signatory", rightPadX, signatureBoxY + 18);
@@ -875,9 +882,9 @@ export async function GET(
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     // Draw a horizontal line below the outer border and place footer outside the box
-    const lineY = pageHeight - margin + 1;
+    const lineY = pageHeight - margin - 4; // lift footer for better bottom margin
     doc.line(margin, lineY, pageWidth - margin, lineY);
-    const y = lineY + 5; // footer below the line
+    const y = lineY + 4; // footer below the line
     doc.text(footerLeft, padX, y);
     doc.text(footerCenter, pageWidth / 2, y, { align: "center" });
     doc.text(`Page ${i}/${totalPages}`, pageWidth - padX, y, {
