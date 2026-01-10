@@ -582,69 +582,60 @@ export default function PurchaseOrdersPage() {
                   can(PERMISSIONS.DELETE_PURCHASE_ORDERS) ||
                   can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1) ||
                   can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2);
-                // Always show Print
+                const showPrint = po.approvalStatus === "APPROVED_LEVEL_2";
+                const showMenu = canAnyAction || showPrint;
+                if (!showMenu) return null;
                 return (
-                  <div className="flex gap-2">
-                    <AppButton
-                      size="sm"
-                      variant="outline"
-                      iconName="Printer"
-                      onClick={() => handlePrint(po)}
-                    >
-                      Print
-                    </AppButton>
-                    {canAnyAction && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <AppButton
-                            size="sm"
-                            variant="secondary"
-                            disabled={
-                              po.approvalStatus === "SUSPENDED" ||
-                              po.approvalStatus === "COMPLETED"
-                            }
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <AppButton
+                        size="sm"
+                        variant="secondary"
+                        disabled={
+                          po.approvalStatus === "SUSPENDED" ||
+                          po.approvalStatus === "COMPLETED"
+                        }
+                      >
+                        Actions
+                      </AppButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {showPrint && (
+                        <DropdownMenuItem onClick={() => handlePrint(po)}>
+                          Print
+                        </DropdownMenuItem>
+                      )}
+                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) && (
+                        <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
+                          Add Remark
+                        </DropdownMenuItem>
+                      )}
+                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS) && (
+                        <DropdownMenuItem
+                          onClick={() => handleBillStatusClick(po)}
+                        >
+                          Bill Status
+                        </DropdownMenuItem>
+                      )}
+                      {(() => {
+                        const actions = getAvailableActions(
+                          po.approvalStatus,
+                          po.isSuspended,
+                          po.createdById === user?.id,
+                          po.approved1ById === user?.id
+                        );
+                        if (actions.length === 0) return null;
+                        return actions.map((a) => (
+                          <DropdownMenuItem
+                            key={a.key}
+                            onSelect={() => openApproval(po.id, a.key)}
                           >
-                            Actions
-                          </AppButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) && (
-                            <DropdownMenuItem
-                              onClick={() => handleRemarkClick(po)}
-                            >
-                              Add Remark
-                            </DropdownMenuItem>
-                          )}
-                          {can(
-                            PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS
-                          ) && (
-                            <DropdownMenuItem
-                              onClick={() => handleBillStatusClick(po)}
-                            >
-                              Bill Status
-                            </DropdownMenuItem>
-                          )}
-                          {(() => {
-                            const actions = getAvailableActions(
-                              po.approvalStatus,
-                              po.isSuspended,
-                              po.createdById === user?.id,
-                              po.approved1ById === user?.id
-                            );
-                            if (actions.length === 0) return null;
-                            return actions.map((a) => (
-                              <DropdownMenuItem
-                                key={a.key}
-                                onSelect={() => openApproval(po.id, a.key)}
-                              >
-                                {a.label}
-                              </DropdownMenuItem>
-                            ));
-                          })()}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
+                            {a.label}
+                          </DropdownMenuItem>
+                        ));
+                      })()}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 );
               }}
             />
