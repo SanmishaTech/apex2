@@ -37,6 +37,17 @@ function safeText(value?: string | null) {
   return value?.trim() ? value.trim() : "-";
 }
 
+function displayCharge(value: unknown) {
+  if (value === null) return "-";
+  if (value === undefined) return "-";
+  return value as string | number;
+}
+
+function toNumberOrZero(value: unknown) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
 function drawLines(
   doc: jsPDF,
   lines: { text: string; bold?: boolean }[],
@@ -311,16 +322,11 @@ export async function GET(
   if (!purchaseOrder) return NotFound("Purchase order not found");
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  doc.setTextColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 8; // tighter margins to help fit one page
   const usableWidth = pageWidth - margin * 2;
-  const approval = (purchaseOrder.approvalStatus || "").toLowerCase();
-  const watermarkText = approval.includes("draft")
-    ? "DRAFT"
-    : approval.includes("level 1")
-    ? "LEVEL 1 APPROVED"
-    : null;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -344,20 +350,6 @@ export async function GET(
   doc.text("PURCHASE ORDER", pageWidth / 2, headerY + headerHeight / 2 + 2, {
     align: "center",
   });
-
-  // Watermark based on approval status
-  if (watermarkText) {
-    doc.saveGraphicsState();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(58);
-    doc.setTextColor(230);
-    doc.text(watermarkText, pageWidth / 2, pageHeight * 0.55, {
-      align: "center",
-      angle: -40,
-    });
-    doc.restoreGraphicsState();
-    doc.setTextColor(0);
-  }
 
   const topBoxY = headerY + headerHeight + 6;
   const halfWidth = usableWidth / 2;
@@ -605,13 +597,13 @@ export async function GET(
       { content: "Amount (INR)", rowSpan: 2 as any },
     ],
     [
-      { content: "Rate" },
+      { content: "%" },
       { content: "Amt" },
-      { content: "Rate" },
+      { content: "%" },
       { content: "Amt" },
-      { content: "Rate" },
+      { content: "%" },
       { content: "Amt" },
-      { content: "Rate" },
+      { content: "%" },
       { content: "Amt" },
     ],
   ];
@@ -630,9 +622,9 @@ export async function GET(
     theme: "grid",
     styles: itemTableStyles,
     headStyles: {
-      fillColor: [220, 220, 220],
       textColor: 0,
       fontSize: 9,
+      fillColor: null as any,
     },
     margin: margin,
     columnStyles: {
@@ -676,16 +668,13 @@ export async function GET(
     { amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
   );
 
-  const transitAmount =
-    purchaseOrder.transitInsuranceStatus === null
-      ? Number(purchaseOrder.transitInsuranceAmount ?? 0)
-      : 0;
-  const pfAmount =
-    purchaseOrder.pfStatus === null ? Number(purchaseOrder.pfCharges ?? 0) : 0;
-  const gstReverseAmount =
-    purchaseOrder.gstReverseStatus === null
-      ? Number(purchaseOrder.gstReverseAmount ?? 0)
-      : 0;
+  const transitAmountRaw = purchaseOrder.transitInsuranceAmount;
+  const pfAmountRaw = purchaseOrder.pfCharges;
+  const gstReverseAmountRaw = purchaseOrder.gstReverseAmount;
+
+  const transitAmountNum = toNumberOrZero(transitAmountRaw);
+  const pfAmountNum = toNumberOrZero(pfAmountRaw);
+  const gstReverseAmountNum = toNumberOrZero(gstReverseAmountRaw);
 
   const baseAmount = totals.amount - totals.cgst - totals.sgst - totals.igst;
   const totalGST = totals.cgst + totals.sgst + totals.igst;
@@ -695,9 +684,9 @@ export async function GET(
       totals.cgst +
       totals.sgst +
       totals.igst +
-      transitAmount +
-      pfAmount +
-      gstReverseAmount;
+      transitAmountNum +
+      pfAmountNum +
+      gstReverseAmountNum;
 
   const chargesY = tableEndY + 6;
 
@@ -717,13 +706,13 @@ export async function GET(
       "Delivery Schedule:",
       safeText(purchaseOrder.deliverySchedule),
       "Transport Charges",
-      safeText(purchaseOrder.transport),
+      displayCharge(pfAmountRaw),
     ],
     [
       "Payment Terms:",
       leftValuePaymentTerms,
       "Transit Insurance",
-      transitAmount ? formatCurrency(transitAmount) : "Inclusive",
+      displayCharge(transitAmountRaw),
     ],
     [
       "Validity:",
@@ -749,7 +738,7 @@ export async function GET(
       "",
       "",
       "GST Reverse Charge",
-      gstReverseAmount ? formatCurrency(gstReverseAmount) : "Not Applicable",
+      displayCharge(gstReverseAmountRaw),
     ],
     [
       { content: amountWords, colSpan: 2, styles: { fontStyle: "bold" } },
@@ -811,7 +800,6 @@ export async function GET(
   // Remarks section (always show heading; render "-" if empty) with pagination
   const remarksTextRaw = (
     purchaseOrder.remarks ||
-    purchaseOrder.note ||
     ""
   ).trim();
   const remarksText = remarksTextRaw || "-";
