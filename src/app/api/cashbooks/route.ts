@@ -11,6 +11,7 @@ import {
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
 import { ROLES } from "@/config/roles";
+import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
@@ -235,35 +236,53 @@ export async function POST(req: NextRequest) {
     }
     const voucherNo = `VCH-${nextNumber.toString().padStart(5, "0")}`;
 
-    const created = await prisma.cashbook.create({
-      data: {
-        voucherNo,
-        voucherDate: new Date(voucherDate),
-        siteId,
-        boqId,
-        attachVoucherCopyUrl: finalAttachVoucherUrl,
-        cashbookDetails: {
-          create: cashbookDetails.map((detail, detailIndex) => ({
-            cashbookHeadId: detail.cashbookHeadId,
-            description: detail.description ?? null,
-            openingBalance: detail.openingBalance ?? null,
-            closingBalance: detail.closingBalance ?? null,
-            amountReceived: detail.amountReceived ?? null,
-            amountPaid: detail.amountPaid ?? null,
-            documentUrl:
-              detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
-          })),
-        },
-      },
-      include: {
-        site: { select: { id: true, site: true } },
-        boq: { select: { id: true, boqNo: true } },
-        cashbookDetails: {
-          include: {
-            cashbookHead: { select: { id: true, cashbookHeadName: true } },
+    const created = await prisma.$transaction(async (tx) => {
+      const createdRow = await tx.cashbook.create({
+        data: {
+          voucherNo,
+          voucherDate: new Date(voucherDate),
+          siteId,
+          boqId,
+          attachVoucherCopyUrl: finalAttachVoucherUrl,
+          cashbookDetails: {
+            create: cashbookDetails.map((detail, detailIndex) => ({
+              cashbookHeadId: detail.cashbookHeadId,
+              description: detail.description ?? null,
+              openingBalance: detail.openingBalance ?? null,
+              closingBalance: detail.closingBalance ?? null,
+              amountReceived: detail.amountReceived ?? null,
+              amountPaid: detail.amountPaid ?? null,
+              documentUrl:
+                detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
+            })),
           },
         },
-      },
+        select: { id: true },
+      });
+
+      await recomputeCashbookBalances({
+        tx: tx as any,
+        siteId,
+        boqId,
+        cashbookHeadIds: cashbookDetails.map((d) => d.cashbookHeadId),
+        fromVoucherDate: new Date(voucherDate),
+      });
+
+      const refreshed = await tx.cashbook.findUnique({
+        where: { id: createdRow.id },
+        include: {
+          site: { select: { id: true, site: true } },
+          boq: { select: { id: true, boqNo: true } },
+          cashbookDetails: {
+            include: {
+              cashbookHead: { select: { id: true, cashbookHeadName: true } },
+            },
+          },
+        },
+      });
+
+      if (!refreshed) throw new Error("Failed to load created cashbook");
+      return refreshed;
     });
     // Budget recompute disabled: received amount tracking removed
 
