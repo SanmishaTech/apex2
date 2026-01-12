@@ -14,6 +14,7 @@ import {
   documentUploadConfig,
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
+import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
 
 const updateSchema = z.object({
   voucherDate: z.string().optional(),
@@ -159,6 +160,7 @@ export async function PATCH(
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
+    if (!existing) return NotFound("Cashbook not found");
 
     const updateData: any = {};
     if (voucherDate) updateData.voucherDate = new Date(voucherDate);
@@ -209,18 +211,59 @@ export async function PATCH(
       };
     }
 
-    const updated = await prisma.cashbook.update({
-      where: { id },
-      data: updateData,
-      include: {
-        site: { select: { id: true, site: true } },
-        boq: { select: { id: true, boqNo: true } },
-        cashbookDetails: {
-          include: {
-            cashbookHead: { select: { id: true, cashbookHeadName: true } },
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedRow = await tx.cashbook.update({
+        where: { id },
+        data: updateData,
+        select: {
+          id: true,
+          siteId: true,
+          boqId: true,
+          voucherDate: true,
+          cashbookDetails: { select: { cashbookHeadId: true } },
+        },
+      });
+
+      const siteForRecompute = updatedRow.siteId ?? existing.siteId;
+      const boqForRecompute = updatedRow.boqId ?? existing.boqId;
+      const fromVoucherDate =
+        existing.voucherDate && updatedRow.voucherDate
+          ? new Date(
+              Math.min(
+                new Date(existing.voucherDate).getTime(),
+                new Date(updatedRow.voucherDate).getTime()
+              )
+            )
+          : updatedRow.voucherDate ?? existing.voucherDate;
+
+      const oldHeads = (existing.cashbookDetails || []).map((d) => d.cashbookHeadId);
+      const newHeads = (updatedRow.cashbookDetails || []).map((d) => d.cashbookHeadId);
+      const headIds = Array.from(new Set([...(oldHeads || []), ...(newHeads || [])]));
+
+      if (fromVoucherDate) {
+        await recomputeCashbookBalances({
+          tx: tx as any,
+          siteId: siteForRecompute,
+          boqId: boqForRecompute,
+          cashbookHeadIds: headIds,
+          fromVoucherDate,
+        });
+      }
+
+      const refreshed = await tx.cashbook.findUnique({
+        where: { id },
+        include: {
+          site: { select: { id: true, site: true } },
+          boq: { select: { id: true, boqNo: true } },
+          cashbookDetails: {
+            include: {
+              cashbookHead: { select: { id: true, cashbookHeadName: true } },
+            },
           },
         },
-      },
+      });
+      if (!refreshed) throw new Error("Failed to load updated cashbook");
+      return refreshed;
     });
     // Budget recompute disabled: received amount tracking removed
 
@@ -259,8 +302,18 @@ export async function DELETE(
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
+    if (!existing) return NotFound("Cashbook not found");
 
-    await prisma.cashbook.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.cashbook.delete({ where: { id } });
+      await recomputeCashbookBalances({
+        tx: tx as any,
+        siteId: existing.siteId,
+        boqId: existing.boqId,
+        cashbookHeadIds: (existing.cashbookDetails || []).map((d) => d.cashbookHeadId),
+        fromVoucherDate: existing.voucherDate,
+      });
+    });
 
     // Budget recompute disabled: received amount tracking removed
 

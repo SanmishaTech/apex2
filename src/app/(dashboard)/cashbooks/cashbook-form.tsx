@@ -216,10 +216,34 @@ export function CashbookForm({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "cashbookDetails",
   });
+
+  const cashbookDetailsResetSeqRef = useRef(0);
+
+  const resetCashbookDetails = () => {
+    cashbookDetailsResetSeqRef.current += 1;
+    replace([
+      {
+        cashbookHeadId: "__none",
+        description: "",
+        openingBalance: "",
+        closingBalance: "",
+        amountReceived: "",
+        amountPaid: "",
+        documentUrl: "",
+      },
+    ]);
+    setDetailFilePreviews({});
+    setDetailFileUploads({});
+    detailFileInputRefs.current = {};
+  };
+
+  const selectedSiteId = form.watch("siteId");
+  const selectedBoqId = form.watch("boqId");
+  const selectedVoucherDate = form.watch("voucherDate");
 
   // Auto-calc closingBalance = openingBalance + amountReceived - amountPaid
   useEffect(() => {
@@ -259,13 +283,112 @@ export function CashbookForm({
     return () => subscription.unsubscribe();
   }, [form]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const startedSeq = cashbookDetailsResetSeqRef.current;
+
+    async function refreshOpenings() {
+      const siteVal = form.getValues("siteId") as
+        | string
+        | number
+        | undefined
+        | null;
+      const boqVal = form.getValues("boqId") as
+        | string
+        | number
+        | undefined
+        | null;
+      const voucherDate = form.getValues("voucherDate") as any;
+
+      const siteId =
+        siteVal && siteVal !== "__none" && siteVal !== ""
+          ? Number(siteVal)
+          : undefined;
+      const boqId =
+        boqVal && boqVal !== "__none" && boqVal !== "" ? Number(boqVal) : undefined;
+
+      if (!siteId || !voucherDate) return;
+
+      const details = (form.getValues("cashbookDetails") || []) as any[];
+      for (let index = 0; index < details.length; index++) {
+        if (cancelled) return;
+        if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
+
+        const headVal = details[index]?.cashbookHeadId;
+        const headId =
+          headVal && headVal !== "__none" && headVal !== ""
+            ? Number(headVal)
+            : undefined;
+        if (!headId) continue;
+
+        try {
+          const qs = new URLSearchParams({
+            siteId: String(siteId),
+            cashbookHeadId: String(headId),
+            voucherDate: String(voucherDate),
+          });
+          if (boqId) qs.set("boqId", String(boqId));
+          const res = await apiGet(
+            `/api/cashbooks/last-balance?${qs.toString()}` as any
+          );
+          if (cancelled) return;
+          if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
+
+          const closing =
+            (res as any)?.data?.closingBalance ??
+            (res as any)?.closingBalance ??
+            null;
+          const opening = closing != null ? String(closing) : "0";
+          if (cancelled) return;
+          if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
+
+          const currentOpening = form.getValues(
+            `cashbookDetails.${index}.openingBalance` as const
+          ) as any;
+          if (String(currentOpening ?? "") !== String(opening ?? "")) {
+            form.setValue(
+              `cashbookDetails.${index}.openingBalance` as const,
+              opening,
+              { shouldDirty: true, shouldValidate: true }
+            );
+          }
+
+          const arRaw = form.getValues(
+            `cashbookDetails.${index}.amountReceived` as const
+          ) as any;
+          const apRaw = form.getValues(
+            `cashbookDetails.${index}.amountPaid` as const
+          ) as any;
+          const obNum = Number(opening) || 0;
+          const arNum = Number(arRaw ?? 0) || 0;
+          const apNum = Number(apRaw ?? 0) || 0;
+          const closingNow = String(obNum + arNum - apNum);
+          const currentClosing = form.getValues(
+            `cashbookDetails.${index}.closingBalance` as const
+          ) as any;
+          if (String(currentClosing ?? "") !== String(closingNow ?? "")) {
+            form.setValue(
+              `cashbookDetails.${index}.closingBalance` as const,
+              closingNow,
+              { shouldDirty: true }
+            );
+          }
+        } catch (e) {}
+      }
+    }
+
+    refreshOpenings();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSiteId, selectedBoqId, selectedVoucherDate, form]);
+
   // Fetch sites, BOQs, and cashbook heads for dropdowns
   const { data: sitesData } = useSWR<SitesResponse>(
     "/api/sites?perPage=100",
     apiGet
   );
   // Filter BOQs by selected site
-  const selectedSiteId = form.watch("siteId");
   const resolvedSiteId =
     typeof selectedSiteId === "string"
       ? selectedSiteId && selectedSiteId !== "__none" && selectedSiteId !== ""
@@ -286,6 +409,7 @@ export function CashbookForm({
     form.getValues("siteId")
   );
   useEffect(() => {
+    if (mode !== "create") return;
     const curr = form.getValues("siteId");
     if (prevSiteIdRef.current !== curr) {
       prevSiteIdRef.current = curr as any;
@@ -294,8 +418,29 @@ export function CashbookForm({
         shouldDirty: true,
         shouldValidate: true,
       });
+      resetCashbookDetails();
     }
   }, [selectedSiteId, form]);
+
+  const prevBoqIdRef = useRef<string | number | undefined>(form.getValues("boqId"));
+  useEffect(() => {
+    if (mode !== "create") return;
+    const curr = form.getValues("boqId");
+    if (prevBoqIdRef.current !== curr) {
+      prevBoqIdRef.current = curr as any;
+      resetCashbookDetails();
+    }
+  }, [selectedBoqId, form]);
+
+  const prevVoucherDateRef = useRef<string | undefined>(form.getValues("voucherDate"));
+  useEffect(() => {
+    if (mode !== "create") return;
+    const curr = form.getValues("voucherDate");
+    if (prevVoucherDateRef.current !== curr) {
+      prevVoucherDateRef.current = curr as any;
+      resetCashbookDetails();
+    }
+  }, [selectedVoucherDate, form]);
 
   // Build selected head IDs to avoid duplicates across rows
   const getSelectedHeadIds = () => {
@@ -666,6 +811,12 @@ export function CashbookForm({
                                     cashbookHeadId: String(headId),
                                   });
                                   if (boqId) qs.set("boqId", String(boqId));
+                                  const voucherDate = form.getValues(
+                                    "voucherDate"
+                                  ) as any;
+                                  if (voucherDate) {
+                                    qs.set("voucherDate", String(voucherDate));
+                                  }
                                   const res = await apiGet(
                                     `/api/cashbooks/last-balance?${qs.toString()}` as any
                                   );
