@@ -197,10 +197,10 @@ export function CashbookForm({
           ? String(detail.cashbookHeadId)
           : "__none",
         description: detail.description || "",
-        openingBalance: detail.openingBalance || "",
-        closingBalance: detail.closingBalance || "",
-        amountReceived: detail.amountReceived || "",
-        amountPaid: detail.amountPaid || "",
+        openingBalance: (detail as any).openingBalance ?? "",
+        closingBalance: (detail as any).closingBalance ?? "",
+        amountReceived: (detail as any).amountReceived ?? "",
+        amountPaid: (detail as any).amountPaid ?? "",
         documentUrl: detail.documentUrl || "",
       })) || [
         {
@@ -255,6 +255,14 @@ export function CashbookForm({
       );
       if (!match) return;
       const idx = parseInt(match[1]);
+      const field = match[2];
+      if (mode !== "create" && field === "openingBalance") return;
+      if (
+        mode !== "create" &&
+        (field === "amountReceived" || field === "amountPaid")
+      ) {
+        if (!info?.type) return;
+      }
       const ob =
         Number(
           form.getValues(`cashbookDetails.${idx}.openingBalance` as const) ?? 0
@@ -281,9 +289,10 @@ export function CashbookForm({
       }
     });
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, mode]);
 
   useEffect(() => {
+    if (mode !== "create") return;
     let cancelled = false;
     const startedSeq = cashbookDetailsResetSeqRef.current;
 
@@ -381,7 +390,7 @@ export function CashbookForm({
     return () => {
       cancelled = true;
     };
-  }, [selectedSiteId, selectedBoqId, selectedVoucherDate, form]);
+  }, [selectedSiteId, selectedBoqId, selectedVoucherDate, form, mode]);
 
   // Fetch sites, BOQs, and cashbook heads for dropdowns
   const { data: sitesData } = useSWR<SitesResponse>(
@@ -779,6 +788,7 @@ export function CashbookForm({
                             value={String(field.value || "__none")}
                             onValueChange={async (val) => {
                               field.onChange(val);
+                              if (mode !== "create") return;
                               // After selecting head, try to fetch last closing balance and set as opening balance
                               try {
                                 const siteVal = form.getValues("siteId") as
