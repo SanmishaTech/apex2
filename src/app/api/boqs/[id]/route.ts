@@ -15,6 +15,11 @@ export async function GET(
   const idNum = Number(id);
   if (Number.isNaN(idNum)) return Error("Invalid id", 400);
   try {
+    const { searchParams } = new URL(req.url);
+    const excludeBoqBillIdRaw = searchParams.get("excludeBoqBillId");
+    const excludeBoqBillId = excludeBoqBillIdRaw ? Number(excludeBoqBillIdRaw) : NaN;
+    const excludeBillId = Number.isFinite(excludeBoqBillId) && excludeBoqBillId > 0 ? excludeBoqBillId : null;
+
     const boq = await prisma.boq.findUnique({
       where: { id: idNum },
       select: {
@@ -64,7 +69,30 @@ export async function GET(
       },
     });
     if (!boq) return Error("BOQ not found", 404);
-    return Success(boq);
+
+    const billedDetails = await prisma.bOQBillDetail.findMany({
+      where: {
+        boqBill: {
+          boqId: idNum,
+          ...(excludeBillId ? { id: { not: excludeBillId } } : {}),
+        },
+      },
+      select: { boqItemId: true, qty: true },
+    });
+
+    const billedQtyByItemId = new Map<number, number>();
+    for (const d of billedDetails) {
+      const k = Number(d.boqItemId);
+      const v = Number(d.qty || 0);
+      billedQtyByItemId.set(k, (billedQtyByItemId.get(k) || 0) + v);
+    }
+
+    const items = (boq.items || []).map((it) => ({
+      ...it,
+      billedQty: Number(billedQtyByItemId.get(Number(it.id)) || 0),
+    }));
+
+    return Success({ ...boq, items });
   } catch {
     return Error("Failed to fetch BOQ");
   }

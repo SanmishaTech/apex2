@@ -430,10 +430,25 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_BOQS,
       },
       {
-        title: "Work Done",
-        href: "/boqs/work-done",
+        title: "BOQ Bills",
+        href: "/boq-bills",
         icon: FileText,
-        permission: PERMISSIONS.READ_BOQS,
+        permission: PERMISSIONS.READ_BOQ_BILLS,
+      },
+      
+    
+      {
+        type: "group",
+        title: "Reports",
+        icon: FileText,
+        children: [
+          {
+            title: "BOQ Bills Report",
+            href: "/reports/boq-bills",
+            icon: FileText,
+            permission: PERMISSIONS.READ_BOQ_BILLS,
+          },
+        ],
       },
     ],
   },
@@ -459,6 +474,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/daily-progresses",
         icon: Folder,
         permission: PERMISSIONS.READ_DAILY_PROGRESSES,
+      },
+        {
+        title: "Work Done",
+        href: "/boqs/work-done",
+        icon: FileText,
+        permission: PERMISSIONS.READ_BOQS,
       },
     ],
   },

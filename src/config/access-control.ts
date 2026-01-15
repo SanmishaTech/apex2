@@ -148,6 +148,11 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/inward-bill-payments/new",
     permissions: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
   },
+
+  // BOQ Bills
+  { prefix: "/boq-bills/new", permissions: [PERMISSIONS.CREATE_BOQ_BILLS] },
+  { prefix: "/boq-bills/", permissions: [PERMISSIONS.EDIT_BOQ_BILLS] },
+  { prefix: "/boq-bills", permissions: [PERMISSIONS.READ_BOQ_BILLS] },
   // Cashbook Heads
   {
     prefix: "/cashbook-heads/new",
@@ -286,6 +291,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   {
     prefix: "/reports/cashbook-budget",
     permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+  },
+  {
+    prefix: "/reports/boq-bills",
+    permissions: [PERMISSIONS.READ_BOQ_BILLS],
   },
 
   // add more page rules here (place more specific prefixes first)
@@ -570,6 +579,16 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.DELETE_INWARD_BILL_PAYMENT],
     },
   },
+
+  {
+    prefix: "/api/boq-bills",
+    methods: {
+      GET: [PERMISSIONS.READ_BOQ_BILLS],
+      POST: [PERMISSIONS.CREATE_BOQ_BILLS],
+      PATCH: [PERMISSIONS.EDIT_BOQ_BILLS],
+      DELETE: [PERMISSIONS.DELETE_BOQ_BILLS],
+    },
+  },
   {
     prefix: "/api/outward-delivery-challans",
     methods: {
@@ -686,6 +705,18 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/cashbook-budget-pdf",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    },
+  },
+  {
+    prefix: "/api/reports/boq-bills-excel",
+    methods: {
+      GET: [PERMISSIONS.READ_BOQ_BILLS],
+    },
+  },
+  {
+    prefix: "/api/reports/boq-bills",
+    methods: {
+      GET: [PERMISSIONS.READ_BOQ_BILLS],
     },
   },
   {
