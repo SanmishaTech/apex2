@@ -84,6 +84,9 @@ model User {
   openingStockCreated OpeningStock[] @relation("OPCreated")
   openingStockUpdated OpeningStock[] @relation("OPUpdated")
 
+  boqBillCreated BOQBill[] @relation("BOQBillCreated")
+  boqBillUpdated BOQBill[] @relation("BOQBillUpdated")
+  
   @@index([role])
   @@map("users")
 }
@@ -769,6 +772,7 @@ model Boq {
 
   // daily progress
   dailyProgresses DailyProgress[]
+  boqBills BOQBill[]
 
   @@index([siteId])
   @@index([boqNo])
@@ -797,6 +801,7 @@ model BoqItem {
   updatedAt    DateTime @updatedAt
 
   dailyProgressDetails DailyProgressDetail[]
+  boqBillDetails BOQBillDetail[]
 
   @@index([boqId])
   @@index([unitId])
@@ -2386,4 +2391,47 @@ model OpeningStockDetail {
 }
 
 
-//create purchase Order.
+
+
+model BOQBill {
+  id                Int       @id @default(autoincrement())
+  boqId Int  
+  billNumber       String  @unique
+  billName         String
+  billDate        DateTime @db.Date()
+  remarks   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdById  Int
+  updatedById  Int
+  boq       Boq      @relation(fields: [boqId], references: [id], onDelete:Restrict)
+  totalBillAmount Decimal @default(0.00) @db.Decimal(12, 2)
+  boqBillDetails BOQBillDetail[]
+
+   
+  createdBy User @relation("BOQBillCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("BOQBillUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([boqId])
+  @@index([createdById])
+  @@index([updatedById])
+
+  @@map("boq_bills")
+}
+
+
+model BOQBillDetail {
+  id                Int       @id @default(autoincrement())
+  boqBillId Int  
+  boqItemId Int
+  qty         Decimal  @default(0.0000) @db.Decimal(12, 2)
+  amount              Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  boqBill   BOQBill @relation(fields: [boqBillId], references: [id], onDelete: Restrict)
+  boqItem BoqItem                    @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+
+   @@index([boqItemId])
+   @@index([boqBillId])
+  @@map("boq_bill_details")
+}
