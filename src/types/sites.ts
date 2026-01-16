@@ -4,6 +4,7 @@ export interface Site {
   site: string;
   shortName?: string | null;
   companyId?: number | null;
+  zoneId?: number | null;
   status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
 
   attachCopyUrl?: string | null;
@@ -31,6 +32,10 @@ export interface Site {
     id: number;
     companyName: string;
     shortName?: string | null;
+  } | null;
+  zone?: {
+    id: number;
+    zoneName: string;
   } | null;
   state?: {
     id: number;
@@ -82,6 +87,7 @@ export interface CreateSiteData {
   site: string;
   shortName?: string | null;
   companyId?: number | null;
+  zoneId?: number | null;
   status: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
   startDate?: string | null;
@@ -109,6 +115,7 @@ export interface UpdateSiteData {
   site?: string;
   shortName?: string | null;
   companyId?: number | null;
+  zoneId?: number | null;
   status?: "ONGOING" | "HOLD" | "CLOSED" | "COMPLETED" | "MOBILIZATION_STAGE";
   attachCopyUrl?: string | null;
   startDate?: string | null;

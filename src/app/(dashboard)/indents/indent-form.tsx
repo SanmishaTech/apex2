@@ -56,22 +56,34 @@ const indentItemSchema = z.object({
     )
     .transform((val) => parseInt(val)),
   remark: z.string().optional(),
-  indentQty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Indent quantity must be greater than 0")),
+  indentQty: z.preprocess(
+    (v) => (v === null || typeof v === "undefined" ? "" : String(v).trim()),
+    z
+      .string()
+      .min(1, "Indent quantity is required")
+      .regex(/^\d+(\.\d{1,4})?$/, "Only numbers up to 4 decimal places are allowed")
+      .transform((val) => Number(val))
+      .refine((n) => typeof n === "number" && !Number.isNaN(n) && n > 0, {
+        message: "Indent quantity must be greater than 0",
+      })
+  ),
 });
 
 const createInputSchema = z.object({
   indentDate: z.string().min(1, "Indent date is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
-  siteId: z
-    .union([z.string(), z.number(), z.undefined()])
-    .optional()
-    .transform((val) => {
-      if (!val || val === "__none" || val === "") return undefined;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+  siteId: z.preprocess(
+    (v) => (v === null || typeof v === "undefined" ? "" : String(v).trim()),
+    z
+      .string()
+      .refine((v) => v !== "__none" && v !== "" && v !== "0", {
+        message: "Site is required",
+      })
+      .transform((v) => parseInt(v, 10))
+      .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+        message: "Site is required",
+      })
+  ),
   remarks: z.string().optional(),
   indentItems: z
     .array(indentItemSchema)
@@ -124,7 +136,7 @@ export function IndentForm({
         {
           itemId: "__none",
           remark: "",
-          indentQty: 0,
+          indentQty: "",
         },
       ],
     },
@@ -180,7 +192,7 @@ export function IndentForm({
     append({
       itemId: "__none",
       remark: "",
-      indentQty: 0,
+      indentQty: "",
     });
   };
 
@@ -312,12 +324,16 @@ export function IndentForm({
                       <FormControl>
                         <Input
                           {...field}
-                          type="number"
-                          step="0.0001"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0.0000"
-                          onChange={(e) =>
-                            field.onChange(parseFloat(e.target.value) || 0)
-                          }
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            // Allow intermediate typing states; final validation happens in Zod on submit
+                            if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                              field.onChange(next);
+                            }
+                          }}
                         />
                       </FormControl>
                       <div className="min-h-[20px]">
@@ -364,7 +380,7 @@ export function IndentForm({
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <AppCard.Content className="space-y-6">
             {/* Header Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="indentDate"
@@ -397,8 +413,8 @@ export function IndentForm({
                 control={form.control}
                 name="siteId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Site</FormLabel>
+                  <FormItem className="pt-6">
+                    <FormLabel>Site<span className="text-red-500">*</span></FormLabel>
                     <FormControl>
                       <AppSelect
                         value={String(field.value || "__none")}
@@ -425,7 +441,9 @@ export function IndentForm({
                   </FormItem>
                 )}
               />
+            </div>
 
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 control={form.control}
                 name="remarks"
@@ -436,7 +454,7 @@ export function IndentForm({
                       <Textarea
                         {...field}
                         placeholder="Enter general remarks"
-                        rows={3}
+                        rows={1}
                       />
                     </FormControl>
                     <FormMessage />
@@ -454,6 +472,11 @@ export function IndentForm({
                     Add items to this indent
                   </p>
                 </div>
+              </div>
+
+              {renderItemsTable()}
+
+              <div className="mt-4">
                 <Button
                   type="button"
                   onClick={addItem}
@@ -464,12 +487,10 @@ export function IndentForm({
                   Add Item
                 </Button>
               </div>
-
-              {renderItemsTable()}
             </div>
           </AppCard.Content>
 
-          <AppCard.Footer>
+          <AppCard.Footer className="flex justify-end">
             <AppButton
               type="button"
               variant="secondary"

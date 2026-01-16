@@ -91,7 +91,7 @@ export default function BoqBillsPage() {
       key: "billDate",
       header: "Bill Date",
       sortable: true,
-      accessor: (r) => (r.billDate ? formatDate(r.billDate) : "—"),
+      accessor: (r) => (r.billDate ? new Date(r.billDate).toLocaleDateString("en-GB") : "—"),
       className: "whitespace-nowrap",
     },
     {
@@ -247,4 +247,3 @@ export default function BoqBillsPage() {
 }
 
 
-// Calculate qty * rate in report excecla n ui and in form also.

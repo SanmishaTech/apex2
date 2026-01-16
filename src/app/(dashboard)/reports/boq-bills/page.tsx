@@ -58,7 +58,7 @@ export default function BoqBillsReportPage() {
   const { control, getValues, watch } = form;
 
   const { data: boqsData, isLoading } = useSWR<BoqListResponse>(
-    "/api/boqs?perPage=1000&sort=boqNo&order=asc",
+    "/api/boqs?perPage=1000&sort=boqNo&order=desc",
     apiGet
   );
 
@@ -199,8 +199,8 @@ export default function BoqBillsReportPage() {
               {matrixLoading && <div className="text-sm text-muted-foreground">Loading report...</div>}
 
               {!matrixLoading && matrixData && (
-                <div className="overflow-x-auto border rounded-md">
-                  <table className="min-w-max text-sm border-collapse">
+                <div className="w-full overflow-x-auto border rounded-md">
+                  <table className="w-full min-w-max text-sm border-collapse">
                     <thead>
                       <tr>
                         <th

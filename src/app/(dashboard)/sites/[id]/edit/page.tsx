@@ -57,6 +57,7 @@ export default function EditSitePage() {
         site: site.site,
         shortName: site.shortName ?? undefined,
         companyId: site.companyId ?? undefined,
+        zoneId: site.zoneId ?? null,
         status: normalizedStatus as any,
         attachCopyUrl: site.attachCopyUrl ?? undefined,
         contactPerson: site.contactPerson ?? undefined,

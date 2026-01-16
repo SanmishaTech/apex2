@@ -184,12 +184,15 @@ enum SiteStatus {
 model Site {
   id        Int     @id @default(autoincrement())
   siteCode     String?
-  site      String
+  site      String  @unique
   shortName String?
 
   // Company Relation
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
+
+  zoneId    Int?
+  zone      Zone?    @relation(fields: [zoneId], references: [id])
 
   // Status Flags
   status          SiteStatus  //Ongoing,Hold,Closed,Completed,Mobilization stage
@@ -279,6 +282,8 @@ model Site {
   @@index([companyId])
   @@index([stateId])
   @@index([cityId])
+    @@index([zoneId])
+
   @@map("sites")
 }
 
@@ -2434,4 +2439,17 @@ model BOQBillDetail {
    @@index([boqItemId])
    @@index([boqBillId])
   @@map("boq_bill_details")
+}
+
+
+model Zone {
+  id        Int      @id @default(autoincrement())
+  zoneName     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+sites     Site[]
+
+  @@index([id])
+  @@map("zones")
 }

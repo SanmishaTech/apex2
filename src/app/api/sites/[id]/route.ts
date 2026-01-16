@@ -18,6 +18,14 @@ const updateSchema = z.object({
   site: z.string().min(1, "Site name is required").optional(),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
+  zoneId: z.preprocess(
+    (v) => (v === null || v === undefined || v === "" ? undefined : Number(v)),
+    z
+      .number({ required_error: "Zone is required" })
+      .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+        message: "Zone is required",
+      })
+  ),
   status: z
     .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"]) 
     .optional(),
@@ -118,6 +126,7 @@ export async function GET(
         site: true,
         shortName: true,
         companyId: true,
+        zoneId: true,
         status: true,
         attachCopyUrl: true,
         startDate: true,
@@ -155,6 +164,12 @@ export async function GET(
           select: {
             id: true,
             city: true,
+          },
+        },
+        zone: {
+          select: {
+            id: true,
+            zoneName: true,
           },
         },
         siteContactPersons: true,
@@ -208,6 +223,14 @@ export async function PATCH(
         companyId: form.get("companyId")
           ? Number(form.get("companyId"))
           : undefined,
+        zoneId: (() => {
+          const raw = form.get("zoneId");
+          if (raw === null) return undefined;
+          const v = String(raw).trim();
+          if (v === "") return null;
+          const n = Number(v);
+          return Number.isNaN(n) ? undefined : n;
+        })(),
         status: form.get("status") || undefined,
         // legacy top-level contactPerson/contactNo omitted
         addressLine1: form.get("addressLine1") || undefined,
@@ -302,6 +325,26 @@ export async function PATCH(
       attachCopyUrl,
     });
 
+    // Custom uniqueness validation for site name
+    if (validatedData.site) {
+      const existingSite = await prisma.site.findFirst({
+        where: {
+          site: validatedData.site,
+          id: { not: id }, // Exclude current site
+        },
+        select: { id: true },
+      });
+      if (existingSite) {
+        return BadRequest([
+          {
+            code: "custom",
+            path: ["site"],
+            message: "Site name already exists",
+          },
+        ]);
+      }
+    }
+
     const contactPersonsSchema = z.array(
       z.object({
         id: z.number().optional(),
@@ -348,6 +391,7 @@ export async function PATCH(
           site: true,
           shortName: true,
           companyId: true,
+          zoneId: true,
           status: true,
           attachCopyUrl: true,
           startDate: true,
@@ -380,6 +424,12 @@ export async function PATCH(
             select: {
               id: true,
               state: true,
+            },
+          },
+          zone: {
+            select: {
+              id: true,
+              zoneName: true,
             },
           },
           siteDeliveryAddresses: true,
@@ -576,7 +626,15 @@ export async function PATCH(
       return BadRequest(error.errors);
     }
     if (error.code === "P2025") return NotFound("Site not found");
-    if (error.code === "P2002") return Error("Site already exists", 409);
+    if (error.code === "P2002") {
+      return BadRequest([
+        {
+          code: "custom",
+          path: ["site"],
+          message: "Site name already exists",
+        },
+      ]);
+    }
     console.error("Update site error:", error);
     return Error("Failed to update site");
   }

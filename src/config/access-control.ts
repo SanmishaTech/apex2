@@ -38,6 +38,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/designations/new", permissions: [PERMISSIONS.EDIT_DESIGNATIONS] },
   { prefix: "/designations/", permissions: [PERMISSIONS.EDIT_DESIGNATIONS] },
   { prefix: "/designations", permissions: [PERMISSIONS.READ_DESIGNATIONS] },
+  // Zones
+  { prefix: "/zones/new", permissions: [PERMISSIONS.EDIT_ZONES] },
+  { prefix: "/zones/", permissions: [PERMISSIONS.EDIT_ZONES] },
+  { prefix: "/zones", permissions: [PERMISSIONS.READ_ZONES] },
   // DailyConsumtions
   {
     prefix: "/daily-consumptions/new",
@@ -358,6 +362,16 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_STATES],
       PATCH: [PERMISSIONS.EDIT_STATES],
       DELETE: [PERMISSIONS.DELETE_STATES],
+    },
+  },
+
+  {
+    prefix: "/api/zones",
+    methods: {
+      GET: [PERMISSIONS.READ_ZONES],
+      POST: [PERMISSIONS.EDIT_ZONES],
+      PATCH: [PERMISSIONS.EDIT_ZONES],
+      DELETE: [PERMISSIONS.DELETE_ZONES],
     },
   },
 

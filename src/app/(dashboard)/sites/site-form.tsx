@@ -15,6 +15,7 @@ import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { CreateSiteData, UpdateSiteData } from "@/types/sites";
+import type { Zone } from "@/types/zones";
 import { State } from "@/types/states";
 import { City } from "@/types/cities";
 import { Company } from "@/types/companies";
@@ -61,6 +62,7 @@ export interface SiteFormInitialData {
   site?: string;
   shortName?: string;
   companyId?: number;
+  zoneId?: number | null;
   status?: (typeof STATUS_OPTIONS)[number];
   attachCopyUrl?: string;
   contactPersons?: ContactPerson[];
@@ -127,6 +129,12 @@ export function SiteForm({
       .nullable()
       .refine((v) => typeof v === "number" && !Number.isNaN(v), {
         message: "Company is required",
+      }),
+    zoneId: z
+      .number()
+      .nullable()
+      .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+        message: "Zone is required",
       }),
     status: z.enum(STATUS_OPTIONS, {
       required_error: "Status is required",
@@ -255,6 +263,7 @@ export function SiteForm({
     site: initial?.site || "",
     shortName: initial?.shortName || "",
     companyId: initial?.companyId ?? null,
+    zoneId: (initial as any)?.zoneId ?? null,
     status: initial?.status || "ONGOING",
     contactPersons: defaultContactPersons,
     addressLine1: initial?.addressLine1 || "",
@@ -320,6 +329,7 @@ export function SiteForm({
   const statusValue = watch("status");
   const selectedStateId = watch("stateId");
   const selectedCompanyId = watch("companyId");
+  const selectedZoneId = watch("zoneId");
   const isCreate = mode === "create";
 
   // Debug form state
@@ -354,6 +364,13 @@ export function SiteForm({
     apiGet
   );
   const cities = allCitiesData?.data || [];
+
+  // Fetch zones for dropdown
+  const { data: zonesData } = useSWR<{ data: Zone[] }>(
+    "/api/zones?perPage=100",
+    apiGet
+  );
+  const zones = zonesData?.data || [];
 
   // Reset city when state changes
   useEffect(() => {
@@ -469,9 +486,17 @@ export function SiteForm({
         // into the top-level site address fields automatically.
       }
 
+      // Always send zoneId so backend can persist/clear it reliably
+      formData.append(
+        "zoneId",
+        data.zoneId === null || typeof data.zoneId === "undefined"
+          ? ""
+          : data.zoneId.toString()
+      );
+
       // Add all other form fields to formData
       Object.entries(data).forEach(([key, value]) => {
-        if (key === "contactPersons" || key === "deliveryAddresses") return;
+        if (key === "contactPersons" || key === "deliveryAddresses" || key === "zoneId") return;
         if (value !== null && value !== undefined) {
           formData.append(key, value.toString());
         }
@@ -514,20 +539,16 @@ export function SiteForm({
         router.push("/sites");
       }
     } catch (error: any) {
-      console.error("Site form submission error", error, form.formState.errors);
-      console.error("Error saving site:", error);
       const errs: string[] = [];
-      const data = error?.response?.data;
-      if (Array.isArray(data)) {
-        for (const issue of data) {
-          const path = Array.isArray(issue?.path) ? issue.path.join(".") : "";
-          const msg = issue?.message || String(issue);
-          errs.push(path ? `${path}: ${msg}` : msg);
-        }
-      } else if (data?.errors && Array.isArray(data.errors)) {
+      const data = error?.data;
+
+      if (data?.errors && Array.isArray(data.errors)) {
         for (const issue of data.errors) {
           const path = Array.isArray(issue?.path) ? issue.path.join(".") : "";
-          const msg = issue?.message || String(issue);
+          const msg = issue?.message || "Invalid value";
+          if (path) {
+            form.setError(path as any, { type: "server", message: msg });
+          }
           errs.push(path ? `${path}: ${msg}` : msg);
         }
       } else if (typeof data?.message === "string") {
@@ -535,6 +556,7 @@ export function SiteForm({
       } else if (error?.message) {
         errs.push(error.message);
       }
+
       setSubmitErrors(
         errs.length
           ? errs
@@ -628,6 +650,35 @@ export function SiteForm({
                   {form.formState.errors.companyId?.message && (
                     <p className="mt-1 text-sm text-red-600">
                       {form.formState.errors.companyId.message as string}
+                    </p>
+                  )}
+                </div>
+              </FormRow>
+              <FormRow cols={1}>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Zone <span className="text-red-500">*</span>
+                  </label>
+                  <AppSelect
+                    value={selectedZoneId ? selectedZoneId.toString() : "__none"}
+                    onValueChange={(v) =>
+                      setValue("zoneId", v === "__none" ? null : Number(v), {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    placeholder="Select zone"
+                  >
+                    <AppSelect.Item value="__none">Select Zone</AppSelect.Item>
+                    {zones.map((z) => (
+                      <AppSelect.Item key={z.id} value={z.id.toString()}>
+                        {z.zoneName}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {form.formState.errors.zoneId?.message && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {form.formState.errors.zoneId.message as string}
                     </p>
                   )}
                 </div>
