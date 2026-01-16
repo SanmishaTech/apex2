@@ -80,6 +80,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_DESIGNATIONS,
       },
       {
+        title: "Zones",
+        href: "/zones",
+        icon: MapPin,
+        permission: PERMISSIONS.VIEW_ZONES,
+      },
+      {
         title: "Companies",
         href: "/companies",
         icon: Building2,

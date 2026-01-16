@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { Resolver, DeepPartial } from "react-hook-form";
 import {
@@ -484,6 +484,10 @@ export function PurchaseOrderForm({
       const computedSiteId = Number(
         (indent as any).siteId ?? (indent as any).site?.id ?? 0
       );
+      const computedDeliveryDate = formatDateField(
+        (indent as any).deliveryDate,
+        undefined
+      );
       const itemsArr: any[] = Array.isArray(indent.indentItems)
         ? indent.indentItems
         : [];
@@ -531,6 +535,17 @@ export function PurchaseOrderForm({
           shouldValidate: true,
         });
         void form.trigger("siteId");
+      }
+
+      // Prefill delivery date from indent if missing
+      const currentDeliveryDate = String(form.getValues("deliveryDate") || "");
+      if (!currentDeliveryDate && computedDeliveryDate) {
+        form.setValue("deliveryDate", computedDeliveryDate as any, {
+          shouldDirty: true,
+          shouldTouch: true,
+          shouldValidate: true,
+        });
+        void form.trigger("deliveryDate");
       }
 
       // Prefill items unconditionally once when indent data is ready
@@ -1181,7 +1196,8 @@ export function PurchaseOrderForm({
         <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
           <AppCard.Content className="space-y-6">
             <FormSection legend="Purchase Order Details">
-              <FormRow cols={4}>
+              <FormRow cols={3}>
+                <div>
                 <TextInput
                   control={form.control}
                   name="purchaseOrderNo"
@@ -1189,6 +1205,8 @@ export function PurchaseOrderForm({
                   placeholder="Auto-generated"
                   disabled
                 />
+                </div>
+                <div>
                 <TextInput
                   control={form.control}
                   name="purchaseOrderDate"
@@ -1197,6 +1215,8 @@ export function PurchaseOrderForm({
                   required={!isApprovalMode}
                   disabled={isApprovalMode}
                 />
+                </div>
+                <div>
                 <TextInput
                   control={form.control}
                   name="deliveryDate"
@@ -1205,32 +1225,8 @@ export function PurchaseOrderForm({
                   required={!isApprovalMode}
                   disabled={isApprovalMode}
                 />
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    PO Status
-                  </label>
-                  <AppSelect
-                    value={poStatusValue === "HOLD" ? "HOLD" : "__none"}
-                    onValueChange={(value) => {
-                      const next = value === "HOLD" ? "HOLD" : null;
-                      form.setValue("poStatus", next);
-                    }}
-                    placeholder="Select PO Status"
-                  >
-                    <AppSelect.Item key="po-status-none" value="__none">
-                      No Status
-                    </AppSelect.Item>
-                    <AppSelect.Item key="po-status-hold" value="HOLD">
-                      Hold
-                    </AppSelect.Item>
-                  </AppSelect>
-                </div>
-              </FormRow>
-            </FormSection>
-
-            <FormSection legend="Vendor & Billing">
-              <FormRow cols={3}>
-                <div>
+                 </div>
+                     <div>
                   <label className="block text-sm font-medium mb-2">
                     Site<span className="ml-0.5 text-destructive">*</span>
                   </label>
@@ -1263,6 +1259,32 @@ export function PurchaseOrderForm({
                     </p>
                   ) : null}
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    PO Status
+                  </label>
+                  <AppSelect
+                    value={poStatusValue === "HOLD" ? "HOLD" : "__none"}
+                    onValueChange={(value) => {
+                      const next = value === "HOLD" ? "HOLD" : null;
+                      form.setValue("poStatus", next);
+                    }}
+                    placeholder="Select PO Status"
+                  >
+                    <AppSelect.Item key="po-status-none" value="__none">
+                      No Status
+                    </AppSelect.Item>
+                    <AppSelect.Item key="po-status-hold" value="HOLD">
+                      Hold
+                    </AppSelect.Item>
+                  </AppSelect>
+                </div>
+              </FormRow>
+            </FormSection>
+
+            <FormSection legend="Vendor & Billing">
+              <FormRow cols={3}>
+            
 
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -1337,10 +1359,7 @@ export function PurchaseOrderForm({
                     </p>
                   ) : null}
                 </div>
-              </FormRow>
-
-              <FormRow cols={3}>
-                <div>
+                   <div>
                   <label className="block text-sm font-medium mb-2">
                     Delivery Address
                     <span className="ml-0.5 text-destructive">*</span>
@@ -1388,6 +1407,10 @@ export function PurchaseOrderForm({
                     </p>
                   ) : null}
                 </div>
+              </FormRow>
+
+              <FormRow cols={3}>
+             
 
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -1416,7 +1439,7 @@ export function PurchaseOrderForm({
                     ))}
                   </AppSelect>
                 </div>
-
+                  <div>
                 <TextInput
                   control={form.control}
                   name="quotationNo"
@@ -1425,6 +1448,8 @@ export function PurchaseOrderForm({
                   required
                   disabled={isApprovalMode}
                 />
+                </div>
+                <div>
                 <TextInput
                   control={form.control}
                   name="quotationDate"
@@ -1433,17 +1458,21 @@ export function PurchaseOrderForm({
                   required
                   disabled={isApprovalMode}
                 />
+                </div>
               </FormRow>
             </FormSection>
 
             <FormSection legend="Logistics & Terms">
               <FormRow cols={3}>
+                <div>
                 <TextInput
                   control={form.control}
                   name="transport"
                   label="Transport"
                   placeholder="Enter transport"
                 />
+                </div>
+                <div>
                 <TextInput
                   control={form.control}
                   name="paymentTermsInDays"
@@ -1454,24 +1483,30 @@ export function PurchaseOrderForm({
                   max={999}
                   disabled={isApprovalMode}
                 />
-                <TextareaInput
+                </div>
+               
+              </FormRow>
+               <TextareaInput
                   control={form.control}
                   name="deliverySchedule"
                   label="Delivery Schedule"
+                  
                   rows={2}
                   span={1}
                 />
-              </FormRow>
             </FormSection>
 
             <FormSection legend="Notes">
               <FormRow cols={2}>
+                <div>
                 <TextareaInput
                   control={form.control}
                   name="note"
                   label="Note"
-                  rows={3}
-                />
+   rows={4}
+                  span={2}                />
+                </div>
+                <div>
                 <TextareaInput
                   control={form.control}
                   name="terms"
@@ -1479,58 +1514,47 @@ export function PurchaseOrderForm({
                   rows={4}
                   span={2}
                 />
+                </div>
               </FormRow>
             </FormSection>
 
             {/* Items Table */}
             <FormSection legend="Items">
               <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700">
+                <table className="w-max table-auto divide-y divide-gray-200 dark:divide-slate-700">
                   <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Item
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[200px] min-w-[200px] px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Closing Stock
                       </th>
                       {isApprovalMode && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ordered Qty
                         </th>
                       )}
                       {isApproval2 && (
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Approved 1 Qty
                         </th>
                       )}
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {isApproval2
                           ? "Approved 2 Qty"
                           : isApproval1
                           ? "Approved 1 Qty"
                           : "Qty"}
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Disc. %
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        CGST %
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SGST %
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        IGST %
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
                       {!isApprovalMode && (
-                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -1538,8 +1562,9 @@ export function PurchaseOrderForm({
                   </thead>
                   <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
                     {fields.map((field, index) => (
-                      <tr key={field.fieldId ?? index}>
-                        <td className="px-4 py-3 align-top">
+                      <Fragment key={field.fieldId ?? index}>
+                        <tr>
+                          <td className="px-1 py-2 align-top">
                           {isApprovalMode ? (
                             <>
                               <div className="font-medium">
@@ -1569,6 +1594,7 @@ export function PurchaseOrderForm({
                                             ? field.value.toString()
                                             : "__none"
                                         }
+                                        triggerClassName="w-[200px] min-w-[200px] max-w-[320px]"
                                         onValueChange={(value) => {
                                           if (value === "__none") {
                                             field.onChange(0);
@@ -1633,27 +1659,43 @@ export function PurchaseOrderForm({
                                   </FormItem>
                                 )}
                               />
-                              <FormField
-                                control={form.control}
-                                name={`purchaseOrderItems.${index}.remark`}
-                                render={({ field }) => (
-                                  <FormItem className="mt-2">
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Remark"
-                                        value={field.value || ""}
-                                        className="text-xs"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                              <div className="mt-1">
+                                <div className="w-[200px] mb-1 text-[10px] text-muted-foreground leading-none">
+                                  Discount
+                                </div>
+                                <FormField
+                                  control={form.control}
+                                  name={`purchaseOrderItems.${index}.discountPercent`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          max="100"
+                                          {...field}
+                                          value={field.value?.toString() || "0"}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(
+                                              value === ""
+                                                ? "0"
+                                                : parseFloat(value) || 0
+                                            );
+                                          }}
+                                          className="text-right w-[200px]"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
                             </>
                           )}
-                        </td>
-                        {(() => {
+                          </td>
+                          {(() => {
                           const rowItemId = isApprovalMode
                             ? initial?.purchaseOrderItems?.[index]?.itemId
                             : (items?.[index] as any)?.itemId;
@@ -1666,15 +1708,56 @@ export function PurchaseOrderForm({
                               ? closingMap[rowItemId]
                               : undefined;
                           return (
-                            <td className="px-4 py-3 text-right align-top">
-                              {typeof closingVal === "number"
-                                ? closingVal
-                                : "-"}
+                            <td className="w-[200px] min-w-[200px] px-1 py-2 text-right align-top">
+                              <div>
+                                {typeof closingVal === "number"
+                                  ? closingVal
+                                  : "-"}
+                              </div>
+                              <div className="mt-1">
+                                <FormField
+                                  control={form.control}
+                                  name={`purchaseOrderItems.${index}.cgstPercent`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                        CGST
+                                      </div>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          max="100"
+                                          {...field}
+                                          value={field.value?.toString() || "0"}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(
+                                              value === ""
+                                                ? "0"
+                                                : parseFloat(value) || 0
+                                            );
+                                          }}
+                                          className="text-right w-[200px]"
+                                        />
+                                      </FormControl>
+                                      <div className="text-xs text-muted-foreground text-right">
+                                        CGST Amt:{" "}
+                                        {formatAmount(
+                                          computedItems[index]?.cgstAmt
+                                        )}
+                                      </div>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
                             </td>
                           );
-                        })()}
-                        {isApprovalMode && (
-                          <td className="px-4 py-3 text-right font-medium align-top">
+                          })()}
+                          {isApprovalMode && (
+                          <td className="px-1 py-2 text-right font-medium align-top">
                             {toNumber(
                               initial?.purchaseOrderItems?.[index]
                                 ?.orderedQty ??
@@ -1685,9 +1768,9 @@ export function PurchaseOrderForm({
                               maximumFractionDigits: 4,
                             })}
                           </td>
-                        )}
-                        {isApproval2 && (
-                          <td className="px-4 py-3 text-right font-medium align-top">
+                          )}
+                          {isApproval2 && (
+                          <td className="px-1 py-2 text-right font-medium align-top">
                             {toNumber(
                               (items[index] as any)?.approved1Qty ??
                                 initial?.purchaseOrderItems?.[index]
@@ -1699,8 +1782,8 @@ export function PurchaseOrderForm({
                               maximumFractionDigits: 4,
                             })}
                           </td>
-                        )}
-                        <td className="px-4 py-3 align-top">
+                          )}
+                          <td className="px-1 py-2 align-top">
                           {isApproval1 ? (
                             <FormField
                               control={form.control}
@@ -1722,7 +1805,7 @@ export function PurchaseOrderForm({
                                             : parseFloat(value) || 0
                                         );
                                       }}
-                                      className="text-right w-24"
+                                      className="text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1750,7 +1833,7 @@ export function PurchaseOrderForm({
                                             : parseFloat(value) || 0
                                         );
                                       }}
-                                      className="text-right w-24"
+                                      className="text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1778,7 +1861,7 @@ export function PurchaseOrderForm({
                                             : parseFloat(value) || 0
                                         );
                                       }}
-                                      className="text-right w-24"
+                                      className="text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1786,8 +1869,45 @@ export function PurchaseOrderForm({
                               )}
                             />
                           )}
-                        </td>
-                        <td className="px-4 py-3 align-top">
+                          <div className="mt-1">
+                            <FormField
+                              control={form.control}
+                              name={`purchaseOrderItems.${index}.sgstPercent`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                  <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                    SGST
+                                  </div>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      max="100"
+                                      {...field}
+                                      value={field.value?.toString() || "0"}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        field.onChange(
+                                          value === ""
+                                            ? "0"
+                                            : parseFloat(value) || 0
+                                        );
+                                      }}
+                                      className="text-right w-[200px]"
+                                    />
+                                  </FormControl>
+                                  <div className="text-xs text-muted-foreground text-right">
+                                    SGST Amt:{" "}
+                                    {formatAmount(computedItems[index]?.sgstAmt)}
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          </td>
+                          <td className="px-1 py-2 align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.rate`}
@@ -1808,147 +1928,52 @@ export function PurchaseOrderForm({
                                           : parseFloat(value) || 0
                                       );
                                     }}
-                                    className="text-right w-28"
+                                    className="text-right w-[200px]"
                                   />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`purchaseOrderItems.${index}.discountPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-20"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`purchaseOrderItems.${index}.cgstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-20"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  CGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.cgstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`purchaseOrderItems.${index}.sgstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-20"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  SGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.sgstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`purchaseOrderItems.${index}.igstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-20"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  IGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.igstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium align-top">
+                          <div className="mt-1">
+                            <FormField
+                              control={form.control}
+                              name={`purchaseOrderItems.${index}.igstPercent`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                  <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                    IGST
+                                  </div>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      max="100"
+                                      {...field}
+                                      value={field.value?.toString() || "0"}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        field.onChange(
+                                          value === ""
+                                            ? "0"
+                                            : parseFloat(value) || 0
+                                        );
+                                      }}
+                                      className="text-right w-[200px]"
+                                    />
+                                  </FormControl>
+                                  <div className="text-xs text-muted-foreground text-right">
+                                    IGST Amt:{" "}
+                                    {formatAmount(computedItems[index]?.igstAmt)}
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          </td>
+                          <td className="px-1 py-2 text-right text-sm font-medium align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.amount`}
@@ -1961,27 +1986,61 @@ export function PurchaseOrderForm({
                               </FormItem>
                             )}
                           />
-                        </td>
-                        {!isApprovalMode && (
-                          <td className="px-3 py-3 text-right text-sm font-medium align-top">
+                          </td>
+                          {!isApprovalMode && (
+                          <td className="w-10 px-1 py-2 text-right text-sm font-medium align-top">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </td>
-                        )}
-                      </tr>
+                          )}
+                        </tr>
+                        <tr className="border-t-0">
+                          <td
+                            colSpan={
+                              4 + (isApprovalMode ? 1 : 0) + (isApproval2 ? 1 : 0)
+                            }
+                            className="px-1 py-2 align-top"
+                          >
+                            <div>
+                              <div className="mb-1 text-[10px] text-muted-foreground leading-none">
+                                Remarks
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`purchaseOrderItems.${index}.remark`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Remarks"
+                                        value={field.value || ""}
+                                        className="text-xs w-full"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-1 py-2" />
+                          {!isApprovalMode && <td className="w-10 px-1 py-2" />}
+                        </tr>
+                      </Fragment>
                     ))}
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
                       <td
-                        colSpan={isApproval2 ? 10 : isApprovalMode ? 9 : 8}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
                         Subtotal
@@ -1989,10 +2048,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.taxableAmount)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-3" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 9 : 8}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -2084,10 +2144,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.transitInsuranceAmount)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-3" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -2168,10 +2229,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.pfChargesAmount)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-3" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         Discount
@@ -2179,10 +2241,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.disAmt)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-1" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         CGST
@@ -2190,10 +2253,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.cgstAmt)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-1" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         SGST
@@ -2201,10 +2265,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.sgstAmt)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-1" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         IGST
@@ -2212,10 +2277,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.igstAmt)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-1" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="px-4 py-3"
                       >
                         <div className="flex justify-end items-center gap-4">
@@ -2305,10 +2371,11 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.gstReverseAmount)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-3" />}
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 8 : 7}
+                        colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
                         className="text-right px-4 py-3 text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200"
                       >
                         Total Amount
@@ -2316,6 +2383,7 @@ export function PurchaseOrderForm({
                       <td className="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200">
                         {formatAmount(totals.amount)}
                       </td>
+                      {!isApprovalMode && <td className="w-10 px-1 py-3 border-t border-gray-200" />}
                     </tr>
                   </tfoot>
                 </table>
@@ -2378,3 +2446,4 @@ export function PurchaseOrderForm({
     </Form>
   );
 }
+// fix purchase order ui

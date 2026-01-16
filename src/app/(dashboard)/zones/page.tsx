@@ -16,15 +16,15 @@ import { apiGet, apiDelete } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
 import { EditButton } from "@/components/common/icon-button";
-import type { DesignationsResponse, Designation } from "@/types/designations";
+import type { ZonesResponse, Zone } from "@/types/zones";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 
-export default function DesignationsPage() {
+export default function ZonesPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
     search: "",
-    sort: "designationName",
+    sort: "zoneName",
     order: "asc",
   });
   const { page, perPage, search, sort, order } = qp as unknown as {
@@ -56,19 +56,16 @@ export default function DesignationsPage() {
     if (search) sp.set("search", search);
     if (sort) sp.set("sort", sort);
     if (order) sp.set("order", order);
-    return `/api/designations?${sp.toString()}`;
+    return `/api/zones?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
-  const { data, error, isLoading, mutate } = useSWR<DesignationsResponse>(
-    query,
-    apiGet
-  );
+  const { data, error, isLoading, mutate } = useSWR<ZonesResponse>(query, apiGet);
 
   const { can } = usePermissions();
-  const { pushWithScrollSave } = useScrollRestoration("designations-list");
+  const { pushWithScrollSave } = useScrollRestoration("zones-list");
 
   if (error) {
-    toast.error((error as Error).message || "Failed to load designations");
+    toast.error((error as Error).message || "Failed to load zones");
   }
 
   function toggleSort(field: string) {
@@ -79,10 +76,10 @@ export default function DesignationsPage() {
     }
   }
 
-  const columns: Column<Designation>[] = [
+  const columns: Column<Zone>[] = [
     {
-      key: "designationName",
-      header: "Designation Name",
+      key: "zoneName",
+      header: "Zone Name",
       sortable: true,
       cellClassName: "font-medium whitespace-nowrap",
     },
@@ -100,27 +97,27 @@ export default function DesignationsPage() {
 
   async function handleDelete(id: number) {
     try {
-      await apiDelete(`/api/designations/${id}`);
-      toast.success("Designation deleted");
+      await apiDelete(`/api/zones/${id}`);
+      toast.success("Zone deleted");
       await mutate();
     } catch (err) {
-      toast.error((err as Error).message || "Failed to delete designation");
+      toast.error((err as Error).message || "Failed to delete zone");
     }
   }
 
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>Designations</AppCard.Title>
-        <AppCard.Description>Manage master designations.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_STATES) && (
+        <AppCard.Title>Zones</AppCard.Title>
+        <AppCard.Description>Manage master zones.</AppCard.Description>
+        {can(PERMISSIONS.EDIT_ZONES) && (
           <AppCard.Action>
             <div className="flex gap-2">
               <AppButton
                 size="sm"
                 iconName="Plus"
                 type="button"
-                onClick={() => pushWithScrollSave("/designations/new")}
+                onClick={() => pushWithScrollSave("/zones/new")}
               >
                 Add
               </AppButton>
@@ -131,8 +128,8 @@ export default function DesignationsPage() {
       <AppCard.Content>
         <FilterBar title="Search & Filter">
           <NonFormTextInput
-            aria-label="Search designations"
-            placeholder="Search designations..."
+            aria-label="Search zones"
+            placeholder="Search zones..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName="w-full"
@@ -163,22 +160,22 @@ export default function DesignationsPage() {
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           loading={isLoading}
-          emptyMessage="No designations found"
+          emptyMessage="No zones found"
           renderRowActions={(row) => (
             <div className="flex items-center gap-2">
-              {can(PERMISSIONS.EDIT_STATES) && (
+              {can(PERMISSIONS.EDIT_ZONES) && (
                 <EditButton
-                  tooltip="Edit Designation"
-                  aria-label="Edit Designation"
-                  onClick={() => pushWithScrollSave(`/designations/${row.id}/edit`)}
+                  tooltip="Edit Zone"
+                  aria-label="Edit Zone"
+                  onClick={() => pushWithScrollSave(`/zones/${row.id}/edit`)}
                 />
               )}
-              {can(PERMISSIONS.DELETE_STATES) && (
+              {can(PERMISSIONS.DELETE_ZONES) && (
                 <DeleteButton
                   onDelete={() => handleDelete(row.id)}
-                  itemLabel="designation"
-                  title="Delete designation?"
-                  description={`This will permanently remove ${row.designationName}. This action cannot be undone.`}
+                  itemLabel="zone"
+                  title="Delete zone?"
+                  description={`This will permanently remove ${row.zoneName}. This action cannot be undone.`}
                 />
               )}
             </div>

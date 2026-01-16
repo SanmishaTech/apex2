@@ -310,8 +310,8 @@ export default function IndentsPage() {
   // Editable fields per item
   type EditFields = {
     indentQty: number;
-    approved1Qty?: number;
-    approved2Qty?: number;
+    approved1Qty?: string;
+    approved2Qty?: string;
     remark?: string;
   };
   const [itemEdits, setItemEdits] = useState<Record<number, EditFields>>({});
@@ -320,10 +320,23 @@ export default function IndentsPage() {
     if (approvalIndent?.indentItems) {
       const next: Record<number, EditFields> = {};
       for (const it of approvalIndent.indentItems) {
+        const indentQtyNum = Number(it.indentQty || 0);
+        const approved1Raw = it.approved1Qty;
+        const approved2Raw = it.approved2Qty;
+        const approved1Coerced = Number(approved1Raw);
+        const approved2Coerced = Number(approved2Raw);
+        const approved1Num =
+          !Number.isNaN(approved1Coerced) && approved1Coerced > 0
+            ? approved1Coerced
+            : indentQtyNum;
+        const approved2Num =
+          !Number.isNaN(approved2Coerced) && approved2Coerced > 0
+            ? approved2Coerced
+            : approved1Num;
         next[it.id] = {
-          indentQty: Number(it.indentQty || 0),
-          approved1Qty: Number(it.approved1Qty ?? it.indentQty ?? 0),
-          approved2Qty: Number(it.approved2Qty ?? it.indentQty ?? 0),
+          indentQty: indentQtyNum,
+          approved1Qty: approved1Num.toFixed(4),
+          approved2Qty: approved2Num.toFixed(4),
           remark: it.remark || "",
         };
       }
@@ -404,8 +417,10 @@ export default function IndentsPage() {
     (id: number, field: keyof EditFields, value: string) => {
       setItemEdits((prev) => {
         let next: any;
-        if (["indentQty", "approved1Qty", "approved2Qty"].includes(field)) {
+        if (field === "indentQty") {
           next = value === "" ? 0 : clampDec(Number(value));
+        } else if (field === "approved1Qty" || field === "approved2Qty") {
+          next = value;
         } else {
           next = value;
         }
@@ -428,15 +443,27 @@ export default function IndentsPage() {
       const isApprove1 = approvalAction === "approve1";
       const approvedQtyField = isApprove1 ? "approved1Qty" : "approved2Qty";
 
+      const parseQty = (v: unknown): number => {
+        if (typeof v === "number") return v;
+        if (typeof v === "string") {
+          const t = v.trim();
+          if (!t || t === ".") return NaN;
+          return Number(t);
+        }
+        return NaN;
+      };
+
       // Require approved quantity for all items when not suspending
       if (approvalAction !== "suspend") {
         for (const it of approvalIndent.indentItems || []) {
+          const aqRaw = itemEdits[it.id]?.[approvedQtyField];
           const aq =
-            itemEdits[it.id]?.[approvedQtyField] ??
-            (typeof it[approvedQtyField as keyof typeof it] === "number"
-              ? Number(it[approvedQtyField as keyof typeof it])
-              : NaN);
-          if (aq == null || Number.isNaN(aq)) {
+            typeof aqRaw !== "undefined"
+              ? parseQty(aqRaw)
+              : typeof (it as any)[approvedQtyField] === "number"
+                ? Number((it as any)[approvedQtyField])
+                : parseQty((it as any).indentQty);
+          if (Number.isNaN(aq)) {
             toast.error("Approved quantity is required for all items");
             return;
           }
@@ -448,11 +475,16 @@ export default function IndentsPage() {
       const payload = {
         indentItems: includeItems
           ? approvalIndent.indentItems?.map((it) => {
-              const approvedQty =
-                itemEdits[it.id]?.[approvedQtyField] ??
-                (it as any)[approvedQtyField] ??
-                (it as any).indentQty ??
-                0;
+              const approvedQtyRaw = itemEdits[it.id]?.[approvedQtyField];
+              const approvedQtyParsed =
+                typeof approvedQtyRaw !== "undefined"
+                  ? parseQty(approvedQtyRaw)
+                  : typeof (it as any)[approvedQtyField] === "number"
+                    ? Number((it as any)[approvedQtyField])
+                    : parseQty((it as any).indentQty);
+              const approvedQty = Number.isNaN(approvedQtyParsed)
+                ? 0
+                : approvedQtyParsed;
 
               return {
                 id: Number(it.id), // ✅ include indent item ID
@@ -712,16 +744,16 @@ export default function IndentsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="text-left p-3">Item</th>
+                      <th className="text-left p-3 w-[320px]">Item</th>
                       <th className="text-left p-3">Unit</th>
                       <th className="text-left p-3">Indent Qty</th>
-                      <th className="text-left p-3">
+                      <th className="text-left p-3 w-[160px]">
                         {approvalAction === "approve1"
                           ? "Approve 1 Qty"
                           : "Approved 1 Qty"}
                       </th>
                       {approvalAction === "approve2" && (
-                        <th className="text-left p-3">Approve 2 Qty</th>
+                        <th className="text-left p-3 w-[160px]">Approve 2 Qty</th>
                       )}
                       <th className="text-left p-3">Remark</th>
                     </tr>
@@ -729,8 +761,10 @@ export default function IndentsPage() {
                   <tbody>
                     {approvalIndent.indentItems?.map((it) => (
                       <tr key={it.id} className="border-t">
-                        <td className="p-3 whitespace-nowrap">
-                          {it.item?.item} ({it.item?.itemCode})
+                        <td className="p-3 align-top">
+                          <div className="max-w-[320px] whitespace-normal break-words">
+                            {it.item?.item} ({it.item?.itemCode})
+                          </div>
                         </td>
                         <td className="p-3 whitespace-nowrap">
                           {it.item?.unit?.unitName}
@@ -738,46 +772,49 @@ export default function IndentsPage() {
                         <td className="p-3 whitespace-nowrap">
                           {Number(it.indentQty || 0).toFixed(4)}
                         </td>
-                        <td className="p-3 whitespace-nowrap">
+                        <td className="p-3 whitespace-nowrap w-[160px]">
                           {approvalAction === "approve1" ? (
                             <Input
-                              type="number"
-                              step="0.0001"
-                              min={0}
-                              max={MAX_DEC}
+                              type="text"
+                              inputMode="decimal"
                               required
                               value={
                                 itemEdits[it.id]?.approved1Qty ??
-                                Number(it.approved1Qty ?? it.indentQty ?? 0)
+                                Number(it.indentQty ?? 0).toFixed(4)
                               }
-                              onChange={(e) =>
-                                setEdit(it.id, "approved1Qty", e.target.value)
-                              }
+                              placeholder={Number(it.indentQty ?? 0).toFixed(4)}
+                              className="w-[140px]"
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                                  setEdit(it.id, "approved1Qty", next);
+                                }
+                              }}
                             />
                           ) : (
                             Number(it.approved1Qty || 0).toFixed(4)
                           )}
                         </td>
                         {approvalAction === "approve2" && (
-                          <td className="p-3 whitespace-nowrap">
+                          <td className="p-3 whitespace-nowrap w-[160px]">
                             <Input
-                              type="number"
-                              step="0.0001"
-                              min={0}
-                              max={MAX_DEC}
+                              type="text"
+                              inputMode="decimal"
                               required
                               value={
                                 itemEdits[it.id]?.approved2Qty ??
-                                Number(
-                                  it.approved2Qty ??
-                                    it.approved1Qty ??
-                                    it.indentQty ??
-                                    0
-                                )
+                                Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(4)
                               }
-                              onChange={(e) =>
-                                setEdit(it.id, "approved2Qty", e.target.value)
-                              }
+                              placeholder={Number(
+                                it.approved1Qty ?? it.indentQty ?? 0
+                              ).toFixed(4)}
+                              className="w-[140px]"
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                                  setEdit(it.id, "approved2Qty", next);
+                                }
+                              }}
                             />
                           </td>
                         )}

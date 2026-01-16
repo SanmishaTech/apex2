@@ -24,6 +24,14 @@ const createSchema = z.object({
     .refine((v) => typeof v === "number" && !Number.isNaN(v), {
       message: "Company is required",
     }),
+  zoneId: z.preprocess(
+    (v) => (v === null || v === undefined || v === "" ? undefined : Number(v)),
+    z
+      .number({ required_error: "Zone is required" })
+      .refine((v) => typeof v === "number" && !Number.isNaN(v), {
+        message: "Zone is required",
+      })
+  ),
   status: z
     .enum(["ONGOING", "HOLD", "CLOSED", "COMPLETED", "MOBILIZATION_STAGE"])
     .default("ONGOING"),
@@ -113,6 +121,20 @@ const createSchema = z.object({
     .preprocess((v) => (v === "" || v === null || typeof v === "undefined" ? null : Number(v)), z.number().optional().nullable())
     .optional()
     .nullable(),
+}).superRefine(async (data, ctx) => {
+  const siteName = String(data.site || "").trim();
+  if (!siteName) return;
+  const existing = await prisma.site.findUnique({
+    where: { site: siteName },
+    select: { id: true },
+  });
+  if (existing) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["site"],
+      message: "Site name already exists",
+    });
+  }
 });
 
 // GET /api/sites?search=&status=Ongoing|Hold|Monitor&page=1&perPage=10&sort=site&order=asc
@@ -257,6 +279,7 @@ export async function GET(req: NextRequest) {
         site: true,
         shortName: true,
         companyId: true,
+        zoneId: true,
         status: true,
         attachCopyUrl: true,
         startDate: true,
@@ -367,6 +390,14 @@ export async function POST(req: NextRequest) {
         site: form.get("site") || null,
         shortName: form.get("shortName") || null,
         companyId: form.get("companyId") ? Number(form.get("companyId")) : null,
+        zoneId: (() => {
+          const raw = form.get("zoneId");
+          if (raw === null) return null;
+          const v = String(raw).trim();
+          if (v === "") return null;
+          const n = Number(v);
+          return Number.isNaN(n) ? null : n;
+        })(),
         status: form.get("status") || null,
         contactPersons: contactPersonsData,
         deliveryAddresses: deliveryAddressesData.length
@@ -414,7 +445,7 @@ export async function POST(req: NextRequest) {
       attachCopyUrl = `/uploads/sites/${filename}`;
     }
 
-    const validatedData = createSchema.parse({
+    const validatedData = await createSchema.parseAsync({
       ...siteData,
       attachCopyUrl,
     });
@@ -429,6 +460,7 @@ export async function POST(req: NextRequest) {
           site: validatedData.site,
           shortName: validatedData.shortName,
           companyId: validatedData.companyId,
+          zoneId: validatedData.zoneId ?? null,
           status: validatedData.status,
           attachCopyUrl: validatedData.attachCopyUrl,
           startDate: validatedData.startDate ?? null,
@@ -454,6 +486,12 @@ export async function POST(req: NextRequest) {
               id: true,
               companyName: true,
               shortName: true,
+            },
+          },
+          zone: {
+            select: {
+              id: true,
+              zoneName: true,
             },
           },
           state: {
