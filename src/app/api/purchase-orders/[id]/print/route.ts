@@ -569,7 +569,7 @@ export async function GET(
       .join("\n"),
     detail.item?.hsnCode ?? "",
     detail.item?.unit?.unitName ?? "",
-    formatNumber(detail.qty, 3),
+    formatNumber(detail.qty, 4),
     formatNumber(detail.rate, 3),
     formatNumber(detail.discountPercent),
     formatCurrency(detail.disAmt),

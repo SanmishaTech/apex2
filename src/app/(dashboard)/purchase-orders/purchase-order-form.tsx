@@ -137,14 +137,22 @@ export interface PurchaseOrderFormProps {
   refreshKey?: string;
 }
 
-const twoDpNumber = (label: string, required = false, min?: number, max?: number) =>
+const twoDpNumber = (
+  label: string,
+  required = false,
+  min?: number,
+  max?: number,
+  dp: number = 2
+) =>
   z.preprocess(
     (val) => {
       if (typeof val === "number") return val;
       if (typeof val === "string") {
-        const t = val.trim();
+        let t = val.trim();
+        if (t.endsWith(".")) t = t.slice(0, -1);
         if (t === "") return required ? undefined : 0;
-        if (!/^\d*(?:\.\d{1,2})?$/.test(t)) return NaN as any;
+        const re = new RegExp(`^\\d*(?:\\.\\d{0,${dp}})?$`);
+        if (!re.test(t)) return NaN as any;
         const n = parseFloat(t);
         return Number.isFinite(n) ? n : (NaN as any);
       }
@@ -170,13 +178,13 @@ const purchaseOrderItemSchema = z.object({
   approved1Qty: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : val),
-      twoDpNumber("Approved quantity", true, 0.01)
+      twoDpNumber("Approved quantity", true, 0.01, undefined, 4)
     )
     .optional(),
   approved2Qty: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : val),
-      twoDpNumber("Approved quantity", true, 0.01)
+      twoDpNumber("Approved quantity", true, 0.01, undefined, 4)
     )
     .optional(),
   rate: twoDpNumber("Rate", true, 0.01),
@@ -359,6 +367,11 @@ export function PurchaseOrderForm({
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
+    const toNum = (v: unknown): number | undefined => {
+      if (v === null || v === undefined || v === "") return undefined;
+      const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    };
     return {
       purchaseOrderNo: initial?.purchaseOrderNo ?? "",
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
@@ -390,19 +403,22 @@ export function PurchaseOrderForm({
       purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
         itemId: item.itemId ?? 0,
         remark: item.remark ?? "",
-        qty: item.qty ?? undefined,
+        qty: toNum((item as any).qty),
         // normalize approved quantities: keep as numbers or undefined
         approved1Qty: isApprovalMode
-          ? (item.approved1Qty ?? item.qty ?? undefined)
-          : item.approved1Qty ?? undefined,
+          ? (toNum((item as any).approved1Qty) ?? toNum((item as any).qty) ?? undefined)
+          : toNum((item as any).approved1Qty) ?? undefined,
         approved2Qty: isApproval2
-          ? (item.approved2Qty ?? item.approved1Qty ?? item.qty ?? undefined)
-          : item.approved2Qty ?? undefined,
-        rate: item.rate ?? undefined,
-        discountPercent: item.discountPercent ?? undefined,
-        cgstPercent: item.cgstPercent ?? undefined,
-        sgstPercent: item.sgstPercent ?? undefined,
-        igstPercent: item.igstPercent ?? undefined,
+          ? (toNum((item as any).approved2Qty) ??
+              toNum((item as any).approved1Qty) ??
+              toNum((item as any).qty) ??
+              undefined)
+          : toNum((item as any).approved2Qty) ?? undefined,
+        rate: toNum((item as any).rate),
+        discountPercent: toNum((item as any).discountPercent),
+        cgstPercent: toNum((item as any).cgstPercent),
+        sgstPercent: toNum((item as any).sgstPercent),
+        igstPercent: toNum((item as any).igstPercent),
         amount: 0,
       })) || [
         {
@@ -490,17 +506,17 @@ export function PurchaseOrderForm({
           (a2 && a2 > 0 ? a2 : undefined) ??
           (a1 && a1 > 0 ? a1 : undefined) ??
           (iq && iq > 0 ? iq : undefined) ??
-          1;
+          undefined;
 
         return {
           itemId: Number((it as any).itemId || 0),
           remark: (it as any).remark || "",
           qty,
-          rate: 0,
-          discountPercent: 0,
-          cgstPercent: 0,
-          sgstPercent: 0,
-          igstPercent: 0,
+          rate: undefined,
+          discountPercent: undefined,
+          cgstPercent: undefined,
+          sgstPercent: undefined,
+          igstPercent: undefined,
           amount: 0,
           indentItemId: Number((it as any).id || 0) || undefined,
           fromIndent: true,
@@ -659,6 +675,21 @@ export function PurchaseOrderForm({
     });
   };
 
+  const decimalRegex2 = /^\d*(?:\.\d{0,2})?$/;
+  const decimalRegex4 = /^\d*(?:\.\d{0,4})?$/;
+  const handleDecimalChange2 =
+    (path: `purchaseOrderItems.${number}.${string}`) => (value: string) => {
+      if (value === "" || decimalRegex2.test(value)) {
+        form.setValue(path as any, value as any, { shouldDirty: true });
+      }
+    };
+  const handleDecimalChange4 =
+    (path: `purchaseOrderItems.${number}.${string}`) => (value: string) => {
+      if (value === "" || decimalRegex4.test(value)) {
+        form.setValue(path as any, value as any, { shouldDirty: true });
+      }
+    };
+
   const computeItemMetrics = (item: PurchaseOrderItemFormValue) => {
     // In approval 1 use approved1Qty; in approval 2 use approved2Qty; otherwise use qty
     const qty = isApproval2
@@ -751,13 +782,13 @@ export function PurchaseOrderForm({
   const addItem = () => {
     append({
       itemId: 0,
-      qty: 1,
-      rate: 0,
-      discountPercent: 0,
-      cgstPercent: 0,
-      sgstPercent: 0,
-      igstPercent: 0,
-    });
+      qty: undefined,
+      rate: undefined,
+      discountPercent: undefined,
+      cgstPercent: undefined,
+      sgstPercent: undefined,
+      igstPercent: undefined,
+    } as any);
   };
 
   // Remove an item row
@@ -767,12 +798,12 @@ export function PurchaseOrderForm({
       update(0, {
         itemId: 0,
         remark: "",
-        qty: 1,
-        rate: 0,
-        discountPercent: 0,
-        cgstPercent: 0,
-        sgstPercent: 0,
-        igstPercent: 0,
+        qty: undefined,
+        rate: undefined,
+        discountPercent: undefined,
+        cgstPercent: undefined,
+        sgstPercent: undefined,
+        igstPercent: undefined,
         amount: 0,
         // Ensure it's no longer treated as sourced from indent
         ...(typeof (items?.[0] as any) === "object"
@@ -1090,6 +1121,17 @@ export function PurchaseOrderForm({
     }
   };
 
+  const onInvalid = (errs: unknown) => {
+    try {
+      console.group("[PurchaseOrderForm] Validation errors");
+      console.log(errs);
+      console.log("formState.errors:", form.formState.errors);
+      console.groupEnd();
+    } catch {
+      // ignore
+    }
+  };
+
   // Handle transit insurance status change
   useEffect(() => {
     if (
@@ -1174,7 +1216,7 @@ export function PurchaseOrderForm({
               : "Final approval of purchase order."}
           </AppCard.Description>
         </AppCard.Header>
-        <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
+        <form noValidate onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
           <AppCard.Content className="space-y-6">
             <FormSection legend="Purchase Order Details">
               <FormRow cols={3}>
@@ -1546,131 +1588,130 @@ export function PurchaseOrderForm({
                       <Fragment key={field.fieldId ?? index}>
                         <tr>
                           <td className="px-1 py-2 align-top">
-                          {isApprovalMode ? (
-                            <>
-                              <div className="font-medium">
-                                {initial?.purchaseOrderItems?.[index]?.item
-                                  ?.itemCode
-                                  ? `${initial.purchaseOrderItems[index].item.itemCode} - ${initial.purchaseOrderItems[index].item.item}`
-                                  : initial?.purchaseOrderItems?.[index]?.item
-                                      ?.item || ""}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Unit:{" "}
-                                {initial?.purchaseOrderItems?.[index]?.item
-                                  ?.unit?.unitName || ""}
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <FormField
-                                control={form.control}
-                                name={`purchaseOrderItems.${index}.itemId`}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1">
-                                    <FormControl>
-                                      <AppSelect
-                                        value={
-                                          field.value && field.value > 0
-                                            ? field.value.toString()
-                                            : "__none"
-                                        }
-                                        triggerClassName="w-[200px] min-w-[200px] max-w-[320px]"
-                                        onValueChange={(value) => {
-                                          if (value === "__none") {
-                                            field.onChange(0);
-                                            return;
-                                          }
-
-                                          const parsedValue = parseInt(
-                                            value,
-                                            10
-                                          );
-                                          field.onChange(
-                                            Number.isNaN(parsedValue)
-                                              ? 0
-                                              : parsedValue
-                                          );
-
-                                          // Update rate if item is selected
-                                          if (
-                                            value !== "__none" &&
-                                            itemOptions.length
-                                          ) {
-                                            const selectedItem =
-                                              itemOptions.find(
-                                                (item) =>
-                                                  item.id.toString() === value
-                                              );
-                                            if (selectedItem) {
-                                              // You might want to fetch the item's standard rate here
-                                              // For now, we'll just set a default rate of 0
-                                              form.setValue(
-                                                `purchaseOrderItems.${index}.rate`,
-                                                0
-                                              );
-                                            }
-                                          }
-                                        }}
-                                        placeholder="Select Item"
-                                        disabled={
-                                          (items?.[index] as any)
-                                            ?.fromIndent === true
-                                        }
-                                      >
-                                        <AppSelect.Item
-                                          key={`item-placeholder-${index}`}
-                                          value="__none"
-                                        >
-                                          Select Item
-                                        </AppSelect.Item>
-                                        {itemOptions.map((item) => (
-                                          <AppSelect.Item
-                                            key={item.id}
-                                            value={item.id.toString()}
-                                          >
-                                            {item.itemCode
-                                              ? `${item.itemCode} - ${item.item}`
-                                              : item.item}
-                                          </AppSelect.Item>
-                                        ))}
-                                      </AppSelect>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <div className="mt-2">
-                                <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
-                                  Discount
+                            {isApprovalMode ? (
+                              <>
+                                <div className="font-medium">
+                                  {initial?.purchaseOrderItems?.[index]?.item
+                                    ?.itemCode
+                                    ? `${initial.purchaseOrderItems[index].item.itemCode} - ${initial.purchaseOrderItems[index].item.item}`
+                                    : initial?.purchaseOrderItems?.[index]?.item
+                                        ?.item || ""}
                                 </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Unit:{" "}
+                                  {initial?.purchaseOrderItems?.[index]?.item
+                                    ?.unit?.unitName || ""}
+                                </div>
+                              </>
+                            ) : (
+                              <>
                                 <FormField
                                   control={form.control}
-                                  name={`purchaseOrderItems.${index}.discountPercent`}
+                                  name={`purchaseOrderItems.${index}.itemId`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
                                       <FormControl>
-                                        <Input
-                                          type="text"
-                                          inputMode="decimal"
-                                          {...field}
-                                          value={typeof field.value === "string" ? field.value : field.value?.toString() || ""}
-                                          onChange={(e) => {
-                                            const v = e.target.value;
-                                            if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
-                                              field.onChange(v);
+                                        <AppSelect
+                                          value={
+                                            field.value && field.value > 0
+                                              ? field.value.toString()
+                                              : "__none"
+                                          }
+                                          triggerClassName="w-[200px] min-w-[200px] max-w-[320px]"
+                                          onValueChange={(value) => {
+                                            if (value === "__none") {
+                                              field.onChange(0);
+                                              return;
+                                            }
+
+                                            const parsedValue = parseInt(
+                                              value,
+                                              10
+                                            );
+                                            field.onChange(
+                                              Number.isNaN(parsedValue)
+                                                ? 0
+                                                : parsedValue
+                                            );
+
+                                            // Update rate if item is selected
+                                            if (
+                                              value !== "__none" &&
+                                              itemOptions.length
+                                            ) {
+                                              const selectedItem =
+                                                itemOptions.find(
+                                                  (item) =>
+                                                    item.id.toString() === value
+                                                );
+                                              if (selectedItem) {
+                                                // You might want to fetch the item's standard rate here
+                                                // For now, we'll just set a default rate of 0
+                                                form.setValue(
+                                                  `purchaseOrderItems.${index}.rate`,
+                                                  0
+                                                );
+                                              }
                                             }
                                           }}
-                                          className="h-9 text-right w-[200px]"
-                                        />
+                                          placeholder="Select Item"
+                                          disabled={
+                                            (items?.[index] as any)
+                                              ?.fromIndent === true
+                                          }
+                                        >
+                                          <AppSelect.Item
+                                            key={`item-placeholder-${index}`}
+                                            value="__none"
+                                          >
+                                            Select Item
+                                          </AppSelect.Item>
+                                          {itemOptions.map((item) => (
+                                            <AppSelect.Item
+                                              key={item.id}
+                                              value={item.id.toString()}
+                                            >
+                                              {item.itemCode
+                                                ? `${item.itemCode} - ${item.item}`
+                                                : item.item}
+                                            </AppSelect.Item>
+                                          ))}
+                                        </AppSelect>
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
                                 />
+                              </>
+                            )}
+                            <div className="mt-2">
+                              <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
+                                Discount
                               </div>
-                            </>
-                          )}
+                              <FormField
+                                control={form.control}
+                                name={`purchaseOrderItems.${index}.discountPercent`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        {...field}
+                                        value={typeof field.value === "string" ? field.value : field.value?.toString() || ""}
+                                        onChange={(e) =>
+                                          handleDecimalChange2(
+                                            `purchaseOrderItems.${index}.discountPercent`
+                                          )(e.target.value)
+                                        }
+                                        className="h-9 text-right w-[200px]"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
                           </td>
                           {(() => {
                           const rowItemId = isApprovalMode
@@ -1780,15 +1821,14 @@ export function PurchaseOrderForm({
                                         typeof field.value === "string"
                                           ? field.value
                                           : field.value?.toString() || ""
-                                      }
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
-                                          field.onChange(v);
                                         }
-                                      }}
-                                      className="h-9 text-right w-[200px]"
-                                    />
+                                        onChange={(e) =>
+                                          handleDecimalChange4(
+                                            `purchaseOrderItems.${index}.approved1Qty`
+                                          )(e.target.value)
+                                        }
+                                        className="h-9 text-right w-[200px]"
+                                      />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>

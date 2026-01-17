@@ -288,6 +288,7 @@ export async function PATCH(
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      let autoApproved2 = false;
       // Update purchase order header
       const {
         purchaseOrderItems,
@@ -560,6 +561,7 @@ export async function PATCH(
               updateData.isApproved2 = true;
               updateData.approved2ById = auth.user.id;
               updateData.approved2At = now;
+              autoApproved2 = true;
             }
           } else if (statusAction === "approve2") {
             if (!has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2)) {
@@ -700,7 +702,11 @@ export async function PATCH(
             qty: item.qty,
             orderedQty: item.orderedQty ?? null,
             approved1Qty: item.approved1Qty ?? null,
-            approved2Qty: item.approved2Qty ?? null,
+            approved2Qty:
+              item.approved2Qty ??
+              (autoApproved2
+                ? (item.approved1Qty ?? item.qty ?? null)
+                : null),
             rate: item.rate,
             discountPercent: item.discountPercent || 0,
             cgstPercent: item.cgstPercent || 0,
@@ -742,6 +748,20 @@ export async function PATCH(
             where: {
               id: { in: itemsToDelete.map((item) => item.id) },
             },
+          });
+        }
+      } else if (autoApproved2) {
+        // Auto-approval to level 2 happened, but no items were sent in the payload.
+        // Ensure approved2Qty is persisted based on the existing row values.
+        const existingDetails = await tx.purchaseOrderDetail.findMany({
+          where: { purchaseOrderId: id },
+          select: { id: true, approved1Qty: true, qty: true },
+        });
+        for (const d of existingDetails) {
+          const approved2Qty = d.approved1Qty ?? d.qty ?? null;
+          await tx.purchaseOrderDetail.update({
+            where: { id: d.id },
+            data: { approved2Qty },
           });
         }
       }
