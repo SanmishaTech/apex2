@@ -137,6 +137,25 @@ export interface PurchaseOrderFormProps {
   refreshKey?: string;
 }
 
+const twoDpNumber = (label: string, required = false, min?: number, max?: number) =>
+  z.preprocess(
+    (val) => {
+      if (typeof val === "number") return val;
+      if (typeof val === "string") {
+        const t = val.trim();
+        if (t === "") return required ? undefined : 0;
+        if (!/^\d*(?:\.\d{1,2})?$/.test(t)) return NaN as any;
+        const n = parseFloat(t);
+        return Number.isFinite(n) ? n : (NaN as any);
+      }
+      return required ? undefined : 0;
+    },
+    z
+      .number({ required_error: `${label} is required` })
+      .refine((v) => (typeof min === "number" ? v >= min : true), `${label} must be ${min !== undefined ? `>= ${min}` : "valid"}`)
+      .refine((v) => (typeof max === "number" ? v <= max : true), `${label} must be ${max !== undefined ? `<= ${max}` : "valid"}`)
+  );
+
 const purchaseOrderItemSchema = z.object({
   itemId: z
     .union([z.string(), z.number()])
@@ -147,60 +166,24 @@ const purchaseOrderItemSchema = z.object({
     )
     .transform((val) => parseInt(val)),
   remark: z.string().optional(),
-  qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Quantity must be greater than 0")),
+  qty: twoDpNumber("Quantity", true, 0.01),
   approved1Qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+    .preprocess(
+      (val) => (val === "" || val === undefined || val === null ? undefined : val),
+      twoDpNumber("Approved quantity", true, 0.01)
+    )
     .optional(),
   approved2Qty: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().min(0.0001, "Approved quantity must be greater than 0"))
+    .preprocess(
+      (val) => (val === "" || val === undefined || val === null ? undefined : val),
+      twoDpNumber("Approved quantity", true, 0.01)
+    )
     .optional(),
-  rate: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(z.number().gt(0, "Rate must be greater than 0")),
-  discountPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "Discount % must be non-negative")
-        .max(100, "Discount % must be <= 100")
-    ),
-  cgstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "CGST % must be non-negative")
-        .max(100, "CGST % must be <= 100")
-    ),
-  sgstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "SGST % must be non-negative")
-        .max(100, "SGST % must be <= 100")
-    ),
-  igstPercent: z
-    .union([z.string(), z.number()])
-    .transform((val) => (typeof val === "string" ? parseFloat(val) || 0 : val))
-    .pipe(
-      z
-        .number()
-        .min(0, "IGST % must be non-negative")
-        .max(100, "IGST % must be <= 100")
-    ),
+  rate: twoDpNumber("Rate", true, 0.01),
+  discountPercent: twoDpNumber("Discount %", false, 0, 100),
+  cgstPercent: twoDpNumber("CGST %", false, 0, 100),
+  sgstPercent: twoDpNumber("SGST %", false, 0, 100),
+  igstPercent: twoDpNumber("IGST %", false, 0, 100),
   indentItemId: z
     .union([z.string(), z.number()])
     .optional()
@@ -407,36 +390,34 @@ export function PurchaseOrderForm({
       purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
         itemId: item.itemId ?? 0,
         remark: item.remark ?? "",
-        qty: item.qty ?? 1,
-        // normalize approved1Qty: ensure it's a number when in approval mode,
-        // otherwise leave undefined so it doesn't conflict with the input schema
+        qty: item.qty ?? undefined,
+        // normalize approved quantities: keep as numbers or undefined
         approved1Qty: isApprovalMode
-          ? Number(item.approved1Qty ?? item.qty ?? 0)
+          ? (item.approved1Qty ?? item.qty ?? undefined)
           : item.approved1Qty ?? undefined,
-        // normalize approved2Qty for approval2 mode
         approved2Qty: isApproval2
-          ? Number(item.approved2Qty ?? item.approved1Qty ?? item.qty ?? 0)
+          ? (item.approved2Qty ?? item.approved1Qty ?? item.qty ?? undefined)
           : item.approved2Qty ?? undefined,
-        rate: item.rate ?? 0,
-        discountPercent: item.discountPercent ?? 0,
-        cgstPercent: item.cgstPercent ?? 0,
-        sgstPercent: item.sgstPercent ?? 0,
-        igstPercent: item.igstPercent ?? 0,
+        rate: item.rate ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
+        cgstPercent: item.cgstPercent ?? undefined,
+        sgstPercent: item.sgstPercent ?? undefined,
+        igstPercent: item.igstPercent ?? undefined,
         amount: 0,
       })) || [
         {
           itemId: 0,
-          qty: 1,
-          rate: 0,
-          discountPercent: 0,
-          cgstPercent: 0,
-          sgstPercent: 0,
-          igstPercent: 0,
+          qty: undefined,
+          rate: undefined,
+          discountPercent: undefined,
+          cgstPercent: undefined,
+          sgstPercent: undefined,
+          igstPercent: undefined,
           amount: 0,
         },
       ],
     };
-  }, [initial, isApprovalMode]);
+  }, [initial, isApprovalMode, isApproval2]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(createInputSchema) as unknown as Resolver<FormData>,
@@ -1172,7 +1153,7 @@ export function PurchaseOrderForm({
   // Format number input
   return (
     <Form {...form}>
-      <AppCard className="w-auto mx-auto">
+      <AppCard className="w-full">
         <AppCard.Header>
           <AppCard.Title>
             {isCreate
@@ -1520,8 +1501,8 @@ export function PurchaseOrderForm({
 
             {/* Items Table */}
             <FormSection legend="Items">
-              <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <table className="w-max table-auto divide-y divide-gray-200 dark:divide-slate-700">
+              <div className="w-full overflow-x-auto rounded-md border border-border bg-card">
+                <table className="w-full min-w-max table-auto divide-y divide-gray-200 dark:divide-slate-700">
                   <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
                       <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1560,7 +1541,7 @@ export function PurchaseOrderForm({
                       )}
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
+                  <tbody className="bg-white dark:bg-slate-900">
                     {fields.map((field, index) => (
                       <Fragment key={field.fieldId ?? index}>
                         <tr>
@@ -1659,8 +1640,8 @@ export function PurchaseOrderForm({
                                   </FormItem>
                                 )}
                               />
-                              <div className="mt-1">
-                                <div className="w-[200px] mb-1 text-[10px] text-muted-foreground leading-none">
+                              <div className="mt-2">
+                                <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
                                   Discount
                                 </div>
                                 <FormField
@@ -1670,21 +1651,17 @@ export function PurchaseOrderForm({
                                     <FormItem className="space-y-1">
                                       <FormControl>
                                         <Input
-                                          type="number"
-                                          step="0.01"
-                                          min="0"
-                                          max="100"
+                                          type="text"
+                                          inputMode="decimal"
                                           {...field}
-                                          value={field.value?.toString() || "0"}
+                                          value={typeof field.value === "string" ? field.value : field.value?.toString() || ""}
                                           onChange={(e) => {
-                                            const value = e.target.value;
-                                            field.onChange(
-                                              value === ""
-                                                ? "0"
-                                                : parseFloat(value) || 0
-                                            );
+                                            const v = e.target.value;
+                                            if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                              field.onChange(v);
+                                            }
                                           }}
-                                          className="text-right w-[200px]"
+                                          className="h-9 text-right w-[200px]"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1709,37 +1686,41 @@ export function PurchaseOrderForm({
                               : undefined;
                           return (
                             <td className="w-[200px] min-w-[200px] px-1 py-2 text-right align-top">
-                              <div>
-                                {typeof closingVal === "number"
-                                  ? closingVal
-                                  : "-"}
+                              <div className="w-[200px]">
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={
+                                    typeof closingVal === "number"
+                                      ? String(closingVal)
+                                      : ""
+                                  }
+                                  placeholder="-"
+                                  className="h-9 text-right w-[200px]"
+                                />
                               </div>
-                              <div className="mt-1">
+                              <div className="mt-2">
                                 <FormField
                                   control={form.control}
                                   name={`purchaseOrderItems.${index}.cgstPercent`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
-                                      <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                      <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
                                         CGST
                                       </div>
                                       <FormControl>
                                         <Input
-                                          type="number"
-                                          step="0.01"
-                                          min="0"
-                                          max="100"
+                                          type="text"
+                                          inputMode="decimal"
                                           {...field}
-                                          value={field.value?.toString() || "0"}
+                                          value={typeof field.value === "string" ? field.value : field.value?.toString() || ""}
                                           onChange={(e) => {
-                                            const value = e.target.value;
-                                            field.onChange(
-                                              value === ""
-                                                ? "0"
-                                                : parseFloat(value) || 0
-                                            );
+                                            const v = e.target.value;
+                                            if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                              field.onChange(v);
+                                            }
                                           }}
-                                          className="text-right w-[200px]"
+                                          className="h-9 text-right w-[200px]"
                                         />
                                       </FormControl>
                                       <div className="text-xs text-muted-foreground text-right">
@@ -1792,20 +1773,21 @@ export function PurchaseOrderForm({
                                 <FormItem className="space-y-1">
                                   <FormControl>
                                     <Input
-                                      type="number"
-                                      step="0.0001"
-                                      min="0.0001"
+                                      type="text"
+                                      inputMode="decimal"
                                       {...field}
-                                      value={field.value?.toString() || ""}
+                                      value={
+                                        typeof field.value === "string"
+                                          ? field.value
+                                          : field.value?.toString() || ""
+                                      }
                                       onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? ""
-                                            : parseFloat(value) || 0
-                                        );
+                                        const v = e.target.value;
+                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                          field.onChange(v);
+                                        }
                                       }}
-                                      className="text-right w-[200px]"
+                                      className="h-9 text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1820,20 +1802,21 @@ export function PurchaseOrderForm({
                                 <FormItem className="space-y-1">
                                   <FormControl>
                                     <Input
-                                      type="number"
-                                      step="0.0001"
-                                      min="0.0001"
+                                      type="text"
+                                      inputMode="decimal"
                                       {...field}
-                                      value={field.value?.toString() || ""}
+                                      value={
+                                        typeof field.value === "string"
+                                          ? field.value
+                                          : field.value?.toString() || ""
+                                      }
                                       onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? ""
-                                            : parseFloat(value) || 0
-                                        );
+                                        const v = e.target.value;
+                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                          field.onChange(v);
+                                        }
                                       }}
-                                      className="text-right w-[200px]"
+                                      className="h-9 text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1848,20 +1831,21 @@ export function PurchaseOrderForm({
                                 <FormItem className="space-y-1">
                                   <FormControl>
                                     <Input
-                                      type="number"
-                                      step="0.0001"
-                                      min="0.0001"
+                                      type="text"
+                                      inputMode="decimal"
                                       {...field}
-                                      value={field.value?.toString() || ""}
+                                      value={
+                                        typeof field.value === "string"
+                                          ? field.value
+                                          : field.value?.toString() || ""
+                                      }
                                       onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? ""
-                                            : parseFloat(value) || 0
-                                        );
+                                        const v = e.target.value;
+                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                          field.onChange(v);
+                                        }
                                       }}
-                                      className="text-right w-[200px]"
+                                      className="h-9 text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1875,26 +1859,26 @@ export function PurchaseOrderForm({
                               name={`purchaseOrderItems.${index}.sgstPercent`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
-                                  <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                  <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
                                     SGST
                                   </div>
                                   <FormControl>
                                     <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      max="100"
+                                      type="text"
+                                      inputMode="decimal"
                                       {...field}
-                                      value={field.value?.toString() || "0"}
+                                      value={
+                                        typeof field.value === "string"
+                                          ? field.value
+                                          : field.value?.toString() || ""
+                                      }
                                       onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? "0"
-                                            : parseFloat(value) || 0
-                                        );
+                                        const v = e.target.value;
+                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                          field.onChange(v);
+                                        }
                                       }}
-                                      className="text-right w-[200px]"
+                                      className="h-9 text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <div className="text-xs text-muted-foreground text-right">
@@ -1915,20 +1899,21 @@ export function PurchaseOrderForm({
                               <FormItem className="space-y-1">
                                 <FormControl>
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                    type="text"
+                                    inputMode="decimal"
                                     {...field}
-                                    value={field.value?.toString() || ""}
+                                    value={
+                                      typeof field.value === "string"
+                                        ? field.value
+                                        : field.value?.toString() || ""
+                                    }
                                     onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? ""
-                                          : parseFloat(value) || 0
-                                      );
+                                      const v = e.target.value;
+                                      if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                        field.onChange(v);
+                                      }
                                     }}
-                                    className="text-right w-[200px]"
+                                    className="h-9 text-right w-[200px]"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1941,26 +1926,26 @@ export function PurchaseOrderForm({
                               name={`purchaseOrderItems.${index}.igstPercent`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
-                                  <div className="w-[200px] mb-1 text-[10px] text-muted-foreground text-right leading-none">
+                                  <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
                                     IGST
                                   </div>
                                   <FormControl>
                                     <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      max="100"
+                                      type="text"
+                                      inputMode="decimal"
                                       {...field}
-                                      value={field.value?.toString() || "0"}
+                                      value={
+                                        typeof field.value === "string"
+                                          ? field.value
+                                          : field.value?.toString() || ""
+                                      }
                                       onChange={(e) => {
-                                        const value = e.target.value;
-                                        field.onChange(
-                                          value === ""
-                                            ? "0"
-                                            : parseFloat(value) || 0
-                                        );
+                                        const v = e.target.value;
+                                        if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                          field.onChange(v);
+                                        }
                                       }}
-                                      className="text-right w-[200px]"
+                                      className="h-9 text-right w-[200px]"
                                     />
                                   </FormControl>
                                   <div className="text-xs text-muted-foreground text-right">
@@ -2001,7 +1986,7 @@ export function PurchaseOrderForm({
                           </td>
                           )}
                         </tr>
-                        <tr className="border-t-0">
+                        <tr className="!border-t-0 border-b border-gray-200 dark:border-slate-800">
                           <td
                             colSpan={
                               4 + (isApprovalMode ? 1 : 0) + (isApproval2 ? 1 : 0)
@@ -2009,7 +1994,7 @@ export function PurchaseOrderForm({
                             className="px-1 py-2 align-top"
                           >
                             <div>
-                              <div className="mb-1 text-[10px] text-muted-foreground leading-none">
+                              <div className="mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
                                 Remarks
                               </div>
                               <FormField
@@ -2022,7 +2007,7 @@ export function PurchaseOrderForm({
                                         {...field}
                                         placeholder="Remarks"
                                         value={field.value || ""}
-                                        className="text-xs w-full"
+                                        className="h-9 text-sm w-full"
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -2118,14 +2103,14 @@ export function PurchaseOrderForm({
                                         ? ""
                                         : String(field.value)
                                     }
+                                    inputMode="decimal"
                                     onChange={(event) => {
-                                      field.onChange(event.target.value);
+                                      const v = event.target.value;
+                                      if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                        field.onChange(v);
+                                      }
                                     }}
-                                    type={
-                                      transitInsuranceStatus === null
-                                        ? "number"
-                                        : "text"
-                                    }
+                                    type="text"
                                     placeholder={
                                       transitInsuranceStatus === null
                                         ? "Enter amount"
@@ -2207,10 +2192,14 @@ export function PurchaseOrderForm({
                                         ? ""
                                         : String(field.value)
                                     }
+                                    inputMode="decimal"
                                     onChange={(event) => {
-                                      field.onChange(event.target.value);
+                                      const v = event.target.value;
+                                      if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                        field.onChange(v);
+                                      }
                                     }}
-                                    type={pfStatus === null ? "number" : "text"}
+                                    type="text"
                                     placeholder={
                                       pfStatus === null
                                         ? "Enter amount"
@@ -2345,14 +2334,14 @@ export function PurchaseOrderForm({
                                         ? ""
                                         : String(field.value)
                                     }
+                                    inputMode="decimal"
                                     onChange={(event) => {
-                                      field.onChange(event.target.value);
+                                      const v = event.target.value;
+                                      if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
+                                        field.onChange(v);
+                                      }
                                     }}
-                                    type={
-                                      gstReverseStatus === null
-                                        ? "number"
-                                        : "text"
-                                    }
+                                    type="text"
                                     placeholder={
                                       gstReverseStatus === null
                                         ? "Enter amount"
