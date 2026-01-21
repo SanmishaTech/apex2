@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { NAV_ITEMS, NavItem, NavGroupItem, NavLeafItem } from "@/config/nav";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { ROLES_PERMISSIONS, ROLES } from "@/config/roles";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -39,22 +38,7 @@ export function Sidebar({
 
   const items = useMemo(() => {
     if (!user) return [] as NavItem[];
-    // Resolve role robustly: accept stored code or variant strings
-    function resolveRoleLabel(value: string): string {
-      if (!value) return value;
-      const direct = (ROLES as any)[value];
-      if (direct) return direct;
-      const norm = value.trim();
-      const normUpper = norm.toUpperCase().replace(/\s+/g, '_');
-      const fromUpper = (ROLES as any)[normUpper];
-      if (fromUpper) return fromUpper;
-      const labels: string[] = Object.values(ROLES as any);
-      const match = labels.find(lbl => lbl.toLowerCase() === norm.toLowerCase());
-      return match || value;
-    }
-    const roleLabel = resolveRoleLabel(user.role as string);
-    const rolePermissions = (ROLES_PERMISSIONS as any)[roleLabel] || [];
-    const permissionSet = new Set(rolePermissions);
+    const permissionSet = new Set((user.permissions || []) as string[]);
 
     function filterNavItems(items: NavItem[]): NavItem[] {
       return items
@@ -73,7 +57,7 @@ export function Sidebar({
     }
 
     return filterNavItems(NAV_ITEMS);
-  }, [user?.role]); // Only re-run when role changes, not entire user object
+  }, [user?.permissions]);
 
   // Create a function to check active children that accepts pathname and searchParams as arguments
   const createActiveChecker = (

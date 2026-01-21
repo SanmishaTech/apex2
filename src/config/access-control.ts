@@ -10,6 +10,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/dashboard", permissions: [PERMISSIONS.VIEW_DASHBOARD] },
   // Profile (auth only)
   { prefix: "/profile", permissions: [] },
+  // Roles & Permissions
+  { prefix: "/roles/", permissions: [PERMISSIONS.EDIT_ROLES_PERMISSIONS] },
+  { prefix: "/roles", permissions: [PERMISSIONS.VIEW_ROLES] },
   { prefix: "/users/new", permissions: [PERMISSIONS.EDIT_USERS] }, // create user page
   { prefix: "/users/", permissions: [PERMISSIONS.EDIT_USERS] }, // edit user pages (/users/:id/...)
   { prefix: "/users", permissions: [PERMISSIONS.READ_USERS] }, // users list (view only)
@@ -322,6 +325,33 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [],
       PATCH: [],
+    },
+  },
+  // Access Control
+  {
+    prefix: "/api/access-control/permissions",
+    methods: {
+      GET: [PERMISSIONS.VIEW_ROLES],
+    },
+  },
+  {
+    prefix: "/api/access-control/roles",
+    methods: {
+      GET: [PERMISSIONS.VIEW_ROLES],
+      POST: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      PATCH: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      PUT: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      DELETE: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+    },
+  },
+  {
+    prefix: "/api/access-control/users",
+    methods: {
+      GET: [PERMISSIONS.VIEW_USERS],
+      PUT: [PERMISSIONS.EDIT_USERS],
+      POST: [PERMISSIONS.EDIT_USERS],
+      PATCH: [PERMISSIONS.EDIT_USERS],
+      DELETE: [PERMISSIONS.EDIT_USERS],
     },
   },
   {

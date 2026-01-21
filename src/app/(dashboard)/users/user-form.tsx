@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Form } from '@/components/ui/form';
 import { z } from 'zod';
@@ -10,10 +11,10 @@ import { AppCheckbox } from '@/components/common/app-checkbox';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
-import { apiPost, apiPatch } from '@/lib/api-client';
-import { ROLES } from '@/config/roles';
+import { apiGet, apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 
 export interface UserFormInitialData {
 	id?: number;
@@ -30,16 +31,6 @@ export interface UserFormProps {
 	redirectOnSuccess?: string; // default '/users'
 }
 
-// Use ROLES: code -> label. Store codes, display labels.
-const ROLE_ENTRIES = Object.entries(ROLES) as [string, string][];
-const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
-function toRoleCode(v?: string) {
-	if (!v) return undefined as unknown as any;
-	if ((ROLE_CODES as readonly string[]).includes(v)) return v as any;
-	const found = ROLE_ENTRIES.find(([, label]) => label === v);
-	return (found?.[0] as any) ?? (undefined as unknown as any);
-}
-
 export function UserForm({
 	mode,
 	initial,
@@ -49,9 +40,13 @@ export function UserForm({
 	const router = useRouter();
 	const [submitting, setSubmitting] = useState(false);
 
-	// Derive allowed roles from central config
-	const ROLE_VALUES = Object.keys(ROLES) as [string, ...string[]];
-	const roleOptions = Object.entries(ROLES).map(([code, label]) => ({ value: code, label }));
+	const { data: rolesData } = useSWR<{ data: Array<{ id: number; name: string }> }>(
+		'/api/roles/options',
+		apiGet
+	);
+	const roleOptions = (rolesData?.data || []).map((r) => ({ value: r.name, label: r.name }));
+	const defaultRole = initial?.role || roleOptions?.[0]?.value || '';
+
 	const schema = z.object({
 		name: z.string().min(1, 'Name is required'),
 		email: z.string().email('Invalid email'),
@@ -59,7 +54,7 @@ export function UserForm({
 			? z.string().min(6, 'Password must be at least 6 characters')
 			: z.string().optional()
 		).transform((v) => (v === '' ? undefined : v)),
-		role: z.enum(ROLE_VALUES, { required_error: 'Role is required' }),
+		role: z.string().min(1, 'Role is required'),
 		status: z.boolean(),
 	});
 
@@ -73,11 +68,19 @@ export function UserForm({
 			name: initial?.name || '',
 			email: initial?.email || '',
 			password: '',
-			// map any legacy stored label to code; store codes going forward
-			role: toRoleCode(initial?.role),
+			role: defaultRole,
 			status: initial?.status ?? true,
 		},
 	});
+
+	useEffect(() => {
+		// When roles load async, select a default for create forms.
+		if (initial?.role) return;
+		if (!roleOptions.length) return;
+		const current = form.getValues('role');
+		if (typeof current === 'string' && current.trim() !== '') return;
+		form.setValue('role', defaultRole, { shouldValidate: true });
+	}, [defaultRole, form, initial?.role, roleOptions.length]);
 	const { control, handleSubmit } = form;
 	const statusValue = form.watch('status');
 	const isCreate = mode === 'create';

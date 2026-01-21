@@ -11,7 +11,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { ROLES_PERMISSIONS, PERMISSIONS } from "@/config/roles";
+import { PERMISSIONS } from "@/config/roles";
 
 // GET /api/outward-delivery-challans/[id]
 export async function GET(
@@ -132,11 +132,8 @@ export async function PATCH(
     });
     if (!current) return NotFound("Outward delivery challan not found");
 
-    const rolePerms =
-      ROLES_PERMISSIONS[
-        (auth as any).user.role as keyof typeof ROLES_PERMISSIONS
-      ] || [];
-    const has = (p: string) => (rolePerms as string[]).includes(p);
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    const has = (p: string) => permSet.has(p);
 
     const userId = (auth as any).user?.id as number;
     const now = new Date();

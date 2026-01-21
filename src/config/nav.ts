@@ -554,12 +554,12 @@ export const NAV_ITEMS: NavItem[] = [
 
     icon: Settings,
     children: [
-      // {
-      //   title: "Roles",
-      //   href: "/roles",
-      //   icon: Users,
-      //   permission: PERMISSIONS.VIEW_ROLES,
-      // },
+      {
+        title: "Roles",
+        href: "/roles",
+        icon: Users,
+        permission: PERMISSIONS.VIEW_ROLES,
+      },
       {
         title: "Users",
         href: "/users",

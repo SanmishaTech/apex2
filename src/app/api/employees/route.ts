@@ -8,18 +8,6 @@ import bcrypt from "bcryptjs";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { ROLES } from "@/config/roles";
-
-const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
-const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
-
-function labelToRoleCode(label?: string | null) {
-  if (!label) return undefined as unknown as string;
-  for (const [code, lbl] of Object.entries(ROLES)) {
-    if (lbl === label) return code;
-  }
-  return label; // fallback (should not happen when label comes from ROLE_VALUES)
-}
 
 const createSchema = z.object({
   name: z.string().min(1, "Employee name is required"),
@@ -39,9 +27,7 @@ const createSchema = z.object({
       if (!val) return undefined;
       return new Date(val);
     }),
-  role: z
-    .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
-    .default(ROLES.SITE_SUPERVISOR),
+  role: z.string().min(1, "Role is required"),
   // Employment Details
   designationId: z.number().optional(),
   previousWorkExperience: z.string().optional(),
@@ -280,7 +266,7 @@ export async function POST(req: NextRequest) {
         resignDate: form.get("resignDate")
           ? String(form.get("resignDate"))
           : undefined,
-        role: String(form.get("role") || ROLES.SITE_SUPERVISOR),
+        role: String(form.get("role") || ""),
         designationId: form.get("designationId")
           ? Number(form.get("designationId"))
           : undefined,
@@ -447,6 +433,13 @@ export async function POST(req: NextRequest) {
       return `/uploads/employees/documents/${filename}`;
     }
 
+    const roleName = String(parsedData.role || "").trim();
+    const dbRole = await prisma.role.findUnique({
+      where: { name: roleName },
+      select: { id: true },
+    });
+    if (!dbRole) return BadRequest("Invalid role");
+
     const hashedPassword = await bcrypt.hash(parsedData.password, 10);
 
     // Create Employee and User in a transaction
@@ -465,8 +458,14 @@ export async function POST(req: NextRequest) {
           name: parsedData.name,
           email: parsedData.email,
           passwordHash: hashedPassword,
-          role: labelToRoleCode(parsedData.role) as any,
           status: parsedData.status ?? true,
+          userRoles: {
+            create: {
+              role: {
+                connect: { id: dbRole.id },
+              },
+            },
+          },
         },
       });
 

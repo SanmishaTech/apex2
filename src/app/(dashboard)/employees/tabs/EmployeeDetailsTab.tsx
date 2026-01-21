@@ -8,7 +8,6 @@ import { FormSection, FormRow } from "@/components/common/app-form";
 import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
 import type { DesignationsResponse } from "@/types/designations";
-import { ROLES } from "@/config/roles";
 import Image from "next/image";
 import { DocumentUploadArray } from "./DocumentUploadArray";
 
@@ -18,20 +17,12 @@ interface Props {
   departmentsData?: DepartmentsResponse;
   sitesData?: SitesResponse;
   designationsData?: DesignationsResponse;
+  roleOptions: Array<{ value: string; label: string }>;
   onSignatureChange?: (file: File | null) => void;
   onProfilePicChange?: (file: File | null) => void;
   initialProfilePicUrl?: string;
   initialSignatureUrl?: string;
 }
-
-const ROLE_KEYS = Object.keys(ROLES).filter((key) => key !== "ADMIN") as Array<
-  keyof typeof ROLES
->;
-
-const roleOptions = ROLE_KEYS.map((key) => ({
-  value: key as string,
-  label: ROLES[key],
-}));
 
 export default function EmployeeDetailsTab({
   control,
@@ -39,6 +30,7 @@ export default function EmployeeDetailsTab({
   departmentsData,
   sitesData,
   designationsData,
+  roleOptions,
   onSignatureChange,
   onProfilePicChange,
   initialProfilePicUrl,

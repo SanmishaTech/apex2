@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { z } from "zod";
-import { PERMISSIONS, ROLES, ROLES_PERMISSIONS } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 
 const indentItemSchema = z.object({
   id: z.number().optional(), // For existing items
@@ -170,8 +170,7 @@ export async function PATCH(
         }
 
         // Permission check based on action
-        const rolePerms =
-          ROLES_PERMISSIONS[auth.user.role as keyof typeof ROLES_PERMISSIONS] || [];
+        const rolePerms = (auth.user.permissions || []) as string[];
         if (statusAction === "approve1") {
           if (!(rolePerms as string[]).includes(PERMISSIONS.APPROVE_INDENTS_L1)) {
             throw new Error("BAD_REQUEST: Missing permission to approve level 1");

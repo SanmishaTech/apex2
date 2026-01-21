@@ -4,15 +4,62 @@ import { NextRequest } from "next/server";
 import { verifyAccessToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { Unauthorized, Error as ApiError, Forbidden } from "@/lib/api-response";
-import { ROLES_PERMISSIONS, ROLES } from "@/config/roles";
-import fs from "fs/promises";
-import path from "path";
 import { API_ACCESS_RULES, Permission } from "@/config/access-control";
 
 // Return shape reused by both guard functions
-export type GuardSuccess = { ok: true; user: { id: number; role: string } };
+export type GuardSuccess = {
+  ok: true;
+  user: { id: number; role: string | null; permissions: string[] };
+};
 export type GuardFailure = { ok: false; response: Response };
 export type GuardResult = GuardSuccess | GuardFailure;
+
+async function resolveUserAccess(userId: number): Promise<{
+  role: string | null;
+  permissions: string[];
+}> {
+  // userRoles is modeled as an array on User; DB constraint should keep it to max 1.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      userRoles: {
+        select: {
+          role: {
+            select: {
+              name: true,
+              permissions: {
+                select: {
+                  permission: { select: { permissionName: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      userPermissions: {
+        select: {
+          permission: { select: { permissionName: true } },
+        },
+      },
+    },
+  });
+
+  if (!user) return { role: null, permissions: [] };
+
+  const roleName = user.userRoles?.[0]?.role?.name ?? null;
+  const rolePerms =
+    user.userRoles?.[0]?.role?.permissions
+      ?.map((rp) => rp.permission.permissionName)
+      .filter(Boolean) ?? [];
+  const userPerms =
+    user.userPermissions
+      ?.map((up) => up.permission.permissionName)
+      .filter(Boolean) ?? [];
+
+  const effective = Array.from(new Set([...rolePerms, ...userPerms]));
+  return { role: roleName, permissions: effective };
+}
 
 // Low-level permission guard (ALL required must be present)
 export async function guardApiPermissions(
@@ -31,53 +78,21 @@ export async function guardApiPermissions(
     return { ok: false, response: Unauthorized("Invalid access token") };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: Number(userId) },
-    select: { id: true, role: true },
-  });
-  if (!user)
+  const numericUserId = Number(userId);
+  const access = await resolveUserAccess(numericUserId);
+  if (!access)
     return { ok: false, response: ApiError("Current user not found", 404) };
 
-  // Resolve role robustly: accept code (e.g., SITE_INCHARGE) or label (e.g., "Site Incharge"),
-  // and tolerate case/space/underscore differences.
-  const roleInput = (user.role as string) || "";
-  function resolveRoleLabel(input: string): string {
-    if (!input) return input;
-    // Exact code -> label
-    const direct = (ROLES as any)[input];
-    if (direct) return direct;
-    // Normalize input variants
-    const norm = input.trim();
-    const normUpper = norm.toUpperCase().replace(/\s+/g, "_");
-    const fromUpper = (ROLES as any)[normUpper];
-    if (fromUpper) return fromUpper;
-    // Try match against labels case-insensitively
-    const labels: string[] = Object.values(ROLES as any);
-    const match = labels.find(
-      (lbl) => lbl.toLowerCase() === norm.toLowerCase()
-    );
-    if (match) return match;
-    return input; // fallback
-  }
-  const roleLabel = resolveRoleLabel(roleInput);
-  // Merge/override with saved role permissions if present
-  async function getRolePermissions(role: string): Promise<string[]> {
-    try {
-      const file = path.join(process.cwd(), "data", "role-permissions.json");
-      const buf = await fs.readFile(file, "utf8");
-      const json = JSON.parse(buf) as Record<string, string[]>;
-      if (json && json[role]) return Array.from(new Set(json[role]));
-    } catch {
-      // ignore
-    }
-    return (ROLES_PERMISSIONS as any)[role] || [];
-  }
-  const perms = await getRolePermissions(roleLabel);
   if (required.length) {
-    const missing = required.filter((p) => !(perms as string[]).includes(p));
+    const permSet = new Set(access.permissions);
+    const missing = required.filter((p) => !permSet.has(p));
     if (missing.length) return { ok: false, response: Forbidden() };
   }
-  return { ok: true, user: { id: user.id, role: roleLabel } };
+
+  return {
+    ok: true,
+    user: { id: numericUserId, role: access.role, permissions: access.permissions },
+  };
 }
 
 // Method + path aware guard reading API_ACCESS_RULES

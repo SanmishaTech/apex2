@@ -13,9 +13,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const idNum = Number(id);
   if (Number.isNaN(idNum)) return Error('Invalid id', 400);
   try {
-    const user = await prisma.user.findUnique({ where: { id: idNum }, select: { id: true, name: true, email: true, role: true, status: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: idNum },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        userRoles: { select: { role: { select: { name: true } } } },
+      },
+    });
     if (!user) return Error('User not found', 404);
-    return Success(user);
+    return Success({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.userRoles?.[0]?.role?.name ?? null,
+      status: user.status,
+    });
   } catch {
     return Error('Failed to fetch user');
   }

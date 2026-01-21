@@ -18,7 +18,6 @@ import type { SitesResponse } from "@/types/sites";
 import type { StatesResponse } from "@/types/states";
 import type { CitiesResponse } from "@/types/cities";
 import type { DesignationsResponse } from "@/types/designations";
-import { ROLES } from "@/config/roles";
 
 // Code-split tabs
 const EmployeeDetailsTab = dynamic(() => import("./tabs/EmployeeDetailsTab"));
@@ -119,9 +118,6 @@ export interface EmployeeFormProps {
   redirectOnSuccess?: string; // default '/employees'
 }
 
-const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
-const ROLE_CODES = Object.keys(ROLES) as [string, ...string[]];
-
 const documentSchema = z.object({
   id: z.union([z.number(), z.undefined()]).optional(),
   documentName: z.string().min(1, "Document name is required"),
@@ -188,9 +184,7 @@ const createInputSchema = z
     confirmPassword: z
       .string()
       .min(6, "Confirm password must be at least 6 characters"),
-    role: z
-      .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
-      .default(ROLES.SITE_SUPERVISOR),
+    role: z.string().min(1, "Role is required"),
     status: z.boolean().default(true),
     employeeDocuments: z.array(documentSchema).default([]),
   })
@@ -262,7 +256,7 @@ const editInputSchema = z
         .min(6, "Confirm password must be at least 6 characters")
         .optional()
     ),
-    role: z.union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)]).optional(),
+    role: z.string().optional(),
     status: z.boolean().optional(),
   })
   .refine(
@@ -429,9 +423,22 @@ export function EmployeeForm({
   initial,
   onSuccess,
   redirectOnSuccess = "/employees",
-}: EmployeeFormProps) {
+}: any) {
   const router = useRouter();
+  const isCreate = mode === "create";
   const [submitting, setSubmitting] = useState(false);
+
+  const { data: rolesData } = useSWR<{ data: Array<{ id: number; name: string }> }>(
+    "/api/roles/options",
+    apiGet
+  );
+
+  const roleOptions = (rolesData?.data || []).map((r) => ({
+    value: r.name,
+    label: r.name,
+  }));
+
+  const defaultRole = initial?.role || roleOptions?.[0]?.value || "";
   const [activeTab, setActiveTab] = useState("details");
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
@@ -532,11 +539,21 @@ export function EmployeeForm({
       email: initial?.email || "",
       password: "",
       confirmPassword: "",
-      role: initial?.role || ROLES.SITE_SUPERVISOR,
+      role: defaultRole,
       status: initial?.status ?? true,
       employeeDocuments: initialDocumentValues,
     },
   });
+
+  useEffect(() => {
+    // When roles load async, auto-select the first role for create forms.
+    // Do not override an existing role (including edit forms).
+    if (initial?.role) return;
+    if (!roleOptions.length) return;
+    const current = form.getValues("role");
+    if (typeof current === "string" && current.trim() !== "") return;
+    form.setValue("role", defaultRole, { shouldValidate: true });
+  }, [defaultRole, form, initial?.role, roleOptions.length]);
 
   useEffect(() => {
     if (mode === "edit" && initial) {
@@ -630,7 +647,7 @@ export function EmployeeForm({
                 documentUrl: doc.documentUrl ?? "",
               })) ?? [],
             email: initial.email || "",
-            role: initial.role || ROLES.SITE_SUPERVISOR,
+            role: initial.role || "",
             status: initial.status ?? true,
           },
         },
@@ -640,35 +657,34 @@ export function EmployeeForm({
   }, [mode, initial]);
 
   const { control, handleSubmit, watch } = form;
-  const isCreate = mode === "create";
 
   // Fetch departments for dropdown
-  const { data: departmentsData } = useSWR<DepartmentsResponse>(
+  const { data: departmentsData } = useSWR<any>(
     "/api/departments?perPage=100",
     apiGet
   );
 
   // Fetch states for dropdown
-  const { data: statesData } = useSWR<StatesResponse>(
+  const { data: statesData } = useSWR<any>(
     "/api/states?perPage=100",
     apiGet
   );
 
   // Fetch sites for dropdown
-  const { data: sitesData } = useSWR<SitesResponse>(
+  const { data: sitesData } = useSWR<any>(
     "/api/sites?perPage=100",
     apiGet
   );
 
   // Fetch designations for dropdown
-  const { data: designationsData } = useSWR<DesignationsResponse>(
+  const { data: designationsData } = useSWR<any>(
     "/api/designations?perPage=100",
     apiGet
   );
 
   // Fetch cities for dropdown (filtered by selected state)
   const selectedStateId = watch("stateId");
-  const { data: citiesData } = useSWR<CitiesResponse>(
+  const { data: citiesData } = useSWR<any>(
     selectedStateId && selectedStateId !== ""
       ? `/api/cities?stateId=${selectedStateId}&perPage=100`
       : null,
@@ -1206,8 +1222,9 @@ export function EmployeeForm({
                 departmentsData={departmentsData}
                 sitesData={sitesData}
                 designationsData={designationsData}
-                onSignatureChange={setSignatureFile}
-                onProfilePicChange={setProfilePicFile}
+                roleOptions={roleOptions}
+                onSignatureChange={(file) => setSignatureFile(file)}
+                onProfilePicChange={(file) => setProfilePicFile(file)}
                 initialProfilePicUrl={profilePicUrl}
                 initialSignatureUrl={signatureUrl}
               />
