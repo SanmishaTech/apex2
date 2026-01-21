@@ -57,6 +57,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
   }
 
+  const doneAgg = await prisma.dailyProgressDetail.groupBy({
+    by: ["boqItemId"],
+    _sum: { doneQty: true },
+    where: {
+      dailyProgress: {
+        boqId,
+      },
+    },
+  });
+  const doneQtyByItemId = new Map<number, number>();
+  for (const r of doneAgg) {
+    doneQtyByItemId.set(
+      Number(r.boqItemId),
+      Number((r as any)?._sum?.doneQty || 0)
+    );
+  }
+
   const bills = await prisma.bOQBill.findMany({
     where: { boqId },
     orderBy: [{ billDate: "asc" }, { id: "asc" }],
@@ -120,11 +137,19 @@ export async function GET(req: NextRequest) {
   wsData.push([`Generated On: ${new Date().toLocaleString("en-IN")}`]);
   wsData.push([]);
 
-  const fixedHeaders = ["Description of item", "Unit", "BOQ QTY", "Rate", "BOQ AMOUNT"];
+  const fixedHeaders = [
+    "Description of item",
+    "Unit",
+    "BOQ QTY",
+    "Rate",
+    "BOQ AMOUNT",
+    "Done Qty",
+    "Unbilled Qty",
+  ];
   const headerRow1: any[] = [...fixedHeaders, "Total Upto date billed", ""];
   for (const b of billMeta) headerRow1.push(b.label, "");
 
-  const headerRow2: any[] = ["", "", "", "", "", "Qty", "Amount"];
+  const headerRow2: any[] = ["", "", "", "", "", "", "", "Qty", "Amount"];
   for (let i = 0; i < billMeta.length; i++) headerRow2.push("Qty", "Amount");
 
   wsData.push(headerRow1);
@@ -135,12 +160,17 @@ export async function GET(req: NextRequest) {
     const totalQty = Number(fmtQty(billed?.totalQty || 0));
     const totalAmt = Number(fmtRs(billed?.totalAmount || 0));
 
+    const doneQty = Number(fmtQty(doneQtyByItemId.get(Number(it.id)) || 0));
+    const unbilledQty = Number(fmtQty(doneQty - totalQty));
+
     const row: any[] = [
       it.item || "",
       it.unit?.unitName || "",
       Number(fmtQty(Number(it.qty || 0))),
       Number(fmtRs(Number(it.rate || 0))),
       Number(fmtRs(Number(it.amount || 0))),
+      doneQty,
+      unbilledQty,
       totalQty,
       totalAmt,
     ];
@@ -154,6 +184,10 @@ export async function GET(req: NextRequest) {
 
   const totalBoqQty = (boq.items || []).reduce((s, it) => s + Number(it.qty || 0), 0);
   const totalBoqAmount = (boq.items || []).reduce((s, it) => s + Number(it.amount || 0), 0);
+  const totalDoneQty = (boq.items || []).reduce(
+    (s, it) => s + Number(doneQtyByItemId.get(Number(it.id)) || 0),
+    0
+  );
   let totalUptoQty = 0;
   let totalUptoAmount = 0;
   for (const v of byItemId.values()) {
@@ -161,12 +195,16 @@ export async function GET(req: NextRequest) {
     totalUptoAmount += Number(v.totalAmount || 0);
   }
 
+  const totalUnbilledQty = totalDoneQty - totalUptoQty;
+
   const totalRow: any[] = [
     "TOTAL",
     "",
     Number(fmtQty(totalBoqQty)),
     "",
     Number(fmtRs(totalBoqAmount)),
+    Number(fmtQty(totalDoneQty)),
+    Number(fmtQty(totalUnbilledQty)),
     Number(fmtQty(totalUptoQty)),
     Number(fmtRs(totalUptoAmount)),
   ];
@@ -180,7 +218,8 @@ export async function GET(req: NextRequest) {
 
   const headerStartRow = 5;
   const dataStartRow = 7;
-  const lastCol = 4 + 2 + billMeta.length * 2;
+  const fixedEndCol = fixedHeaders.length - 1;
+  const lastCol = fixedEndCol + 2 + billMeta.length * 2;
 
   const blueHeader = {
     font: { bold: true, color: { rgb: "FFFFFFFF" } },
@@ -217,7 +256,7 @@ export async function GET(req: NextRequest) {
       const cellRef = XLSX.utils.encode_cell({ r, c });
       const cell = (ws as any)[cellRef];
       if (!cell) continue;
-      if (c <= 4) {
+      if (c <= fixedEndCol) {
         cell.s = { ...(cell.s || {}), ...blueHeader } as any;
       } else {
         cell.s = { ...(cell.s || {}), ...yellowHeaderNormal } as any;
@@ -232,7 +271,7 @@ export async function GET(req: NextRequest) {
       const cell = (ws as any)[cellRef];
       if (!cell) continue;
 
-      const base = c <= 4 ? normalBody : yellowBody;
+      const base = c <= fixedEndCol ? normalBody : yellowBody;
       cell.s = {
         ...(cell.s || {}),
         ...base,
@@ -257,6 +296,8 @@ export async function GET(req: NextRequest) {
     { wch: 12 },
     { wch: 10 },
     { wch: 12 },
+    { wch: 10 },
+    { wch: 12 },
   ];
   for (let i = 0; i < billMeta.length; i++) {
     colWidths.push({ wch: 10 }, { wch: 12 });
@@ -267,11 +308,11 @@ export async function GET(req: NextRequest) {
   const merges = ws["!merges"] as any[];
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } });
 
-  for (let c = 0; c <= 4; c++) {
+  for (let c = 0; c <= fixedEndCol; c++) {
     merges.push({ s: { r: headerStartRow, c }, e: { r: headerStartRow + 1, c } });
   }
-  merges.push({ s: { r: headerStartRow, c: 5 }, e: { r: headerStartRow, c: 6 } });
-  let start = 7;
+  merges.push({ s: { r: headerStartRow, c: fixedEndCol + 1 }, e: { r: headerStartRow, c: fixedEndCol + 2 } });
+  let start = fixedEndCol + 3;
   for (let i = 0; i < billMeta.length; i++) {
     merges.push({ s: { r: headerStartRow, c: start }, e: { r: headerStartRow, c: start + 1 } });
     start += 2;

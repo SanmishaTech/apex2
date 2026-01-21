@@ -36,6 +36,20 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  const doneAgg = await prisma.dailyProgressDetail.groupBy({
+    by: ["boqItemId"],
+    _sum: { doneQty: true },
+    where: {
+      dailyProgress: {
+        boqId,
+      },
+    },
+  });
+  const doneQtyByItemId = new Map<number, number>();
+  for (const r of doneAgg) {
+    doneQtyByItemId.set(Number(r.boqItemId), Number((r as any)?._sum?.doneQty || 0));
+  }
+
   if (!boq) {
     return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
   }
@@ -103,6 +117,9 @@ export async function GET(req: NextRequest) {
       amount: Number((billed?.totalAmount || 0).toFixed(2)),
     };
 
+    const doneQty = Number((doneQtyByItemId.get(k) || 0).toFixed(2));
+    const unbilledQty = Number((doneQty - Number(total.qty || 0)).toFixed(2));
+
     const billsById: Record<string, { qty: number; amount: number }> = {};
     for (const b of billMeta) {
       const v = billed?.byBillId.get(b.id);
@@ -117,6 +134,8 @@ export async function GET(req: NextRequest) {
       description: it.item || "",
       unit: it.unit?.unitName || "",
       boqQty: Number(Number(it.qty || 0).toFixed(4)),
+      doneQty,
+      unbilledQty,
       rate: Number(Number(it.rate || 0).toFixed(2)),
       boqAmount: Number(Number(it.amount || 0).toFixed(2)),
       totalUpto: total,

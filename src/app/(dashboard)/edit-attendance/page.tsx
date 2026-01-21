@@ -180,13 +180,43 @@ export default function EditAttendancePage() {
     field: keyof AttendanceEdit,
     value: any
   ) => {
-    setEdits((prev) => ({
-      ...prev,
-      [uniqueKey]: {
-        ...prev[uniqueKey],
-        [field]: value,
-      },
-    }));
+    setEdits((prev) => {
+      const next = {
+        ...prev,
+        [uniqueKey]: {
+          ...prev[uniqueKey],
+          [field]: value,
+        },
+      } as Record<string, Partial<AttendanceEdit>>;
+
+      // Rules:
+      // - If Idle is checked => OT becomes 0 and not editable (handled by disabled in UI)
+      // - If OT > 0 => Present must be checked and cannot be unchecked
+      if (field === "isIdle") {
+        const checked = Boolean(value);
+        if (checked) {
+          next[uniqueKey] = {
+            ...next[uniqueKey],
+            isIdle: true,
+            isPresent: true,
+            ot: 0,
+          };
+        }
+      }
+
+      if (field === "ot") {
+        const otNum = value === null || value === "" ? null : Number(value);
+        if (otNum != null && Number.isFinite(otNum) && otNum > 0) {
+          next[uniqueKey] = {
+            ...next[uniqueKey],
+            ot: otNum,
+            isPresent: true,
+          };
+        }
+      }
+
+      return next;
+    });
   };
 
   const getEditedValue = (
@@ -512,6 +542,10 @@ export default function EditAttendancePage() {
                                         "isIdle",
                                         record
                                       ) as boolean;
+                                      const otNow = Number(
+                                        getEditedValue(uniqueKey, "ot", record) || 0
+                                      );
+                                      if (otNow > 0 && !e.target.checked) return;
                                       if (isIdleNow && !e.target.checked) return;
                                       handleFieldChange(
                                         uniqueKey,
@@ -525,7 +559,10 @@ export default function EditAttendancePage() {
                                         uniqueKey,
                                         "isIdle",
                                         record
-                                      ) as boolean) === true
+                                      ) as boolean) === true ||
+                                      Number(
+                                        getEditedValue(uniqueKey, "ot", record) || 0
+                                      ) > 0
                                     }
                                   />
                                 </td>
@@ -553,6 +590,7 @@ export default function EditAttendancePage() {
                                           "isPresent",
                                           true
                                         );
+                                        handleFieldChange(uniqueKey, "ot", 0);
                                       }
                                     }}
                                     className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
@@ -580,6 +618,13 @@ export default function EditAttendancePage() {
                                     }
                                     className="w-20 px-2 py-1 border border-input rounded bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-ring"
                                     placeholder="0"
+                                    disabled={
+                                      (getEditedValue(
+                                        uniqueKey,
+                                        "isIdle",
+                                        record
+                                      ) as boolean) === true
+                                    }
                                   />
                                 </td>
                               </tr>

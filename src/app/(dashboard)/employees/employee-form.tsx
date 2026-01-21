@@ -109,6 +109,7 @@ export interface EmployeeFormInitialData {
   email?: string;
   password?: string;
   role?: string;
+  status?: boolean;
 }
 
 export interface EmployeeFormProps {
@@ -190,6 +191,7 @@ const createInputSchema = z
     role: z
       .union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)])
       .default(ROLES.SITE_SUPERVISOR),
+    status: z.boolean().default(true),
     employeeDocuments: z.array(documentSchema).default([]),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -261,6 +263,7 @@ const editInputSchema = z
         .optional()
     ),
     role: z.union([z.enum(ROLE_VALUES), z.enum(ROLE_CODES)]).optional(),
+    status: z.boolean().optional(),
   })
   .refine(
     (data) => {
@@ -530,6 +533,7 @@ export function EmployeeForm({
       password: "",
       confirmPassword: "",
       role: initial?.role || ROLES.SITE_SUPERVISOR,
+      status: initial?.status ?? true,
       employeeDocuments: initialDocumentValues,
     },
   });
@@ -627,6 +631,7 @@ export function EmployeeForm({
               })) ?? [],
             email: initial.email || "",
             role: initial.role || ROLES.SITE_SUPERVISOR,
+            status: initial.status ?? true,
           },
         },
         { keepDirty: false, keepTouched: false }
@@ -795,6 +800,7 @@ export function EmployeeForm({
           fd.append("email", data.email);
           fd.append("password", data.password);
           fd.append("role", data.role);
+          fd.append("status", String(Boolean(data.status)));
           if (profilePicFile) fd.append("profilePic", profilePicFile);
           if (signatureFile) fd.append("signature", signatureFile);
           fd.append("employeeDocuments", JSON.stringify(documentMetadata));
@@ -890,6 +896,7 @@ export function EmployeeForm({
           email: data.email,
           password: data.password,
           role: data.role,
+          status: Boolean(data.status),
           employeeDocuments: documentMetadata,
         };
       } else {
@@ -1020,6 +1027,7 @@ export function EmployeeForm({
           // Optional login fields on edit
           if (data.email) fd.append("email", data.email);
           if (data.role) fd.append("role", data.role);
+          if (typeof data.status === "boolean") fd.append("status", String(data.status));
           if (data.password) fd.append("password", data.password);
           if (profilePicFile) fd.append("profilePic", profilePicFile);
           if (signatureFile) fd.append("signature", signatureFile);
@@ -1120,6 +1128,7 @@ export function EmployeeForm({
           // Optional login details on edit
           ...(data.email ? { email: data.email } : {}),
           ...(data.role ? { role: data.role } : {}),
+          ...(typeof data.status === "boolean" ? { status: data.status } : {}),
           ...(data.password ? { password: data.password } : {}),
           employeeDocuments: documentMetadata,
         };

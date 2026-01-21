@@ -128,6 +128,7 @@ export default function EditEmployeePage() {
         balanceCasualLeaves: (employee as any).balanceCasualLeaves ?? null,
         email: employee.user?.email,
         role: employee.user?.role ?? "",
+        status: (employee.user as any)?.status ?? true,
         employeeDocuments: employee.employeeDocuments?.map((doc) => ({
           id: doc.id,
           documentName: doc.documentName,

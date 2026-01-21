@@ -110,6 +110,7 @@ const updateSchema = z.object({
   // Login Details (optional)
   email: z.string().email().optional(),
   role: z.string().optional(),
+  status: z.coerce.boolean().optional(),
   password: z.string().min(6).optional(),
 });
 
@@ -227,6 +228,7 @@ export async function GET(
             id: true,
             email: true,
             role: true,
+            status: true,
           },
         },
       },
@@ -447,7 +449,7 @@ export async function PATCH(
         key === "reportingSiteId"
       ) {
         processedData[key] = value || null;
-      } else if (key === "email" || key === "role" || key === "password") {
+      } else if (key === "email" || key === "role" || key === "status" || key === "password") {
         // handled separately for User update
         continue;
       } else {
@@ -619,7 +621,7 @@ export async function PATCH(
             },
           },
           user: {
-            select: { id: true, email: true, role: true },
+            select: { id: true, email: true, role: true, status: true },
           },
         },
       });
@@ -631,13 +633,17 @@ export async function PATCH(
       const newRole = (updateDataWithoutDocs as any)?.role as
         | string
         | undefined;
+      const newStatus = (updateDataWithoutDocs as any)?.status as
+        | boolean
+        | undefined;
       const newPassword = (updateDataWithoutDocs as any)?.password as
         | string
         | undefined;
-      if (employee.userId && (newEmail || newRole || newPassword)) {
+      if (employee.userId && (newEmail || newRole || typeof newStatus === "boolean" || newPassword)) {
         const userUpdate: any = {};
         if (newEmail) userUpdate.email = newEmail;
         if (newRole) userUpdate.role = labelToRoleCode(newRole) as any;
+        if (typeof newStatus === "boolean") userUpdate.status = newStatus;
         if (newPassword) {
           userUpdate.passwordHash = await bcrypt.hash(newPassword, 10);
         }

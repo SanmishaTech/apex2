@@ -105,6 +105,7 @@ const createSchema = z.object({
   // User creation fields
   email: z.string().email("Valid email is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  status: z.coerce.boolean().optional().default(true),
 });
 
 // GET /api/employees?search=&page=1&perPage=10&sort=name&order=asc&department=&site=
@@ -351,6 +352,7 @@ export async function POST(req: NextRequest) {
           : undefined,
         email: String(form.get("email") || ""),
         password: String(form.get("password") || ""),
+        status: form.get("status"),
       };
       // Employee documents metadata is sent as JSON string via `employeeDocuments`
       const documentsJson = form.get("employeeDocuments");
@@ -464,7 +466,7 @@ export async function POST(req: NextRequest) {
           email: parsedData.email,
           passwordHash: hashedPassword,
           role: labelToRoleCode(parsedData.role) as any,
-          status: true,
+          status: parsedData.status ?? true,
         },
       });
 

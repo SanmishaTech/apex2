@@ -2,6 +2,8 @@
 
 import { AppSelect, ComboboxInput } from "@/components/common";
 import { TextInput } from "@/components/common/text-input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import type { DepartmentsResponse } from "@/types/departments";
 import type { SitesResponse } from "@/types/sites";
@@ -182,15 +184,34 @@ export default function EmployeeDetailsTab({
 
       <FormSection legend="Login Details">
         <FormRow cols={2}>
-          <ComboboxInput
-            control={control}
-            name="role"
-            label="Role"
-            options={roleOptions}
-            placeholder="Select role"
-            searchPlaceholder="Search roles..."
-            emptyText="No role found."
-          />
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <ComboboxInput
+                control={control}
+                name="role"
+                label="Role"
+                options={roleOptions}
+                placeholder="Select role"
+                searchPlaceholder="Search roles..."
+                emptyText="No role found."
+              />
+            </div>
+            <FormField
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2 pb-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={Boolean(field.value)}
+                      onCheckedChange={(v) => field.onChange(Boolean(v))}
+                    />
+                  </FormControl>
+                  <FormLabel className="m-0 select-none">Active</FormLabel>
+                </FormItem>
+              )}
+            />
+          </div>
           <TextInput
             control={control}
             name="email"
