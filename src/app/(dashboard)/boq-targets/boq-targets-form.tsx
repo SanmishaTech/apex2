@@ -268,7 +268,8 @@ export function BoqTargetsForm({
                     name="activityId"
                     label="Activity *"
                     placeholder="Select activity"
-                    triggerClassName="h-9 w-full"
+                    triggerClassName="h-9 w-full max-w-auto overflow-hidden [&_[data-slot=select-value]]:block [&_[data-slot=select-value]]:max-w-full [&_[data-slot=select-value]]:overflow-hidden [&_[data-slot=select-value]]:text-ellipsis [&_[data-slot=select-value]]:whitespace-nowrap"
+                    contentClassName="min-w-[500px] max-w-[500px]"
                     disabled={!selectedBoqId}
                   >
                     {activitiesData?.map((activity: any) => (
@@ -276,7 +277,9 @@ export function BoqTargetsForm({
                         key={activity.activityId}
                         value={activity.activityId}
                       >
-                        {activity.activityId} - {activity.item}
+                        <span className="block w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                          {activity.activityId} - {activity.item}
+                        </span>
                       </AppSelect.Item>
                     ))}
                   </AppSelect>

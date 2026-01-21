@@ -150,7 +150,7 @@ export default function MarkAttendancePage({
         if (field === 'isPresent') {
           const isPresent = Boolean(value);
           // If idle is selected, do not allow unchecking present
-          if (m.isIdle && !isPresent) {
+          if ((m.isIdle || Number(m.ot || 0) > 0) && !isPresent) {
             return m; // ignore attempt to uncheck present while idle
           }
           return {
@@ -165,12 +165,20 @@ export default function MarkAttendancePage({
             ...m,
             isIdle,
             isPresent: isIdle ? true : m.isPresent,
+            ot: isIdle ? 0 : m.ot,
           };
         }
 
         if (field === 'ot') {
+          if (m.isIdle) {
+            return m;
+          }
           const otValue = typeof value === 'number' ? value : m.ot;
-          return { ...m, ot: otValue };
+          return {
+            ...m,
+            ot: otValue,
+            isPresent: Number(otValue || 0) > 0 ? true : m.isPresent,
+          };
         }
 
         return m;
@@ -397,7 +405,7 @@ export default function MarkAttendancePage({
                                 )
                               }
                               className="w-16 px-2 py-1 text-sm border border-input bg-background text-foreground rounded text-center"
-                              disabled={manpower.isLocked}
+                              disabled={manpower.isLocked || manpower.isIdle}
                             />
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -408,7 +416,11 @@ export default function MarkAttendancePage({
                                 handleFieldChange(manpower.id, 'isPresent', e.target.checked)
                               }
                               className="w-4 h-4 cursor-pointer"
-                              disabled={manpower.isLocked || manpower.isIdle}
+                              disabled={
+                                manpower.isLocked ||
+                                manpower.isIdle ||
+                                Number(manpower.ot || 0) > 0
+                              }
                             />
                           </td>
                           <td className="px-3 py-2 text-center">

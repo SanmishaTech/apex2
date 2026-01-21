@@ -37,6 +37,8 @@ type MatrixResponse = {
     description: string;
     unit: string;
     boqQty: number;
+    doneQty: number;
+    unbilledQty: number;
     rate: number;
     boqAmount: number;
     totalUpto: { qty: number; amount: number };
@@ -87,6 +89,8 @@ export default function BoqBillsReportPage() {
   const totals = useMemo(() => {
     if (!matrixData) return null;
     let boqQty = 0;
+    let doneQty = 0;
+    let unbilledQty = 0;
     let boqAmount = 0;
     let totalUptoQty = 0;
     let totalUptoAmount = 0;
@@ -100,6 +104,8 @@ export default function BoqBillsReportPage() {
 
     for (const r of matrixData.rows || []) {
       boqQty += Number(r.boqQty || 0);
+      doneQty += Number(r.doneQty || 0);
+      unbilledQty += Number(r.unbilledQty || 0);
       boqAmount += Number(r.boqAmount || 0);
       totalUptoQty += Number(r.totalUpto?.qty || 0);
       totalUptoAmount += Number(r.totalUpto?.amount || 0);
@@ -112,6 +118,8 @@ export default function BoqBillsReportPage() {
 
     return {
       boqQty,
+      doneQty,
+      unbilledQty,
       boqAmount,
       totalUptoQty,
       totalUptoAmount,
@@ -221,6 +229,12 @@ export default function BoqBillsReportPage() {
                         <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
                           BOQ AMOUNT
                         </th>
+                        <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
+                          Done Qty
+                        </th>
+                        <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
+                          Unbilled Qty
+                        </th>
 
                         <th colSpan={2} className="px-3 py-2 text-center font-medium border bg-yellow-300 text-black whitespace-nowrap">
                           Total Upto date billed
@@ -257,6 +271,8 @@ export default function BoqBillsReportPage() {
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.boqQty || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.rate || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.boqAmount || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.doneQty || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.unbilledQty || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{Number(r.totalUpto?.qty || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{Number(r.totalUpto?.amount || 0).toFixed(2)}</td>
                           {matrixData.bills.map((b) => {
@@ -280,9 +296,10 @@ export default function BoqBillsReportPage() {
                           <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700">TOTAL</td>
                           <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.boqQty.toFixed(2)}</td>
-                                                    <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
-
+                          <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.boqAmount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.doneQty.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.unbilledQty.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{totals.totalUptoQty.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{totals.totalUptoAmount.toFixed(2)}</td>
                           {matrixData.bills.map((b) => (
