@@ -16,7 +16,6 @@ model User {
   name                      String?
   email                     String             @unique
   passwordHash              String // was: password
-  role                      String
   profilePhoto              String?
   emailVerified             DateTime?
   verificationToken         String?            @unique
@@ -87,7 +86,9 @@ model User {
   boqBillCreated BOQBill[] @relation("BOQBillCreated")
   boqBillUpdated BOQBill[] @relation("BOQBillUpdated")
   
-  @@index([role])
+  userRoles UserRole[]
+  userPermissions UserPermission[]
+  
   @@map("users")
 }
 
@@ -104,6 +105,76 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String  @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([id])
+  @@map("roles")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  permissionName         String   @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles       RolePermission[]
+  users       UserPermission[]
+
+  @@index([permissionName])
+  @@index([id])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id     Int @id @default(autoincrement())
+  userId Int
+  roleId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId]) // ✅ only ONE role per user/employee
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model UserPermission {
+  id           Int @id @default(autoincrement())
+  userId       Int
+  permissionId Int
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, permissionId]) // prevent duplicates
+  @@index([userId])
+  @@index([permissionId])
+  @@map("user_permissions")
 }
 
 model City {

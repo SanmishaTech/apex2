@@ -12,15 +12,12 @@ import { FilterBar } from '@/components/common'; // filter layout wrapper
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS, ROLES } from '@/config/roles';
+import { PERMISSIONS } from '@/config/roles';
 import { StatusBadge } from '@/components/common/status-badge';
-import { formatCurrency, formatRelativeTime, formatDate } from '@/lib/locales';
+import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
-import { EditButton } from '@/components/common/icon-button';
-import { apiDelete } from '@/lib/api-client';
 
 type UserListItem = {
 	id: number;
@@ -40,25 +37,7 @@ type UsersResponse = {
 	totalPages: number;
 };
 
-// Helper function to get role label
-function getRoleLabel(roleValue: string): string {
-	if (roleValue === 'projectManager') return 'Project Manager';
-	if (roleValue === 'siteEngineer') return 'Site Engineer';
-	if (roleValue === 'siteIncharge') return 'Site Incharge';
-	if (roleValue === 'projectUser') return 'Project User';
-	if (roleValue === 'humanResources') return 'HR';
-	if (roleValue === 'storeIncharge') return 'Store Incharge';
-	if (roleValue === 'siteSupervisor') return 'Site Supervisor';
-	if (roleValue === 'generalManager') return 'General Manager';
-	if (roleValue === 'safetyIncharge') return 'Safety Incharge';
-	if (roleValue === 'billingAssistant') return 'Billing Assistant';
-	if (roleValue === 'purchaseManager') return 'Purchase Manager';
-	if (roleValue === 'qaqc') return 'QA/QC';
-	if (roleValue === 'businessDevelopment') return 'Business Development';
-	if (roleValue === 'internalAuditor') return 'Internal Auditor';
-	if (roleValue === 'externalAuditor') return 'External Auditor';
-	return roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
-}
+type RoleOptionsResponse = { data: Array<{ id: number; name: string }> };
 
 export default function UsersPage() {
 	const [qp, setQp] = useQueryParamsState({
@@ -128,10 +107,16 @@ export default function UsersPage() {
 		return `/api/users?${sp.toString()}`;
 	}, [page, perPage, search, role, status, sort, order]);
 
-	const { data, error, isLoading, mutate } = useSWR<UsersResponse>(
+	const { data, error, isLoading } = useSWR<UsersResponse>(
 		query,
 		apiGet
 	);
+
+	const { data: rolesData } = useSWR<RoleOptionsResponse>(
+		'/api/roles/options',
+		apiGet
+	);
+	const roleOptions = (rolesData?.data || []).map((r) => ({ value: r.name, label: r.name }));
 
 	const { can } = usePermissions();
 
@@ -177,19 +162,6 @@ export default function UsersPage() {
 			cellClassName: 'whitespace-nowrap',
 		},
 		{
-			key: 'invoice_amount',
-			header: 'Invoice',
-			sortable: true,
-			className: 'text-right whitespace-nowrap',
-			cellClassName: 'text-right tabular-nums whitespace-nowrap',
-			accessor: () => {
-				const min = 15000;
-				const max = 1000000;
-				const amount = Math.floor(Math.random() * (max - min + 1)) + min;
-				return formatCurrency(amount);
-			},
-		},
-		{
 			key: 'lastLogin',
 			header: 'Last Login',
 			sortable: true,
@@ -211,30 +183,11 @@ export default function UsersPage() {
 
 	// Status is read-only; added delete capability with confirmation.
 
-	async function handleDelete(id: number) {
-		try {
-			await apiDelete(`/api/users/${id}`);
-			toast.success('User deleted');
-			await mutate();
-		} catch (e) {
-			toast.error((e as Error).message);
-		}
-	}
-
 	return (
 		<AppCard>
 			<AppCard.Header>
 				<AppCard.Title>Users</AppCard.Title>
 				<AppCard.Description>Manage application users.</AppCard.Description>
-				{can(PERMISSIONS.EDIT_USERS) && (
-					<AppCard.Action>
-						<Link href='/users/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
-							</AppButton>
-						</Link>
-					</AppCard.Action>
-				)}
 			</AppCard.Header>
 			<AppCard.Content>
 				<FilterBar title='Search & Filter'>
@@ -250,10 +203,7 @@ export default function UsersPage() {
 						onValueChange={(v) => setRoleDraft(v)}
 						options={[
 							{ value: '', label: 'All Roles' },
-							...(Object.values(ROLES) as readonly string[]).map((r) => ({
-								value: r,
-								label: getRoleLabel(r),
-							})),
+							...roleOptions,
 						]}
 						placeholder='All Roles'
 						searchPlaceholder='Search roles...'
@@ -299,23 +249,14 @@ export default function UsersPage() {
 					onSortChange={(s) => toggleSort(s.field)}
 					stickyColumns={1}
 					renderRowActions={(u) => {
-						if (!can(PERMISSIONS.EDIT_USERS) && !can(PERMISSIONS.DELETE_USERS))
-							return null;
+						if (!can(PERMISSIONS.EDIT_USERS)) return null;
 						return (
 							<div className='flex'>
-								{can(PERMISSIONS.EDIT_USERS) && (
-									<Link href={`/users/${u.id}/edit`}>
-										<EditButton tooltip='Edit User' aria-label='Edit User' />
-									</Link>
-								)}
-								{can(PERMISSIONS.DELETE_USERS) && (
-									<DeleteButton
-										onDelete={() => handleDelete(u.id)}
-										itemLabel='user'
-										title='Delete user?'
-										description={`This will permanently remove user #${u.id}. This action cannot be undone.`}
-									/>
-								)}
+								<Link href={`/users/${u.id}/permissions`}>
+									<AppButton size='sm' variant='secondary' type='button'>
+										Edit Permissions
+									</AppButton>
+								</Link>
 							</div>
 						);
 					}}

@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "./use-current-user";
 import { findAccessRule, Permission } from "@/config/access-control";
-import { ROLES_PERMISSIONS, ROLES } from "@/config/roles";
 import { toast } from "@/lib/toast";
 
 export interface UseProtectPageOptions {
@@ -51,27 +50,7 @@ export function useProtectPage(
   const rule = findAccessRule(pathname || "");
   const isPageRule = rule?.type === "page";
 
-  // Resolve role robustly to label before permission lookup
-  const roleLabel = user
-    ? ((): string => {
-        const input = user.role || "";
-        const direct = (ROLES as any)[input];
-        if (direct) return direct;
-        const norm = input.trim();
-        const normUpper = norm.toUpperCase().replace(/\s+/g, "_");
-        const fromUpper = (ROLES as any)[normUpper];
-        if (fromUpper) return fromUpper;
-        const labels: string[] = Object.values(ROLES as any);
-        const match = labels.find(
-          (lbl) => lbl.toLowerCase() === norm.toLowerCase()
-        );
-        return match || input;
-      })()
-    : null;
-  const userPerms = user
-    ? (ROLES_PERMISSIONS as any)[roleLabel || ""] || []
-    : [];
-  const userPermSet = new Set(userPerms); // O(1) lookups instead of O(n)
+  const userPermSet = new Set((user?.permissions || []) as string[]);
   const required = isPageRule ? rule?.permissions || [] : [];
   const missing = required.filter((p) => !userPermSet.has(p));
   const allowed = !isPageRule || (!!user && missing.length === 0);
@@ -123,7 +102,7 @@ export function useProtectPage(
     requiresAuth,
     missing: missing as Permission[],
     requiredPermissions: required as Permission[],
-    user: user ? { id: user.id, role: user.role } : null,
+    user: user ? { id: user.id, role: user.role || "" } : null,
     recheck: () => {
       if (manual) {
         if (!user) router.replace(redirectUnauthed);

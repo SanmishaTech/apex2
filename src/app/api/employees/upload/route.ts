@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       name: string;
       email: string;
       password: string;
-      role: string; // must map to ROLES values
+      role: string;
       department: string;
       resignDate?: string | null;
       dateOfBirth?: string | null;
@@ -269,6 +269,26 @@ export async function POST(req: NextRequest) {
 
     if (rows.length === 0) return ApiError("No valid rows to import", 400);
 
+    // Validate roles exist
+    const uniqueRoles = [...new Set(rows.map((r) => r.role).filter(Boolean))] as string[];
+    const dbRoles = uniqueRoles.length
+      ? await prisma.role.findMany({
+          where: { name: { in: uniqueRoles } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const roleIdByName = new Map<string, number>();
+    dbRoles.forEach((r) => roleIdByName.set(r.name, r.id));
+    const missingRoles = uniqueRoles.filter((name) => !roleIdByName.has(name));
+    if (missingRoles.length) {
+      return ApiError(
+        `Invalid role(s): ${missingRoles.slice(0, 10).join(", ")}${
+          missingRoles.length > 10 ? ` ... and ${missingRoles.length - 10} more` : ""
+        }`,
+        400
+      );
+    }
+
     // Resolve departments by name if provided
     const uniqueDepts = [
       ...new Set(rows.map((r) => r.department).filter(Boolean)),
@@ -328,13 +348,21 @@ export async function POST(req: NextRequest) {
         let nextSeq = Number(rawMax?.[0]?.maxNo ?? 0) + 1;
         for (const p of prepared) {
           const r = p.row;
+          const roleId = roleIdByName.get(r.role);
+          if (!roleId) throw new Error(`Invalid role: ${r.role}`);
           const user = await tx.user.create({
             data: {
               name: r.name,
               email: r.email,
               passwordHash: p.hashedPassword,
-              role: r.role,
               status: true,
+              userRoles: {
+                create: {
+                  role: {
+                    connect: { id: roleId },
+                  },
+                },
+              },
             },
             select: { id: true },
           });

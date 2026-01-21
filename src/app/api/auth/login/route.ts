@@ -30,6 +30,14 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+        status: true,
+        userRoles: { select: { role: { select: { name: true } } } },
+      },
     });
 
     if (!user || !user.passwordHash) {
@@ -54,11 +62,12 @@ export async function POST(req: NextRequest) {
     const refreshExpr = remember
       ? getEnv("JWT_REFRESH_EXPIRES", "30d")
       : getEnv("JWT_REFRESH_EXPIRES_SHORT", "1d");
+    const roleName = user.userRoles?.[0]?.role?.name ?? null;
     const [accessToken, { token: refreshToken, expiresAt: refreshTokenExpiresAt }] = await Promise.all([
-      signAccessToken({ sub: String(user.id), role: user.role }),
+      signAccessToken({ sub: String(user.id) }),
       remember
-        ? signRefreshTokenWithExpiry({ sub: String(user.id), role: user.role })
-        : signRefreshTokenWithCustomExpiry({ sub: String(user.id), role: user.role }, refreshExpr),
+        ? signRefreshTokenWithExpiry({ sub: String(user.id) })
+        : signRefreshTokenWithCustomExpiry({ sub: String(user.id) }, refreshExpr),
     ]);
 
     await prisma.refreshToken.create({
@@ -76,7 +85,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: roleName,
         accessToken,
         refreshToken,
       });
@@ -105,7 +114,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: roleName,
     });
 
     response.headers.append("Set-Cookie", accessTokenCookie);

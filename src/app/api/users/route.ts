@@ -5,16 +5,6 @@ import { Success, Error } from "@/lib/api-response";
 import bcrypt from "bcryptjs";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
-import { ROLES } from "@/config/roles";
-
-// Normalize a possibly human label to a role code defined in ROLES
-function labelToRoleCode(label?: string | null) {
-  if (!label) return undefined as unknown as string;
-  for (const [code, lbl] of Object.entries(ROLES)) {
-    if (lbl === label) return code;
-  }
-  return label; // assume it's already a code
-}
 
 // GET /api/users?search=&role=&status=true|false&page=1&perPage=10&sort=createdAt&order=desc
 export async function GET(req: NextRequest) {
@@ -38,7 +28,13 @@ export async function GET(req: NextRequest) {
   // Build dynamic filter with explicit shape
   type UserWhere = {
     OR?: { name?: { contains: string }; email?: { contains: string } }[];
-    role?: string;
+    userRoles?: {
+      some: {
+        role: {
+          name: string;
+        };
+      };
+    };
     status?: boolean;
   };
   const where: UserWhere = {};
@@ -51,7 +47,15 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  if (role) where.role = labelToRoleCode(role) as any;
+  if (role) {
+    where.userRoles = {
+      some: {
+        role: {
+          name: role,
+        },
+      },
+    };
+  }
   if (statusParam === "true" || statusParam === "false")
     where.status = statusParam === "true";
 
@@ -59,7 +63,6 @@ export async function GET(req: NextRequest) {
   const sortableFields = new Set([
     "name",
     "email",
-    "role",
     "status",
     "createdAt",
     "lastLogin",
@@ -78,13 +81,25 @@ export async function GET(req: NextRequest) {
       id: true,
       name: true,
       email: true,
-      role: true,
+      userRoles: { select: { role: { select: { name: true } } } },
       status: true,
       lastLogin: true,
       createdAt: true,
     },
   });
-  return Success(result);
+  const mapped = {
+    ...result,
+    data: (result.data as any[]).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.userRoles?.[0]?.role?.name ?? null,
+      status: u.status,
+      lastLogin: u.lastLogin,
+      createdAt: u.createdAt,
+    })),
+  };
+  return Success(mapped);
 }
 
 // POST /api/users  (create user)
@@ -102,7 +117,7 @@ export async function POST(req: NextRequest) {
     name,
     email,
     password,
-    role = "user",
+    role,
     status = true,
   } = (body as Partial<{
     name: string;
@@ -116,25 +131,48 @@ export async function POST(req: NextRequest) {
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
+    const roleName = String(role).trim();
+    const dbRole = await prisma.role.findUnique({
+      where: { name: roleName },
+      select: { id: true },
+    });
+    if (!dbRole) return Error("Invalid role", 400);
     const created = await prisma.user.create({
       data: {
         name: name || null,
         email,
         passwordHash,
-        role: labelToRoleCode(role) as any,
         status: Boolean(status),
+        userRoles: {
+          create: {
+            role: {
+              connect: { id: dbRole.id },
+            },
+          },
+        },
       },
       select: {
         id: true,
         name: true,
         email: true,
-        role: true,
         status: true,
         lastLogin: true,
         createdAt: true,
+        userRoles: { select: { role: { select: { name: true } } } },
       },
     });
-    return Success(created, 201);
+    return Success(
+      {
+        id: created.id,
+        name: created.name,
+        email: created.email,
+        role: created.userRoles?.[0]?.role?.name ?? null,
+        status: created.status,
+        lastLogin: created.lastLogin,
+        createdAt: created.createdAt,
+      },
+      201
+    );
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === "P2002") return Error("Email already exists", 409);
@@ -164,11 +202,25 @@ export async function PATCH(req: NextRequest) {
 
   const data: Record<string, unknown> = {};
   if (typeof status === "boolean") data.status = status;
-  if (typeof role === "string" && role) data.role = labelToRoleCode(role);
   if (typeof name === "string") data.name = name || null;
-  if (Object.keys(data).length === 0) return Error("Nothing to update", 400);
+  if (Object.keys(data).length === 0 && !(typeof role === "string" && role))
+    return Error("Nothing to update", 400);
 
   try {
+    if (typeof role === "string" && role) {
+      const roleName = role.trim();
+      const dbRole = await prisma.role.findUnique({
+        where: { name: roleName },
+        select: { id: true },
+      });
+      if (!dbRole) return Error("Invalid role", 400);
+      await prisma.userRole.upsert({
+        where: { userId: Number(id) },
+        update: { roleId: dbRole.id },
+        create: { userId: Number(id), roleId: dbRole.id },
+      });
+    }
+
     const updated = await prisma.user.update({
       where: { id: Number(id) },
       data,
@@ -176,13 +228,21 @@ export async function PATCH(req: NextRequest) {
         id: true,
         name: true,
         email: true,
-        role: true,
         status: true,
         lastLogin: true,
         createdAt: true,
+        userRoles: { select: { role: { select: { name: true } } } },
       },
     });
-    return Success(updated);
+    return Success({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.userRoles?.[0]?.role?.name ?? null,
+      status: updated.status,
+      lastLogin: updated.lastLogin,
+      createdAt: updated.createdAt,
+    });
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === "P2025") return Error("User not found", 404);

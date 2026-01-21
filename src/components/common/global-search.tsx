@@ -13,8 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight } from 'lucide-react';
 import { NAV_ITEMS, NavItem, NavGroupItem, NavLeafItem } from '@/config/nav';
-import { useCurrentUser } from '@/hooks/use-current-user';
-import { ROLES_PERMISSIONS, ROLES } from '@/config/roles';
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface SearchableItem extends NavLeafItem {
   group?: string;
@@ -31,9 +30,7 @@ export function GlobalSearch() {
   const searchableItems = useMemo(() => {
     if (!user) return [];
 
-    const roleLabel = (ROLES as any)[user.role] || user.role;
-    const rolePermissions = (ROLES_PERMISSIONS as any)[roleLabel] || [];
-    const permissionSet = new Set(rolePermissions);
+    const permissionSet = new Set((user.permissions || []) as string[]);
     const items: SearchableItem[] = [];
 
     function processNavItems(navItems: NavItem[], parentPath: string = '', parentGroup: string = '') {
@@ -55,7 +52,7 @@ export function GlobalSearch() {
 
     processNavItems(NAV_ITEMS);
     return items;
-  }, [user?.role]);
+  }, [user?.permissions]);
 
   // Filter items based on search
   const filteredItems = useMemo(() => {

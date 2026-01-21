@@ -16,14 +16,22 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         email: true,
-        role: true,
         status: true,
         lastLogin: true,
         createdAt: true,
+        userRoles: { select: { role: { select: { name: true } } } },
       },
     });
     if (!me) return Error("User not found", 404);
-    return Success(me);
+    return Success({
+      id: me.id,
+      name: me.name,
+      email: me.email,
+      role: me.userRoles?.[0]?.role?.name ?? null,
+      status: me.status,
+      lastLogin: me.lastLogin,
+      createdAt: me.createdAt,
+    });
   } catch (e) {
     return Error("Failed to fetch profile");
   }
@@ -70,13 +78,21 @@ export async function PATCH(req: NextRequest) {
         id: true,
         name: true,
         email: true,
-        role: true,
         status: true,
         lastLogin: true,
         createdAt: true,
+        userRoles: { select: { role: { select: { name: true } } } },
       },
     });
-    return Success(updated);
+    return Success({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.userRoles?.[0]?.role?.name ?? null,
+      status: updated.status,
+      lastLogin: updated.lastLogin,
+      createdAt: updated.createdAt,
+    });
   } catch (e: any) {
     if (e?.code === "P2002") return Error("Email already exists", 409);
     return Error("Failed to update profile");

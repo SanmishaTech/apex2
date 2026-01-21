@@ -11,15 +11,6 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import bcrypt from "bcryptjs";
-import { ROLES } from "@/config/roles";
-
-function labelToRoleCode(label?: string | null) {
-  if (!label) return undefined as unknown as string;
-  for (const [code, lbl] of Object.entries(ROLES)) {
-    if (lbl === label) return code;
-  }
-  return label;
-}
 const updateSchema = z.object({
   name: z.string().min(1, "Employee name is required").optional(),
   departmentId: z.number().optional(),
@@ -227,15 +218,26 @@ export async function GET(
           select: {
             id: true,
             email: true,
-            role: true,
             status: true,
+            userRoles: { select: { role: { select: { name: true } } } },
           },
         },
       },
     });
 
     if (!employee) return NotFound("Employee not found");
-    return Success(employee);
+    const mapped = {
+      ...employee,
+      user: employee.user
+        ? {
+            id: employee.user.id,
+            email: employee.user.email,
+            role: employee.user.userRoles?.[0]?.role?.name ?? null,
+            status: employee.user.status,
+          }
+        : null,
+    };
+    return Success(mapped);
   } catch (error) {
     console.error("Get employee error:", error);
     return ApiError("Failed to fetch employee");
@@ -621,7 +623,12 @@ export async function PATCH(
             },
           },
           user: {
-            select: { id: true, email: true, role: true, status: true },
+            select: {
+              id: true,
+              email: true,
+              status: true,
+              userRoles: { select: { role: { select: { name: true } } } },
+            },
           },
         },
       });
@@ -642,7 +649,6 @@ export async function PATCH(
       if (employee.userId && (newEmail || newRole || typeof newStatus === "boolean" || newPassword)) {
         const userUpdate: any = {};
         if (newEmail) userUpdate.email = newEmail;
-        if (newRole) userUpdate.role = labelToRoleCode(newRole) as any;
         if (typeof newStatus === "boolean") userUpdate.status = newStatus;
         if (newPassword) {
           userUpdate.passwordHash = await bcrypt.hash(newPassword, 10);
@@ -651,6 +657,20 @@ export async function PATCH(
           where: { id: employee.userId },
           data: userUpdate,
         });
+
+        if (newRole) {
+          const roleName = String(newRole).trim();
+          const dbRole = await tx.role.findUnique({
+            where: { name: roleName },
+            select: { id: true },
+          });
+          if (!dbRole) throw new Error("Invalid role");
+          await tx.userRole.upsert({
+            where: { userId: employee.userId },
+            update: { roleId: dbRole.id },
+            create: { userId: employee.userId, roleId: dbRole.id },
+          });
+        }
       }
 
       if (
@@ -747,6 +767,7 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
     }
+    if (error?.message === "Invalid role") return BadRequest("Invalid role");
     if (error.code === "P2025") return NotFound("Employee not found");
     console.error("Update employee error:", error);
     return ApiError("Failed to update employee");

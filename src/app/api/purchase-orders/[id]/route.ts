@@ -7,7 +7,7 @@ import {
   NotFound,
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
-import { ROLES_PERMISSIONS, PERMISSIONS, ROLES } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
@@ -304,11 +304,8 @@ export async function PATCH(
         // Handle status actions
         if (statusAction) {
           // Permission check per action
-          const rolePerms =
-            ROLES_PERMISSIONS[
-              auth.user.role as keyof typeof ROLES_PERMISSIONS
-            ] || [];
-          const has = (p: string) => (rolePerms as string[]).includes(p);
+          const permSet = new Set((auth.user.permissions || []) as string[]);
+          const has = (p: string) => permSet.has(p);
           const current: any = await tx.purchaseOrder.findUnique({
             where: { id },
             select: {
@@ -642,10 +639,7 @@ export async function PATCH(
 
         // Enforce field-level update permissions (remarks, billStatus)
         if (Object.prototype.hasOwnProperty.call(poData, "remarks")) {
-          const rolePerms =
-            ROLES_PERMISSIONS[
-              auth.user.role as keyof typeof ROLES_PERMISSIONS
-            ] || [];
+          const rolePerms = (auth.user.permissions || []) as string[];
           if (
             !(rolePerms as string[]).includes(
               PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS
@@ -657,10 +651,7 @@ export async function PATCH(
           }
         }
         if (Object.prototype.hasOwnProperty.call(poData, "billStatus")) {
-          const rolePerms =
-            ROLES_PERMISSIONS[
-              auth.user.role as keyof typeof ROLES_PERMISSIONS
-            ] || [];
+          const rolePerms = (auth.user.permissions || []) as string[];
           if (
             !(rolePerms as string[]).includes(
               PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS

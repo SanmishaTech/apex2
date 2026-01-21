@@ -20,10 +20,28 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         email: true,
-        role: true,
         profilePhoto: true,
         status: true,
         lastLogin: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                name: true,
+                permissions: {
+                  select: {
+                    permission: { select: { permissionName: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        userPermissions: {
+          select: {
+            permission: { select: { permissionName: true } },
+          },
+        },
       },
     });
 
@@ -31,7 +49,27 @@ export async function GET(req: NextRequest) {
       return Error("User not found", 404);
     }
 
-    return Success(user);
+    const roleName = user.userRoles?.[0]?.role?.name ?? null;
+    const rolePerms =
+      user.userRoles?.[0]?.role?.permissions
+        ?.map((rp) => rp.permission.permissionName)
+        .filter(Boolean) ?? [];
+    const userPerms =
+      user.userPermissions
+        ?.map((up) => up.permission.permissionName)
+        .filter(Boolean) ?? [];
+
+    const permissions = Array.from(new Set([...rolePerms, ...userPerms]));
+    return Success({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: roleName,
+      profilePhoto: user.profilePhoto,
+      status: user.status,
+      lastLogin: user.lastLogin,
+      permissions,
+    });
   } catch (err) {
     console.error("Me endpoint error:", err);
     // This will catch expired tokens, invalid tokens, etc.
