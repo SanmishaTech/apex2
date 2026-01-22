@@ -145,7 +145,7 @@ export default function SkillSetsPage() {
       <AppCard.Header>
         <AppCard.Title>Skill Sets</AppCard.Title>
         <AppCard.Description>Manage skill sets.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_SKILLSETS) && (
+        {can(PERMISSIONS.CREATE_SKILLSETS) && (
           <AppCard.Action>
             <Link href='/skill-sets/new'>
               <AppButton size='sm' iconName='Plus' type='button'>

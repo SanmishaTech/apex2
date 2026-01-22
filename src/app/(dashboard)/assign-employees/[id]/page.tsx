@@ -46,7 +46,7 @@ export default function SiteAssignedEmployeesPage({ params }: PageProps) {
   const { pushAndRestoreKey } = useScrollRestoration("assign-employees-sites");
   const router = useRouter();
 
-  const canUnassign = can(PERMISSIONS.EDIT_EMPLOYEES);
+  const canUnassign = can(PERMISSIONS.DELETE_EMPLOYEE_ASSIGNMENTS);
 
   const [nameDraft, setNameDraft] = useState("");
   const [name, setName] = useState("");

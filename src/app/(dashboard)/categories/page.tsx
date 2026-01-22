@@ -144,7 +144,7 @@ export default function CategoriesPage() {
 			<AppCard.Header>
 				<AppCard.Title>Categories</AppCard.Title>
 				<AppCard.Description>Manage application categories.</AppCard.Description>
-				{can(PERMISSIONS.EDIT_CATEGORIES) && (
+				{can(PERMISSIONS.CREATE_CATEGORIES) && (
 					<AppCard.Action>
 						<Link href='/categories/new'>
 							<AppButton size='sm' iconName='Plus' type='button'>

@@ -13,13 +13,13 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Roles & Permissions
   { prefix: "/roles/", permissions: [PERMISSIONS.EDIT_ROLES_PERMISSIONS] },
   { prefix: "/roles", permissions: [PERMISSIONS.VIEW_ROLES] },
-  { prefix: "/users/new", permissions: [PERMISSIONS.EDIT_USERS] }, // create user page
+  { prefix: "/users/new", permissions: [PERMISSIONS.CREATE_USERS] }, // create user page
   { prefix: "/users/", permissions: [PERMISSIONS.EDIT_USERS] }, // edit user pages (/users/:id/...)
-  { prefix: "/users", permissions: [PERMISSIONS.READ_USERS] }, // users list (view only)
+  { prefix: "/users", permissions: [PERMISSIONS.VIEW_USERS] }, // users list (view only)
   // Cities
-  { prefix: "/cities/new", permissions: [PERMISSIONS.EDIT_CITIES] },
+  { prefix: "/cities/new", permissions: [PERMISSIONS.CREATE_CITIES] },
   { prefix: "/cities/", permissions: [PERMISSIONS.EDIT_CITIES] },
-  { prefix: "/cities", permissions: [PERMISSIONS.READ_CITIES] },
+  { prefix: "/cities", permissions: [PERMISSIONS.VIEW_CITIES] },
   // StockAdjustments
   {
     prefix: "/stock-adjustments/new",
@@ -31,20 +31,20 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/stock-adjustments",
-    permissions: [PERMISSIONS.READ_STOCK_ADJUSTMENTS],
+    permissions: [PERMISSIONS.VIEW_STOCK_ADJUSTMENTS],
   },
   // States
-  { prefix: "/states/new", permissions: [PERMISSIONS.EDIT_STATES] },
+  { prefix: "/states/new", permissions: [PERMISSIONS.CREATE_STATES] },
   { prefix: "/states/", permissions: [PERMISSIONS.EDIT_STATES] },
-  { prefix: "/states", permissions: [PERMISSIONS.READ_STATES] },
+  { prefix: "/states", permissions: [PERMISSIONS.VIEW_STATES] },
   // St
-  { prefix: "/designations/new", permissions: [PERMISSIONS.EDIT_DESIGNATIONS] },
+  { prefix: "/designations/new", permissions: [PERMISSIONS.CREATE_DESIGNATIONS] },
   { prefix: "/designations/", permissions: [PERMISSIONS.EDIT_DESIGNATIONS] },
-  { prefix: "/designations", permissions: [PERMISSIONS.READ_DESIGNATIONS] },
+  { prefix: "/designations", permissions: [PERMISSIONS.VIEW_DESIGNATIONS] },
   // Zones
-  { prefix: "/zones/new", permissions: [PERMISSIONS.EDIT_ZONES] },
+  { prefix: "/zones/new", permissions: [PERMISSIONS.CREATE_ZONES] },
   { prefix: "/zones/", permissions: [PERMISSIONS.EDIT_ZONES] },
-  { prefix: "/zones", permissions: [PERMISSIONS.READ_ZONES] },
+  { prefix: "/zones", permissions: [PERMISSIONS.VIEW_ZONES] },
   // DailyConsumtions
   {
     prefix: "/daily-consumptions/new",
@@ -52,37 +52,37 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/daily-consumptions",
-    permissions: [PERMISSIONS.READ_DAILY_CONSUMPTIONS],
+    permissions: [PERMISSIONS.VIEW_DAILY_CONSUMPTIONS],
   },
   // Payslips
-  { prefix: "/payslips", permissions: [PERMISSIONS.READ_PAYSLIPS] },
+  { prefix: "/payslips", permissions: [PERMISSIONS.VIEW_PAYSLIPS] },
   // Companies
-  { prefix: "/companies/new", permissions: [PERMISSIONS.EDIT_COMPANIES] },
+  { prefix: "/companies/new", permissions: [PERMISSIONS.CREATE_COMPANIES] },
   { prefix: "/companies/", permissions: [PERMISSIONS.EDIT_COMPANIES] },
-  { prefix: "/companies", permissions: [PERMISSIONS.READ_COMPANIES] },
+  { prefix: "/companies", permissions: [PERMISSIONS.VIEW_COMPANIES] },
   // Sites
-  { prefix: "/sites/new", permissions: [PERMISSIONS.EDIT_SITES] },
+  { prefix: "/sites/new", permissions: [PERMISSIONS.CREATE_SITES] },
   { prefix: "/sites/", permissions: [PERMISSIONS.EDIT_SITES] },
-  { prefix: "/sites", permissions: [PERMISSIONS.READ_SITES] },
+  { prefix: "/sites", permissions: [PERMISSIONS.VIEW_SITES] },
   // Departments
-  { prefix: "/departments/new", permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
+  { prefix: "/departments/new", permissions: [PERMISSIONS.CREATE_DEPARTMENTS] },
   { prefix: "/departments/", permissions: [PERMISSIONS.EDIT_DEPARTMENTS] },
-  { prefix: "/departments", permissions: [PERMISSIONS.READ_DEPARTMENTS] },
+  { prefix: "/departments", permissions: [PERMISSIONS.VIEW_DEPARTMENTS] },
   // Stocks
   { prefix: "/stocks/", permissions: [PERMISSIONS.READ_STOCKS] },
-  { prefix: "/stocks", permissions: [PERMISSIONS.READ_STOCKS] },
+  { prefix: "/stocks", permissions: [PERMISSIONS.VIEW_STOCKS] },
   // Employees
-  { prefix: "/employees/new", permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
+  { prefix: "/employees/new", permissions: [PERMISSIONS.CREATE_EMPLOYEES] },
   { prefix: "/employees/", permissions: [PERMISSIONS.EDIT_EMPLOYEES] },
-  { prefix: "/employees", permissions: [PERMISSIONS.READ_EMPLOYEES] },
+  { prefix: "/employees", permissions: [PERMISSIONS.VIEW_EMPLOYEES] },
   // Manpower (workers)
-  { prefix: "/manpower/new", permissions: [PERMISSIONS.EDIT_MANPOWER] },
+  { prefix: "/manpower/new", permissions: [PERMISSIONS.CREATE_MANPOWER] },
   { prefix: "/manpower/", permissions: [PERMISSIONS.EDIT_MANPOWER] },
-  { prefix: "/manpower", permissions: [PERMISSIONS.READ_MANPOWER] },
+  { prefix: "/manpower", permissions: [PERMISSIONS.VIEW_MANPOWER] },
   // Manpower Suppliers
   {
     prefix: "/manpower-suppliers/new",
-    permissions: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
+    permissions: [PERMISSIONS.CREATE_MANPOWER_SUPPLIERS],
   },
   {
     prefix: "/manpower-suppliers/",
@@ -90,32 +90,32 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/manpower-suppliers",
-    permissions: [PERMISSIONS.READ_MANPOWER_SUPPLIERS],
+    permissions: [PERMISSIONS.VIEW_MANPOWER_SUPPLIERS],
   },
   // Categories
-  { prefix: "/categories/new", permissions: [PERMISSIONS.EDIT_CATEGORIES] },
+  { prefix: "/categories/new", permissions: [PERMISSIONS.CREATE_CATEGORIES] },
   { prefix: "/categories/", permissions: [PERMISSIONS.EDIT_CATEGORIES] },
-  { prefix: "/categories", permissions: [PERMISSIONS.READ_CATEGORIES] },
+  { prefix: "/categories", permissions: [PERMISSIONS.VIEW_CATEGORIES] },
   // Skill Sets
-  { prefix: "/skill-sets/new", permissions: [PERMISSIONS.EDIT_SKILLSETS] },
+  { prefix: "/skill-sets/new", permissions: [PERMISSIONS.CREATE_SKILLSETS] },
   { prefix: "/skill-sets/", permissions: [PERMISSIONS.EDIT_SKILLSETS] },
-  { prefix: "/skill-sets", permissions: [PERMISSIONS.READ_SKILLSETS] },
+  { prefix: "/skill-sets", permissions: [PERMISSIONS.VIEW_SKILLSETS] },
   // Minimum Wages
-  { prefix: "/minimum-wages/new", permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
+  { prefix: "/minimum-wages/new", permissions: [PERMISSIONS.CREATE_MIN_WAGES] },
   { prefix: "/minimum-wages/", permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
-  { prefix: "/minimum-wages", permissions: [PERMISSIONS.READ_MIN_WAGES] },
+  { prefix: "/minimum-wages", permissions: [PERMISSIONS.VIEW_MIN_WAGES] },
   // Units
-  { prefix: "/units/new", permissions: [PERMISSIONS.EDIT_UNITS] },
+  { prefix: "/units/new", permissions: [PERMISSIONS.CREATE_UNITS] },
   { prefix: "/units/", permissions: [PERMISSIONS.EDIT_UNITS] },
-  { prefix: "/units", permissions: [PERMISSIONS.READ_UNITS] },
+  { prefix: "/units", permissions: [PERMISSIONS.VIEW_UNITS] },
   // BOQs
-  { prefix: "/boqs/new", permissions: [PERMISSIONS.EDIT_BOQS] },
+  { prefix: "/boqs/new", permissions: [PERMISSIONS.CREATE_BOQS] },
   { prefix: "/boqs/", permissions: [PERMISSIONS.EDIT_BOQS] },
-  { prefix: "/boqs", permissions: [PERMISSIONS.READ_BOQS] },
+  { prefix: "/boqs", permissions: [PERMISSIONS.VIEW_BOQS] },
   // daily Progress
   {
     prefix: "/daily-progresses/new",
-    permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+    permissions: [PERMISSIONS.CREATE_DAILY_PROGRESSES],
   },
 
   // purchase-orders
@@ -130,26 +130,23 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/purchase-orders",
-    permissions: [PERMISSIONS.READ_PURCHASE_ORDERS],
+    permissions: [PERMISSIONS.VIEW_PURCHASE_ORDERS],
   },
-  { prefix: "/work-orders/new", permissions: [PERMISSIONS.CREATE_WORK_ORDERS] },
-  { prefix: "/work-orders/", permissions: [PERMISSIONS.EDIT_WORK_ORDERS] },
-  { prefix: "/work-orders", permissions: [PERMISSIONS.READ_WORK_ORDERS] },
   {
     prefix: "/daily-progresses/",
     permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
   },
   {
     prefix: "/daily-progresses",
-    permissions: [PERMISSIONS.READ_DAILY_PROGRESSES],
+    permissions: [PERMISSIONS.VIEW_DAILY_PROGRESSES],
   },
   // Notices
   { prefix: "/notices/new", permissions: [PERMISSIONS.CREATE_NOTICES] },
   { prefix: "/notices/", permissions: [PERMISSIONS.EDIT_NOTICES] },
-  { prefix: "/notices", permissions: [PERMISSIONS.READ_NOTICES] },
+  { prefix: "/notices", permissions: [PERMISSIONS.VIEW_NOTICES] },
 
   // Inward Bills (Purchase Billing)
-  { prefix: "/inward-bills", permissions: [PERMISSIONS.READ_INWARD_BILL] },
+  { prefix: "/inward-bills", permissions: [PERMISSIONS.VIEW_INWARD_BILL] },
   // Inward Bill Payments
   {
     prefix: "/inward-bill-payments/new",
@@ -159,17 +156,17 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // BOQ Bills
   { prefix: "/boq-bills/new", permissions: [PERMISSIONS.CREATE_BOQ_BILLS] },
   { prefix: "/boq-bills/", permissions: [PERMISSIONS.EDIT_BOQ_BILLS] },
-  { prefix: "/boq-bills", permissions: [PERMISSIONS.READ_BOQ_BILLS] },
+  { prefix: "/boq-bills", permissions: [PERMISSIONS.VIEW_BOQ_BILLS] },
   // Cashbook Heads
   {
     prefix: "/cashbook-heads/new",
-    permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+    permissions: [PERMISSIONS.CREATE_CASHBOOK_HEADS],
   },
   {
     prefix: "/cashbook-heads/",
     permissions: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
   },
-  { prefix: "/cashbook-heads", permissions: [PERMISSIONS.READ_CASHBOOK_HEADS] },
+  { prefix: "/cashbook-heads", permissions: [PERMISSIONS.VIEW_CASHBOOK_HEADS] },
   // Cashbook Budgets
   {
     prefix: "/cashbook-budgets/new",
@@ -181,20 +178,20 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/cashbook-budgets",
-    permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    permissions: [PERMISSIONS.VIEW_CASHBOOK_BUDGETS],
   },
   // Cashbooks
   { prefix: "/cashbooks/new", permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
   { prefix: "/cashbooks/", permissions: [PERMISSIONS.EDIT_CASHBOOKS] },
-  { prefix: "/cashbooks", permissions: [PERMISSIONS.READ_CASHBOOKS] },
+  { prefix: "/cashbooks", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
   // Indents
   { prefix: "/indents/new", permissions: [PERMISSIONS.CREATE_INDENTS] },
   { prefix: "/indents/", permissions: [PERMISSIONS.READ_INDENTS] },
-  { prefix: "/indents", permissions: [PERMISSIONS.READ_INDENTS] },
+  { prefix: "/indents", permissions: [PERMISSIONS.VIEW_INDENTS] },
   // Rental Categories
   {
     prefix: "/rental-categories/new",
-    permissions: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+    permissions: [PERMISSIONS.CREATE_RENTAL_CATEGORIES],
   },
   {
     prefix: "/rental-categories/",
@@ -202,24 +199,24 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/rental-categories",
-    permissions: [PERMISSIONS.READ_RENTAL_CATEGORIES],
+    permissions: [PERMISSIONS.VIEW_RENTAL_CATEGORIES],
   },
   // Rent Types
-  { prefix: "/rent-types/new", permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
+  { prefix: "/rent-types/new", permissions: [PERMISSIONS.CREATE_RENT_TYPES] },
   { prefix: "/rent-types/", permissions: [PERMISSIONS.EDIT_RENT_TYPES] },
-  { prefix: "/rent-types", permissions: [PERMISSIONS.READ_RENT_TYPES] },
+  { prefix: "/rent-types", permissions: [PERMISSIONS.VIEW_RENT_TYPES] },
   // Rents
   { prefix: "/rents/new", permissions: [PERMISSIONS.CREATE_RENTS] },
   { prefix: "/rents/", permissions: [PERMISSIONS.EDIT_RENTS] },
-  { prefix: "/rents", permissions: [PERMISSIONS.READ_RENTS] },
+  { prefix: "/rents", permissions: [PERMISSIONS.VIEW_RENTS] },
   // Asset Groups
-  { prefix: "/asset-groups/new", permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
+  { prefix: "/asset-groups/new", permissions: [PERMISSIONS.CREATE_ASSET_GROUPS] },
   { prefix: "/asset-groups/", permissions: [PERMISSIONS.EDIT_ASSET_GROUPS] },
-  { prefix: "/asset-groups", permissions: [PERMISSIONS.READ_ASSET_GROUPS] },
+  { prefix: "/asset-groups", permissions: [PERMISSIONS.VIEW_ASSET_GROUPS] },
   // Asset Categories
   {
     prefix: "/asset-categories/new",
-    permissions: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+    permissions: [PERMISSIONS.CREATE_ASSET_CATEGORIES],
   },
   {
     prefix: "/asset-categories/",
@@ -227,12 +224,12 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/asset-categories",
-    permissions: [PERMISSIONS.READ_ASSET_CATEGORIES],
+    permissions: [PERMISSIONS.VIEW_ASSET_CATEGORIES],
   },
   // Assets
   { prefix: "/assets/new", permissions: [PERMISSIONS.CREATE_ASSETS] },
   { prefix: "/assets/", permissions: [PERMISSIONS.EDIT_ASSETS] },
-  { prefix: "/assets", permissions: [PERMISSIONS.READ_ASSETS] },
+  { prefix: "/assets", permissions: [PERMISSIONS.VIEW_ASSETS] },
   // Asset Transfers
   {
     prefix: "/asset-transfers/new",
@@ -244,7 +241,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/asset-transfers",
-    permissions: [PERMISSIONS.READ_ASSET_TRANSFERS],
+    permissions: [PERMISSIONS.VIEW_ASSET_TRANSFERS],
   },
   // Assign Manpower
   {
@@ -253,16 +250,16 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/assign-manpower",
-    permissions: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
+    permissions: [PERMISSIONS.VIEW_MANPOWER_ASSIGNMENTS],
   },
   // Assign Employees
   {
     prefix: "/assign-employees/",
-    permissions: [PERMISSIONS.READ_EMPLOYEES],
+    permissions: [PERMISSIONS.READ_EMPLOYEE_ASSIGNMENTS],
   },
   {
     prefix: "/assign-employees",
-    permissions: [PERMISSIONS.READ_EMPLOYEES],
+    permissions: [PERMISSIONS.VIEW_EMPLOYEE_ASSIGNMENTS],
   },
   // Manpower Transfers
   {
@@ -275,7 +272,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   {
     prefix: "/manpower-transfers",
-    permissions: [PERMISSIONS.READ_MANPOWER_TRANSFERS],
+    permissions: [PERMISSIONS.VIEW_MANPOWER_TRANSFERS],
   },
   // Attendances
   {
@@ -283,7 +280,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.CREATE_ATTENDANCES],
   },
   { prefix: "/edit-attendance", permissions: [PERMISSIONS.EDIT_ATTENDANCES] },
-  { prefix: "/attendances", permissions: [PERMISSIONS.READ_ATTENDANCES] },
+  { prefix: "/attendances", permissions: [PERMISSIONS.VIEW_ATTENDANCES] },
   // Attendance Reports
   {
     prefix: "/attendance-reports",
@@ -292,16 +289,16 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Reports
   {
     prefix: "/reports/rent-registration",
-    permissions: [PERMISSIONS.READ_RENTS],
+    permissions: [PERMISSIONS.VIEW_RENTS],
   },
   { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.READ_PAYSLIPS] },
   {
     prefix: "/reports/cashbook-budget",
-    permissions: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    permissions: [PERMISSIONS.VIEW_CASHBOOK_BUDGETS],
   },
   {
     prefix: "/reports/boq-bills",
-    permissions: [PERMISSIONS.READ_BOQ_BILLS],
+    permissions: [PERMISSIONS.VIEW_BOQ_BILLS],
   },
 
   // add more page rules here (place more specific prefixes first)
@@ -345,20 +342,20 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: "/api/access-control/users",
+    prefix: "/api/access-control/users/",
     methods: {
-      GET: [PERMISSIONS.VIEW_USERS],
-      PUT: [PERMISSIONS.EDIT_USERS],
-      POST: [PERMISSIONS.EDIT_USERS],
-      PATCH: [PERMISSIONS.EDIT_USERS],
-      DELETE: [PERMISSIONS.EDIT_USERS],
+      GET: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      PUT: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      POST: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      PATCH: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
+      DELETE: [PERMISSIONS.EDIT_ROLES_PERMISSIONS],
     },
   },
   {
     prefix: "/api/users",
     methods: {
       GET: [PERMISSIONS.READ_USERS],
-      POST: [PERMISSIONS.EDIT_USERS],
+      POST: [PERMISSIONS.CREATE_USERS],
       PATCH: [PERMISSIONS.EDIT_USERS],
       DELETE: [PERMISSIONS.DELETE_USERS],
     },
@@ -380,7 +377,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/cities",
     methods: {
       GET: [PERMISSIONS.READ_CITIES],
-      POST: [PERMISSIONS.EDIT_CITIES],
+      POST: [PERMISSIONS.CREATE_CITIES],
       PATCH: [PERMISSIONS.EDIT_CITIES],
       DELETE: [PERMISSIONS.DELETE_CITIES],
     },
@@ -389,7 +386,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/states",
     methods: {
       GET: [PERMISSIONS.READ_STATES],
-      POST: [PERMISSIONS.EDIT_STATES],
+      POST: [PERMISSIONS.CREATE_STATES],
       PATCH: [PERMISSIONS.EDIT_STATES],
       DELETE: [PERMISSIONS.DELETE_STATES],
     },
@@ -399,7 +396,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/zones",
     methods: {
       GET: [PERMISSIONS.READ_ZONES],
-      POST: [PERMISSIONS.EDIT_ZONES],
+      POST: [PERMISSIONS.CREATE_ZONES],
       PATCH: [PERMISSIONS.EDIT_ZONES],
       DELETE: [PERMISSIONS.DELETE_ZONES],
     },
@@ -416,7 +413,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/companies",
     methods: {
       GET: [PERMISSIONS.READ_COMPANIES],
-      POST: [PERMISSIONS.EDIT_COMPANIES],
+      POST: [PERMISSIONS.CREATE_COMPANIES],
       PATCH: [PERMISSIONS.EDIT_COMPANIES],
       DELETE: [PERMISSIONS.DELETE_COMPANIES],
     },
@@ -441,7 +438,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/departments",
     methods: {
       GET: [PERMISSIONS.READ_DEPARTMENTS],
-      POST: [PERMISSIONS.EDIT_DEPARTMENTS],
+      POST: [PERMISSIONS.CREATE_DEPARTMENTS],
       PATCH: [PERMISSIONS.EDIT_DEPARTMENTS],
       DELETE: [PERMISSIONS.DELETE_DEPARTMENTS],
     },
@@ -450,7 +447,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/employees",
     methods: {
       GET: [PERMISSIONS.READ_EMPLOYEES],
-      POST: [PERMISSIONS.EDIT_EMPLOYEES],
+      POST: [PERMISSIONS.CREATE_EMPLOYEES],
       PATCH: [PERMISSIONS.EDIT_EMPLOYEES],
       DELETE: [PERMISSIONS.DELETE_EMPLOYEES],
     },
@@ -459,7 +456,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/manpower",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER],
-      POST: [PERMISSIONS.EDIT_MANPOWER],
+      POST: [PERMISSIONS.CREATE_MANPOWER],
       PATCH: [PERMISSIONS.EDIT_MANPOWER],
       DELETE: [PERMISSIONS.DELETE_MANPOWER],
     },
@@ -468,7 +465,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/manpower-suppliers",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_SUPPLIERS],
-      POST: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
+      POST: [PERMISSIONS.CREATE_MANPOWER_SUPPLIERS],
       PATCH: [PERMISSIONS.EDIT_MANPOWER_SUPPLIERS],
       DELETE: [PERMISSIONS.DELETE_MANPOWER_SUPPLIERS],
     },
@@ -477,7 +474,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/categories",
     methods: {
       GET: [PERMISSIONS.READ_CATEGORIES],
-      POST: [PERMISSIONS.EDIT_CATEGORIES],
+      POST: [PERMISSIONS.CREATE_CATEGORIES],
       PATCH: [PERMISSIONS.EDIT_CATEGORIES],
       DELETE: [PERMISSIONS.DELETE_CATEGORIES],
     },
@@ -486,7 +483,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/skill-sets",
     methods: {
       GET: [PERMISSIONS.READ_SKILLSETS],
-      POST: [PERMISSIONS.EDIT_SKILLSETS],
+      POST: [PERMISSIONS.CREATE_SKILLSETS],
       PATCH: [PERMISSIONS.EDIT_SKILLSETS],
       DELETE: [PERMISSIONS.DELETE_SKILLSETS],
     },
@@ -495,7 +492,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/minimum-wages",
     methods: {
       GET: [PERMISSIONS.READ_MIN_WAGES],
-      POST: [PERMISSIONS.EDIT_MIN_WAGES],
+      POST: [PERMISSIONS.CREATE_MIN_WAGES],
       PATCH: [PERMISSIONS.EDIT_MIN_WAGES],
       DELETE: [PERMISSIONS.DELETE_MIN_WAGES],
     },
@@ -504,7 +501,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/units",
     methods: {
       GET: [PERMISSIONS.READ_UNITS],
-      POST: [PERMISSIONS.EDIT_UNITS],
+      POST: [PERMISSIONS.CREATE_UNITS],
       PATCH: [PERMISSIONS.EDIT_UNITS],
       DELETE: [PERMISSIONS.DELETE_UNITS],
     },
@@ -513,7 +510,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/boqs",
     methods: {
       GET: [PERMISSIONS.READ_BOQS],
-      POST: [PERMISSIONS.EDIT_BOQS],
+      POST: [PERMISSIONS.CREATE_BOQS],
       PATCH: [PERMISSIONS.EDIT_BOQS],
       DELETE: [PERMISSIONS.DELETE_BOQS],
     },
@@ -522,7 +519,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/daily-progresses",
     methods: {
       GET: [PERMISSIONS.READ_DAILY_PROGRESSES],
-      POST: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
+      POST: [PERMISSIONS.CREATE_DAILY_PROGRESSES],
       PATCH: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
       DELETE: [PERMISSIONS.DELETE_DAILY_PROGRESSES],
     },
@@ -540,7 +537,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/cashbook-heads",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_HEADS],
-      POST: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
+      POST: [PERMISSIONS.CREATE_CASHBOOK_HEADS],
       PATCH: [PERMISSIONS.EDIT_CASHBOOK_HEADS],
       DELETE: [PERMISSIONS.DELETE_CASHBOOK_HEADS],
     },
@@ -584,24 +581,6 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: "/api/work-orders",
-    methods: {
-      GET: [PERMISSIONS.READ_WORK_ORDERS],
-      POST: [PERMISSIONS.CREATE_WORK_ORDERS],
-      PATCH: [PERMISSIONS.EDIT_WORK_ORDERS],
-      DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
-    },
-  },
-  {
-    prefix: "/api/work-order-bills",
-    methods: {
-      GET: [PERMISSIONS.READ_WORK_ORDER_BILLS],
-      POST: [PERMISSIONS.CREATE_WORK_ORDER_BILLS],
-      PATCH: [PERMISSIONS.EDIT_WORK_ORDER_BILLS],
-      DELETE: [PERMISSIONS.DELETE_WORK_ORDER_BILLS],
-    },
-  },
-  {
     prefix: "/api/inward-delivery-challans",
     methods: {
       GET: [PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN],
@@ -613,7 +592,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/inward-bills",
     methods: {
       GET: [PERMISSIONS.READ_INWARD_BILL],
-      POST: [PERMISSIONS.EDIT_INWARD_BILL],
+      POST: [PERMISSIONS.CREATE_INWARD_BILL],
     },
   },
   {
@@ -645,7 +624,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/rental-categories",
     methods: {
       GET: [PERMISSIONS.READ_RENTAL_CATEGORIES],
-      POST: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
+      POST: [PERMISSIONS.CREATE_RENTAL_CATEGORIES],
       PATCH: [PERMISSIONS.EDIT_RENTAL_CATEGORIES],
       DELETE: [PERMISSIONS.DELETE_RENTAL_CATEGORIES],
     },
@@ -654,7 +633,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/rent-types",
     methods: {
       GET: [PERMISSIONS.READ_RENT_TYPES],
-      POST: [PERMISSIONS.EDIT_RENT_TYPES],
+      POST: [PERMISSIONS.CREATE_RENT_TYPES],
       PATCH: [PERMISSIONS.EDIT_RENT_TYPES],
       DELETE: [PERMISSIONS.DELETE_RENT_TYPES],
     },
@@ -672,7 +651,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/asset-groups",
     methods: {
       GET: [PERMISSIONS.READ_ASSET_GROUPS],
-      POST: [PERMISSIONS.EDIT_ASSET_GROUPS],
+      POST: [PERMISSIONS.CREATE_ASSET_GROUPS],
       PATCH: [PERMISSIONS.EDIT_ASSET_GROUPS],
       DELETE: [PERMISSIONS.DELETE_ASSET_GROUPS],
     },
@@ -681,7 +660,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/asset-categories",
     methods: {
       GET: [PERMISSIONS.READ_ASSET_CATEGORIES],
-      POST: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
+      POST: [PERMISSIONS.CREATE_ASSET_CATEGORIES],
       PATCH: [PERMISSIONS.EDIT_ASSET_CATEGORIES],
       DELETE: [PERMISSIONS.DELETE_ASSET_CATEGORIES],
     },
@@ -766,9 +745,9 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
     prefix: "/api/employee-assignments",
     methods: {
-      GET: [PERMISSIONS.READ_EMPLOYEES],
-      POST: [PERMISSIONS.EDIT_EMPLOYEES],
-      DELETE: [PERMISSIONS.EDIT_EMPLOYEES],
+      GET: [PERMISSIONS.READ_EMPLOYEE_ASSIGNMENTS],
+      POST: [PERMISSIONS.CREATE_EMPLOYEE_ASSIGNMENTS],
+      DELETE: [PERMISSIONS.DELETE_EMPLOYEE_ASSIGNMENTS],
     },
   },
   // add more API rules here

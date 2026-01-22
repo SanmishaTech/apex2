@@ -7,8 +7,6 @@ import { toast } from "@/lib/toast";
 
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
-import { usePermissions } from "@/hooks/use-permissions";
-import { PERMISSIONS } from "@/config/roles";
 
 import { AppButton } from "@/components/common/app-button";
 import { AppCard } from "@/components/common/app-card";
@@ -99,7 +97,6 @@ type SortState = {
 export default function WorkOrdersPage() {
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("work-orders-list");
-  const { can } = usePermissions();
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -181,36 +178,22 @@ export default function WorkOrdersPage() {
       case "DRAFT":
       case "":
       case undefined:
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "approve1", label: "Approve 1" });
-        }
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "suspend", label: "Suspend" });
-        }
+        baseActions.push({ key: "approve1", label: "Approve 1" });
+        baseActions.push({ key: "suspend", label: "Suspend" });
         break;
 
       case "APPROVED_LEVEL_1":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "approve2", label: "Approve 2" });
-        }
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "suspend", label: "Suspend" });
-        }
+        baseActions.push({ key: "approve2", label: "Approve 2" });
+        baseActions.push({ key: "suspend", label: "Suspend" });
         break;
 
       case "APPROVED_LEVEL_2":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "complete", label: "Complete" });
-        }
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "suspend", label: "Suspend" });
-        }
+        baseActions.push({ key: "complete", label: "Complete" });
+        baseActions.push({ key: "suspend", label: "Suspend" });
         break;
 
       case "SUSPENDED":
-        if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "unsuspend", label: "Unsuspend" });
-        }
+        baseActions.push({ key: "unsuspend", label: "Unsuspend" });
         break;
 
       case "COMPLETED":
@@ -467,18 +450,16 @@ export default function WorkOrdersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Work Orders</h1>
 
-        {can(PERMISSIONS.CREATE_WORK_ORDERS) && (
-          <AppCard.Action>
-            <AppButton
-              size="sm"
-              iconName="Plus"
-              type="button"
-              onClick={() => pushWithScrollSave("/work-orders/new")}
-            >
-              Add
-            </AppButton>
-          </AppCard.Action>
-        )}
+        <AppCard.Action>
+          <AppButton
+            size="sm"
+            iconName="Plus"
+            type="button"
+            onClick={() => pushWithScrollSave("/work-orders/new")}
+          >
+            Add
+          </AppButton>
+        </AppCard.Action>
       </div>
 
       <AppCard>
@@ -561,60 +542,56 @@ export default function WorkOrdersPage() {
               sort={sortState}
               onSortChange={(s) => toggleSort(s.field)}
               stickyColumns={1}
-              renderRowActions={(po) =>
-                !can(PERMISSIONS.EDIT_WORK_ORDERS) &&
-                !can(PERMISSIONS.DELETE_WORK_ORDERS) ? null : (
-                  <div className="flex gap-2">
-                    {can(PERMISSIONS.EDIT_WORK_ORDERS) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <AppButton
-                            size="sm"
-                            variant="secondary"
-                            disabled={
-                              po.approvalStatus === "SUSPENDED" ||
-                              po.approvalStatus === "COMPLETED"
-                            }
-                          >
-                            Actions
-                          </AppButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {/* <DropdownMenuItem
+              renderRowActions={(po) => (
+                <div className="flex gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <AppButton
+                        size="sm"
+                        variant="secondary"
+                        disabled={
+                          po.approvalStatus === "SUSPENDED" ||
+                          po.approvalStatus === "COMPLETED"
+                        }
+                      >
+                        Actions
+                      </AppButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {/* <DropdownMenuItem
                             onClick={() =>
                               pushWithScrollSave(`/work-orders/${po.id}/edit`)
                             }
                           >
                             Edit
                           </DropdownMenuItem> */}
-                          <DropdownMenuItem
-                            onClick={() => handleRemarkClick(po)}
-                          >
-                            Add Remark
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleBillStatusClick(po)}
-                          >
-                            Bill Status
-                          </DropdownMenuItem>
-                          {/* <DropdownMenuItem onClick={() => handlePrint(po)}>
+                      <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
+                        Add Remark
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleBillStatusClick(po)}>
+                        Bill Status
+                      </DropdownMenuItem>
+                      {/* <DropdownMenuItem onClick={() => handlePrint(po)}>
                             Print
                           </DropdownMenuItem> */}
-                          {(() => {
-                            const actions = getAvailableActions(po.approvalStatus, po.isSuspended);
-                            if (actions.length === 0) {
-                              return null;
-                            }
-                            return actions.map((a) => (
-                              <DropdownMenuItem
-                                key={a.key}
-                                onSelect={() => openApproval(po.id, a.key)}
-                              >
-                                {a.label}
-                              </DropdownMenuItem>
-                            ));
-                          })()}
-                          {/* {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
+                      {(() => {
+                        const actions = getAvailableActions(
+                          po.approvalStatus,
+                          po.isSuspended
+                        );
+                        if (actions.length === 0) {
+                          return null;
+                        }
+                        return actions.map((a) => (
+                          <DropdownMenuItem
+                            key={a.key}
+                            onSelect={() => openApproval(po.id, a.key)}
+                          >
+                            {a.label}
+                          </DropdownMenuItem>
+                        ));
+                      })()}
+                      {/* {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => handleDeleteClick(po)}
@@ -622,12 +599,10 @@ export default function WorkOrdersPage() {
                               Delete
                             </DropdownMenuItem>
                           )} */}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                )
-              }
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             />
 
             <div className="mt-4">

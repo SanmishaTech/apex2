@@ -12,6 +12,8 @@ import { toast } from '@/lib/toast';
 import { formatDate } from '@/lib/locales';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
+import { usePermissions } from '@/hooks/use-permissions';
+import { PERMISSIONS } from '@/config/roles';
 
 interface RowItem {
   id: number;
@@ -36,6 +38,8 @@ export default function StockAdjustmentsPage() {
   const [searchDraft, setSearchDraft] = useState(search || '');
   useEffect(() => { setSearchDraft(search || ''); }, [search]);
   const filtersDirty = searchDraft !== (search || '');
+
+  const { can } = usePermissions();
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
@@ -80,9 +84,11 @@ export default function StockAdjustmentsPage() {
       <AppCard.Header>
         <AppCard.Title>Stock Adjustments</AppCard.Title>
         <AppCard.Description>Adjust stock for items at sites.</AppCard.Description>
-        <AppCard.Action>
-          <AppButton size='sm' iconName='Plus' type='button' onClick={() => pushWithScrollSave('/stock-adjustments/new')}>Add</AppButton>
-        </AppCard.Action>
+        {can(PERMISSIONS.CREATE_STOCK_ADJUSTMENTS) && (
+          <AppCard.Action>
+            <AppButton size='sm' iconName='Plus' type='button' onClick={() => pushWithScrollSave('/stock-adjustments/new')}>Add</AppButton>
+          </AppCard.Action>
+        )}
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title='Search'>

@@ -134,7 +134,7 @@ export default function RentalCategoriesPage() {
       <AppCard.Header>
         <AppCard.Title>Rental Categories</AppCard.Title>
         <AppCard.Description>Manage application rental categories.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_RENTAL_CATEGORIES) && (
+        {can(PERMISSIONS.CREATE_RENTAL_CATEGORIES) && (
           <AppCard.Action>
             <Link href={`/rental-categories/new${qs ? `?${qs}` : ''}`}>
               <AppButton size='sm' iconName='Plus' type='button'>

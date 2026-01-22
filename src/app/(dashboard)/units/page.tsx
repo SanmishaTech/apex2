@@ -146,7 +146,7 @@ export default function UnitsPage() {
       <AppCard.Header>
         <AppCard.Title>Units</AppCard.Title>
         <AppCard.Description>Manage units.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_UNITS) && (
+        {can(PERMISSIONS.CREATE_UNITS) && (
           <AppCard.Action>
             <Link href="/units/new">
               <AppButton size="sm" iconName="Plus" type="button">

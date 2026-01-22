@@ -124,7 +124,7 @@ export default function StatesPage() {
       <AppCard.Header>
         <AppCard.Title>States</AppCard.Title>
         <AppCard.Description>Manage application states.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_STATES) && (
+        {can(PERMISSIONS.CREATE_STATES) && (
           <AppCard.Action>
             <div className="flex gap-2">
               {/* <AppButton

@@ -150,7 +150,7 @@ export default function CitiesPage() {
       <AppCard.Header>
         <AppCard.Title>Cities</AppCard.Title>
         <AppCard.Description>Manage application cities.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_CITIES) && (
+        {can(PERMISSIONS.CREATE_CITIES) && (
           <AppCard.Action>
             <div className="flex gap-2">
               {/* <AppButton

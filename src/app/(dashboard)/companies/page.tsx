@@ -206,7 +206,7 @@ export default function CompaniesPage() {
 			<AppCard.Header>
 				<AppCard.Title>Companies</AppCard.Title>
 				<AppCard.Description>Manage application companies.</AppCard.Description>
-				{can(PERMISSIONS.EDIT_COMPANIES) && (
+				{can(PERMISSIONS.CREATE_COMPANIES) && (
 					<AppCard.Action>
 						<AppButton 
 							size='sm' 

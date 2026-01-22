@@ -104,7 +104,7 @@ export default function MinimumWagesPage() {
       <AppCard.Header>
         <AppCard.Title>Minimum Wages</AppCard.Title>
         <AppCard.Description>Manage minimum wages.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_MIN_WAGES) && (
+        {can(PERMISSIONS.CREATE_MIN_WAGES) && (
           <AppCard.Action>
             <Link href='/minimum-wages/new'>
               <AppButton size='sm' iconName='Plus' type='button'>

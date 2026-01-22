@@ -153,7 +153,7 @@ export default function AssetGroupsPage() {
         <AppCard.Title>Asset Groups</AppCard.Title>
 
         <AppCard.Description>Manage asset groups.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_ASSET_GROUPS) && (
+        {can(PERMISSIONS.CREATE_ASSET_GROUPS) && (
           <AppCard.Action>
             <AppButton 
               size='sm' 

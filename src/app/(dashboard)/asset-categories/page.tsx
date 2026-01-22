@@ -191,7 +191,7 @@ export default function AssetCategoriesPage() {
         <AppCard.Title>Asset Categories</AppCard.Title>
 
         <AppCard.Description>Manage asset categories.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_ASSET_CATEGORIES) && (
+        {can(PERMISSIONS.CREATE_ASSET_CATEGORIES) && (
           <AppCard.Action>
             <AppButton
               size="sm"
