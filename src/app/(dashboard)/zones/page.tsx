@@ -110,7 +110,7 @@ export default function ZonesPage() {
       <AppCard.Header>
         <AppCard.Title>Zones</AppCard.Title>
         <AppCard.Description>Manage master zones.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_ZONES) && (
+        {can(PERMISSIONS.CREATE_ZONES) && (
           <AppCard.Action>
             <div className="flex gap-2">
               <AppButton

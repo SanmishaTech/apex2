@@ -45,7 +45,7 @@ export default function UserPermissionsPage() {
     setSelected(new Set(user.permissionNames || []));
   }, [user?.id]);
 
-  const savingDisabled = !can(PERMISSIONS.EDIT_USERS);
+  const savingDisabled = !can(PERMISSIONS.EDIT_ROLES_PERMISSIONS);
   const loading = userLoading || permsLoading;
 
   const allPermissions = perms?.data || [];

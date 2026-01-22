@@ -176,7 +176,7 @@ export default function BoqsPage() {
       <AppCard.Header>
         <AppCard.Title>Bill of Quantities</AppCard.Title>
         <AppCard.Description>Manage BOQs.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_BOQS) && (
+        {can(PERMISSIONS.CREATE_BOQS) && (
           <AppCard.Action>
             <Link href='/boqs/new'>
               <AppButton size='sm' iconName='Plus' type='button'>

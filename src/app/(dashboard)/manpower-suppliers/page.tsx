@@ -187,7 +187,7 @@ export default function ManpowerSuppliersPage() {
       <AppCard.Header>
         <AppCard.Title>Manpower Suppliers</AppCard.Title>
         <AppCard.Description>Manage manpower suppliers.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_MANPOWER_SUPPLIERS) && (
+        {can(PERMISSIONS.CREATE_MANPOWER_SUPPLIERS) && (
           <AppCard.Action>
             <div className="flex gap-2">
               {/* <AppButton

@@ -120,7 +120,7 @@ export default function DepartmentsPage() {
       <AppCard.Header>
         <AppCard.Title>Departments</AppCard.Title>
         <AppCard.Description>Manage application departments.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_DEPARTMENTS) && (
+        {can(PERMISSIONS.CREATE_DEPARTMENTS) && (
           <AppCard.Action>
             <AppButton 
               size='sm' 

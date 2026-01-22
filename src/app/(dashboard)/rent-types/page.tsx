@@ -121,7 +121,7 @@ export default function RentTypesPage() {
       <AppCard.Header>
         <AppCard.Title>Rent Types</AppCard.Title>
         <AppCard.Description>Manage application rent types.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_RENT_TYPES) && (
+        {can(PERMISSIONS.CREATE_RENT_TYPES) && (
           <AppCard.Action>
             <AppButton 
               size='sm' 

@@ -42,6 +42,8 @@ export default function AssignEmployeesPage({ params }: PageProps) {
   const { pushAndRestoreKey } = useScrollRestoration("assign-employees-assign");
   const router = useRouter();
 
+  const canAssign = can(PERMISSIONS.CREATE_EMPLOYEE_ASSIGNMENTS);
+
   const [qp, setQp] = useQueryParamsState<AssignQ>({
     page: 1,
     perPage: 10,
@@ -170,6 +172,7 @@ export default function AssignEmployeesPage({ params }: PageProps) {
   );
 
   async function handleAssign() {
+    if (!canAssign) return;
     const employeeIds = Object.entries(selected)
       .filter(([, v]) => v)
       .map(([k]) => Number(k));
@@ -235,6 +238,12 @@ export default function AssignEmployeesPage({ params }: PageProps) {
           )}
         </FilterBar>
 
+        {!canAssign ? (
+          <div className="text-sm text-muted-foreground mb-3">
+            You don't have permission to assign employees.
+          </div>
+        ) : null}
+
         <DataTable
           columns={columns}
           data={pageRows}
@@ -250,24 +259,24 @@ export default function AssignEmployeesPage({ params }: PageProps) {
           totalPages={totalPages}
           total={totalAvailable}
           perPage={perPage}
-          onPerPageChange={(val) => setQp({ page: 1, perPage: val } as any)}
           onPageChange={(p) => setQp({ page: p } as any)}
+          onPerPageChange={(val) => setQp({ page: 1, perPage: val } as any)}
+          disabled={isLoading}
           showPageNumbers
           maxButtons={5}
-          disabled={isLoading}
         />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <div className="text-sm text-muted-foreground">
-            Selected: {selectedCount} • Total Available: {totalAvailable}
+            Selected: <span className="font-medium">{selectedCount}</span>
           </div>
-          {can(PERMISSIONS.EDIT_EMPLOYEES) && (
-            <AppButton
-              onClick={handleAssign}
-              disabled={selectedCount === 0 || isLoading}
-            >
-              Assign Selected
-            </AppButton>
-          )}
+          <AppButton
+            size="sm"
+            onClick={handleAssign}
+            disabled={!canAssign || selectedCount === 0}
+          >
+            Assign Selected
+          </AppButton>
         </div>
       </AppCard.Footer>
     </AppCard>

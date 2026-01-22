@@ -242,7 +242,7 @@ export default function ManpowerPage() {
       <AppCard.Header>
         <AppCard.Title>Manpower</AppCard.Title>
         <AppCard.Description>Manage manpower workers.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_MANPOWER) && (
+        {can(PERMISSIONS.CREATE_MANPOWER) && (
           <AppCard.Action>
             <AppButton 
               size='sm' 

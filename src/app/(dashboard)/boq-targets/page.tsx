@@ -190,7 +190,7 @@ export default function BoqTargetsPage() {
       <AppCard.Header>
         <AppCard.Title>BOQ Targets</AppCard.Title>
         <AppCard.Description>Manage BOQ targets and daily quantities.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_BOQS) && (
+        {can(PERMISSIONS.CREATE_BOQS) && (
           <AppCard.Action>
             <Link href='/boq-targets/new'>
               <AppButton size='sm' iconName='Plus' type='button'>

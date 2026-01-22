@@ -10,8 +10,6 @@ import { FilterBar } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { DataTable, SortState, Column } from "@/components/common/data-table";
-import { usePermissions } from "@/hooks/use-permissions";
-import { PERMISSIONS } from "@/config/roles";
 import { formatDate } from "@/lib/utils";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
@@ -91,8 +89,6 @@ export default function WorkOrderBillsPage() {
   }, [page, perPage, search, site, vendor, sort, order]);
 
   const { data, error, isLoading } = useSWR<WorkOrdersResponse>(query, apiGet);
-
-  const { can } = usePermissions();
 
   if (error) {
     toast.error((error as Error).message || "Failed to load work orders");

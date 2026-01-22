@@ -186,7 +186,7 @@ export default function DailyProgressPage() {
         <AppCard.Description>
           Manage daily progress entries.
         </AppCard.Description>
-        {can(PERMISSIONS.EDIT_DAILY_PROGRESSES) && (
+        {can(PERMISSIONS.CREATE_DAILY_PROGRESSES) && (
           <AppCard.Action>
             <Link href="/daily-progresses/new">
               <AppButton size="sm" iconName="Plus" type="button">

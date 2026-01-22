@@ -52,42 +52,30 @@ async function main() {
   try {
     const adminEmail = "admin@demo.com";
 
-    const [adminUser, adminRole, siteInchargeRole] = await Promise.all([
+    const [adminUser, adminRole] = await Promise.all([
       prisma.user.findUnique({ where: { email: adminEmail }, select: { id: true, email: true } }),
       prisma.role.findUnique({ where: { name: ROLES.ADMIN }, select: { id: true } }),
-      prisma.role.findUnique({ where: { name: ROLES.SITE_INCHARGE }, select: { id: true } }),
     ]);
 
-    if (siteInchargeRole) {
-      await prisma.rolePermission.deleteMany({ where: { roleId: siteInchargeRole.id } });
-    }
-
-    const users = await prisma.user.findMany({ select: { id: true, email: true } });
-
-    await prisma.$transaction(async (tx) => {
-      for (const u of users) {
-        const isAdmin = u.email === adminEmail;
-        const roleId = isAdmin ? adminRole?.id : siteInchargeRole?.id;
-        if (!roleId) continue;
+    if (adminUser && adminRole?.id) {
+      await prisma.$transaction(async (tx) => {
         await tx.userRole.upsert({
-          where: { userId: u.id },
-          create: { userId: u.id, roleId },
-          update: { roleId },
+          where: { userId: adminUser.id },
+          create: { userId: adminUser.id, roleId: adminRole.id },
+          update: { roleId: adminRole.id },
         });
-      }
 
-      await tx.userPermission.deleteMany({});
-
-      if (adminUser) {
         const permIds = await tx.permission.findMany({ select: { id: true } });
+
+        await tx.userPermission.deleteMany({ where: { userId: adminUser.id } });
         if (permIds.length) {
           await tx.userPermission.createMany({
             data: permIds.map((p) => ({ userId: adminUser.id, permissionId: p.id })),
             skipDuplicates: true,
           });
         }
-      }
-    });
+      });
+    }
   } catch (e) {
     console.error("admin@demo.com access bootstrap failed:", e);
   }

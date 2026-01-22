@@ -237,18 +237,18 @@ export default function SitesPage() {
       <AppCard.Header>
         <AppCard.Title>Sites</AppCard.Title>
         <AppCard.Description>Manage application sites.</AppCard.Description>
-        {can(PERMISSIONS.EDIT_SITES) && (
+        {can(PERMISSIONS.CREATE_SITES) && (
           <AppCard.Action>
             <div className="flex gap-2">
               {/* <AppButton
-								size='sm'
-								variant='outline'
-								iconName='Upload'
-								type='button'
-								onClick={() => setImportOpen(true)}
-							>
-								Import
-							</AppButton> */}
+							size='sm'
+							variant='outline'
+							iconName='Upload'
+							type='button'
+							onClick={() => setImportOpen(true)}
+						>
+							Import
+						</AppButton> */}
               <AppButton
                 size="sm"
                 iconName="Plus"

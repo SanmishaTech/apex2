@@ -193,13 +193,15 @@ export default function InwardDeliveryChallansPage() {
         <AppCard.Description>
           Manage inward delivery challans.
         </AppCard.Description>
-        <AppCard.Action>
-          <Link href="/inward-delivery-challans/new">
-            <AppButton size="sm" iconName="Plus" type="button">
-              Add
-            </AppButton>
-          </Link>
-        </AppCard.Action>
+        {can(PERMISSIONS.CREATE_INWARD_DELIVERY_CHALLAN) && (
+          <AppCard.Action>
+            <Link href="/inward-delivery-challans/new">
+              <AppButton size="sm" iconName="Plus" type="button">
+                Add
+              </AppButton>
+            </Link>
+          </AppCard.Action>
+        )}
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title="Search & Filter">

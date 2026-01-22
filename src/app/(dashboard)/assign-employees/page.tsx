@@ -94,7 +94,7 @@ export default function AssignEmployeesSitesPage() {
               <AppButton size='sm' variant='secondary' onClick={() => pushWithScrollSave(`/assign-employees/${row.id}`)}>
                 View Assigned
               </AppButton>
-              {can(PERMISSIONS.EDIT_EMPLOYEES) && (
+              {can(PERMISSIONS.CREATE_EMPLOYEE_ASSIGNMENTS) && (
                 <AppButton size='sm' onClick={() => pushWithScrollSave(`/assign-employees/${row.id}/assign`)}>
                   Assign Employees
                 </AppButton>

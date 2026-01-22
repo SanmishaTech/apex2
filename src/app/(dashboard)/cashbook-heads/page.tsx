@@ -144,7 +144,7 @@ export default function CashbookHeadsPage() {
 			<AppCard.Header>
 				<AppCard.Title>Cashbook Heads</AppCard.Title>
 				<AppCard.Description>Manage cashbook heads for financial organization.</AppCard.Description>
-				{can(PERMISSIONS.EDIT_CASHBOOK_HEADS) && (
+				{can(PERMISSIONS.CREATE_CASHBOOK_HEADS) && (
 					<AppCard.Action>
 						<Link href='/cashbook-heads/new'>
 							<AppButton size='sm' iconName='Plus' type='button'>
