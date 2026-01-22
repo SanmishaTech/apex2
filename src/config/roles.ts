@@ -309,6 +309,11 @@ export const PERMISSION_GROUPS: {
   permissions: string[];
 }[] = [
   {
+    key: "dashboard",
+    label: "Dashboard",
+    permissions: [PERMISSIONS.VIEW_DASHBOARD],
+  },
+  {
     key: "users",
     label: "Users",
     permissions: [
@@ -402,6 +407,16 @@ export const PERMISSION_GROUPS: {
     ],
   },
   {
+    key: "categories",
+    label: "Categories",
+    permissions: [
+      PERMISSIONS.VIEW_CATEGORIES,
+      PERMISSIONS.READ_CATEGORIES,
+      PERMISSIONS.EDIT_CATEGORIES,
+      PERMISSIONS.DELETE_CATEGORIES,
+    ],
+  },
+  {
     key: "notices",
     label: "Notices",
     permissions: [
@@ -441,10 +456,13 @@ export const PERMISSION_GROUPS: {
       PERMISSIONS.VIEW_MANPOWER_ASSIGNMENTS,
       PERMISSIONS.READ_MANPOWER_ASSIGNMENTS,
       PERMISSIONS.CREATE_MANPOWER_ASSIGNMENTS,
+      PERMISSIONS.EDIT_MANPOWER_ASSIGNMENTS,
       PERMISSIONS.DELETE_MANPOWER_ASSIGNMENTS,
       PERMISSIONS.VIEW_MANPOWER_TRANSFERS,
       PERMISSIONS.READ_MANPOWER_TRANSFERS,
       PERMISSIONS.CREATE_MANPOWER_TRANSFERS,
+      PERMISSIONS.EDIT_MANPOWER_TRANSFERS,
+      PERMISSIONS.DELETE_MANPOWER_TRANSFERS,
       PERMISSIONS.APPROVE_MANPOWER_TRANSFERS,
     ],
   },
@@ -457,6 +475,181 @@ export const PERMISSION_GROUPS: {
       PERMISSIONS.CREATE_ATTENDANCES,
       PERMISSIONS.EDIT_ATTENDANCES,
       PERMISSIONS.DELETE_ATTENDANCES,
+    ],
+  },
+  {
+    key: "attendance_reports",
+    label: "Attendance Reports",
+    permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
+  },
+  {
+    key: "units",
+    label: "Units",
+    permissions: [
+      PERMISSIONS.READ_UNITS,
+      PERMISSIONS.EDIT_UNITS,
+      PERMISSIONS.DELETE_UNITS,
+    ],
+  },
+  {
+    key: "items",
+    label: "Items",
+    permissions: [
+      PERMISSIONS.READ_ITEM_CATEGORIES,
+      PERMISSIONS.CREATE_ITEM_CATEGORIES,
+      PERMISSIONS.EDIT_ITEM_CATEGORIES,
+      PERMISSIONS.DELETE_ITEM_CATEGORIES,
+      PERMISSIONS.READ_ITEMS,
+      PERMISSIONS.CREATE_ITEMS,
+      PERMISSIONS.EDIT_ITEMS,
+      PERMISSIONS.DELETE_ITEMS,
+    ],
+  },
+  {
+    key: "billing_addresses",
+    label: "Billing Addresses",
+    permissions: [
+      PERMISSIONS.READ_BILLING_ADDRESSES,
+      PERMISSIONS.CREATE_BILLING_ADDRESSES,
+      PERMISSIONS.EDIT_BILLING_ADDRESSES,
+      PERMISSIONS.DELETE_BILLING_ADDRESSES,
+    ],
+  },
+  {
+    key: "vendors",
+    label: "Vendors",
+    permissions: [
+      PERMISSIONS.READ_VENDORS,
+      PERMISSIONS.CREATE_VENDORS,
+      PERMISSIONS.EDIT_VENDORS,
+      PERMISSIONS.DELETE_VENDORS,
+    ],
+  },
+  {
+    key: "boqs",
+    label: "BOQs",
+    permissions: [
+      PERMISSIONS.READ_BOQS,
+      PERMISSIONS.EDIT_BOQS,
+      PERMISSIONS.DELETE_BOQS,
+    ],
+  },
+  {
+    key: "boq_bills",
+    label: "BOQ Bills",
+    permissions: [
+      PERMISSIONS.READ_BOQ_BILLS,
+      PERMISSIONS.CREATE_BOQ_BILLS,
+      PERMISSIONS.EDIT_BOQ_BILLS,
+      PERMISSIONS.DELETE_BOQ_BILLS,
+    ],
+  },
+  {
+    key: "daily_consumptions",
+    label: "Daily Consumptions",
+    permissions: [
+      PERMISSIONS.VIEW_DAILY_CONSUMPTIONS,
+      PERMISSIONS.READ_DAILY_CONSUMPTIONS,
+      PERMISSIONS.CREATE_DAILY_CONSUMPTIONS,
+    ],
+  },
+  {
+    key: "daily_progresses",
+    label: "Daily Progress",
+    permissions: [
+      PERMISSIONS.READ_DAILY_PROGRESSES,
+      PERMISSIONS.EDIT_DAILY_PROGRESSES,
+      PERMISSIONS.DELETE_DAILY_PROGRESSES,
+    ],
+  },
+  {
+    key: "payment_terms",
+    label: "Payment Terms",
+    permissions: [
+      PERMISSIONS.READ_PAYMENT_TERMS,
+      PERMISSIONS.CREATE_PAYMENT_TERMS,
+      PERMISSIONS.EDIT_PAYMENT_TERMS,
+      PERMISSIONS.DELETE_PAYMENT_TERMS,
+    ],
+  },
+  {
+    key: "assets",
+    label: "Assets",
+    permissions: [
+      PERMISSIONS.READ_ASSET_GROUPS,
+      PERMISSIONS.EDIT_ASSET_GROUPS,
+      PERMISSIONS.DELETE_ASSET_GROUPS,
+      PERMISSIONS.READ_ASSETS,
+      PERMISSIONS.CREATE_ASSETS,
+      PERMISSIONS.EDIT_ASSETS,
+      PERMISSIONS.DELETE_ASSETS,
+      PERMISSIONS.READ_ASSET_TRANSFERS,
+      PERMISSIONS.CREATE_ASSET_TRANSFERS,
+      PERMISSIONS.EDIT_ASSET_TRANSFERS,
+      PERMISSIONS.DELETE_ASSET_TRANSFERS,
+      PERMISSIONS.APPROVE_ASSET_TRANSFERS,
+    ],
+  },
+  {
+    key: "rents",
+    label: "Rent",
+    permissions: [
+      PERMISSIONS.READ_RENTAL_CATEGORIES,
+      PERMISSIONS.EDIT_RENTAL_CATEGORIES,
+      PERMISSIONS.DELETE_RENTAL_CATEGORIES,
+      PERMISSIONS.READ_RENT_TYPES,
+      PERMISSIONS.EDIT_RENT_TYPES,
+      PERMISSIONS.DELETE_RENT_TYPES,
+      PERMISSIONS.READ_RENTS,
+      PERMISSIONS.CREATE_RENTS,
+      PERMISSIONS.EDIT_RENTS,
+      PERMISSIONS.DELETE_RENTS,
+    ],
+  },
+  {
+    key: "site_budgets",
+    label: "Site Budgets",
+    permissions: [
+      PERMISSIONS.READ_SITE_BUDGETS,
+      PERMISSIONS.CREATE_SITE_BUDGETS,
+      PERMISSIONS.EDIT_SITE_BUDGETS,
+      PERMISSIONS.DELETE_SITE_BUDGETS,
+    ],
+  },
+  {
+    key: "cashbooks",
+    label: "Cashbook",
+    permissions: [
+      PERMISSIONS.READ_CASHBOOK_HEADS,
+      PERMISSIONS.EDIT_CASHBOOK_HEADS,
+      PERMISSIONS.DELETE_CASHBOOK_HEADS,
+      PERMISSIONS.READ_CASHBOOKS,
+      PERMISSIONS.CREATE_CASHBOOKS,
+      PERMISSIONS.EDIT_CASHBOOKS,
+      PERMISSIONS.DELETE_CASHBOOKS,
+    ],
+  },
+  {
+    key: "indents",
+    label: "Indents",
+    permissions: [
+      PERMISSIONS.READ_INDENTS,
+      PERMISSIONS.CREATE_INDENTS,
+      PERMISSIONS.EDIT_INDENTS,
+      PERMISSIONS.DELETE_INDENTS,
+      PERMISSIONS.APPROVE_INDENTS_L1,
+      PERMISSIONS.APPROVE_INDENTS_L2,
+      PERMISSIONS.COMPLETE_INDENTS,
+      PERMISSIONS.SUSPEND_INDENTS,
+      PERMISSIONS.GENERATE_PO_FROM_INDENT,
+    ],
+  },
+  {
+    key: "payroll",
+    label: "Payroll",
+    permissions: [
+      PERMISSIONS.READ_PAYSLIPS,
+      PERMISSIONS.GENERATE_PAYSLIPS,
     ],
   },
   {
