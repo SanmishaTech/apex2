@@ -23,7 +23,7 @@ export async function GET(
     const activities = await prisma.boqItem.findMany({
       where: { 
         boqId: id,
-        activityId: { not: null } // Only get items that have an activity ID
+        activityId: { not: '' } // Only get items that have an activity ID
       },
       select: {
         activityId: true,
