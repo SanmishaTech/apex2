@@ -17,10 +17,28 @@ export async function GET(
   try {
     const boqTarget = await prisma.boqTarget.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        siteId: true,
         site: { select: { id: true, site: true } },
-        boq: { select: { id: true, boqNo: true } }
-      }
+        boqId: true,
+        boq: { select: { id: true, boqNo: true } },
+        month: true,
+        week: true,
+        fromTargetDate: true,
+        toTargetDate: true,
+        createdAt: true,
+        updatedAt: true,
+        boqTargetDetails: {
+          select: {
+            id: true,
+            boqTargetId: true,
+            BoqItemId: true,
+            dailyTargetQty: true,
+          },
+          orderBy: { BoqItemId: "asc" },
+        },
+      },
     });
 
     if (!boqTarget) return Error('BOQ Target not found', 404);
@@ -47,7 +65,10 @@ export async function DELETE(
     const existing = await prisma.boqTarget.findUnique({ where: { id } });
     if (!existing) return Error('BOQ Target not found', 404);
 
-    await prisma.boqTarget.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.boqTargetDetail.deleteMany({ where: { boqTargetId: id } });
+      await tx.boqTarget.delete({ where: { id } });
+    });
     return Success({ message: 'BOQ Target deleted successfully' });
   } catch (err) {
     console.error('Error deleting BOQ target:', err);
