@@ -1,300 +1,413 @@
-'use client';
+"use client";
 
-import useSWR from 'swr';
-import { useMemo, useState, useEffect } from 'react';
-import { apiGet } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-import { Pagination } from '@/components/common/pagination';
-import { NonFormTextInput } from '@/components/common/non-form-text-input';
-import { FilterBar } from '@/components/common';
-import { AppCard } from '@/components/common/app-card';
-import { AppButton } from '@/components/common/app-button';
-import { DataTable, SortState, Column } from '@/components/common/data-table';
-import { usePermissions } from '@/hooks/use-permissions';
-import { PERMISSIONS } from '@/config/roles';
-import { formatDate } from '@/lib/locales';
-import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import Link from 'next/link';
+import useSWR from "swr";
+import { useMemo, useState, useEffect } from "react";
+import { apiGet, apiDelete } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
+import { Pagination } from "@/components/common/pagination";
+import { NonFormTextInput } from "@/components/common/non-form-text-input";
+import { FilterBar } from "@/components/common";
+import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
+import { AppSelect } from "@/components/common/app-select";
+import { DataTable, SortState, Column } from "@/components/common/data-table";
+import { DeleteButton } from "@/components/common/delete-button";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { formatRelativeTime, formatDate } from "@/lib/locales";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import Link from "next/link";
+import { EditButton } from "@/components/common/icon-button";
+import type { SitesResponse } from "@/types/sites";
+import { format as dfFormat } from "date-fns";
 
-// Types
-type SiteListItem = {
+type SiteBudgetListItem = {
   id: number;
-  site: string;
-  shortName: string | null;
-  company?: {
-    id: number;
-    company: string;
-  } | null;
-  _count?: {
-    siteBudgets: number;
-  };
+  siteId: number;
+  site: { id: number; site: string } | null;
+  boqId: number;
+  boq: { id: number; boqNo: string | null } | null;
+  month: string;
+  week: string;
+  fromDate: string;
+  toDate: string;
   createdAt: string;
   updatedAt: string;
 };
 
-type SitesResponse = {
-  data: SiteListItem[];
+type SiteBudgetsResponse = {
+  data: SiteBudgetListItem[];
   page: number;
   perPage: number;
   total: number;
   totalPages: number;
 };
 
+const ALL_VALUE = "__ALL__";
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  // eslint-disable-next-line no-mixed-operators
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function formatDDMMYYYY(value: string | null | undefined) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return dfFormat(d, "dd/MM/yyyy");
+}
+
+function monthIndexFromLabel(label: string): number | null {
+  const monthName = String(label || "").trim().split(" ")[0];
+  const names = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const idx = names.findIndex((m) => m.toLowerCase() === monthName.toLowerCase());
+  return idx >= 0 ? idx : null;
+}
+
+function yearFromLabel(label: string): number | null {
+  const parts = String(label || "").trim().split(" ");
+  const yearStr = parts[parts.length - 1];
+  const y = Number(yearStr);
+  return Number.isFinite(y) ? y : null;
+}
+
+function buildMonthYearOptions(): Array<{ value: string; label: string }> {
+  const now = new Date();
+  const years = [now.getFullYear(), now.getFullYear() + 1];
+  const names = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const opts: Array<{ value: string; label: string }> = [];
+  for (const y of years) {
+    for (const m of names) {
+      const label = `${m} ${y}`;
+      opts.push({ value: label, label });
+    }
+  }
+  return opts;
+}
+
+function buildWeekOptions(monthLabel: string): Array<{ value: string; label: string }> {
+  const mi = monthIndexFromLabel(monthLabel);
+  const yr = yearFromLabel(monthLabel);
+  if (mi === null || yr === null) return [];
+  const daysInMonth = new Date(yr, mi + 1, 0).getDate();
+  const weeks = Math.ceil(daysInMonth / 7);
+  return Array.from({ length: weeks }).map((_, i) => {
+    const label = `${ordinal(i + 1)} Week`;
+    return { value: label, label };
+  });
+}
+
 export default function SiteBudgetsPage() {
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
-    search: '',
-    sort: 'site',
-    order: 'asc',
+    search: "",
+    siteId: "",
+    month: "",
+    week: "",
+    sort: "createdAt",
+    order: "desc",
   });
-  const { page, perPage, search, sort, order } =
+
+  const { page, perPage, search, siteId, month, week, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
+      siteId: string;
+      month: string;
+      week: string;
       sort: string;
-      order: 'asc' | 'desc';
+      order: "asc" | "desc";
     };
 
-  // Local filter draft state (only applied when clicking Filter)
-  const [searchDraft, setSearchDraft] = useState(search);
+  const { can } = usePermissions();
 
-  // Sync drafts when query params change externally (e.g., back navigation)
+  const canReadSites = can(PERMISSIONS.READ_SITES) || can(PERMISSIONS.VIEW_SITES);
+
+  const [searchDraft, setSearchDraft] = useState(search);
+  const [siteIdDraft, setSiteIdDraft] = useState(siteId);
+  const [monthDraft, setMonthDraft] = useState(month);
+  const [weekDraft, setWeekDraft] = useState(week);
+
   useEffect(() => {
     setSearchDraft(search);
-  }, [search]);
+    setSiteIdDraft(siteId);
+    setMonthDraft(month);
+    setWeekDraft(week);
+  }, [search, siteId, month, week]);
 
-  const filtersDirty = searchDraft !== search;
+  const monthOptions = useMemo(() => buildMonthYearOptions(), []);
+  const weekOptions = useMemo(() => buildWeekOptions(monthDraft), [monthDraft]);
+
+  const { data: sitesData } = useSWR<SitesResponse>(
+    canReadSites ? "/api/sites?perPage=100" : null,
+    apiGet
+  );
+
+  const filtersDirty =
+    searchDraft !== search ||
+    siteIdDraft !== siteId ||
+    monthDraft !== month ||
+    weekDraft !== week;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
+      siteId: siteIdDraft,
+      month: monthDraft,
+      week: weekDraft,
     });
   }
 
   function resetFilters() {
-    setSearchDraft('');
-    setQp({ page: 1, search: '' });
+    setSearchDraft("");
+    setSiteIdDraft("");
+    setMonthDraft("");
+    setWeekDraft("");
+    setQp({ page: 1, search: "", siteId: "", month: "", week: "" });
   }
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
-    sp.set('page', String(page));
-    sp.set('perPage', String(perPage));
-    if (search) sp.set('search', search);
-    if (sort) sp.set('sort', sort);
-    if (order) sp.set('order', order);
-    return `/api/sites?${sp.toString()}`;
-  }, [page, perPage, search, sort, order]);
+    sp.set("page", String(page));
+    sp.set("perPage", String(perPage));
+    if (search) sp.set("search", search);
+    if (siteId) sp.set("siteId", siteId);
+    if (month) sp.set("month", month);
+    if (week) sp.set("week", week);
+    if (sort) sp.set("sort", sort);
+    if (order) sp.set("order", order);
+    return `/api/site-budgets?${sp.toString()}`;
+  }, [page, perPage, search, siteId, month, week, sort, order]);
 
-  const { data, error, isLoading } = useSWR<SitesResponse>(query, apiGet);
+  const { data, error, isLoading, mutate } = useSWR<SiteBudgetsResponse>(query, apiGet);
 
-  const { can } = usePermissions();
-
-  if (error) {
-    toast.error((error as Error).message || 'Failed to load sites');
-  }
+  useEffect(() => {
+    if (error) toast.error((error as Error).message || "Failed to load site budgets");
+  }, [error]);
 
   function toggleSort(field: string) {
     if (sort === field) {
-      setQp({ order: order === 'asc' ? 'desc' : 'asc' });
+      setQp({ order: order === "asc" ? "desc" : "asc" });
     } else {
-      setQp({ sort: field, order: 'asc' });
+      setQp({ sort: field, order: "asc" });
     }
   }
 
-  const columns: Column<SiteListItem>[] = [
+  async function handleDelete(id: number) {
+    try {
+      await apiDelete(`/api/site-budgets/${id}`);
+      toast.success("Site Budget deleted");
+      await mutate();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  const columns: Column<SiteBudgetListItem>[] = [
     {
-      key: 'site',
-      header: 'Site',
-      sortable: true,
-      cellClassName: 'font-medium whitespace-nowrap',
+      key: "site",
+      header: "Site",
+      sortable: false,
+      accessor: (r) => r.site?.site || "—",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
     },
     {
-      key: '_count',
-      header: 'No Of Items',
+      key: "boq",
+      header: "BOQ No.",
       sortable: false,
-      className: 'text-center',
-      cellClassName: 'text-center font-medium',
-      accessor: (r) => r._count?.siteBudgets || 0,
+      accessor: (r) => r.boq?.boqNo || `BOQ ${r.boqId}` || "—",
+      cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "month",
+      header: "Month",
+      sortable: true,
+      accessor: (r) => r.month || "—",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "week",
+      header: "Week",
+      sortable: true,
+      accessor: (r) => r.week || "—",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "fromDate",
+      header: "From Date",
+      sortable: true,
+      accessor: (r) => (r.fromDate ? formatDDMMYYYY(r.fromDate) : "—"),
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "toDate",
+      header: "To Date",
+      sortable: true,
+      accessor: (r) => (r.toDate ? formatDDMMYYYY(r.toDate) : "—"),
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: true,
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+      accessor: (r) => formatDate(r.createdAt),
+    },
+    {
+      key: "updatedAt",
+      header: "Updated",
+      sortable: false,
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+      accessor: (r) => formatRelativeTime(r.updatedAt),
     },
   ];
 
   const sortState: SortState = { field: sort, order };
 
-  const handleDownloadPDF = async (siteId: number, siteName: string) => {
-    try {
-      // Fetch the site budget data
-      const response = await fetch(`/api/site-budgets?siteId=${siteId}&perPage=1000`);
-      const budgetData = await response.json();
-      
-      // Fetch site details
-      const siteResponse = await fetch(`/api/sites/${siteId}`);
-      const site = await siteResponse.json();
-      
-      if (!budgetData.data || budgetData.data.length === 0) {
-        toast.error('No budget data found for this site');
-        return;
-      }
+  const siteOptions = (sitesData?.data || []).map((s) => ({
+    value: String(s.id),
+    label: s.site,
+  }));
 
-      // Create and trigger download
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (!printWindow) {
-        toast.error('Please allow popups to download PDF');
-        return;
-      }
-
-      // Calculate totals
-      const totalBudgetValue = budgetData.data.reduce((sum: number, item: any) => sum + Number(item.budgetValue), 0);
-      const totalOrderedValue = budgetData.data.reduce((sum: number, item: any) => sum + Number(item.orderedValue), 0);
-
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const formattedTime = currentDate.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Site Budget Report - ${site.site}</title>
-    <style>
-        @page { size: A4; margin: 15mm; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; font-size: 11px; line-height: 1.2; }
-        .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; border: 2px solid #000; padding: 8px; }
-        .company-info { flex: 1; }
-        .company-name { font-size: 13px; font-weight: bold; margin-bottom: 3px; }
-        .report-subtitle { font-size: 11px; }
-        .report-title { flex: 1; text-align: right; font-size: 16px; font-weight: bold; }
-        .site-info { margin: 8px 0 15px 0; font-weight: bold; font-size: 12px; }
-        .report-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 15px; }
-        .report-table th, .report-table td { border: 1px solid #000; padding: 4px 3px; text-align: center; vertical-align: middle; }
-        .report-table th { background-color: #f5f5f5; font-weight: bold; font-size: 9px; }
-        .text-left { text-align: left !important; }
-        .text-right { text-align: right !important; }
-        .total-row { font-weight: bold; background-color: #f9f9f9; }
-        .grand-total-row { font-weight: bold; background-color: #e9e9e9; }
-        .footer-info { display: flex; justify-content: space-between; margin-top: 20px; font-size: 9px; }
-    </style>
-</head>
-<body>
-    <div class="header-section">
-        <div class="company-info">
-            <div class="company-name">${site.company?.companyName || 'ABCD COMPANY LTD'}</div>
-            <div class="report-subtitle">Report: Budget View</div>
-        </div>
-        <div class="report-title">APEX Constructions</div>
-    </div>
-    <div class="site-info">Site: ${site.site}</div>
-    <table class="report-table">
-        <thead>
-            <tr>
-                <th style="width: 25%">Item</th>
-                <th style="width: 8%">Unit</th>
-                <th style="width: 10%">Budget Qty</th>
-                <th style="width: 12%">Budget Rate</th>
-                <th style="width: 12%">Budget Value</th>
-                <th style="width: 10%">Ordered Qty</th>
-                <th style="width: 11%">Avg Rate</th>
-                <th style="width: 12%">Ordered Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${budgetData.data.map((item: any) => `
-                <tr>
-                    <td class="text-left">${item.item.item}</td>
-                    <td>${item.item.unit?.unitName || '-'}</td>
-                    <td class="text-right">${Number(item.budgetQty).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.budgetRate).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.budgetValue).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.orderedQty).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.avgRate).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.orderedValue).toFixed(2)}</td>
-                </tr>
-            `).join('')}
-            <tr class="total-row">
-                <td colspan="4" class="text-right">Total</td>
-                <td class="text-right">${totalBudgetValue.toFixed(2)}</td>
-                <td></td>
-                <td></td>
-                <td class="text-right">${totalOrderedValue.toFixed(2)}</td>
-            </tr>
-            <tr class="grand-total-row">
-                <td colspan="4" class="text-right">Grand Total</td>
-                <td class="text-right">${totalBudgetValue.toFixed(2)}</td>
-                <td></td>
-                <td></td>
-                <td class="text-right">${totalOrderedValue.toFixed(2)}</td>
-            </tr>
-        </tbody>
-    </table>
-    <div class="footer-info">
-        <div>APEX</div>
-        <div>Printed on ${formattedDate} ${formattedTime}</div>
-        <div>1/1</div>
-    </div>
-    <script>
-        window.onload = function() {
-            window.print();
-            setTimeout(() => window.close(), 1000);
-        }
-    </script>
-</body>
-</html>`;
-
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      
-      toast.success('PDF download initiated');
-    } catch (error) {
-      console.error('PDF download error:', error);
-      toast.error('Failed to download PDF');
-    }
-  };
+  const siteValueUi = siteIdDraft === "" ? ALL_VALUE : siteIdDraft;
+  const monthValueUi = monthDraft === "" ? ALL_VALUE : monthDraft;
+  const weekValueUi = weekDraft === "" ? ALL_VALUE : weekDraft;
 
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>Site Budget</AppCard.Title>
-        <AppCard.Description>Manage site budgets by selecting a site.</AppCard.Description>
+        <AppCard.Title>Site Budgets</AppCard.Title>
+        <AppCard.Description>Manage site budgets.</AppCard.Description>
+        {can(PERMISSIONS.CREATE_SITE_BUDGETS) && (
+          <AppCard.Action>
+            <Link href="/site-budgets/new">
+              <AppButton size="sm" iconName="Plus" type="button">
+                Add
+              </AppButton>
+            </Link>
+          </AppCard.Action>
+        )}
       </AppCard.Header>
       <AppCard.Content>
-        <FilterBar title='Search & Filter'>
+        <FilterBar title="Search & Filter">
+          {canReadSites ? (
+            <AppSelect
+              label="Site"
+              value={siteIdDraft || undefined}
+              onValueChange={(v) => setSiteIdDraft(v === ALL_VALUE ? "" : v)}
+              placeholder="All Sites"
+              triggerClassName="h-9 min-w-[180px]"
+            >
+              <AppSelect.Item value={ALL_VALUE}>All Sites</AppSelect.Item>
+              {siteOptions.map((opt) => (
+                <AppSelect.Item key={opt.value} value={opt.value}>
+                  {opt.label}
+                </AppSelect.Item>
+              ))}
+            </AppSelect>
+          ) : null}
+
+          <AppSelect
+            label="Month"
+            value={monthDraft || undefined}
+            onValueChange={(v) => {
+              const next = v === ALL_VALUE ? "" : v;
+              setMonthDraft(next);
+              if (!next) setWeekDraft("");
+            }}
+            placeholder="All Months"
+            triggerClassName="h-9 min-w-[160px]"
+          >
+            <AppSelect.Item value={ALL_VALUE}>All Months</AppSelect.Item>
+            {monthOptions.map((opt) => (
+              <AppSelect.Item key={opt.value} value={opt.value}>
+                {opt.label}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
+
+          <AppSelect
+            label="Week"
+            value={weekDraft || undefined}
+            onValueChange={(v) => setWeekDraft(v === ALL_VALUE ? "" : v)}
+            placeholder={monthDraft ? "All Weeks" : "Select Month"}
+            triggerClassName="h-9 min-w-[140px]"
+            disabled={!monthDraft}
+          >
+            <AppSelect.Item value={ALL_VALUE}>All Weeks</AppSelect.Item>
+            {weekOptions.map((opt) => (
+              <AppSelect.Item key={opt.value} value={opt.value}>
+                {opt.label}
+              </AppSelect.Item>
+            ))}
+          </AppSelect>
+
           <NonFormTextInput
-            aria-label='Search sites'
-            placeholder='Search sites...'
+            aria-label="Search Site Budgets"
+            placeholder="Search by Month, Week, Site..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            containerClassName='w-full'
+            containerClassName="w-full"
           />
+
           <AppButton
-            size='sm'
+            size="sm"
             onClick={applyFilters}
             disabled={!filtersDirty && !searchDraft}
-            className='min-w-[84px]'
+            className="min-w-[84px]"
           >
             Filter
           </AppButton>
-          {search && (
+          {(filtersDirty || search || siteId || month || week || searchDraft || siteIdDraft || monthDraft || weekDraft) && (
             <AppButton
-              variant='secondary'
-              size='sm'
+              variant="secondary"
+              size="sm"
               onClick={resetFilters}
-              className='min-w-[84px]'
+              className="min-w-[84px]"
             >
               Reset
             </AppButton>
           )}
         </FilterBar>
+
         <DataTable
           columns={columns}
           data={data?.data || []}
@@ -303,32 +416,28 @@ export default function SiteBudgetsPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(row) => {
-            if (!can(PERMISSIONS.READ_SITE_BUDGETS)) return null;
+            if (!can(PERMISSIONS.EDIT_SITE_BUDGETS) && !can(PERMISSIONS.DELETE_SITE_BUDGETS)) return null;
             return (
-              <div className='flex gap-2'>
-                {can(PERMISSIONS.READ_SITE_BUDGETS) && (
-                  <AppButton 
-                    size='sm' 
-                    variant='secondary' 
-                    iconName='Download'
-                    onClick={() => handleDownloadPDF(row.id, row.site)}
-                  >
-                    View Budget
-                  </AppButton>
-                )}
-                {can(PERMISSIONS.CREATE_SITE_BUDGETS) && (
-                  <Link href={`/site-budgets/${row.id}/manage`}>
-                    <AppButton size='sm' iconName='Plus' className='ml-2'>
-                      Add Budget
-                    </AppButton>
+              <div className="flex">
+                {can(PERMISSIONS.EDIT_SITE_BUDGETS) && (
+                  <Link href={`/site-budgets/${row.siteId}/edit/${row.id}`}>
+                    <EditButton tooltip="Edit Site Budget" aria-label="Edit Site Budget" />
                   </Link>
+                )}
+                {can(PERMISSIONS.DELETE_SITE_BUDGETS) && (
+                  <DeleteButton
+                    onDelete={() => handleDelete(row.id)}
+                    itemLabel="site budget"
+                    title="Delete site budget?"
+                    description={`This will permanently remove Site Budget "${row.month || ""} ${row.week || ""}". This action cannot be undone.`}
+                  />
                 )}
               </div>
             );
           }}
         />
       </AppCard.Content>
-      <AppCard.Footer className='justify-end'>
+      <AppCard.Footer className="justify-end">
         <Pagination
           page={data?.page || page}
           totalPages={data?.totalPages || 1}

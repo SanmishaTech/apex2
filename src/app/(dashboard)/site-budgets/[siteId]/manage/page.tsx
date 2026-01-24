@@ -1,19 +1,18 @@
 'use client';
 
-import { use } from 'react';
-import { InlineBudgetManager } from '../../inline-budget-manager';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type ManageSiteBudgetPageProps = {
   params: Promise<{ siteId: string }>;
 };
 
 export default function ManageSiteBudgetPage({ params }: ManageSiteBudgetPageProps) {
-  const { siteId } = use(params);
-  const siteIdNum = parseInt(siteId);
+  const router = useRouter();
 
-  return (
-    <InlineBudgetManager 
-      siteId={siteIdNum}
-    />
-  );
+  useEffect(() => {
+    router.replace('/site-budgets');
+  }, [router]);
+
+  return <div>Redirecting...</div>;
 }

@@ -12,41 +12,20 @@ export async function GET(req: NextRequest) {
     // Get total sites count
     const totalSites = await prisma.site.count();
 
-    // Get total budget items count
-    const totalBudgetItems = await prisma.siteBudget.count();
+    const totalBudgetItems = await (prisma as any).siteBudgetItem.count();
 
-    // Get budget value aggregations
-    const budgetAggregations = await prisma.siteBudget.aggregate({
+    const budgetAggregations = await (prisma as any).siteBudgetItem.aggregate({
       _sum: {
         budgetValue: true,
-        orderedValue: true,
-      },
-    });
-
-    // Get sites with alerts count
-    const sitesWithAlerts = await prisma.siteBudget.groupBy({
-      by: ['siteId'],
-      where: {
-        OR: [
-          { qty50Alert: true },
-          { value50Alert: true },
-          { qty75Alert: true },
-          { value75Alert: true },
-        ],
       },
     });
 
     const totalBudgetValue = Number(budgetAggregations._sum.budgetValue || 0);
-    const totalOrderedValue = Number(budgetAggregations._sum.orderedValue || 0);
-    const budgetUtilization = totalBudgetValue > 0 ? (totalOrderedValue / totalBudgetValue) * 100 : 0;
 
     const summary = {
       totalSites,
       totalBudgetItems,
       totalBudgetValue,
-      totalOrderedValue,
-      budgetUtilization,
-      sitesWithAlerts: sitesWithAlerts.length,
     };
 
     return Success(summary);
@@ -56,9 +35,6 @@ export async function GET(req: NextRequest) {
       totalSites: 0,
       totalBudgetItems: 0,
       totalBudgetValue: 0,
-      totalOrderedValue: 0,
-      budgetUtilization: 0,
-      sitesWithAlerts: 0,
     });
   }
 }

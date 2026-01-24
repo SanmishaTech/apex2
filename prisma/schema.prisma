@@ -88,6 +88,9 @@ model User {
 
   boqTargetCreated BoqTarget[] @relation("BOQTargetCreated")
   boqTargetUpdated BoqTarget[] @relation("BOQTargetUpdated")
+
+  siteBudgetCreated SiteBudget[] @relation("SiteBudgetCreated")
+  siteBudgetUpdated SiteBudget[] @relation("SiteBudgetUpdated")
   
   userRoles UserRole[]
   userPermissions UserPermission[]
@@ -685,7 +688,6 @@ model Item {
   // Relations
   indentItems IndentItem[]
 
-  siteBudgets SiteBudget[]
     purchaseOrderDetails PurchaseOrderDetail[] 
    workOrderDetails WorkOrderDetail[]
    stockLedgers StockLedger[]
@@ -694,6 +696,8 @@ model Item {
     dailyConsumptionDetails DailyConsumptionDetail[]
     stockAdjustmentDetail   StockAdjustmentDetail[]
      openingStockDetail  OpeningStockDetail[]
+       siteBudgetItems SiteBudgetItem[]
+
   @@index([itemCode])
   @@index([itemCategoryId])
   @@index([unitId])
@@ -853,6 +857,9 @@ model Boq {
   dailyProgresses DailyProgress[]
   boqBills BOQBill[]
 
+  siteBudgets SiteBudget[]
+
+
   @@index([siteId])
   @@index([boqNo])
   @@map("boqs")
@@ -882,6 +889,7 @@ model BoqItem {
   dailyProgressDetails DailyProgressDetail[]
   boqBillDetails BOQBillDetail[]
   boqTargetDetails  BoqTargetDetail[]
+  siteBudgetDetails SiteBudgetDetail[]
 
   @@index([boqId])
   @@index([unitId])
@@ -908,12 +916,16 @@ model BoqTarget {
   createdBy User @relation("BOQTargetCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("BOQTargetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
- @@index([createdById])
+  @@index([createdById])
   @@index([updatedById])
   @@index([siteId])
   @@index([boqId])
   @@index([fromTargetDate])
   @@index([toTargetDate])
+  @@index([month])
+  @@index([week])
+  @@unique([siteId, boqId, month, week])
+
   @@map("boq_targets")
 }
 
@@ -1245,37 +1257,7 @@ model IndentItem {
   @@map("indent_items")
 }
 
-// Site Budget - manages budget items for each site
-model SiteBudget {
-  id           Int     @id @default(autoincrement())
-  siteId       Int
-  itemId       Int
-  budgetQty    Decimal @db.Decimal(12, 2)
-  budgetRate   Decimal @db.Decimal(12, 2)
-  purchaseRate Decimal @db.Decimal(12, 2)
-  budgetValue  Decimal @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
-  orderedQty   Decimal @default(0) @db.Decimal(12, 2)
-  avgRate      Decimal @default(0) @db.Decimal(12, 2)
-  orderedValue Decimal @default(0) @db.Decimal(12, 2) // Calculated: orderedQty * avgRate
 
-  // Alert checkboxes
-  qty50Alert   Boolean @default(false)
-  value50Alert Boolean @default(false)
-  qty75Alert   Boolean @default(false)
-  value75Alert Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  site Site @relation(fields: [siteId], references: [id])
-  item Item @relation(fields: [itemId], references: [id])
-
-  @@unique([siteId, itemId]) // One budget entry per site-item combination
-  @@index([siteId])
-  @@index([itemId])
-  @@map("site_budgets")
-}
 
 // Rent master data for rental agreement management
 model Rent {
@@ -2548,3 +2530,76 @@ sites     Site[]
   @@index([id])
   @@map("zones")
 }
+
+
+// Site Budget - manages budget items for each site
+model SiteBudget {
+  id             Int      @id @default(autoincrement())
+  siteId         Int
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boqId          Int
+  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  month          String
+  week           String
+  fromDate DateTime  @db.Date()
+  toDate   DateTime   @db.Date()
+  createdById      Int
+  updatedById      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  siteBudgetDetails  SiteBudgetDetail[]
+
+  createdBy User @relation("SiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("SiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+ @@index([createdById])
+  @@index([updatedById])
+  @@index([siteId])
+  @@index([boqId])
+  @@index([fromDate])
+ @@index([toDate])
+ @@index([month])
+ @@index([week])
+  @@unique([siteId, boqId, month, week])
+
+  @@map("site_budgets")
+}
+
+model SiteBudgetDetail {
+  id             Int      @id @default(autoincrement())
+  SiteBudgetId          Int
+  siteBudget            SiteBudget      @relation(fields: [SiteBudgetId], references: [id], onDelete: Restrict)
+  BoqItemId     Int 
+  boqItem            BoqItem      @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  siteBudgetItems  SiteBudgetItem[]
+
+  @@index([SiteBudgetId])
+  @@index([BoqItemId])
+  
+  @@map("site_budget_details")
+}
+
+model SiteBudgetItem {
+  id             Int      @id @default(autoincrement())
+  SiteBudgetDetailId          Int
+  siteBudgetDetail            SiteBudgetDetail      @relation(fields: [SiteBudgetDetailId], references: [id], onDelete: Restrict)
+  itemId     Int 
+  item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  budgetQty    Decimal? @db.Decimal(12, 2)
+  budgetRate   Decimal? @db.Decimal(12, 2)
+  purchaseRate Decimal? @db.Decimal(12, 2)
+  budgetValue  Decimal? @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([SiteBudgetDetailId])
+  @@index([itemId])
+  
+  @@map("site_budget_items")
+}
+

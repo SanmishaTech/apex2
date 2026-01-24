@@ -25,6 +25,9 @@ export interface TextInputProps {
 	prefixIcon?: React.ReactNode;
 	pattern?: string;
 	onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
+	inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+	onValueChange?: (value: string) => string;
+	onValueBlur?: (value: string) => string;
 	step?: number | string;
 	/** Optional class for the outer FormItem wrapper (useful for grid spans) */
 	itemClassName?: string;
@@ -51,6 +54,9 @@ export function TextInput({
 	prefixIcon,
 	pattern,
 	onInput,
+	inputMode,
+	onValueChange,
+	onValueBlur,
 	step,
 	itemClassName,
 	span,
@@ -92,6 +98,7 @@ export function TextInput({
 								placeholder={placeholder}
 								autoComplete={autoComplete}
 								disabled={disabled}
+								inputMode={inputMode}
 								min={min}
 								max={max}
 								maxLength={maxLength}
@@ -101,6 +108,18 @@ export function TextInput({
 								className={cn(prefixIcon && 'pl-9', className)}
 								required={required}
 								{...field}
+								onChange={(e) => {
+									const raw = (e.target as HTMLInputElement).value;
+									const next = onValueChange ? onValueChange(raw) : raw;
+									field.onChange(next);
+								}}
+								onBlur={(e) => {
+									field.onBlur();
+									if (!onValueBlur) return;
+									const raw = (e.target as HTMLInputElement).value;
+									const next = onValueBlur(raw);
+									field.onChange(next);
+								}}
 								value={field.value ?? ''}
 							/>
 						</FormControl>

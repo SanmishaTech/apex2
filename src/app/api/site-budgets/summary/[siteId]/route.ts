@@ -20,55 +20,34 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    // Get total budget items for this site
-    const totalItems = await prisma.siteBudget.count({
-      where: { siteId: siteIdNum },
+    const whereForSite = {
+      siteBudgetDetail: {
+        siteBudget: {
+          siteId: siteIdNum,
+        },
+      },
+    };
+
+    const totalItems = await (prisma as any).siteBudgetItem.count({
+      where: whereForSite,
     });
 
-    // Get budget value aggregations for this site
-    const budgetAggregations = await prisma.siteBudget.aggregate({
-      where: { siteId: siteIdNum },
+    const budgetAggregations = await (prisma as any).siteBudgetItem.aggregate({
+      where: whereForSite,
       _sum: {
-        budgetValue: true,
-        orderedValue: true,
         budgetQty: true,
-        orderedQty: true,
-        budgetRate: true,
-        avgRate: true,
-      },
-      _count: true,
-    });
-
-    // Get items with alerts count for this site
-    const itemsWithAlerts = await prisma.siteBudget.count({
-      where: {
-        siteId: siteIdNum,
-        OR: [
-          { qty50Alert: true },
-          { value50Alert: true },
-          { qty75Alert: true },
-          { value75Alert: true },
-        ],
+        budgetValue: true,
       },
     });
 
+    const totalBudgetQty = Number(budgetAggregations._sum.budgetQty || 0);
     const totalBudgetValue = Number(budgetAggregations._sum.budgetValue || 0);
-    const totalOrderedValue = Number(budgetAggregations._sum.orderedValue || 0);
-    const budgetUtilization = totalBudgetValue > 0 ? (totalOrderedValue / totalBudgetValue) * 100 : 0;
-    
-    const totalBudgetRate = Number(budgetAggregations._sum.budgetRate || 0);
-    const totalAvgRate = Number(budgetAggregations._sum.avgRate || 0);
-    const avgBudgetRate = totalItems > 0 ? totalBudgetRate / totalItems : 0;
-    const avgOrderedRate = totalItems > 0 ? totalAvgRate / totalItems : 0;
+    const avgBudgetRate = totalBudgetQty > 0 ? totalBudgetValue / totalBudgetQty : 0;
 
     const summary = {
-      totalBudgetValue,
-      totalOrderedValue,
-      budgetUtilization,
       totalItems,
-      itemsWithAlerts,
       avgBudgetRate,
-      avgOrderedRate,
+      totalBudgetValue,
     };
 
     return Success(summary);
@@ -76,12 +55,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     console.error("Get site budget summary error:", error);
     return Success({
       totalBudgetValue: 0,
-      totalOrderedValue: 0,
-      budgetUtilization: 0,
       totalItems: 0,
-      itemsWithAlerts: 0,
       avgBudgetRate: 0,
-      avgOrderedRate: 0,
     });
   }
 }

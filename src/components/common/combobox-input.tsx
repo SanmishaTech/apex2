@@ -21,6 +21,7 @@ interface ComboboxInputProps<T extends FieldValues> {
   required?: boolean
   className?: string
   inputClassName?: string
+  disabled?: boolean
 }
 
 export function ComboboxInput<T extends FieldValues>({
@@ -34,6 +35,7 @@ export function ComboboxInput<T extends FieldValues>({
   required = false,
   className,
   inputClassName,
+  disabled,
 }: ComboboxInputProps<T>) {
   return (
     <FormField
@@ -56,6 +58,7 @@ export function ComboboxInput<T extends FieldValues>({
               searchPlaceholder={searchPlaceholder}
               emptyText={emptyText}
               className={inputClassName}
+              disabled={disabled}
             />
           </FormControl>
           <FormMessage />

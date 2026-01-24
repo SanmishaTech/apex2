@@ -392,7 +392,7 @@ export default function BoqTargetsPage() {
           >
             Filter
           </AppButton>
-          {(search || siteId || month || week) && (
+          {(filtersDirty || search || siteId || month || week || searchDraft || siteIdDraft || monthDraft || weekDraft) && (
             <AppButton
               variant='secondary'
               size='sm'
