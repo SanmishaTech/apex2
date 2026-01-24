@@ -1,21 +1,18 @@
 'use client';
 
-import { use } from 'react';
-import { SiteBudgetForm } from '../../site-budget-form';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type AddSiteBudgetPageProps = {
   params: Promise<{ siteId: string }>;
 };
 
 export default function AddSiteBudgetPage({ params }: AddSiteBudgetPageProps) {
-  const { siteId } = use(params);
-  const siteIdNum = parseInt(siteId);
+  const router = useRouter();
 
-  return (
-    <SiteBudgetForm 
-      mode='create' 
-      siteId={siteIdNum}
-      redirectOnSuccess={`/site-budgets/${siteId}/view`}
-    />
-  );
+  useEffect(() => {
+    router.replace('/site-budgets/new');
+  }, [router]);
+
+  return <div>Redirecting...</div>;
 }

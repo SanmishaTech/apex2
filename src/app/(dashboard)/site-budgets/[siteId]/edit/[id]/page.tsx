@@ -1,63 +1,46 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { use } from 'react';
-import useSWR from 'swr';
+import { SiteBudgetsForm, type SiteBudgetsFormInitialData } from '../../../site-budgets-form';
+import { useProtectPage } from '@/hooks/use-protect-page';
 import { apiGet } from '@/lib/api-client';
-import { SiteBudgetForm } from '../../../site-budget-form';
-import { AppCard } from '@/components/common';
+import { toast } from '@/lib/toast';
 
 type EditSiteBudgetPageProps = {
   params: Promise<{ siteId: string; id: string }>;
 };
 
 export default function EditSiteBudgetPage({ params }: EditSiteBudgetPageProps) {
+  useProtectPage();
+
   const { siteId, id } = use(params);
-  const { data: siteBudget, error, isLoading } = useSWR(`/api/site-budgets/${id}`, apiGet) as { data: any, error: any, isLoading: boolean };
 
-  if (isLoading) {
-    return (
-      <AppCard>
-        <AppCard.Content>
-          <div className='flex items-center justify-center py-8'>
-            <div className='text-muted-foreground'>Loading budget item...</div>
-          </div>
-        </AppCard.Content>
-      </AppCard>
-    );
-  }
+  const [initial, setInitial] = useState<SiteBudgetsFormInitialData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (error || !siteBudget) {
-    return (
-      <AppCard>
-        <AppCard.Content>
-          <div className='flex items-center justify-center py-8'>
-            <div className='text-destructive'>Failed to load budget item</div>
-          </div>
-        </AppCard.Content>
-      </AppCard>
-    );
-  }
+  useEffect(() => {
+    async function fetchSiteBudget() {
+      try {
+        const siteBudget = await apiGet<SiteBudgetsFormInitialData>(`/api/site-budgets/${id}`);
+        setInitial(siteBudget);
+      } catch {
+        toast.error('Failed to load Site Budget');
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (id) fetchSiteBudget();
+  }, [id]);
 
-  const initialData = {
-    id: siteBudget.id,
-    siteId: siteBudget.siteId,
-    itemId: siteBudget.itemId,
-    budgetQty: siteBudget.budgetQty,
-    budgetRate: siteBudget.budgetRate,
-    purchaseRate: siteBudget.purchaseRate,
-    orderedQty: siteBudget.orderedQty,
-    avgRate: siteBudget.avgRate,
-    qty50Alert: siteBudget.qty50Alert,
-    value50Alert: siteBudget.value50Alert,
-    qty75Alert: siteBudget.qty75Alert,
-    value75Alert: siteBudget.value75Alert,
-  };
+  if (loading) return <div>Loading...</div>;
+  if (!initial) return <div>Site Budget not found</div>;
 
   return (
-    <SiteBudgetForm 
-      mode='edit' 
-      initial={initialData}
-      redirectOnSuccess={`/site-budgets/${siteId}/view`}
+    <SiteBudgetsForm
+      mode='edit'
+      initial={initial}
+      redirectOnSuccess='/site-budgets'
     />
   );
 }
