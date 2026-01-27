@@ -40,7 +40,7 @@ export interface BoqTargetsFormProps {
   redirectOnSuccess?: string; // default '/boq-targets'
 }
 
-const inputSchema = z
+const editSchema = z
   .object({
     siteId: z.string().min(1, "Site is required"),
     boqId: z.string().min(1, "BOQ is required"),
@@ -70,10 +70,145 @@ const inputSchema = z
     }
   );
 
-type RawFormValues = z.infer<typeof inputSchema>;
+const createSchema = z
+  .object({
+    siteId: z.string().min(1, "Site is required"),
+    boqId: z.string().min(1, "BOQ is required"),
+    month: z.string().min(1, "Month is required"),
+    weeks: z
+      .array(
+        z.object({
+          fromTargetDate: z.string().min(1, "From target date is required"),
+          toTargetDate: z.string().min(1, "To target date is required"),
+        })
+      )
+      .length(4),
+    details: z
+      .array(
+        z.object({
+          boqItemId: z.string().min(1),
+          dailyTargetQty: z.string().optional().default(""),
+        })
+      )
+      .default([]),
+  })
+  .superRefine((data, ctx) => {
+    const mi = monthIndexFromLabel(data.month);
+    const yr = yearFromLabel(data.month);
+    if (mi === null || yr === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid month",
+        path: ["month"],
+      });
+      return;
+    }
+
+    const bounds = monthBoundsIso(data.month);
+    if (!bounds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid month",
+        path: ["month"],
+      });
+      return;
+    }
+
+    function ymFromDateInput(dateStr: string): { y: number; m: number } | null {
+      const parts = String(dateStr || "").split("-");
+      if (parts.length !== 3) return null;
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
+      return { y, m };
+    }
+
+    const weekRanges = (data.weeks || []).map((w) => ({
+      from: String(w.fromTargetDate || ""),
+      to: String(w.toTargetDate || ""),
+    }));
+
+    (data.weeks || []).forEach((w, idx) => {
+      if (w.fromTargetDate && w.toTargetDate) {
+        if (new Date(w.fromTargetDate) > new Date(w.toTargetDate)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "To target date must be after or equal to from target date",
+            path: ["weeks", idx, "toTargetDate"],
+          });
+        }
+
+        const fromYm = ymFromDateInput(w.fromTargetDate);
+        const toYm = ymFromDateInput(w.toTargetDate);
+        if (!fromYm || !toYm) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Invalid date",
+            path: ["weeks", idx],
+          });
+          return;
+        }
+
+        if (fromYm.y !== yr || fromYm.m !== mi) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "From target date must be within selected month",
+            path: ["weeks", idx, "fromTargetDate"],
+          });
+        }
+        if (toYm.y !== yr || toYm.m !== mi) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "To target date must be within selected month",
+            path: ["weeks", idx, "toTargetDate"],
+          });
+        }
+      }
+    });
+
+    let expectedFrom = bounds.min;
+    for (let i = 0; i < weekRanges.length; i++) {
+      const r = weekRanges[i];
+      if (!r.from || !r.to) continue;
+
+      if (r.from !== expectedFrom) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Week ranges must be continuous without gaps. Expected from date: ${expectedFrom}`,
+          path: ["weeks", i, "fromTargetDate"],
+        });
+      }
+
+      const nextExpected = addDaysIso(r.to, 1);
+      if (nextExpected) expectedFrom = nextExpected;
+
+      if (i > 0) {
+        const prevTo = weekRanges[i - 1]?.to;
+        if (prevTo && r.from <= prevTo) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Week dates must be after the previous week (no overlap)",
+            path: ["weeks", i, "fromTargetDate"],
+          });
+        }
+      }
+    }
+
+    const lastTo = weekRanges[weekRanges.length - 1]?.to;
+    if (lastTo && lastTo !== bounds.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `All dates of the month must be covered. Expected last to date: ${bounds.max}`,
+        path: ["weeks", weekRanges.length - 1, "toTargetDate"],
+      });
+    }
+  });
+
+type EditFormValues = z.infer<typeof editSchema>;
+type CreateFormValues = z.infer<typeof createSchema>;
 
 // Transform string inputs to correct types for API payload
-function toSubmitPayload(data: RawFormValues) {
+function toEditSubmitPayload(data: EditFormValues) {
   return {
     siteId: data.siteId && data.siteId !== "" ? parseInt(data.siteId) : null,
     boqId: data.boqId && data.boqId !== "" ? parseInt(data.boqId) : null,
@@ -89,6 +224,14 @@ function toSubmitPayload(data: RawFormValues) {
           : Number(d.dailyTargetQty),
     })),
   };
+}
+
+function inclusiveDays(from: Date, to: Date): number {
+  const fromUtc = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const toUtc = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  const ms = toUtc - fromUtc;
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
+  return Math.max(0, days);
 }
 
 function monthIndexFromLabel(label: string): number | null {
@@ -116,6 +259,28 @@ function yearFromLabel(label: string): number | null {
   const yearStr = parts[parts.length - 1];
   const y = Number(yearStr);
   return Number.isFinite(y) ? y : null;
+}
+
+function addDaysIso(dateIso: string, days: number): string | null {
+  const parts = String(dateIso || "").split("-");
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]) - 1;
+  const d = Number(parts[2]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const dt = new Date(Date.UTC(y, m, d + Number(days || 0)));
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString().slice(0, 10);
+}
+
+function monthBoundsIso(monthLabel: string): { min: string; max: string } | null {
+  const mi = monthIndexFromLabel(monthLabel);
+  const yr = yearFromLabel(monthLabel);
+  if (mi === null || yr === null) return null;
+  const min = new Date(Date.UTC(yr, mi, 1)).toISOString().slice(0, 10);
+  const lastDay = new Date(yr, mi + 1, 0).getDate();
+  const max = new Date(Date.UTC(yr, mi, lastDay)).toISOString().slice(0, 10);
+  return { min, max };
 }
 
 function ordinal(n: number): string {
@@ -214,39 +379,83 @@ export function BoqTargetsForm({
     apiGet
   );
 
-  const form = useForm<RawFormValues>({
-    resolver: zodResolver(inputSchema),
+  const form = useForm<any>({
+    resolver: zodResolver(isCreate ? createSchema : editSchema),
     mode: "onSubmit",
     reValidateMode: "onChange",
-    defaultValues: {
-      siteId: initial?.siteId ? String(initial.siteId) : "",
-      boqId: initial?.boqId ? String(initial.boqId) : "",
-      month: initial?.month ? String(initial.month) : "",
-      week: initial?.week ? String(initial.week) : "",
-      fromTargetDate: initial?.fromTargetDate
-        ? initial.fromTargetDate.split("T")[0]
-        : "",
-      toTargetDate: initial?.toTargetDate
-        ? initial.toTargetDate.split("T")[0]
-        : "",
-      details: (initial?.boqTargetDetails || []).map((d) => ({
-        boqItemId: String(d.BoqItemId),
-        dailyTargetQty:
-          d.dailyTargetQty == null ? "" : Number(d.dailyTargetQty as any).toFixed(2),
-      })),
-    },
+    defaultValues: (isCreate
+      ? {
+          siteId: initial?.siteId ? String(initial.siteId) : "",
+          boqId: initial?.boqId ? String(initial.boqId) : "",
+          month: initial?.month ? String(initial.month) : "",
+          weeks: [
+            { fromTargetDate: "", toTargetDate: "" },
+            { fromTargetDate: "", toTargetDate: "" },
+            { fromTargetDate: "", toTargetDate: "" },
+            { fromTargetDate: "", toTargetDate: "" },
+          ],
+          details: (initial?.boqTargetDetails || []).map((d) => ({
+            boqItemId: String(d.BoqItemId),
+            dailyTargetQty:
+              d.dailyTargetQty == null ? "" : Number(d.dailyTargetQty as any).toFixed(2),
+          })),
+        }
+      : {
+          siteId: initial?.siteId ? String(initial.siteId) : "",
+          boqId: initial?.boqId ? String(initial.boqId) : "",
+          month: initial?.month ? String(initial.month) : "",
+          week: initial?.week ? String(initial.week) : "",
+          fromTargetDate: initial?.fromTargetDate
+            ? initial.fromTargetDate.split("T")[0]
+            : "",
+          toTargetDate: initial?.toTargetDate
+            ? initial.toTargetDate.split("T")[0]
+            : "",
+          details: (initial?.boqTargetDetails || []).map((d) => ({
+            boqItemId: String(d.BoqItemId),
+            dailyTargetQty:
+              d.dailyTargetQty == null ? "" : Number(d.dailyTargetQty as any).toFixed(2),
+          })),
+        }) as any,
   });
 
   const { control, handleSubmit } = form;
   const { replace } = useFieldArray({ control, name: "details" });
 
+  const weeksWatch = useWatch({ control, name: "weeks" as any }) as any;
+
   const selectedSiteId = form.watch("siteId");
   const selectedBoqId = form.watch("boqId");
   const selectedMonth = form.watch("month");
-  const selectedWeek = form.watch("week");
+  const selectedWeek = isCreate ? "" : (form.watch("week") as string);
 
   const monthOptions = useMemo(() => buildMonthYearOptions(), []);
-  const weekOptions = useMemo(() => buildWeekOptions(selectedMonth), [selectedMonth]);
+  const weekOptions = useMemo(
+    () => (isCreate ? [] : buildWeekOptions(selectedMonth)),
+    [isCreate, selectedMonth]
+  );
+  const monthBounds = useMemo(
+    () => (isCreate && selectedMonth ? monthBoundsIso(String(selectedMonth)) : null),
+    [isCreate, selectedMonth]
+  );
+
+  const createWeekBounds = useMemo(() => {
+    if (!isCreate || !monthBounds) return null;
+    const weeks = Array.isArray(weeksWatch) ? weeksWatch : [];
+    const res: Array<{ minFrom: string; minTo: string }> = [];
+    for (let i = 0; i < 4; i++) {
+      let minFrom = monthBounds.min;
+      if (i > 0) {
+        const prevTo = String(weeks?.[i - 1]?.toTargetDate || "");
+        const next = prevTo ? addDaysIso(prevTo, 1) : null;
+        if (next) minFrom = next;
+      }
+      const from = String(weeks?.[i]?.fromTargetDate || "");
+      const minTo = from && from >= minFrom ? from : minFrom;
+      res.push({ minFrom, minTo });
+    }
+    return res;
+  }, [isCreate, monthBounds, weeksWatch]);
 
   // Fetch BOQs for dropdown based on selected site
   const { data: boqsData } = useSWR<any>(
@@ -303,6 +512,7 @@ export function BoqTargetsForm({
 
   // When Month changes, reset week and date range
   useEffect(() => {
+    if (isCreate) return;
     if (!selectedMonth) {
       form.setValue("week", "", { shouldDirty: true, shouldValidate: false });
       form.setValue("fromTargetDate", "", { shouldDirty: true, shouldValidate: false });
@@ -316,8 +526,56 @@ export function BoqTargetsForm({
     }
   }, [selectedMonth, selectedWeek, weekOptions, form]);
 
+  // When Month changes (create), reset all week date ranges
+  useEffect(() => {
+    if (!isCreate) return;
+    if (!selectedMonth) {
+      for (let i = 0; i < 4; i++) {
+        form.setValue(`weeks.${i}.fromTargetDate` as any, "", {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+        form.setValue(`weeks.${i}.toTargetDate` as any, "", {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+      return;
+    }
+    for (let i = 0; i < 4; i++) {
+      form.setValue(`weeks.${i}.fromTargetDate` as any, "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      form.setValue(`weeks.${i}.toTargetDate` as any, "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+    }
+  }, [isCreate, selectedMonth, form]);
+
+  useEffect(() => {
+    if (!isCreate) return;
+    if (!createWeekBounds) return;
+    const weeks = Array.isArray(weeksWatch) ? weeksWatch : [];
+    for (let i = 1; i < 4; i++) {
+      const minFrom = createWeekBounds[i]?.minFrom;
+      const from = String(weeks?.[i]?.fromTargetDate || "");
+      const to = String(weeks?.[i]?.toTargetDate || "");
+      if (minFrom && from && from < minFrom) {
+        form.setValue(`weeks.${i}.fromTargetDate` as any, "", { shouldDirty: true, shouldValidate: false });
+        form.setValue(`weeks.${i}.toTargetDate` as any, "", { shouldDirty: true, shouldValidate: false });
+        continue;
+      }
+      if (minFrom && to && to < minFrom) {
+        form.setValue(`weeks.${i}.toTargetDate` as any, "", { shouldDirty: true, shouldValidate: false });
+      }
+    }
+  }, [isCreate, createWeekBounds, weeksWatch, form]);
+
   // When Week changes, auto-set from/to date
   useEffect(() => {
+    if (isCreate) return;
     if (!selectedMonth || !selectedWeek) return;
     const range = computeWeekDateRange(selectedMonth, selectedWeek);
     if (!range) return;
@@ -327,7 +585,7 @@ export function BoqTargetsForm({
 
   // Populate details table whenever BOQ items are available
   useEffect(() => {
-    const current = (form.getValues("details") || []) as RawFormValues["details"];
+    const current = (form.getValues("details") || []) as any[];
     if (!selectedBoqId) {
       if (current.length) replace([]);
       return;
@@ -369,15 +627,65 @@ export function BoqTargetsForm({
     if (!isSame) replace(next as any);
   }, [selectedBoqId, boqItems, replace, form, initial?.boqTargetDetails]);
 
-  async function onSubmit(data: RawFormValues) {
+  async function onSubmit(data: CreateFormValues | EditFormValues) {
     setSubmitting(true);
     try {
-      const payload = toSubmitPayload(data);
       if (isCreate) {
-        const res = await apiPost("/api/boq-targets", payload);
-        toast.success("BOQ Target created");
-        onSuccess?.(res);
+        const d = data as CreateFormValues;
+        const mi = monthIndexFromLabel(d.month);
+        const yr = yearFromLabel(d.month);
+        if (mi === null || yr === null) {
+          throw new Error("Invalid month");
+        }
+        const monthDays = new Date(yr, mi + 1, 0).getDate();
+        if (!monthDays) {
+          throw new Error("Invalid month days");
+        }
+
+        const base = {
+          siteId: d.siteId && d.siteId !== "" ? parseInt(d.siteId) : null,
+          boqId: d.boqId && d.boqId !== "" ? parseInt(d.boqId) : null,
+          month: d.month,
+        };
+
+        const details = (d.details || []).map((x) => ({
+          boqItemId: parseInt(x.boqItemId),
+          monthQty:
+            x.dailyTargetQty === "" || x.dailyTargetQty === undefined ? null : Number(x.dailyTargetQty),
+        }));
+
+        const results: any[] = [];
+        for (let i = 0; i < 4; i++) {
+          const w = d.weeks[i];
+          const from = new Date(w.fromTargetDate);
+          const to = new Date(w.toTargetDate);
+          const days = inclusiveDays(from, to);
+          if (!days) {
+            throw new Error(`${ordinal(i + 1)} Week date range is invalid`);
+          }
+
+          const payload = {
+            ...base,
+            week: `${ordinal(i + 1)} Week`,
+            fromTargetDate: new Date(w.fromTargetDate).toISOString(),
+            toTargetDate: new Date(w.toTargetDate).toISOString(),
+            details: details.map((it) => ({
+              boqItemId: it.boqItemId,
+              dailyTargetQty:
+                it.monthQty === null || it.monthQty === undefined
+                  ? null
+                  : Number((((it.monthQty / monthDays) * days) as number).toFixed(2)),
+            })),
+          };
+
+          const res = await apiPost("/api/boq-targets", payload);
+          results.push(res);
+        }
+
+        toast.success("BOQ Targets created");
+        onSuccess?.(results);
       } else if (mode === "edit" && initial?.id) {
+        const payload = toEditSubmitPayload(data as EditFormValues);
         const res = await apiPatch("/api/boq-targets", {
           id: initial.id,
           ...payload,
@@ -405,8 +713,8 @@ export function BoqTargetsForm({
 
   const siteLabel = siteOptions.find((o) => o.value === selectedSiteId)?.label || "";
   const boqLabel = boqOptions.find((o) => o.value === selectedBoqId)?.label || "";
-  const fromTargetDateVal = form.watch("fromTargetDate");
-  const toTargetDateVal = form.watch("toTargetDate");
+  const fromTargetDateVal = isCreate ? "" : (form.watch("fromTargetDate") as string);
+  const toTargetDateVal = isCreate ? "" : (form.watch("toTargetDate") as string);
 
   function isValidQtyInput(v: string) {
     if (v === "") return true;
@@ -487,54 +795,41 @@ export function BoqTargetsForm({
                 )}
               </FormRow>
 
-              <FormRow cols={3} from="md">
-                {isCreate ? (
-                  <AppSelect
-                    control={control}
-                    name="week"
-                    label="Week"
-                    placeholder={selectedMonth ? "Select week" : "Select month first"}
-                    triggerClassName="h-9 w-full"
-                    disabled={!selectedMonth}
-                  >
-                    {weekOptions.map((opt) => (
-                      <AppSelect.Item key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                ) : (
+              {isCreate ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="rounded-md border p-3">
+                      <div className="text-sm font-medium mb-3">{`${ordinal(i + 1)} Week`}</div>
+                      <FormRow cols={2} from="md">
+                        <TextInput
+                          control={control}
+                          name={`weeks.${i}.fromTargetDate` as any}
+                          label="From Target Date"
+                          type="date"
+                          min={createWeekBounds?.[i]?.minFrom ?? monthBounds?.min}
+                          max={monthBounds?.max}
+                          disabled={!monthBounds}
+                        />
+                        <TextInput
+                          control={control}
+                          name={`weeks.${i}.toTargetDate` as any}
+                          label="To Target Date"
+                          type="date"
+                          min={createWeekBounds?.[i]?.minTo ?? monthBounds?.min}
+                          max={monthBounds?.max}
+                          disabled={!monthBounds}
+                        />
+                      </FormRow>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <FormRow cols={3} from="md">
                   <ReadonlyField label="Week" value={selectedWeek} />
-                )}
-
-                {isCreate ? (
-                  <div>
-                  <TextInput
-                    control={control}
-                    name="fromTargetDate"
-                    label="From Target Date"
-                    type="date"
-                    disabled
-                  />
-                  </div>
-                ) : (
                   <ReadonlyField label="From Target Date" value={fromTargetDateVal} />
-                )}
-
-                {isCreate ? (
-                  <div>
-                  <TextInput
-                    control={control}
-                    name="toTargetDate"
-                    label="To Target Date"
-                    type="date"
-                    disabled
-                  />
-                  </div>
-                ) : (
                   <ReadonlyField label="To Target Date" value={toTargetDateVal} />
-                )}
-              </FormRow>
+                </FormRow>
+              )}
             </FormSection>
 
             <FormSection legend="Target Items">
@@ -547,7 +842,7 @@ export function BoqTargetsForm({
                         <th className="text-left font-medium px-3 py-2">Description of item</th>
                         <th className="text-left font-medium px-3 py-2">Unit</th>
                         <th className="text-right font-medium px-3 py-2">BOQ Qty</th>
-                        <th className="text-right font-medium px-3 py-2">Daily Target Qty</th>
+                        <th className="text-right font-medium px-3 py-2">{isCreate ? "Target Qty" : "Daily Target Qty"}</th>
                       </tr>
                     </thead>
                     <tbody>

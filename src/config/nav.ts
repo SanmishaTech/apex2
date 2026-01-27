@@ -481,6 +481,19 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_DAILY_PROGRESSES,
       },
+      {
+        type: "group",
+        title: "Reports",
+        icon: FileText,
+        children: [
+          {
+            title: "BOQ Target Report",
+            href: "/reports/boq-target-report",
+            icon: FileText,
+            permission: PERMISSIONS.READ_BOQS,
+          },
+        ],
+      },
         {
         title: "Work Done",
         href: "/boqs/work-done",

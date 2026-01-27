@@ -12,8 +12,8 @@ export interface TextInputProps {
 	control: unknown; // relaxed typing
 	name: string;
 	label?: string;
-	min?: number;
-	max?: number;
+	min?: string | number;
+	max?: string | number;
 	maxLength?: number;
 	type?: string;
 	description?: string;
