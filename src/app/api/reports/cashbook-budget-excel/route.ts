@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
   wsData.push([`Site: ${siteMeta?.site ?? "-"}`]); // row 2
   wsData.push([`BOQ: ${boqMeta?.boqNo ?? "-"}${boqMeta?.workName ? " - " + boqMeta.workName : ""}`]); // row 3
   wsData.push([`Period: ${formatDate(startDate)} to ${formatDate(new Date(endDate.getTime() - 1))}`]); // row 4
-  wsData.push([`Generated On: ${new Date().toLocaleString("en-IN")}`]); // row 5
+  wsData.push([`Generated On: ${new Date().toLocaleString("en-IN", { hour12: true })}`]); // row 5
   wsData.push([]); // row 6 (blank)
   wsData.push(["Cashbook Head", "Description", "Budget Amount", "Received", "Expense"]); // row 7 header
   wsData.push(...tableRows);

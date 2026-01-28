@@ -142,7 +142,7 @@ export default function WorkDoneListPage() {
                 }}
                 options={(boqsOptions?.data || []).map((b: any) => ({
                   value: String(b.id),
-                  label: b.boqNo || b.workName || `BOQ #${b.id}`,
+                  label: `${b.boqNo || b.workName || `BOQ #${b.id}`}${b?.site?.site ? ` - ${b.site.site}` : ""}`,
                 }))}
                 placeholder="Select BOQ"
                 searchPlaceholder="Search BOQ..."

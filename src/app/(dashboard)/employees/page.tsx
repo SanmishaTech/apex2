@@ -28,7 +28,7 @@ export default function EmployeesPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [qp, setQp] = useQueryParamsState({
     page: 1,
-    perPage: 10,
+    perPage: 50,
     search: "",
     department: "",
     site: "",

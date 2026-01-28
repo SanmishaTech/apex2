@@ -408,6 +408,19 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_SITE_BUDGETS,
       },
+      {
+        type: "group",
+        title: "Reports",
+        icon: FileText,
+        children: [
+          {
+            title: "Budget Reports",
+            href: "/reports/budget-reports",
+            icon: FileText,
+            permission: PERMISSIONS.READ_SITE_BUDGETS,
+          },
+        ],
+      },
     ],
   },
   {
@@ -481,7 +494,14 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_DAILY_PROGRESSES,
       },
-      {
+    
+        {
+        title: "Work Done",
+        href: "/boqs/work-done",
+        icon: FileText,
+        permission: PERMISSIONS.READ_BOQS,
+      },
+        {
         type: "group",
         title: "Reports",
         icon: FileText,
@@ -493,12 +513,6 @@ export const NAV_ITEMS: NavItem[] = [
             permission: PERMISSIONS.READ_BOQS,
           },
         ],
-      },
-        {
-        title: "Work Done",
-        href: "/boqs/work-done",
-        icon: FileText,
-        permission: PERMISSIONS.READ_BOQS,
       },
     ],
   },
