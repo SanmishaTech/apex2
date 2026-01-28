@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import type { SitesResponse } from "@/types/sites";
 import { ComboboxInput } from "@/components/common/combobox-input";
+import { format as dfFormat } from "date-fns";
 
 export interface BoqTargetsFormInitialData {
   id?: number;
@@ -29,6 +30,7 @@ export interface BoqTargetsFormInitialData {
     id?: number;
     boqTargetId?: number;
     BoqItemId: number;
+    totalMonthQty?: string | number | null;
     dailyTargetQty: string | number | null;
   }>;
 }
@@ -214,8 +216,8 @@ function toEditSubmitPayload(data: EditFormValues) {
     boqId: data.boqId && data.boqId !== "" ? parseInt(data.boqId) : null,
     month: data.month,
     week: data.week,
-    fromTargetDate: new Date(data.fromTargetDate).toISOString(),
-    toTargetDate: new Date(data.toTargetDate).toISOString(),
+    fromTargetDate: dateInputToIsoUtc(data.fromTargetDate),
+    toTargetDate: dateInputToIsoUtc(data.toTargetDate),
     details: (data.details || []).map((d) => ({
       boqItemId: parseInt(d.boqItemId),
       dailyTargetQty:
@@ -232,6 +234,57 @@ function inclusiveDays(from: Date, to: Date): number {
   const ms = toUtc - fromUtc;
   const days = Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
   return Math.max(0, days);
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function extractIsoDate(value: unknown): string {
+  if (!value) return "";
+  const s = String(value);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const d = new Date(value as any);
+  if (Number.isNaN(d.getTime())) return s;
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+function toDateInputDateOnly(value: string | null | undefined): string {
+  return extractIsoDate(value);
+}
+
+function formatDDMMYYYY(value: string | null | undefined): string {
+  const iso = extractIsoDate(value);
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return String(value);
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function dateInputToIsoUtc(value: string): string {
+  const parts = String(value || "").split("-");
+  if (parts.length !== 3) return new Date(value).toISOString();
+  const y = Number(parts[0]);
+  const m = Number(parts[1]) - 1;
+  const d = Number(parts[2]);
+  return new Date(Date.UTC(y, m, d)).toISOString();
+}
+
+function allocateProportional2dp(total: number, weights: number[], weightSum: number) {
+  const totalCents = Math.round(Number(total) * 100);
+  const raw = weights.map((w) => (totalCents * (w / weightSum)));
+  const base = raw.map((v) => Math.floor(v));
+  let remaining = totalCents - base.reduce((a, b) => a + b, 0);
+  const order = raw
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < order.length && remaining > 0; k++) {
+    base[order[k].i] += 1;
+    remaining -= 1;
+    if (k === order.length - 1) k = -1;
+  }
+  return base.map((c) => Number((c / 100).toFixed(2)));
 }
 
 function monthIndexFromLabel(label: string): number | null {
@@ -405,12 +458,8 @@ export function BoqTargetsForm({
           boqId: initial?.boqId ? String(initial.boqId) : "",
           month: initial?.month ? String(initial.month) : "",
           week: initial?.week ? String(initial.week) : "",
-          fromTargetDate: initial?.fromTargetDate
-            ? initial.fromTargetDate.split("T")[0]
-            : "",
-          toTargetDate: initial?.toTargetDate
-            ? initial.toTargetDate.split("T")[0]
-            : "",
+          fromTargetDate: toDateInputDateOnly(initial?.fromTargetDate ?? null),
+          toTargetDate: toDateInputDateOnly(initial?.toTargetDate ?? null),
           details: (initial?.boqTargetDetails || []).map((d) => ({
             boqItemId: String(d.BoqItemId),
             dailyTargetQty:
@@ -577,6 +626,9 @@ export function BoqTargetsForm({
   useEffect(() => {
     if (isCreate) return;
     if (!selectedMonth || !selectedWeek) return;
+    const existingFrom = String(form.getValues("fromTargetDate") || "");
+    const existingTo = String(form.getValues("toTargetDate") || "");
+    if (existingFrom && existingTo) return;
     const range = computeWeekDateRange(selectedMonth, selectedWeek);
     if (!range) return;
     form.setValue("fromTargetDate", range.from, { shouldDirty: true, shouldValidate: false });
@@ -654,27 +706,33 @@ export function BoqTargetsForm({
             x.dailyTargetQty === "" || x.dailyTargetQty === undefined ? null : Number(x.dailyTargetQty),
         }));
 
+        const weekDays: number[] = d.weeks.map((w, i) => {
+          const from = new Date(dateInputToIsoUtc(w.fromTargetDate));
+          const to = new Date(dateInputToIsoUtc(w.toTargetDate));
+          const days = inclusiveDays(from, to);
+          if (!days) throw new Error(`${ordinal(i + 1)} Week date range is invalid`);
+          return days;
+        });
+
+        const weekQtyByItemId = new Map<number, number[]>();
+        for (const it of details) {
+          const monthQty = it.monthQty == null ? 0 : Number(it.monthQty);
+          const alloc = allocateProportional2dp(monthQty, weekDays, monthDays);
+          weekQtyByItemId.set(it.boqItemId, alloc);
+        }
+
         const results: any[] = [];
         for (let i = 0; i < 4; i++) {
           const w = d.weeks[i];
-          const from = new Date(w.fromTargetDate);
-          const to = new Date(w.toTargetDate);
-          const days = inclusiveDays(from, to);
-          if (!days) {
-            throw new Error(`${ordinal(i + 1)} Week date range is invalid`);
-          }
-
           const payload = {
             ...base,
             week: `${ordinal(i + 1)} Week`,
-            fromTargetDate: new Date(w.fromTargetDate).toISOString(),
-            toTargetDate: new Date(w.toTargetDate).toISOString(),
+            fromTargetDate: dateInputToIsoUtc(w.fromTargetDate),
+            toTargetDate: dateInputToIsoUtc(w.toTargetDate),
             details: details.map((it) => ({
               boqItemId: it.boqItemId,
-              dailyTargetQty:
-                it.monthQty === null || it.monthQty === undefined
-                  ? null
-                  : Number((((it.monthQty / monthDays) * days) as number).toFixed(2)),
+              totalMonthQty: it.monthQty == null ? 0 : Number(it.monthQty),
+              dailyTargetQty: Number((weekQtyByItemId.get(it.boqItemId)?.[i] ?? 0).toFixed(2)),
             })),
           };
 
@@ -685,11 +743,22 @@ export function BoqTargetsForm({
         toast.success("BOQ Targets created");
         onSuccess?.(results);
       } else if (mode === "edit" && initial?.id) {
-        const payload = toEditSubmitPayload(data as EditFormValues);
-        const res = await apiPatch("/api/boq-targets", {
-          id: initial.id,
-          ...payload,
-        });
+        const d = data as EditFormValues;
+        const payload = {
+          siteId: d.siteId && d.siteId !== "" ? parseInt(d.siteId) : null,
+          boqId: d.boqId && d.boqId !== "" ? parseInt(d.boqId) : null,
+          month: d.month,
+          week: d.week,
+          fromTargetDate: dateInputToIsoUtc(d.fromTargetDate),
+          toTargetDate: dateInputToIsoUtc(d.toTargetDate),
+          recalculateMonth: true,
+          details: (d.details || []).map((x) => ({
+            boqItemId: parseInt(x.boqItemId),
+            dailyTargetQty:
+              x.dailyTargetQty === "" || x.dailyTargetQty === undefined ? null : Number(x.dailyTargetQty),
+          })),
+        };
+        const res = await apiPatch("/api/boq-targets", { id: initial.id, ...payload });
         toast.success("BOQ Target updated");
         onSuccess?.(res);
       }
@@ -715,6 +784,8 @@ export function BoqTargetsForm({
   const boqLabel = boqOptions.find((o) => o.value === selectedBoqId)?.label || "";
   const fromTargetDateVal = isCreate ? "" : (form.watch("fromTargetDate") as string);
   const toTargetDateVal = isCreate ? "" : (form.watch("toTargetDate") as string);
+  const fromTargetDateDisplay = isCreate ? "" : formatDDMMYYYY(fromTargetDateVal);
+  const toTargetDateDisplay = isCreate ? "" : formatDDMMYYYY(toTargetDateVal);
 
   function isValidQtyInput(v: string) {
     if (v === "") return true;
@@ -826,8 +897,8 @@ export function BoqTargetsForm({
               ) : (
                 <FormRow cols={3} from="md">
                   <ReadonlyField label="Week" value={selectedWeek} />
-                  <ReadonlyField label="From Target Date" value={fromTargetDateVal} />
-                  <ReadonlyField label="To Target Date" value={toTargetDateVal} />
+                  <ReadonlyField label="From Target Date" value={fromTargetDateDisplay} />
+                  <ReadonlyField label="To Target Date" value={toTargetDateDisplay} />
                 </FormRow>
               )}
             </FormSection>

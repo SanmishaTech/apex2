@@ -935,6 +935,7 @@ model BoqTargetDetail {
   boqTarget            BoqTarget      @relation(fields: [boqTargetId], references: [id], onDelete: Restrict)
   BoqItemId     Int 
   boqItem            BoqItem      @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
+  totalMonthQty  Decimal @db.Decimal(12, 2)
   dailyTargetQty  Decimal?  @db.Decimal(12, 2)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

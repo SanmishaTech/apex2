@@ -8,6 +8,10 @@ function fmtQty(n: number) {
   return Number(n || 0).toFixed(2);
 }
 
+function fmtRs(n: number) {
+  return Number(n || 0).toFixed(2);
+}
+
 function thinBorder() {
   return {
     top: { style: "thin", color: { rgb: "FF9CA3AF" } },
@@ -38,6 +42,55 @@ function formatRange(from: Date, to: Date) {
     return `${dd}/${mm}/${yy}`;
   };
   return `${fmt(from)} - ${fmt(to)}`;
+}
+
+function formatDateTime(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear());
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+}
+
+function monthIndexFromLabel(label: string): number | null {
+  const monthName = String(label || "").trim().split(" ")[0];
+  const names = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const idx = names.findIndex((m) => m.toLowerCase() === monthName.toLowerCase());
+  return idx >= 0 ? idx : null;
+}
+
+function yearFromLabel(label: string): number | null {
+  const parts = String(label || "").trim().split(" ");
+  const yearStr = parts[parts.length - 1];
+  const y = Number(yearStr);
+  return Number.isFinite(y) ? y : null;
+}
+
+function isoFromUtcDate(d: Date) {
+  const yyyy = String(d.getUTCFullYear());
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function ddMMyyyyFromIso(iso: string) {
+  const parts = String(iso || "").split("-");
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -72,6 +125,12 @@ export async function GET(req: NextRequest) {
           item: true,
           unit: { select: { unitName: true } },
           qty: true,
+          rate: true,
+          amount: true,
+          orderedQty: true,
+          remainingQty: true,
+          orderedValue: true,
+          remainingValue: true,
           isGroup: true,
         },
       },
@@ -95,6 +154,7 @@ export async function GET(req: NextRequest) {
       boqTargetDetails: {
         select: {
           BoqItemId: true,
+          totalMonthQty: true,
           dailyTargetQty: true,
         },
       },
@@ -112,16 +172,19 @@ export async function GET(req: NextRequest) {
     const from = new Date(t.fromTargetDate as any);
     const to = new Date(t.toTargetDate as any);
     const days = inclusiveDays(from, to);
-    const labelBase = `Target ${idx + 1}`;
+    const labelBase = `${idx + 1}${idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Week`;
     const label = `${labelBase} (${formatRange(from, to)})`;
     return {
       id: t.id,
       label,
+      from,
+      to,
       days,
       details: t.boqTargetDetails || [],
     };
   });
 
+  const monthTotalQtyByItemId = new Map<number, number>();
   const byWeekIdByItemId = new Map<number, Map<number, number>>();
   for (const w of weeks) {
     const m = new Map<number, number>();
@@ -131,8 +194,80 @@ export async function GET(req: NextRequest) {
       const daily = Number((d as any).dailyTargetQty || 0);
       const weeklyTargetQty = daily;
       m.set(itemId, weeklyTargetQty);
+
+      if (!monthTotalQtyByItemId.has(itemId)) {
+        monthTotalQtyByItemId.set(itemId, Number((d as any).totalMonthQty || 0));
+      }
     }
     byWeekIdByItemId.set(w.id, m);
+  }
+
+  const siteId = Number((boq as any)?.site?.id);
+  const executedByWeekIdByItemId = new Map<number, Map<number, number>>();
+  for (const w of weeks) {
+    const agg = await prisma.dailyProgressDetail.groupBy({
+      by: ["boqItemId"],
+      _sum: { doneQty: true },
+      where: {
+        dailyProgress: {
+          boqId,
+          ...(Number.isFinite(siteId) && siteId > 0 ? { siteId } : {}),
+          progressDate: {
+            gte: w.from,
+            lte: w.to,
+          },
+        },
+      },
+    });
+    const m = new Map<number, number>();
+    for (const r of agg) {
+      const id = Number((r as any).boqItemId);
+      if (!Number.isFinite(id) || id <= 0) continue;
+      m.set(id, Number((r as any)?._sum?.doneQty || 0));
+    }
+    executedByWeekIdByItemId.set(w.id, m);
+  }
+
+  const mi = monthIndexFromLabel(month);
+  const yr = yearFromLabel(month);
+  if (mi === null || yr === null) {
+    return NextResponse.json({ error: "Invalid month" }, { status: 400 });
+  }
+
+  const monthStart = new Date(Date.UTC(yr, mi, 1));
+  const monthEndExclusive = new Date(Date.UTC(yr, mi + 1, 1));
+  const daysInMonth = new Date(yr, mi + 1, 0).getDate();
+  const monthIsoDays = Array.from({ length: daysInMonth }).map((_, i) => {
+    const d = new Date(Date.UTC(yr, mi, i + 1));
+    return isoFromUtcDate(d);
+  });
+
+  const dailyRows = await prisma.dailyProgressDetail.findMany({
+    where: {
+      dailyProgress: {
+        boqId,
+        ...(Number.isFinite(siteId) && siteId > 0 ? { siteId } : {}),
+        progressDate: { gte: monthStart, lt: monthEndExclusive },
+      },
+    },
+    select: {
+      boqItemId: true,
+      doneQty: true,
+      dailyProgress: { select: { progressDate: true } },
+    },
+  });
+
+  const doneQtyByItemIdByIso = new Map<number, Map<string, number>>();
+  for (const r of dailyRows) {
+    const itemId = Number((r as any).boqItemId);
+    if (!Number.isFinite(itemId) || itemId <= 0) continue;
+    const dt = (r as any)?.dailyProgress?.progressDate;
+    if (!dt) continue;
+    const iso = isoFromUtcDate(new Date(dt as any));
+    const qty = Number((r as any)?.doneQty || 0);
+    if (!doneQtyByItemIdByIso.has(itemId)) doneQtyByItemIdByIso.set(itemId, new Map());
+    const m = doneQtyByItemIdByIso.get(itemId)!;
+    m.set(iso, (m.get(iso) || 0) + qty);
   }
 
   const wsData: any[][] = [];
@@ -142,53 +277,181 @@ export async function GET(req: NextRequest) {
   ]);
   wsData.push([`Site: ${boq.site?.site ?? "-"}`]);
   wsData.push([`Month: ${month}`]);
-  wsData.push([`Generated On: ${new Date().toLocaleString("en-IN")}`]);
+  wsData.push([`Generated On: ${formatDateTime(new Date())}`]);
   wsData.push([]);
 
   const fixedHeaders = [
     "Activity ID",
-    "Client Sr No",
-    "Description of item",
+    "BOQ Item",
+    "BOQ Qty",
     "Unit",
-    "BOQ QTY",
+    "Ordered Qty",
+    "Remaining Qty",
+    "Rate",
+    "BOQ Amount",
+    "Ordered Amount",
+    "Remaining Amount",
   ];
 
-  const headerRow: any[] = [...fixedHeaders];
-  for (const w of weeks) headerRow.push(w.label);
-  headerRow.push("TOTAL");
-  wsData.push(headerRow);
+  const monthHeader = month.split(" ")[0] || month;
+
+  const headerRow1: any[] = [...fixedHeaders, monthHeader];
+  for (const w of weeks) {
+    headerRow1.push(w.label, "", "", "");
+  }
+
+  const headerRow2: any[] = Array.from({ length: fixedHeaders.length }).map(() => "");
+  headerRow2.push("Total Month Qty");
+  for (let i = 0; i < weeks.length; i++) {
+    headerRow2.push("Target Qty", "Target Amount", "Executed Qty", "Executed Amount");
+  }
+
+  wsData.push(headerRow1);
+  wsData.push(headerRow2);
+
+  let totalBoqAmount = 0;
+  let totalOrderedAmount = 0;
+  let totalRemainingAmount = 0;
+  const totalTargetAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
+  const totalExecutedAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
 
   for (const it of boq.items || []) {
     const isGroup = Boolean((it as any).isGroup);
+    const rate = Number((it as any).rate || 0);
+    const boqQty = Number((it as any).qty || 0);
+    const boqAmount = Number((it as any).amount || boqQty * rate);
+    const orderedQty = Number((it as any).orderedQty || 0);
+    const remainingQty = Number((it as any).remainingQty || 0);
+    const orderedAmount = Number((it as any).orderedValue || orderedQty * rate);
+    const remainingAmount = Number((it as any).remainingValue || remainingQty * rate);
+    const monthTotalQty = Number(monthTotalQtyByItemId.get(Number(it.id)) || 0);
+
     const row: any[] = [
       it.activityId || "",
-      it.clientSrNo || "",
       it.item || "",
+      Number(fmtQty(boqQty)),
       it.unit?.unitName || "",
-      Number(fmtQty(Number(it.qty || 0))),
+      Number(fmtQty(orderedQty)),
+      Number(fmtQty(remainingQty)),
+      Number(fmtRs(rate)),
+      Number(fmtRs(boqAmount)),
+      Number(fmtRs(orderedAmount)),
+      Number(fmtRs(remainingAmount)),
+      Number(fmtQty(monthTotalQty)),
     ];
 
-    let total = 0;
     for (const w of weeks) {
-      const m = byWeekIdByItemId.get(w.id);
-      const v = Number(m?.get(Number(it.id)) || 0);
-      total += v;
-      row.push(Number(fmtQty(v)));
+      const targetQty = Number(byWeekIdByItemId.get(w.id)?.get(Number(it.id)) || 0);
+      const execQty = Number(executedByWeekIdByItemId.get(w.id)?.get(Number(it.id)) || 0);
+      row.push(
+        Number(fmtQty(targetQty)),
+        Number(fmtRs(targetQty * rate)),
+        Number(fmtQty(execQty)),
+        Number(fmtRs(execQty * rate))
+      );
     }
-    row.push(Number(fmtQty(total)));
 
     wsData.push(row);
+
+    if (!isGroup) {
+      totalBoqAmount += boqAmount;
+      totalOrderedAmount += orderedAmount;
+      totalRemainingAmount += remainingAmount;
+      for (let wi = 0; wi < weeks.length; wi++) {
+        const w = weeks[wi];
+        const targetQty = Number(byWeekIdByItemId.get(w.id)?.get(Number(it.id)) || 0);
+        const execQty = Number(executedByWeekIdByItemId.get(w.id)?.get(Number(it.id)) || 0);
+        totalTargetAmountByWeekIdx[wi] += targetQty * rate;
+        totalExecutedAmountByWeekIdx[wi] += execQty * rate;
+      }
+    }
 
     if (isGroup) {
       // keep group row but values still shown (if any)
     }
   }
 
+  const pct = (part: number, whole: number) => {
+    if (!whole) return "0.00%";
+    return `${((part / whole) * 100).toFixed(2)}%`;
+  };
+
+  const totalRow: any[] = [
+    "TOTAL",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    Number(fmtRs(totalBoqAmount)),
+    `${fmtRs(totalOrderedAmount)} (${pct(totalOrderedAmount, totalBoqAmount)})`,
+    `${fmtRs(totalRemainingAmount)} (${pct(totalRemainingAmount, totalBoqAmount)})`,
+    "",
+  ];
+
+  for (let wi = 0; wi < weeks.length; wi++) {
+    totalRow.push(
+      "",
+      `${fmtRs(totalTargetAmountByWeekIdx[wi])} (${pct(totalTargetAmountByWeekIdx[wi], totalBoqAmount)})`,
+      "",
+      `${fmtRs(totalExecutedAmountByWeekIdx[wi])} (${pct(totalExecutedAmountByWeekIdx[wi], totalBoqAmount)})`
+    );
+  }
+  wsData.push(totalRow);
+
+  const totalRowIndex = wsData.length - 1;
+
+  for (let i = 0; i < 10; i++) wsData.push([]);
+
+  const secondHeaderRowIndex = wsData.length;
+  const dailyHeader: any[] = [
+    "Activity ID",
+    "BOQ Item",
+    "BOQ Qty",
+    "Ordered Qty",
+    "Remaining Qty",
+    ...monthIsoDays.map((iso) => ddMMyyyyFromIso(iso)),
+    "Total Qty",
+    "Total Amount",
+  ];
+  wsData.push(dailyHeader);
+
+  for (const it of boq.items || []) {
+    const rate = Number((it as any).rate || 0);
+    const boqQty = Number((it as any).qty || 0);
+    const orderedQty = Number((it as any).orderedQty || 0);
+    const remainingQty = Number((it as any).remainingQty || 0);
+    const itemId = Number((it as any).id);
+    const byIso = doneQtyByItemIdByIso.get(itemId);
+
+    let totalDone = 0;
+    const dayCells = monthIsoDays.map((iso) => {
+      const v = byIso?.get(iso);
+      if (v == null || Number(v) === 0) return "-";
+      totalDone += Number(v);
+      return Number(fmtQty(Number(v)));
+    });
+
+    const row: any[] = [
+      it.activityId || "",
+      it.item || "",
+      Number(fmtQty(boqQty)),
+      Number(fmtQty(orderedQty)),
+      Number(fmtQty(remainingQty)),
+      ...dayCells,
+      Number(fmtQty(totalDone)),
+      Number(fmtRs(totalDone * rate)),
+    ];
+    wsData.push(row);
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const headerRowIndex = 6;
+  const headerStartRow = 6;
   const fixedEndCol = fixedHeaders.length - 1;
-  const lastCol = fixedEndCol + weeks.length + 1;
+  const monthCol = fixedEndCol + 1;
+  const lastCol = monthCol + 1 + weeks.length * 4 - 1;
 
   const blueHeader = {
     font: { bold: true, color: { rgb: "FFFFFFFF" } },
@@ -215,44 +478,91 @@ export async function GET(req: NextRequest) {
     border: thinBorder(),
   } as any;
 
-  for (let c = 0; c <= lastCol; c++) {
-    const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c });
-    const cell = (ws as any)[cellRef];
-    if (!cell) continue;
-    cell.s = { ...(cell.s || {}), ...(c <= fixedEndCol ? blueHeader : yellowHeader) } as any;
-  }
+  const totalBody = {
+    font: { bold: true },
+    border: thinBorder(),
+    alignment: { vertical: "top" },
+  } as any;
 
-  for (let r = headerRowIndex + 1; r < wsData.length; r++) {
+  for (let r = headerStartRow; r <= headerStartRow + 1; r++) {
     for (let c = 0; c <= lastCol; c++) {
       const cellRef = XLSX.utils.encode_cell({ r, c });
       const cell = (ws as any)[cellRef];
       if (!cell) continue;
-      const base = c <= fixedEndCol ? normalBody : yellowBody;
+      cell.s = { ...(cell.s || {}), ...(c <= fixedEndCol ? blueHeader : yellowHeader) } as any;
+    }
+  }
+
+  // Second table header styling
+  const secondLastCol = dailyHeader.length - 1;
+  for (let c = 0; c <= secondLastCol; c++) {
+    const cellRef = XLSX.utils.encode_cell({ r: secondHeaderRowIndex, c });
+    const cell = (ws as any)[cellRef];
+    if (!cell) continue;
+    cell.s = { ...(cell.s || {}), ...(c <= 4 ? blueHeader : yellowHeader) } as any;
+  }
+
+  const maxCol = Math.max(lastCol, secondLastCol);
+
+  for (let r = headerStartRow + 2; r < wsData.length; r++) {
+    if (r === secondHeaderRowIndex) continue;
+    for (let c = 0; c <= maxCol; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cell = (ws as any)[cellRef];
+      if (!cell) continue;
+
+      const isTotalRow = r === totalRowIndex;
+      if (isTotalRow) {
+        cell.s = {
+          ...(cell.s || {}),
+          ...totalBody,
+          alignment: {
+            ...((cell.s as any)?.alignment || {}),
+            ...((totalBody as any)?.alignment || {}),
+            wrapText: c === 1 ? true : (cell.s as any)?.alignment?.wrapText,
+          },
+        } as any;
+        continue;
+      }
+
+      const isSecondTableBody = r > secondHeaderRowIndex;
+      const fixedBoundary = isSecondTableBody ? 4 : fixedEndCol;
+      const base = c <= fixedBoundary ? normalBody : yellowBody;
       cell.s = {
         ...(cell.s || {}),
         ...base,
         alignment: {
           ...((cell.s as any)?.alignment || {}),
           ...((base as any)?.alignment || {}),
-          wrapText: c === 2 ? true : (cell.s as any)?.alignment?.wrapText,
+          wrapText: c === 1 ? true : (cell.s as any)?.alignment?.wrapText,
         },
       } as any;
     }
   }
 
-  ws["!cols"] = [
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 40 },
-    { wch: 10 },
-    { wch: 12 },
-    ...Array.from({ length: weeks.length }).map(() => ({ wch: 18 })),
-    { wch: 14 },
-  ];
+  // Column widths: cover the max columns across both tables
+  ws["!cols"] = Array.from({ length: maxCol + 1 }).map((_, idx) => {
+    if (idx === 1) return { wch: 40 };
+    if (idx <= 4) return { wch: 12 };
+    return { wch: 12 };
+  });
 
   if (!ws["!merges"]) ws["!merges"] = [];
   const merges = ws["!merges"] as any[];
-  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } });
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: maxCol } });
+
+  // Merge fixed headers vertically (two header rows)
+  for (let c = 0; c <= fixedEndCol; c++) {
+    merges.push({ s: { r: headerStartRow, c }, e: { r: headerStartRow + 1, c } });
+  }
+
+  // Month column: merge first header row with second? keep month name + subheader, so no merge.
+
+  // Merge each week group label across 4 subcolumns
+  for (let i = 0; i < weeks.length; i++) {
+    const start = monthCol + 1 + i * 4;
+    merges.push({ s: { r: headerStartRow, c: start }, e: { r: headerStartRow, c: start + 3 } });
+  }
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "BOQ Target");
