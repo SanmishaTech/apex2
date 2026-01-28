@@ -34,12 +34,13 @@ export async function GET(
             id: true,
             boqTargetId: true,
             BoqItemId: true,
+            totalMonthQty: true,
             dailyTargetQty: true,
           },
           orderBy: { BoqItemId: "asc" },
         },
-      },
-    });
+      } as any,
+    } as any);
 
     if (!boqTarget) return Error('BOQ Target not found', 404);
     return Success(boqTarget);

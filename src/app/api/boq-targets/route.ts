@@ -21,6 +21,7 @@ const createSchema = z.object({
     .array(
       z.object({
         boqItemId: z.coerce.number().int().positive(),
+        totalMonthQty: z.coerce.number().nonnegative().optional().default(0),
         dailyTargetQty: z.coerce.number().nonnegative().optional().nullable(),
       })
     )
@@ -32,10 +33,12 @@ const updateSchema = createSchema
   .partial()
   .extend({
     id: z.coerce.number().int().positive(),
+    recalculateMonth: z.coerce.boolean().optional(),
     details: z
       .array(
         z.object({
           boqItemId: z.coerce.number().int().positive(),
+          totalMonthQty: z.coerce.number().nonnegative().optional(),
           dailyTargetQty: z.coerce.number().nonnegative().optional().nullable(),
         })
       )
@@ -196,6 +199,7 @@ export async function POST(req: NextRequest) {
     const detailsCreate = (parsed.details || [])
       .map((d) => ({
         BoqItemId: Number(d.boqItemId),
+        totalMonthQty: Number((d as any).totalMonthQty ?? 0) as any,
         dailyTargetQty:
           d.dailyTargetQty === null || d.dailyTargetQty === undefined
             ? null
@@ -227,7 +231,7 @@ export async function POST(req: NextRequest) {
         toTargetDate: true,
         createdAt: true,
         updatedAt: true,
-      },
+      } as any,
     });
 
     return Success(created, 201);
@@ -323,7 +327,9 @@ export async function PATCH(req: NextRequest) {
         select: { id: true },
       });
 
+      const shouldRecalc = Boolean(parsed.recalculateMonth);
       if (Array.isArray(parsed.details)) {
+        // Update this week's quantities first
         const existingDetails = await tx.boqTargetDetail.findMany({
           where: { boqTargetId: parsed.id },
           select: { id: true, BoqItemId: true },
@@ -337,12 +343,16 @@ export async function PATCH(req: NextRequest) {
             d.dailyTargetQty === null || d.dailyTargetQty === undefined
               ? null
               : (Number(d.dailyTargetQty) as any);
+          const totalMonthQty = (d as any).totalMonthQty;
 
           const existingDetailId = byItemId.get(boqItemId);
           if (existingDetailId) {
             await tx.boqTargetDetail.update({
               where: { id: existingDetailId },
-              data: { dailyTargetQty },
+              data: {
+                dailyTargetQty,
+                ...(totalMonthQty !== undefined ? { totalMonthQty: Number(totalMonthQty) as any } : {}),
+              } as any,
               select: { id: true },
             });
           } else {
@@ -352,11 +362,55 @@ export async function PATCH(req: NextRequest) {
                 data: {
                   boqTargetId: parsed.id,
                   BoqItemId: boqItemId,
+                  totalMonthQty: Number(totalMonthQty ?? 0) as any,
                   dailyTargetQty,
                 } as any,
                 select: { id: true },
               });
             }
+          }
+        }
+
+        // Recalculate monthly total (sum of all week quantities) and persist to all 4 week records
+        if (shouldRecalc) {
+          const itemIds = Array.from(new Set((parsed.details || []).map((d) => Number(d.boqItemId)))).filter(
+            (v) => Number.isFinite(v) && v > 0
+          );
+
+          const monthTargets = await tx.boqTarget.findMany({
+            where: { siteId: nextSiteId, boqId: nextBoqId, month: nextMonth },
+            select: { id: true },
+          });
+          const monthTargetIds = monthTargets.map((t) => Number(t.id)).filter((v) => Number.isFinite(v) && v > 0);
+          if (!monthTargetIds.length) {
+            throw new globalThis.Error("No BOQ targets found for selected month");
+          }
+
+          const grouped = await tx.boqTargetDetail.groupBy({
+            by: ["BoqItemId"],
+            where: {
+              BoqItemId: { in: itemIds },
+              boqTargetId: { in: monthTargetIds },
+            },
+            _sum: { dailyTargetQty: true },
+          });
+
+          const sumByItemId = new Map<number, number>();
+          grouped.forEach((g) => {
+            const id = Number(g.BoqItemId);
+            const sum = g._sum?.dailyTargetQty == null ? 0 : Number(g._sum.dailyTargetQty as any);
+            sumByItemId.set(id, sum);
+          });
+
+          for (const itemId of itemIds) {
+            const total = sumByItemId.get(itemId) ?? 0;
+            await tx.boqTargetDetail.updateMany({
+              where: {
+                BoqItemId: itemId,
+                boqTargetId: { in: monthTargetIds },
+              },
+              data: { totalMonthQty: total as any },
+            });
           }
         }
       }
@@ -373,7 +427,7 @@ export async function PATCH(req: NextRequest) {
           toTargetDate: true,
           createdAt: true,
           updatedAt: true,
-        },
+        } as any,
       });
       return updated;
     });
