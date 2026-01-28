@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(
       100,
-      Math.max(1, Number(searchParams.get("perPage")) || 10)
+      Math.max(1, Number(searchParams.get("perPage")) || 50)
     );
     const search = searchParams.get("search")?.trim() || "";
     const departmentFilter = searchParams.get("department") || "";

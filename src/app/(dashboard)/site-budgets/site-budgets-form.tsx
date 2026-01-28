@@ -92,8 +92,8 @@ function toSubmitPayload(data: RawFormValues) {
     boqId: parseInt(data.boqId),
     month: data.month,
     week: data.week,
-    fromDate: new Date(data.fromDate).toISOString(),
-    toDate: new Date(data.toDate).toISOString(),
+    fromDate: data.fromDate,
+    toDate: data.toDate,
     details: (data.details || []).map((d) => ({
       boqItemId: parseInt(d.boqItemId),
       items: (d.items || []).map((it) => ({
@@ -168,40 +168,21 @@ function buildMonthYearOptions(): Array<{ value: string; label: string }> {
 }
 
 function buildWeekOptions(monthLabel: string): Array<{ value: string; label: string }> {
-  const mi = monthIndexFromLabel(monthLabel);
-  const yr = yearFromLabel(monthLabel);
-  if (mi === null || yr === null) return [];
-  const daysInMonth = new Date(yr, mi + 1, 0).getDate();
-  const weeks = Math.ceil(daysInMonth / 7);
-  return Array.from({ length: weeks }).map((_, i) => {
+  if (!monthLabel) return [];
+  return Array.from({ length: 4 }).map((_, i) => {
     const label = `${ordinal(i + 1)} Week`;
     return { value: label, label };
   });
 }
 
-function weekNumberFromLabel(label: string): number | null {
-  const m = String(label || "").match(/^(\d+)/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) ? n : null;
-}
-
-function computeWeekDateRange(
-  monthLabel: string,
-  weekLabel: string
-): { from: string; to: string } | null {
-  const mi = monthIndexFromLabel(monthLabel);
-  const yr = yearFromLabel(monthLabel);
-  const wn = weekNumberFromLabel(weekLabel);
-  if (mi === null || yr === null || wn === null) return null;
-  const daysInMonth = new Date(yr, mi + 1, 0).getDate();
-  const startDay = (wn - 1) * 7 + 1;
-  const endDay = Math.min(startDay + 6, daysInMonth);
-  const from = new Date(Date.UTC(yr, mi, startDay));
-  const to = new Date(Date.UTC(yr, mi, endDay));
-  const fromIso = from.toISOString().slice(0, 10);
-  const toIso = to.toISOString().slice(0, 10);
-  return { from: fromIso, to: toIso };
+function formatDdMmYyyyFromDateOnly(value: string) {
+  const s = String(value || "").trim();
+  if (!s) return "";
+  const parts = s.split("-");
+  if (parts.length !== 3) return s;
+  const [yyyy, mm, dd] = parts;
+  if (!yyyy || !mm || !dd) return s;
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function ReadonlyField({ label, value }: { label: string; value: ReactNode }) {
@@ -272,19 +253,21 @@ function BudgetItemsEditor({
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto">
-        <div className="min-w-[920px] rounded-md border border-border text-xs">
-          <div className="grid grid-cols-12 gap-2 bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+        <div className="min-w-[1020px] rounded-md border border-border text-xs">
+          <div className="grid grid-cols-14 gap-2 bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground">
             <div className="col-span-4">Item</div>
             <div className="col-span-2">Budget Qty</div>
             <div className="col-span-2">Budget Rate</div>
             <div className="col-span-2">Purchase Rate</div>
-            <div className="col-span-2 text-right">Actions</div>
+            <div className="col-span-1">Unit</div>
+            <div className="col-span-2 text-right">Budget Value</div>
+            <div className="col-span-1 text-right">Actions</div>
           </div>
 
           <div className="divide-y">
             {fields.length ? (
               fields.map((f, itemIndex) => (
-                <div key={f.id} className="grid grid-cols-12 gap-2 px-2 py-2 items-start">
+                <div key={f.id} className="grid grid-cols-14 gap-2 px-2 py-2 items-start">
                   <div className="col-span-4">
                     <ComboboxInput
                       control={control}
@@ -332,13 +315,37 @@ function BudgetItemsEditor({
                       disabled={disabled}
                     />
                   </div>
-                  <div className="col-span-2 flex justify-end">
+                  <div className="col-span-1 min-w-0 flex items-center">
+                    <div
+                      className="text-[10px] leading-tight text-muted-foreground whitespace-nowrap truncate"
+                      title={
+                        itemMetaById.get(String(watchedItems?.[itemIndex]?.itemId || ""))?.unitName || "—"
+                      }
+                    >
+                      {itemMetaById.get(String(watchedItems?.[itemIndex]?.itemId || ""))?.unitName || "—"}
+                    </div>
+                  </div>
+                  <div className="col-span-2 min-w-0 flex items-center justify-end">
+                    <div
+                      className="text-[10px] leading-tight text-foreground font-mono tabular-nums whitespace-nowrap truncate"
+                      title={fmt2(
+                        toNumber(watchedItems?.[itemIndex]?.budgetQty) *
+                          toNumber(watchedItems?.[itemIndex]?.budgetRate)
+                      )}
+                    >
+                      {fmt2(
+                        toNumber(watchedItems?.[itemIndex]?.budgetQty) *
+                          toNumber(watchedItems?.[itemIndex]?.budgetRate)
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-span-1 flex justify-end">
                     <AppButton
                       type="button"
                       variant="ghost"
                       size="icon"
                       iconName="Trash2"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      className="h-7 w-7 bg-red-600 text-white hover:text-white"
                       onClick={() => remove(itemIndex)}
                       disabled={disabled}
                       aria-label="Remove item"
@@ -346,26 +353,6 @@ function BudgetItemsEditor({
                     >
                       <span className="sr-only">Remove</span>
                     </AppButton>
-                  </div>
-
-                  <div className="col-span-12 border-t border-border/60 pt-2">
-                    <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                      <div className="flex gap-1">
-                        <span className="font-medium">Unit:</span>
-                        <span className="text-foreground">
-                          {itemMetaById.get(String(watchedItems?.[itemIndex]?.itemId || ""))?.unitName || "—"}
-                        </span>
-                      </div>
-                      <div className="flex gap-1">
-                        <span className="font-medium">Budget Value:</span>
-                        <span className="text-foreground tabular-nums">
-                          {fmt2(
-                            toNumber(watchedItems?.[itemIndex]?.budgetQty) *
-                              toNumber(watchedItems?.[itemIndex]?.budgetRate)
-                          )}
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               ))
@@ -530,14 +517,6 @@ export function SiteBudgetsForm({
   }, [selectedMonth, selectedWeek, weekOptions, form]);
 
   useEffect(() => {
-    if (!selectedMonth || !selectedWeek) return;
-    const range = computeWeekDateRange(selectedMonth, selectedWeek);
-    if (!range) return;
-    form.setValue("fromDate", range.from, { shouldDirty: true, shouldValidate: false });
-    form.setValue("toDate", range.to, { shouldDirty: true, shouldValidate: false });
-  }, [selectedMonth, selectedWeek, form]);
-
-  useEffect(() => {
     const current = (form.getValues("details") || []) as RawFormValues["details"];
     if (!selectedBoqId) {
       if (current.length) replace([]);
@@ -615,6 +594,9 @@ export function SiteBudgetsForm({
   const boqLabel = boqOptions.find((o) => o.value === selectedBoqId)?.label || "";
   const fromDateVal = form.watch("fromDate");
   const toDateVal = form.watch("toDate");
+
+  const fromDateDisplay = isCreate ? fromDateVal : formatDdMmYyyyFromDateOnly(fromDateVal);
+  const toDateDisplay = isCreate ? toDateVal : formatDdMmYyyyFromDateOnly(toDateVal);
 
   return (
     <Form {...form}>
@@ -702,11 +684,11 @@ export function SiteBudgetsForm({
                     name="fromDate"
                     label="From Date"
                     type="date"
-                    disabled
+                    disabled={!selectedMonth}
                   />
                   </div>
                 ) : (
-                  <ReadonlyField label="From Date" value={fromDateVal} />
+                  <ReadonlyField label="From Date" value={fromDateDisplay} />
                 )}
 
                 {isCreate ? (
@@ -716,11 +698,11 @@ export function SiteBudgetsForm({
                     name="toDate"
                     label="To Date"
                     type="date"
-                    disabled
+                    disabled={!selectedMonth}
                   />
                   </div>
                 ) : (
-                  <ReadonlyField label="To Date" value={toDateVal} />
+                  <ReadonlyField label="To Date" value={toDateDisplay} />
                 )}
               </FormRow>
             </FormSection>

@@ -872,6 +872,7 @@ export function BoqTargetsForm({
                     <div key={i} className="rounded-md border p-3">
                       <div className="text-sm font-medium mb-3">{`${ordinal(i + 1)} Week`}</div>
                       <FormRow cols={2} from="md">
+                        <div>
                         <TextInput
                           control={control}
                           name={`weeks.${i}.fromTargetDate` as any}
@@ -881,6 +882,8 @@ export function BoqTargetsForm({
                           max={monthBounds?.max}
                           disabled={!monthBounds}
                         />
+                        </div>
+                        <div>
                         <TextInput
                           control={control}
                           name={`weeks.${i}.toTargetDate` as any}
@@ -890,6 +893,7 @@ export function BoqTargetsForm({
                           max={monthBounds?.max}
                           disabled={!monthBounds}
                         />
+                        </div>
                       </FormRow>
                     </div>
                   ))}

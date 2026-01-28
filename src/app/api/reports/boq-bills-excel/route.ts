@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
   wsData.push(["BOQ Bills Report"]);
   wsData.push([`BOQ: ${boq.boqNo ?? "-"}${boq.workName ? " - " + boq.workName : ""}`]);
   wsData.push([`Site: ${boq.site?.site ?? "-"}`]);
-  wsData.push([`Generated On: ${new Date().toLocaleString("en-IN")}`]);
+  wsData.push([`Generated On: ${new Date().toLocaleString("en-IN", { hour12: true })}`]);
   wsData.push([]);
 
   const fixedHeaders = [
