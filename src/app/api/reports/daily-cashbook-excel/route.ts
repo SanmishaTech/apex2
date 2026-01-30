@@ -23,6 +23,15 @@ function formatDdMmYyyyTime(d: Date) {
   return `${ddmm} ${hh}:${minutes}:${seconds}${ampm}`;
 }
 
+function startOfDayUtc(dateStr: string) {
+  const d = new Date(dateStr);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function addDaysUtc(d: Date, days: number) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
+}
+
 export async function GET(req: NextRequest) {
   const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOKS]);
   if (!auth.ok) return auth.response;
@@ -32,6 +41,7 @@ export async function GET(req: NextRequest) {
   const toDateStr = sp.get("toDate");
   const siteId = sp.get("siteId");
   const boqId = sp.get("boqId");
+  const cashbookHeadIdsStr = sp.get("cashbookHeadIds");
 
   if (!fromDateStr || Number.isNaN(Date.parse(fromDateStr))) {
     return NextResponse.json(
@@ -52,8 +62,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "boqId is required" }, { status: 400 });
   }
 
-  const fromDate = new Date(fromDateStr);
-  const toDateExclusive = new Date(new Date(toDateStr).getTime() + 24 * 60 * 60 * 1000);
+  const cashbookHeadIds = (cashbookHeadIdsStr || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "")
+    .map((s) => Number(s))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  const fromDate = startOfDayUtc(fromDateStr);
+  const toDateExclusive = addDaysUtc(startOfDayUtc(toDateStr), 1);
 
   // Fetch meta for site/boq to display names/codes
   const siteMeta = await prisma.site.findUnique({
@@ -78,6 +95,12 @@ export async function GET(req: NextRequest) {
       voucherDate: true,
       createdAt: true,
       cashbookDetails: {
+        where:
+          cashbookHeadIds.length > 0
+            ? {
+                cashbookHeadId: { in: cashbookHeadIds },
+              }
+            : undefined,
         select: {
           cashbookHead: { select: { cashbookHeadName: true } },
           description: true,

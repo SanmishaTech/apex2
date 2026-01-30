@@ -93,7 +93,7 @@ export function MultiSelectInput<
                   role="combobox"
                   aria-expanded={isOpen}
                   className={cn(
-                    "w-full justify-between text-left font-normal",
+                    "w-full justify-between text-left font-normal h-auto min-h-10 items-start",
                     selectedValues.length === 0 && "text-muted-foreground"
                   )}
                   disabled={disabled}

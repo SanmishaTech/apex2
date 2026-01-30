@@ -245,48 +245,82 @@ export function CashbookForm({
   const selectedBoqId = form.watch("boqId");
   const selectedVoucherDate = form.watch("voucherDate");
 
-  // Auto-calc closingBalance = openingBalance + amountReceived - amountPaid
+  const isRecomputingBalancesRef = useRef(false);
+
+  const recomputeBalanceChain = (baseOpening: number) => {
+    if (mode !== "create") return;
+    if (isRecomputingBalancesRef.current) return;
+    isRecomputingBalancesRef.current = true;
+    try {
+      const details = (form.getValues("cashbookDetails") || []) as any[];
+      let running = Number(baseOpening) || 0;
+      for (let index = 0; index < details.length; index++) {
+        const ar = Number(
+          form.getValues(`cashbookDetails.${index}.amountReceived` as const) ?? 0
+        ) || 0;
+        const ap = Number(
+          form.getValues(`cashbookDetails.${index}.amountPaid` as const) ?? 0
+        ) || 0;
+
+        const opening = String(running);
+        const closing = String((Number(opening) || 0) + ar - ap);
+        running = Number(closing) || 0;
+
+        const currentOpening = form.getValues(
+          `cashbookDetails.${index}.openingBalance` as const
+        ) as any;
+        if (String(currentOpening ?? "") !== opening) {
+          form.setValue(`cashbookDetails.${index}.openingBalance` as const, opening, {
+            shouldDirty: true,
+            shouldValidate: false,
+          });
+        }
+
+        const currentClosing = form.getValues(
+          `cashbookDetails.${index}.closingBalance` as const
+        ) as any;
+        if (String(currentClosing ?? "") !== closing) {
+          form.setValue(`cashbookDetails.${index}.closingBalance` as const, closing, {
+            shouldDirty: true,
+            shouldValidate: false,
+          });
+        }
+      }
+    } finally {
+      isRecomputingBalancesRef.current = false;
+    }
+  };
+
+  // Auto-calc balances chain in create mode
   useEffect(() => {
     const subscription = form.watch((_, info) => {
       const name = info?.name || "";
       if (!name.startsWith("cashbookDetails.")) return;
-      const match = name.match(
-        /^cashbookDetails\.(\d+)\.(openingBalance|amountReceived|amountPaid)$/
+
+      if (mode !== "create") return;
+      if (!info?.name) return;
+      const match = info.name.match(
+        /^cashbookDetails\.(\d+)\.(cashbookHeadId|openingBalance|amountReceived|amountPaid|closingBalance)$/
       );
       if (!match) return;
-      const idx = parseInt(match[1]);
-      const field = match[2];
-      if (mode !== "create" && field === "openingBalance") return;
-      if (
-        mode !== "create" &&
-        (field === "amountReceived" || field === "amountPaid")
-      ) {
-        if (!info?.type) return;
-      }
-      const ob =
-        Number(
-          form.getValues(`cashbookDetails.${idx}.openingBalance` as const) ?? 0
-        ) || 0;
-      const ar =
-        Number(
-          form.getValues(`cashbookDetails.${idx}.amountReceived` as const) ?? 0
-        ) || 0;
-      const ap =
-        Number(
-          form.getValues(`cashbookDetails.${idx}.amountPaid` as const) ?? 0
-        ) || 0;
-      const computed = ob + ar - ap;
-      const nextVal = String(Number.isFinite(computed) ? computed : 0);
-      const current = form.getValues(
-        `cashbookDetails.${idx}.closingBalance` as const
-      );
-      if (String(current ?? "") !== nextVal) {
-        form.setValue(
-          `cashbookDetails.${idx}.closingBalance` as const,
-          nextVal,
-          { shouldValidate: false, shouldDirty: true }
-        );
-      }
+      // Only recompute after user-initiated changes
+      if (!info.type) return;
+
+      const siteVal = form.getValues("siteId") as any;
+      const boqVal = form.getValues("boqId") as any;
+      const voucherDate = form.getValues("voucherDate") as any;
+
+      const siteId =
+        siteVal && siteVal !== "__none" && siteVal !== "" ? Number(siteVal) : undefined;
+      const boqId =
+        boqVal && boqVal !== "__none" && boqVal !== "" ? Number(boqVal) : undefined;
+
+      if (!siteId || !voucherDate) return;
+
+      // Base opening will be refreshed by the other effect when site/boq/voucherDate changes.
+      // Here, reuse the first row opening as base to keep chain consistent while typing.
+      const firstOb = Number(form.getValues("cashbookDetails.0.openingBalance" as const) ?? 0) || 0;
+      recomputeBalanceChain(firstOb);
     });
     return () => subscription.unsubscribe();
   }, [form, mode]);
@@ -318,71 +352,22 @@ export function CashbookForm({
 
       if (!siteId || !voucherDate) return;
 
-      const details = (form.getValues("cashbookDetails") || []) as any[];
-      for (let index = 0; index < details.length; index++) {
+      try {
+        const qs = new URLSearchParams({
+          siteId: String(siteId),
+          voucherDate: String(voucherDate),
+        });
+        if (boqId) qs.set("boqId", String(boqId));
+        const res = await apiGet(`/api/cashbooks/last-balance?${qs.toString()}` as any);
         if (cancelled) return;
         if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
 
-        const headVal = details[index]?.cashbookHeadId;
-        const headId =
-          headVal && headVal !== "__none" && headVal !== ""
-            ? Number(headVal)
-            : undefined;
-        if (!headId) continue;
-
-        try {
-          const qs = new URLSearchParams({
-            siteId: String(siteId),
-            cashbookHeadId: String(headId),
-            voucherDate: String(voucherDate),
-          });
-          if (boqId) qs.set("boqId", String(boqId));
-          const res = await apiGet(
-            `/api/cashbooks/last-balance?${qs.toString()}` as any
-          );
-          if (cancelled) return;
-          if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
-
-          const closing =
-            (res as any)?.data?.closingBalance ??
-            (res as any)?.closingBalance ??
-            null;
-          const opening = closing != null ? String(closing) : "0";
-          if (cancelled) return;
-          if (cashbookDetailsResetSeqRef.current !== startedSeq) return;
-
-          const currentOpening = form.getValues(
-            `cashbookDetails.${index}.openingBalance` as const
-          ) as any;
-          if (String(currentOpening ?? "") !== String(opening ?? "")) {
-            form.setValue(
-              `cashbookDetails.${index}.openingBalance` as const,
-              opening,
-              { shouldDirty: true, shouldValidate: true }
-            );
-          }
-
-          const arRaw = form.getValues(
-            `cashbookDetails.${index}.amountReceived` as const
-          ) as any;
-          const apRaw = form.getValues(
-            `cashbookDetails.${index}.amountPaid` as const
-          ) as any;
-          const obNum = Number(opening) || 0;
-          const arNum = Number(arRaw ?? 0) || 0;
-          const apNum = Number(apRaw ?? 0) || 0;
-          const closingNow = String(obNum + arNum - apNum);
-          const currentClosing = form.getValues(
-            `cashbookDetails.${index}.closingBalance` as const
-          ) as any;
-          if (String(currentClosing ?? "") !== String(closingNow ?? "")) {
-            form.setValue(
-              `cashbookDetails.${index}.closingBalance` as const,
-              closingNow,
-              { shouldDirty: true }
-            );
-          }
-        } catch (e) {}
+        const closing =
+          (res as any)?.data?.closingBalance ?? (res as any)?.closingBalance ?? null;
+        const baseOpening = Number(closing ?? 0) || 0;
+        recomputeBalanceChain(baseOpening);
+      } catch (e) {
+        recomputeBalanceChain(0);
       }
     }
 
@@ -451,27 +436,9 @@ export function CashbookForm({
     }
   }, [selectedVoucherDate, form]);
 
-  // Build selected head IDs to avoid duplicates across rows
-  const getSelectedHeadIds = () => {
-    const details = form.getValues("cashbookDetails") || [];
-    const ids = (details as any[]).map((d) => {
-      const v =
-        typeof d?.cashbookHeadId === "string"
-          ? parseInt(d.cashbookHeadId)
-          : d?.cashbookHeadId;
-      return Number.isFinite(v) ? Number(v) : 0;
-    });
-    return new Set(ids.filter((n: number) => n > 0));
-  };
-
   // For a row, keep its current value visible, hide heads picked in other rows
-  const getAvailableHeadsForRow = (currentValue: string | number) => {
-    const selected = getSelectedHeadIds();
-    const curr =
-      typeof currentValue === "string" ? parseInt(currentValue) : currentValue;
-    return (cashbookHeadsData?.data || []).filter(
-      (h: any) => h.id === curr || !selected.has(h.id)
-    );
+  const getAvailableHeadsForRow = (_currentValue: string | number) => {
+    return cashbookHeadsData?.data || [];
   };
 
   // Initialize file preview for existing file when editing
@@ -811,14 +778,9 @@ export function CashbookForm({
                                   boqVal && boqVal !== "__none" && boqVal !== ""
                                     ? Number(boqVal)
                                     : undefined;
-                                const headId =
-                                  val && val !== "__none" && val !== ""
-                                    ? Number(val)
-                                    : undefined;
-                                if (siteId && headId) {
+                                if (siteId) {
                                   const qs = new URLSearchParams({
                                     siteId: String(siteId),
-                                    cashbookHeadId: String(headId),
                                   });
                                   if (boqId) qs.set("boqId", String(boqId));
                                   const voucherDate = form.getValues(
@@ -834,38 +796,8 @@ export function CashbookForm({
                                     (res as any)?.data?.closingBalance ??
                                     (res as any)?.closingBalance ??
                                     null;
-                                  const opening =
-                                    closing != null ? String(closing) : "0";
-                                  form.setValue(
-                                    `cashbookDetails.${index}.openingBalance` as const,
-                                    opening,
-                                    {
-                                      shouldDirty: true,
-                                      shouldValidate: true,
-                                      shouldTouch: true,
-                                    }
-                                  );
-                                  await form.trigger(
-                                    `cashbookDetails.${index}.openingBalance` as const
-                                  );
-                                  // Also set closing balance immediately based on current received/paid
-                                  const arRaw = form.getValues(
-                                    `cashbookDetails.${index}.amountReceived` as const
-                                  ) as any;
-                                  const apRaw = form.getValues(
-                                    `cashbookDetails.${index}.amountPaid` as const
-                                  ) as any;
-                                  const obNum = Number(opening) || 0;
-                                  const arNum = Number(arRaw ?? 0) || 0;
-                                  const apNum = Number(apRaw ?? 0) || 0;
-                                  const closingNow = String(
-                                    obNum + arNum - apNum
-                                  );
-                                  form.setValue(
-                                    `cashbookDetails.${index}.closingBalance` as const,
-                                    closingNow,
-                                    { shouldDirty: true }
-                                  );
+                                  const baseOpening = Number(closing ?? 0) || 0;
+                                  recomputeBalanceChain(baseOpening);
                                 }
                               } catch (e) {
                                 // fail-silent for UX; keep opening balance unchanged

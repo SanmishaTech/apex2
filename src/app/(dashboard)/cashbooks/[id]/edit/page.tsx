@@ -6,12 +6,38 @@ import { apiGet } from '@/lib/api-client';
 import { CashbookForm } from '../../cashbook-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
 import type { Cashbook } from '@/types/cashbooks';
+import { usePermissions } from '@/hooks/use-permissions';
+import { PERMISSIONS } from '@/config/roles';
+import { AppCard } from '@/components/common/app-card';
+import { AppButton } from '@/components/common/app-button';
+import { useRouter } from 'next/navigation';
 
 export default function EditCashbookPage() {
   const params = useParams<{ id?: string }>();
   const cashbookId = params?.id as string | undefined;
+  const router = useRouter();
   
   useProtectPage();
+  const { can } = usePermissions();
+
+  if (!can(PERMISSIONS.EDIT_CASHBOOKS)) {
+    return (
+      <div className="container mx-auto py-6">
+        <AppCard>
+          <AppCard.Content className="p-6">
+            <div className="text-center text-muted-foreground">
+              You do not have permission to edit cashbooks.
+            </div>
+            <div className="mt-4 flex justify-center">
+              <AppButton variant="secondary" onClick={() => router.push('/cashbooks')}>
+                Back
+              </AppButton>
+            </div>
+          </AppCard.Content>
+        </AppCard>
+      </div>
+    );
+  }
 
   // Fetch cashbook data
   const { data: cashbook, error, isLoading } = useSWR<Cashbook>(

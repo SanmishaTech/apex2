@@ -34,10 +34,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "boqId is required" }, { status: 400 });
   }
 
-  const fromDate = new Date(fromDateStr);
-  const toDateExclusive = new Date(
-    new Date(toDateStr).getTime() + 24 * 60 * 60 * 1000
-  );
+  const startOfDayUtc = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  };
+  const addDaysUtc = (d: Date, days: number) => {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
+  };
+
+  const fromDate = startOfDayUtc(fromDateStr);
+  const toDateExclusive = addDaysUtc(startOfDayUtc(toDateStr), 1);
 
   const formatDdMmYyyy = (d: Date) => {
     const dd = String(d.getDate()).padStart(2, "0");

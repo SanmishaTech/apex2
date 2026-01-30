@@ -291,6 +291,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_CASHBOOKS,
       },
       {
+        title: "Cashbook Details",
+        href: "/cashbook-details",
+        icon: FileText,
+        permission: PERMISSIONS.READ_CASHBOOKS,
+      },
+      {
         title: "Cashbook Heads",
         href: "/cashbook-heads",
         icon: Folder,

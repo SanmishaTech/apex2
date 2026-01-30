@@ -4,16 +4,14 @@ import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 
  function startOfDay(d: Date) {
-   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
  }
 
  function addDays(d: Date, days: number) {
-   const next = new Date(d);
-   next.setDate(next.getDate() + days);
-   return next;
+   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
  }
 
-// GET /api/cashbooks/last-balance?siteId=..&boqId=..&cashbookHeadId=..
+// GET /api/cashbooks/last-balance?siteId=..&boqId=..
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -21,15 +19,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const siteIdStr = searchParams.get("siteId");
   const boqIdStr = searchParams.get("boqId");
-  const cashbookHeadIdStr = searchParams.get("cashbookHeadId");
   const voucherDateStr = searchParams.get("voucherDate");
 
-  if (!siteIdStr || !cashbookHeadIdStr) {
-    return BadRequest("siteId and cashbookHeadId are required");
+  if (!siteIdStr) {
+    return BadRequest("siteId is required");
   }
 
   const siteId = Number(siteIdStr);
-  const cashbookHeadId = Number(cashbookHeadIdStr);
   const boqId = boqIdStr != null && boqIdStr !== "" ? Number(boqIdStr) : undefined;
 
   const voucherDate =
@@ -41,7 +37,6 @@ export async function GET(req: NextRequest) {
     voucherDate !== undefined ? addDays(voucherDate, 1) : undefined;
 
   if (!Number.isFinite(siteId) || siteId <= 0) return BadRequest("Invalid siteId");
-  if (!Number.isFinite(cashbookHeadId) || cashbookHeadId <= 0) return BadRequest("Invalid cashbookHeadId");
   if (boqIdStr != null && boqIdStr !== "" && (!Number.isFinite(boqId!) || (boqId as number) <= 0)) {
     return BadRequest("Invalid boqId");
   }
@@ -49,7 +44,6 @@ export async function GET(req: NextRequest) {
   try {
     const lastDetail = await prisma.cashbookDetail.findFirst({
       where: {
-        cashbookHeadId,
         cashbook: {
           siteId,
           ...(boqId !== undefined ? { boqId } : {}),
