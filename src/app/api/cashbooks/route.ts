@@ -13,6 +13,54 @@ import type { UploadConfig } from "@/lib/upload";
 import { ROLES } from "@/config/roles";
 import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
 
+function toDateOnlyUtc(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return d;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function getCashbookMonthCode(d: Date) {
+  // April -> A, May -> B, ... March -> L
+  const m = d.getUTCMonth(); // 0=Jan
+  const codes = ["J", "K", "L", "A", "B", "C", "D", "E", "F", "G", "H", "I"] as const;
+  return codes[m] || "";
+}
+
+async function generateCashbookVoucherNo(tx: typeof prisma, voucherDate: Date) {
+  const monthCode = getCashbookMonthCode(voucherDate);
+  const day = voucherDate.getUTCDate();
+
+  const monthStart = new Date(voucherDate);
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const monthEnd = new Date(monthStart);
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+
+  const rows = await tx.cashbook.findMany({
+    where: {
+      voucherDate: {
+        gte: monthStart,
+        lt: monthEnd,
+      },
+    },
+    select: { voucherNo: true },
+  });
+
+  let maxSeq = 0;
+  for (const r of rows) {
+    const v = r.voucherNo;
+    if (!v) continue;
+    const parts = v.split("/");
+    if (parts.length < 3) continue;
+    const seq = Number(parts[2]);
+    if (!Number.isNaN(seq) && seq > maxSeq) maxSeq = seq;
+  }
+
+  const seq = maxSeq + 1;
+  return `${monthCode}/${day}/${seq}`;
+}
+
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
   siteId: z.number().nullable().optional(),
@@ -126,6 +174,14 @@ export async function GET(req: NextRequest) {
         voucherNo: true,
         voucherDate: true,
         attachVoucherCopyUrl: true,
+        createdById: true,
+        updatedById: true,
+        isApproved1: true,
+        approved1ById: true,
+        approved1At: true,
+        isApproved2: true,
+        approved2ById: true,
+        approved2At: true,
         site: { select: { id: true, site: true } },
         boq: { select: { id: true, boqNo: true } },
         createdAt: true,
@@ -220,30 +276,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate voucher number
-    const lastCashbook = await prisma.cashbook.findFirst({
-      where: { voucherNo: { not: null } },
-      orderBy: { voucherNo: "desc" },
-      select: { voucherNo: true },
-    });
-
-    let nextNumber = 1;
-    if (lastCashbook?.voucherNo) {
-      const match = lastCashbook.voucherNo.match(/VCH-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
-      }
-    }
-    const voucherNo = `VCH-${nextNumber.toString().padStart(5, "0")}`;
+    const voucherDateObj = toDateOnlyUtc(voucherDate);
 
     const created = await prisma.$transaction(async (tx) => {
+      const voucherNo = await generateCashbookVoucherNo(tx as any, voucherDateObj);
       const createdRow = await tx.cashbook.create({
         data: {
           voucherNo,
-          voucherDate: new Date(voucherDate),
+          voucherDate: voucherDateObj,
           siteId,
           boqId,
           attachVoucherCopyUrl: finalAttachVoucherUrl,
+          createdById: auth.user.id,
+          updatedById: auth.user.id,
           cashbookDetails: {
             create: cashbookDetails.map((detail, detailIndex) => ({
               cashbookHeadId: detail.cashbookHeadId,
@@ -264,8 +309,7 @@ export async function POST(req: NextRequest) {
         tx: tx as any,
         siteId,
         boqId,
-        cashbookHeadIds: cashbookDetails.map((d) => d.cashbookHeadId),
-        fromVoucherDate: new Date(voucherDate),
+        fromVoucherDate: voucherDateObj,
       });
 
       const refreshed = await tx.cashbook.findUnique({

@@ -38,6 +38,10 @@ export function formatDate(value: Date | string | null | undefined, opts?: Intl.
   return new Intl.DateTimeFormat(locale, { timeZone: timezone, ...base }).format(d);
 }
 
+ export function formatDateDMY(value: Date | string | null | undefined) {
+  return formatDate(value, { day: '2-digit', month: '2-digit', year: 'numeric' });
+ }
+
 export function formatDateTime(value: Date | string | null | undefined, opts?: Intl.DateTimeFormatOptions) {
   if (!value) return '';
   const d = toDate(value);
@@ -65,6 +69,11 @@ export function formatCurrency(amount: number, currencyCode?: string, minimumFra
   const { locale, currency } = ENV;
   return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode || currency, minimumFractionDigits }).format(amount);
 }
+
+ export function formatNumber(value: number, opts?: Intl.NumberFormatOptions) {
+  const { locale } = ENV;
+  return new Intl.NumberFormat(locale, opts).format(value);
+ }
 
 // Relative time formatter (loose typing)
 type RTUnit = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second';

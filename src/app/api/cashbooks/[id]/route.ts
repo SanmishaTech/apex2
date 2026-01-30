@@ -15,8 +15,16 @@ import {
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
 import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
+import { PERMISSIONS } from "@/config/roles";
+
+function toDateOnlyUtc(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return d;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
 
 const updateSchema = z.object({
+  statusAction: z.enum(["approve1", "approve2"]).optional(),
   voucherDate: z.string().optional(),
   siteId: z.number().nullable().optional(),
   boqId: z.number().nullable().optional(),
@@ -75,6 +83,9 @@ export async function GET(
       include: {
         site: { select: { id: true, site: true } },
         boq: { select: { id: true, boqNo: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+        approved1By: { select: { id: true, name: true, email: true } },
+        approved2By: { select: { id: true, name: true, email: true } },
         cashbookDetails: {
           include: {
             cashbookHead: { select: { id: true, cashbookHeadName: true } },
@@ -142,6 +153,7 @@ export async function PATCH(
     }
 
     const {
+      statusAction,
       voucherDate,
       siteId,
       boqId,
@@ -157,15 +169,82 @@ export async function PATCH(
         siteId: true,
         boqId: true,
         voucherDate: true,
+        createdById: true,
+        updatedById: true,
+        isApproved1: true,
+        approved1ById: true,
+        approved1At: true,
+        isApproved2: true,
+        approved2ById: true,
+        approved2At: true,
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
     if (!existing) return NotFound("Cashbook not found");
 
+    // Prevent creator from approving their own cashbook
+    if (
+      (statusAction === "approve1" || statusAction === "approve2") &&
+      existing.createdById === auth.user.id
+    ) {
+      return BadRequest("Creator cannot approve their own cashbook");
+    }
+
+    // Edits blocked once approved
+    if (!statusAction && (existing.isApproved1 || existing.isApproved2)) {
+      return BadRequest("Approved cashbook cannot be edited");
+    }
+
+    // Permission check for normal edits (approve actions have their own permissions)
+    if (!statusAction) {
+      const rolePerms = (auth.user.permissions || []) as string[];
+      if (!rolePerms.includes(PERMISSIONS.EDIT_CASHBOOKS)) {
+        return BadRequest("Missing permission to edit cashbook");
+      }
+    }
+
     const updateData: any = {};
-    if (voucherDate) updateData.voucherDate = new Date(voucherDate);
-    if (siteId !== undefined) updateData.siteId = siteId;
-    if (boqId !== undefined) updateData.boqId = boqId;
+    const now = new Date();
+
+    if (statusAction === "approve1") {
+      const rolePerms = (auth.user.permissions || []) as string[];
+      if (!rolePerms.includes(PERMISSIONS.APPROVE_CASHBOOKS_L1)) {
+        return BadRequest("Missing permission to approve level 1");
+      }
+      if (existing.isApproved1) {
+        return BadRequest("Cashbook already approved (level 1)");
+      }
+      updateData.isApproved1 = true;
+      updateData.approved1ById = auth.user.id;
+      updateData.approved1At = now;
+    }
+
+    if (statusAction === "approve2") {
+      const rolePerms = (auth.user.permissions || []) as string[];
+      if (!rolePerms.includes(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
+        return BadRequest("Missing permission to approve level 2");
+      }
+      if (!existing.isApproved1) {
+        return BadRequest("Only level 1 approved cashbook can be approved (level 2)");
+      }
+      if (existing.isApproved2) {
+        return BadRequest("Cashbook already approved (level 2)");
+      }
+      if (existing.approved1ById === auth.user.id) {
+        return BadRequest("Level 1 approver cannot approve level 2");
+      }
+      updateData.isApproved2 = true;
+      updateData.approved2ById = auth.user.id;
+      updateData.approved2At = now;
+    }
+
+    if (!statusAction) {
+      if (voucherDate !== undefined) {
+        updateData.voucherDate = toDateOnlyUtc(voucherDate);
+      }
+      if (siteId !== undefined) updateData.siteId = siteId;
+      if (boqId !== undefined) updateData.boqId = boqId;
+    }
 
     if (attachVoucherCopyFile) {
       updateData.attachVoucherCopyUrl = await uploadCashbookFile(
@@ -176,7 +255,7 @@ export async function PATCH(
       updateData.attachVoucherCopyUrl = attachVoucherCopyUrl;
     }
 
-    if (cashbookDetails) {
+    if (!statusAction && cashbookDetails) {
       await prisma.cashbookDetail.deleteMany({
         where: { cashbookId: id },
       });
@@ -211,6 +290,8 @@ export async function PATCH(
       };
     }
 
+    updateData.updatedById = auth.user.id;
+
     const updated = await prisma.$transaction(async (tx) => {
       const updatedRow = await tx.cashbook.update({
         where: { id },
@@ -236,16 +317,11 @@ export async function PATCH(
             )
           : updatedRow.voucherDate ?? existing.voucherDate;
 
-      const oldHeads = (existing.cashbookDetails || []).map((d) => d.cashbookHeadId);
-      const newHeads = (updatedRow.cashbookDetails || []).map((d) => d.cashbookHeadId);
-      const headIds = Array.from(new Set([...(oldHeads || []), ...(newHeads || [])]));
-
-      if (fromVoucherDate) {
+      if (!statusAction && fromVoucherDate) {
         await recomputeCashbookBalances({
           tx: tx as any,
           siteId: siteForRecompute,
           boqId: boqForRecompute,
-          cashbookHeadIds: headIds,
           fromVoucherDate,
         });
       }
@@ -310,7 +386,6 @@ export async function DELETE(
         tx: tx as any,
         siteId: existing.siteId,
         boqId: existing.boqId,
-        cashbookHeadIds: (existing.cashbookDetails || []).map((d) => d.cashbookHeadId),
         fromVoucherDate: existing.voucherDate,
       });
     });

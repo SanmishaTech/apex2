@@ -182,8 +182,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   // Cashbooks
   { prefix: "/cashbooks/new", permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
-  { prefix: "/cashbooks/", permissions: [PERMISSIONS.EDIT_CASHBOOKS] },
+  // Allow viewing subpages (e.g., approve1/approve2) without requiring EDIT rights
+  { prefix: "/cashbooks/", permissions: [PERMISSIONS.READ_CASHBOOKS] },
   { prefix: "/cashbooks", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
+  { prefix: "/cashbook-details", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
   // Indents
   { prefix: "/indents/new", permissions: [PERMISSIONS.CREATE_INDENTS] },
   { prefix: "/indents/", permissions: [PERMISSIONS.READ_INDENTS] },
@@ -556,8 +558,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOKS],
       POST: [PERMISSIONS.CREATE_CASHBOOKS],
-      PATCH: [PERMISSIONS.EDIT_CASHBOOKS],
+      // Let the handler enforce granular permissions: edit vs approve1/approve2
+      PATCH: [],
       DELETE: [PERMISSIONS.DELETE_CASHBOOKS],
+    },
+  },
+  {
+    prefix: "/api/cashbook-details",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOKS],
     },
   },
   {
@@ -728,6 +737,30 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/cashbook-budget-pdf",
     methods: {
       GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    },
+  },
+  {
+    prefix: "/api/reports/cashbook-budget-excel",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+    },
+  },
+  {
+    prefix: "/api/reports/daily-cashbook-pdf",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOKS],
+    },
+  },
+  {
+    prefix: "/api/reports/daily-cashbook-excel",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOKS],
+    },
+  },
+  {
+    prefix: "/api/reports/cashbook-details-excel",
+    methods: {
+      GET: [PERMISSIONS.READ_CASHBOOKS],
     },
   },
   {

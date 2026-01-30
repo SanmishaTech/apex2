@@ -13,7 +13,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatRelativeTime, formatDate } from '@/lib/locales';
+import { formatDateDMY } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
@@ -115,7 +115,7 @@ export default function CashbookHeadsPage() {
 			sortable: true,
 			className: 'whitespace-nowrap',
 			cellClassName: 'text-muted-foreground whitespace-nowrap',
-			accessor: (r) => formatDate(r.createdAt),
+			accessor: (r) => formatDateDMY(r.createdAt),
 		},
 		{
 			key: 'updatedAt',
@@ -123,7 +123,7 @@ export default function CashbookHeadsPage() {
 			sortable: false,
 			className: 'whitespace-nowrap',
 			cellClassName: 'text-muted-foreground whitespace-nowrap',
-			accessor: (r) => formatRelativeTime(r.updatedAt),
+			accessor: (r) => formatDateDMY(r.updatedAt),
 		},
 	];
 

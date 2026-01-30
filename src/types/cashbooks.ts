@@ -17,6 +17,12 @@ export interface Boq {
   boqNo: string | null;
 }
 
+export interface UserLite {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 export interface CashbookDetail {
   id?: number;
   cashbookId?: number;
@@ -39,6 +45,17 @@ export interface Cashbook {
   siteId: number | null;
   boqId: number | null;
   attachVoucherCopyUrl: string | null;
+  createdById?: number;
+  updatedById?: number;
+  isApproved1?: boolean;
+  approved1ById?: number | null;
+  approved1At?: string | null;
+  isApproved2?: boolean;
+  approved2ById?: number | null;
+  approved2At?: string | null;
+  createdBy?: UserLite | null;
+  approved1By?: UserLite | null;
+  approved2By?: UserLite | null;
   site?: Site | null;
   boq?: Boq | null;
   cashbookDetails?: CashbookDetail[];

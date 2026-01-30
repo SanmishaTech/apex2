@@ -32,7 +32,7 @@ export default function DailyCashbookReportPage() {
 
   const form = useForm<FormValues>({
     mode: "onChange",
-    defaultValues: { fromDate: "", toDate: "", siteId: "", boqId: "", format: "pdf" },
+    defaultValues: { fromDate: "", toDate: "", siteId: "", boqId: "", format: "excel" },
   });
   const { control, getValues, watch } = form;
 

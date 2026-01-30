@@ -26,7 +26,7 @@ export default function CashbookBudgetReportPage() {
 
   const form = useForm<FormValues>({
     mode: "onChange",
-    defaultValues: { month: "", siteId: "", boqId: "", format: "pdf" },
+    defaultValues: { month: "", siteId: "", boqId: "", format: "excel" },
   });
   const { control, getValues, watch } = form;
 

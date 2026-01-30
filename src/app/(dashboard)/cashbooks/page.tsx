@@ -13,13 +13,19 @@ import { AppButton } from "@/components/common/app-button";
 import { DataTable, SortState, Column } from "@/components/common/data-table";
 import { DeleteButton } from "@/components/common/delete-button";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { PERMISSIONS } from "@/config/roles";
-import { formatDate } from "@/lib/locales";
+import { formatDateDMY } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import Link from "next/link";
-import { EditButton } from "@/components/common/icon-button";
 import type { Cashbook, CashbooksResponse } from "@/types/cashbooks";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export default function CashbooksPage() {
   const [qp, setQp] = useQueryParamsState({
@@ -72,6 +78,7 @@ export default function CashbooksPage() {
 
   const { pushWithScrollSave } = useScrollRestoration("cashbooks-list");
   const { can } = usePermissions();
+  const { user } = useCurrentUser();
 
   async function handleDelete(id: string) {
     try {
@@ -110,7 +117,7 @@ export default function CashbooksPage() {
       key: "voucherDate",
       header: "Voucher Date",
       sortable: true,
-      accessor: (cashbook) => <div>{formatDate(cashbook.voucherDate)}</div>,
+      accessor: (cashbook) => <div>{formatDateDMY(cashbook.voucherDate)}</div>,
     },
     {
       key: "site",
@@ -137,7 +144,7 @@ export default function CashbooksPage() {
       sortable: true,
       accessor: (cashbook) => (
         <div className="text-sm text-muted-foreground">
-          {formatDate(cashbook.createdAt)}
+          {formatDateDMY(cashbook.createdAt)}
         </div>
       ),
     },
@@ -204,7 +211,7 @@ export default function CashbooksPage() {
             size="sm"
             onClick={applyFilters}
             disabled={!filtersDirty && !searchDraft && !isVoucherDraft}
-            className="min-w-[84px]"
+            className="min-w-21"
           >
             Filter
           </AppButton>
@@ -213,7 +220,7 @@ export default function CashbooksPage() {
               variant="secondary"
               size="sm"
               onClick={resetFilters}
-              className="min-w-[84px]"
+              className="min-w-21"
             >
               Reset
             </AppButton>
@@ -228,32 +235,89 @@ export default function CashbooksPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(cashbook) => {
-            if (
-              !can(PERMISSIONS.EDIT_CASHBOOKS) &&
-              !can(PERMISSIONS.DELETE_CASHBOOKS)
-            )
-              return null;
+            const isCreator =
+              typeof cashbook.createdById === "number" &&
+              typeof user?.id === "number" &&
+              cashbook.createdById === user.id;
+            const isL1Approver =
+              typeof cashbook.approved1ById === "number" &&
+              typeof user?.id === "number" &&
+              cashbook.approved1ById === user.id;
+
+            const canEdit = can(PERMISSIONS.EDIT_CASHBOOKS);
+            const canDelete = can(PERMISSIONS.DELETE_CASHBOOKS);
+            const canApprove1 =
+              can(PERMISSIONS.APPROVE_CASHBOOKS_L1) && !cashbook.isApproved1 && !isCreator;
+            const canApprove2 =
+              can(PERMISSIONS.APPROVE_CASHBOOKS_L2) &&
+              !!cashbook.isApproved1 &&
+              !cashbook.isApproved2 &&
+              !isCreator &&
+              !isL1Approver;
+
+            if (!canEdit && !canDelete && !canApprove1 && !canApprove2) return null;
             return (
               <div className="flex">
-                {can(PERMISSIONS.EDIT_CASHBOOKS) && (
-                  <EditButton
-                    tooltip="Edit Cashbook"
-                    aria-label="Edit Cashbook"
-                    onClick={() =>
-                      pushWithScrollSave(`/cashbooks/${cashbook.id}/edit`)
-                    }
-                  />
-                )}
-                {can(PERMISSIONS.DELETE_CASHBOOKS) && (
-                  <DeleteButton
-                    onDelete={() => handleDelete(String(cashbook.id))}
-                    itemLabel="cashbook"
-                    title="Delete cashbook?"
-                    description={`This will permanently remove cashbook voucher ${
-                      cashbook.voucherNo || cashbook.id
-                    }. This action cannot be undone.`}
-                  />
-                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <AppButton size="sm" variant="secondary">
+                      Actions
+                    </AppButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          pushWithScrollSave(`/cashbooks/${cashbook.id}/edit`);
+                        }}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+
+                    {canApprove1 && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          pushWithScrollSave(`/cashbooks/${cashbook.id}/approve1`);
+                        }}
+                      >
+                        Approve 1
+                      </DropdownMenuItem>
+                    )}
+
+                    {canApprove2 && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          pushWithScrollSave(`/cashbooks/${cashbook.id}/approve2`);
+                        }}
+                      >
+                        Approve 2
+                      </DropdownMenuItem>
+                    )}
+
+                    {canDelete && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        <DeleteButton
+                          onDelete={() => handleDelete(String(cashbook.id))}
+                          itemLabel="cashbook"
+                          title="Delete cashbook?"
+                          description={`This will permanently remove cashbook voucher ${
+                            cashbook.voucherNo || cashbook.id
+                          }. This action cannot be undone.`}
+                        >
+                          <span className="w-full">Delete</span>
+                        </DeleteButton>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           }}

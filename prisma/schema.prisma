@@ -91,6 +91,11 @@ model User {
 
   siteBudgetCreated SiteBudget[] @relation("SiteBudgetCreated")
   siteBudgetUpdated SiteBudget[] @relation("SiteBudgetUpdated")
+
+  cashbookCreated Cashbook[] @relation("CashbookCreated")
+  cashbookUpdated Cashbook[] @relation("CashbookUpdated")
+  cashbookApproved1 Cashbook[] @relation("CashbookApproved1By")
+  cashbookApproved2 Cashbook[] @relation("CashbookApproved2By")
   
   userRoles UserRole[]
   userPermissions UserPermission[]
@@ -1328,18 +1333,32 @@ model Cashbook {
   id Int @id @default(autoincrement())
 
   // Header Details
-  voucherNo            String?  @unique // auto-generated like VCH-00001
-  voucherDate          DateTime
+  voucherNo            String // auto-generated like VCH-00001
+  voucherDate          DateTime @db.Date()
   siteId               Int?
   site                 Site?    @relation(fields: [siteId], references: [id])
   boqId                Int?
   boq                  Boq?     @relation(fields: [boqId], references: [id])
   attachVoucherCopyUrl String? // File upload for voucher copy
 
+
+createdById      Int
+updatedById      Int
+
+
+  isApproved1             Boolean  @default(false)
+  approved1ById  Int?
+  approved1By    User?                @relation("CashbookApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At    DateTime?
+   isApproved2             Boolean  @default(false)
+   approved2ById  Int?
+  approved2By    User?                @relation("CashbookApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  approved2At    DateTime?
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+createdBy User @relation("CashbookCreated", fields: [createdById], references: [id], onDelete: Restrict)
+updatedBy User @relation("CashbookUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
   // Relations
   cashbookDetails CashbookDetail[]
 

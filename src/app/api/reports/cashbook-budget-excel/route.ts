@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
   });
 
   const [mm, yyyy] = month.split("-");
-  const startDate = new Date(Number(yyyy), Number(mm) - 1, 1);
-  const endDate = new Date(Number(yyyy), Number(mm), 1); // exclusive
+  const startDate = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, 1));
+  const endDate = new Date(Date.UTC(Number(yyyy), Number(mm), 1)); // exclusive
 
   const vouchers = await prisma.cashbook.findMany({
     where: {
