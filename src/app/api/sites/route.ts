@@ -232,16 +232,16 @@ export async function GET(req: NextRequest) {
       ? { [sort]: order }
       : { site: "asc" };
 
-    // Site-based visibility: non-admin and non-projectDirector see only their assigned sites
+    // Site-based visibility: only ADMIN can see all; others limited to assigned sites
     const role = auth.user.role;
-    const isPrivileged =
-      role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+    const isPrivileged = role === ROLES.ADMIN;
+    let assignedSiteIds: number[] | null = null;
     if (!isPrivileged) {
       const employee = await prisma.employee.findFirst({
         where: { userId: auth.user.id },
         select: { siteEmployees: { select: { siteId: true } } },
       });
-      const assignedSiteIds = (employee?.siteEmployees || [])
+      assignedSiteIds = (employee?.siteEmployees || [])
         .map((s) => s.siteId)
         .filter((v): v is number => typeof v === "number");
 
@@ -256,8 +256,7 @@ export async function GET(req: NextRequest) {
         } as any);
       }
 
-      // Constrain by assigned site IDs. We can't directly add an 'in' to SiteWhere typed object easily,
-      // but paginate() accepts generic where; we will pass a combined where below using any.
+      // Constrain by assigned site IDs.
       (where as any).id = { in: assignedSiteIds };
     }
 
@@ -266,7 +265,13 @@ export async function GET(req: NextRequest) {
       where: ((): any => {
         const w: any = { ...(where as any) };
         if (idParam && !isNaN(Number(idParam))) {
-          w.id = Number(idParam);
+          const id = Number(idParam);
+          // Do not allow non-admin users to bypass assigned-site filter using idParam
+          if (assignedSiteIds && !assignedSiteIds.includes(id)) {
+            w.id = { in: [-1] };
+            return w;
+          }
+          w.id = id;
         }
         return w;
       })(),

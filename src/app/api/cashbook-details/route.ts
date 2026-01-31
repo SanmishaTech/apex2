@@ -1,8 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  Forbidden,
+} from "@/lib/api-response";
 import { guardApiPermissions } from "@/lib/access-guard";
-import { PERMISSIONS } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 
 function startOfDayUtc(dateStr: string) {
   const d = new Date(dateStr);
@@ -52,6 +57,19 @@ export async function GET(req: NextRequest) {
   const fromDate = startOfDayUtc(fromDateStr);
   const toDateExclusive = addDaysUtc(startOfDayUtc(toDateStr), 1);
   const cashbookHeadIds = parseHeadIds(cashbookHeadIdsStr);
+
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    if (!assignedSiteIds.includes(siteId)) {
+      return Forbidden("Site is not assigned to current user");
+    }
+  }
 
   try {
     const rows = await prisma.cashbookDetail.findMany({

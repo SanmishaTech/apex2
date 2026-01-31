@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
+import {
+  Success,
+  Error as ApiError,
+  BadRequest,
+  Forbidden,
+} from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
  function startOfDay(d: Date) {
    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -27,6 +33,19 @@ export async function GET(req: NextRequest) {
 
   const siteId = Number(siteIdStr);
   const boqId = boqIdStr != null && boqIdStr !== "" ? Number(boqIdStr) : undefined;
+
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    if (!assignedSiteIds.includes(siteId)) {
+      return Forbidden("Site is not assigned to current user");
+    }
+  }
 
   const voucherDate =
     voucherDateStr && voucherDateStr.trim() !== "" && !Number.isNaN(Date.parse(voucherDateStr))

@@ -200,14 +200,6 @@ export default function CashbookBudgetsPage() {
 			}).format(Number(r.approvedBudgetAmount)) : 'Rs. 0.00',
 		},
 		{
-			key: 'receivedAmount',
-			header: 'Received Amount',
-			sortable: false,
-			className: 'text-right whitespace-nowrap',
-			cellClassName: 'text-right font-mono whitespace-nowrap',
-			accessor: () => 'Rs. 0.00',
-		},
-		{
 			key: 'createdBy',
 			header: 'Prepared By',
 			sortable: false,

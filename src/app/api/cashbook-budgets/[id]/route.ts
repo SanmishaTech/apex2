@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error } from "@/lib/api-response";
+import { Success, Error, Forbidden } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 // GET /api/cashbook-budgets/[id] - Get single budget with items
 export async function GET(
@@ -46,6 +47,24 @@ export async function GET(
     });
 
     if (!budget) return Error('Cashbook budget not found', 404);
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const siteId = budget.siteId;
+      if (typeof siteId !== "number") {
+        return Forbidden("Site is not assigned to current user");
+      }
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      if (!assignedSiteIds.includes(siteId)) {
+        return Forbidden("Site is not assigned to current user");
+      }
+    }
+
     return Success(budget);
   } catch (e: unknown) {
     console.error('Error fetching cashbook budget:', e);
@@ -66,6 +85,25 @@ export async function DELETE(
   if (!id || isNaN(id)) return Error('Invalid budget ID', 400);
 
   try {
+    const existing = await prisma.cashbookBudget.findUnique({
+      where: { id },
+      select: { id: true, siteId: true },
+    });
+    if (!existing) return Error('Cashbook budget not found', 404);
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      if (typeof existing.siteId !== "number" || !assignedSiteIds.includes(existing.siteId)) {
+        return Forbidden("Site is not assigned to current user");
+      }
+    }
+
     await prisma.cashbookBudget.delete({
       where: { id },
     });

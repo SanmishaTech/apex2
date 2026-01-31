@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   // Build dynamic filter with explicit shape
   type CashbookBudgetWhere = {
-    siteId?: number;
+    siteId?: number | { in: number[] };
     month?: string;
     boqId?: number;
     OR?: Array<{
@@ -36,10 +36,26 @@ export async function GET(req: NextRequest) {
   };
   const where: CashbookBudgetWhere = {};
 
-  // Role-based site filtering (if not admin role 1, filter by user's site)
-  // TODO: Implement session-based site filtering based on user role
+  let assignedSiteIds: number[] | null = null;
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    assignedSiteIds = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+  }
+
   if (siteIdParam) {
-    where.siteId = Number(siteIdParam);
+    const requestedSiteId = Number(siteIdParam);
+    if (assignedSiteIds) {
+      (where as any).siteId = assignedSiteIds.includes(requestedSiteId)
+        ? requestedSiteId
+        : { in: [-1] };
+    } else {
+      where.siteId = requestedSiteId;
+    }
   }
 
   if (month) {
@@ -54,16 +70,12 @@ export async function GET(req: NextRequest) {
     where.OR = [{ name: { contains: search } }];
   }
 
-  // Site-based visibility: only ADMIN can see all; others limited to assigned sites
-  if (auth.user.role !== ROLES.ADMIN) {
-    const employee = await prisma.employee.findFirst({
-      where: { userId: auth.user.id },
-      select: { siteEmployees: { select: { siteId: true } } },
-    });
-    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
-      .map((s) => s.siteId)
-      .filter((v): v is number => typeof v === "number");
-    (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+  if (assignedSiteIds) {
+    if ((where as any).siteId === undefined) {
+      (where as any).siteId = {
+        in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1],
+      };
+    }
   }
 
   // Allow listed sortable fields only
@@ -153,6 +165,29 @@ export async function POST(req: NextRequest) {
   if (!siteId) return Error("Site is required", 400);
   if (!budgetItems || !Array.isArray(budgetItems) || budgetItems.length === 0) {
     return Error("At least one budget item is required", 400);
+  }
+
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    if (!assignedSiteIds.includes(Number(siteId))) {
+      return Error("Site is not assigned to current user", 403);
+    }
+  }
+
+  if (boqId) {
+    const boq = await prisma.boq.findUnique({
+      where: { id: Number(boqId) },
+      select: { id: true, siteId: true },
+    });
+    if (!boq || boq.siteId !== Number(siteId)) {
+      return Error("Invalid BOQ for selected site", 400);
+    }
   }
 
   // Validate budget items
@@ -276,6 +311,29 @@ export async function PATCH(req: NextRequest) {
   if (!siteId) return Error("Site is required", 400);
   if (!budgetItems || !Array.isArray(budgetItems) || budgetItems.length === 0) {
     return Error("At least one budget item is required", 400);
+  }
+
+  if (auth.user.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+    if (!assignedSiteIds.includes(Number(siteId))) {
+      return Error("Site is not assigned to current user", 403);
+    }
+  }
+
+  if (boqId) {
+    const boq = await prisma.boq.findUnique({
+      where: { id: Number(boqId) },
+      select: { id: true, siteId: true },
+    });
+    if (!boq || boq.siteId !== Number(siteId)) {
+      return Error("Invalid BOQ for selected site", 400);
+    }
   }
 
   // Validate budget items

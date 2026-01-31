@@ -4,6 +4,7 @@ import {
   Success,
   Error as ApiError,
   BadRequest,
+  Forbidden,
   NotFound,
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
@@ -15,7 +16,7 @@ import {
 } from "@/lib/upload";
 import type { UploadConfig } from "@/lib/upload";
 import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
-import { PERMISSIONS } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 
 function toDateOnlyUtc(dateStr: string) {
   const d = new Date(dateStr);
@@ -95,6 +96,24 @@ export async function GET(
     });
 
     if (!cashbook) return NotFound("Cashbook not found");
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const siteId = cashbook.siteId;
+      // If cashbook is not tied to a site, do not block.
+      if (typeof siteId === "number") {
+        const employee = await prisma.employee.findFirst({
+          where: { userId: auth.user.id },
+          select: { siteEmployees: { select: { siteId: true } } },
+        });
+        const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+          .map((s) => s.siteId)
+          .filter((v): v is number => typeof v === "number");
+        if (!assignedSiteIds.includes(siteId)) {
+          return Forbidden("Site is not assigned to current user");
+        }
+      }
+    }
+
     return Success(cashbook);
   } catch (error) {
     console.error("Get cashbook error:", error);
@@ -181,6 +200,45 @@ export async function PATCH(
       },
     });
     if (!existing) return NotFound("Cashbook not found");
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const currentSiteId = existing.siteId;
+      if (typeof currentSiteId === "number") {
+        const employee = await prisma.employee.findFirst({
+          where: { userId: auth.user.id },
+          select: { siteEmployees: { select: { siteId: true } } },
+        });
+        const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+          .map((s) => s.siteId)
+          .filter((v): v is number => typeof v === "number");
+        if (!assignedSiteIds.includes(currentSiteId)) {
+          return Forbidden("Site is not assigned to current user");
+        }
+
+        // If changing siteId, ensure the new siteId is also assigned
+        if (siteId !== undefined && siteId !== null) {
+          if (!assignedSiteIds.includes(siteId)) {
+            return Forbidden("Site is not assigned to current user");
+          }
+        }
+      }
+    }
+
+    // If boqId is provided, ensure it belongs to the (new or existing) site.
+    const effectiveSiteIdForBoq =
+      siteId !== undefined ? siteId : existing.siteId;
+    if (boqId !== undefined && boqId !== null) {
+      if (!effectiveSiteIdForBoq) {
+        return BadRequest("siteId is required when selecting a BOQ");
+      }
+      const boq = await prisma.boq.findUnique({
+        where: { id: boqId },
+        select: { id: true, siteId: true },
+      });
+      if (!boq || boq.siteId !== effectiveSiteIdForBoq) {
+        return BadRequest("Invalid BOQ for selected site");
+      }
+    }
 
     // Prevent creator from approving their own cashbook
     if (
@@ -379,6 +437,22 @@ export async function DELETE(
       },
     });
     if (!existing) return NotFound("Cashbook not found");
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const currentSiteId = existing.siteId;
+      if (typeof currentSiteId === "number") {
+        const employee = await prisma.employee.findFirst({
+          where: { userId: auth.user.id },
+          select: { siteEmployees: { select: { siteId: true } } },
+        });
+        const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+          .map((s) => s.siteId)
+          .filter((v): v is number => typeof v === "number");
+        if (!assignedSiteIds.includes(currentSiteId)) {
+          return Forbidden("Site is not assigned to current user");
+        }
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.cashbook.delete({ where: { id } });

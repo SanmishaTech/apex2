@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Success, Error } from "@/lib/api-response";
+import { Success, Error, Forbidden } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { ROLES } from "@/config/roles";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -37,6 +38,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
 
     if (!budget) return Error('Cashbook budget not found', 404);
+
+    if (auth.user.role !== ROLES.ADMIN) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+      if (typeof budget.siteId !== "number" || !assignedSiteIds.includes(budget.siteId)) {
+        return Forbidden("Site is not assigned to current user");
+      }
+    }
 
     // Handle different actions
     if (action === 'approve') {

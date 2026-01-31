@@ -67,7 +67,7 @@ export function FilterBar({
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         )}
       >
-        <div className={cn('overflow-hidden')}> 
+        <div className={cn(open ? 'overflow-visible' : 'overflow-hidden')}> 
           <div className='grid gap-3 grid-cols-[repeat(auto-fit,minmax(180px,1fr))] auto-rows-fr'>
             {children}
           </div>
