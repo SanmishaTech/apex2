@@ -6,7 +6,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOKS]);
+  const auth = await guardApiPermissions(req, [
+    PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT,
+  ]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;

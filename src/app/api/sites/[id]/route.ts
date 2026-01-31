@@ -14,7 +14,7 @@ import {
 } from "@/lib/tax-validation";
 
 const updateSchema = z.object({
-  siteCode: z.string().optional().nullable(),
+  siteCode: z.string().min(1, "Site Code is required"),
   site: z.string().min(1, "Site name is required").optional(),
   shortName: z.string().optional().nullable(),
   companyId: z.number().optional().nullable(),
@@ -217,7 +217,7 @@ export async function PATCH(
 
       // Extract other form data
       siteData = {
-        siteCode: form.get("siteCode") || undefined,
+        siteCode: String(form.get("siteCode") ?? ""),
         site: form.get("site") || undefined,
         shortName: form.get("shortName") || undefined,
         companyId: form.get("companyId")
@@ -627,13 +627,26 @@ export async function PATCH(
     }
     if (error.code === "P2025") return NotFound("Site not found");
     if (error.code === "P2002") {
-      return BadRequest([
-        {
-          code: "custom",
-          path: ["site"],
-          message: "Site name already exists",
-        },
-      ]);
+      const target = (error?.meta as any)?.target;
+      if (Array.isArray(target) && target.includes("siteCode")) {
+        return BadRequest([
+          {
+            code: "custom",
+            path: ["siteCode"],
+            message: "Site Code already exists",
+          },
+        ]);
+      }
+      if (Array.isArray(target) && target.includes("site")) {
+        return BadRequest([
+          {
+            code: "custom",
+            path: ["site"],
+            message: "Site name already exists",
+          },
+        ]);
+      }
+      return BadRequest("Unique constraint violation");
     }
     console.error("Update site error:", error);
     return Error("Failed to update site");

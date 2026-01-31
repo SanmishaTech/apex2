@@ -52,7 +52,12 @@ export function StatusBadge({
   }
 
   const cfg = map[effectiveStatus];
-  const label = cfg?.label || (effectiveStatus === 'active' ? activeLabel : effectiveStatus === 'inactive' ? inactiveLabel : effectiveStatus);
+  const label =
+    effectiveStatus === 'active'
+      ? activeLabel
+      : effectiveStatus === 'inactive'
+        ? inactiveLabel
+        : cfg?.label || effectiveStatus;
   const style = cfg?.className || 'bg-muted text-foreground';
 
   return (

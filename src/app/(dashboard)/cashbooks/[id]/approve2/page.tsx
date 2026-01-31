@@ -27,7 +27,9 @@ export default function CashbookApprove2Page() {
   const [submitting, setSubmitting] = useState(false);
 
   const { data, error, isLoading, mutate } = useSWR<Cashbook>(
-    cashbookId ? `/api/cashbooks/${cashbookId}` : null,
+    cashbookId && can(PERMISSIONS.APPROVE_CASHBOOKS_L2)
+      ? `/api/cashbooks/${cashbookId}`
+      : null,
     apiGet
   );
 
@@ -84,6 +86,25 @@ export default function CashbookApprove2Page() {
     }
   }
 
+  if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
+    return (
+      <div className="container mx-auto py-6">
+        <AppCard>
+          <AppCard.Content className="p-6">
+            <div className="text-center text-muted-foreground">
+              You do not have permission to approve cashbook (Level 2).
+            </div>
+            <div className="mt-4 flex justify-center">
+              <AppButton variant="secondary" onClick={() => router.push('/cashbooks')}>
+                Back
+              </AppButton>
+            </div>
+          </AppCard.Content>
+        </AppCard>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-6">
@@ -102,25 +123,6 @@ export default function CashbookApprove2Page() {
             {error instanceof Error ? error.message : 'Cashbook not found'}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
-    return (
-      <div className="container mx-auto py-6">
-        <AppCard>
-          <AppCard.Content className="p-6">
-            <div className="text-center text-muted-foreground">
-              You do not have permission to approve cashbook (Level 2).
-            </div>
-            <div className="mt-4 flex justify-center">
-              <AppButton variant="secondary" onClick={() => router.push('/cashbooks')}>
-                Back
-              </AppButton>
-            </div>
-          </AppCard.Content>
-        </AppCard>
       </div>
     );
   }

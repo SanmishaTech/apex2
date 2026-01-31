@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   type BoqWhere = {
     OR?: { workName?: { contains: string }; boqNo?: { contains: string } }[];
-    siteId?: number;
+    siteId?: number | { in: number[] };
   };
   const where: BoqWhere = {};
   if (search) {
@@ -50,10 +50,29 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const siteIdParamRaw = searchParams.get("siteId");
+  const siteIdParam = siteIdParamRaw ? Number(siteIdParamRaw) : NaN;
+
+  let assignedSiteIds: number[] | null = null;
+  if ((auth as any).user?.role !== ROLES.ADMIN) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: (auth as any).user?.id },
+      select: { siteEmployees: { select: { siteId: true } } },
+    });
+    assignedSiteIds = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((v): v is number => typeof v === "number");
+  }
+
   // Optional filter by siteId for dependent dropdowns
-  const siteIdParam = Number(searchParams.get("siteId"));
   if (!Number.isNaN(siteIdParam) && siteIdParam > 0) {
-    where.siteId = siteIdParam;
+    if (assignedSiteIds) {
+      (where as any).siteId = assignedSiteIds.includes(siteIdParam)
+        ? siteIdParam
+        : { in: [-1] };
+    } else {
+      where.siteId = siteIdParam;
+    }
   }
 
   const sortableFields = new Set(["boqNo", "workName", "createdAt"]);
@@ -62,15 +81,12 @@ export async function GET(req: NextRequest) {
     : { createdAt: "desc" };
 
   // Site-based visibility: only ADMIN can see all; others limited to assigned sites
-  if ((auth as any).user?.role !== ROLES.ADMIN) {
-    const employee = await prisma.employee.findFirst({
-      where: { userId: (auth as any).user?.id },
-      select: { siteEmployees: { select: { siteId: true } } },
-    });
-    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
-      .map((s) => s.siteId)
-      .filter((v): v is number => typeof v === "number");
-    (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+  if (assignedSiteIds) {
+    if ((where as any).siteId === undefined) {
+      (where as any).siteId = {
+        in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1],
+      };
+    }
   }
 
   const result = await paginate({

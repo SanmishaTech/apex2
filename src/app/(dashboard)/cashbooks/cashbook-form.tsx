@@ -110,14 +110,13 @@ const cashbookDetailSchema = z.object({
 
 const createInputSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
-  siteId: z
-    .union([z.string(), z.number(), z.undefined(), z.null()])
-    .optional()
-    .nullable()
-    .transform((val) => {
-      if (!val || val === "__none" || val === "") return null;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+  siteId: z.preprocess(
+    (v) => String(v ?? ""),
+    z
+      .string()
+      .regex(/^[1-9]\d*$/, "Site is required")
+      .transform((val) => parseInt(val, 10))
+  ),
   boqId: z.preprocess(
     (v) => String(v ?? ""),
     z
@@ -1140,7 +1139,7 @@ export function CashbookForm({
                     <FormItem>
                       <FormLabel>Voucher Date *</FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" />
+                        <Input {...field} type="date" disabled={mode === "edit"} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1158,6 +1157,7 @@ export function CashbookForm({
                         <AppSelect
                           value={String(field.value || "__none")}
                           onValueChange={field.onChange}
+                          disabled={mode === "edit"}
                         >
                           <AppSelect.Item value="__none">
                             Select Site
@@ -1188,6 +1188,7 @@ export function CashbookForm({
                         <AppSelect
                           value={String(field.value || "__none")}
                           onValueChange={field.onChange}
+                          disabled={mode === "edit"}
                         >
                           <AppSelect.Item value="__none">
                             Select BOQ

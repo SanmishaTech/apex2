@@ -13,7 +13,9 @@ function formatDate(d: Date) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOK_BUDGETS]);
+  const auth = await guardApiPermissions(req, [
+    PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT,
+  ]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;
@@ -51,6 +53,7 @@ export async function GET(req: NextRequest) {
   const [mm, yyyy] = month.split("-");
   const startDate = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, 1));
   const endDate = new Date(Date.UTC(Number(yyyy), Number(mm), 1)); // exclusive
+  const endDateInclusive = new Date(Date.UTC(Number(yyyy), Number(mm), 0));
 
   const vouchers = await prisma.cashbook.findMany({
     where: {
@@ -158,7 +161,7 @@ export async function GET(req: NextRequest) {
   wsData.push([`Month: ${month}`]); // row 1
   wsData.push([`Site: ${siteMeta?.site ?? "-"}`]); // row 2
   wsData.push([`BOQ: ${boqMeta?.boqNo ?? "-"}${boqMeta?.workName ? " - " + boqMeta.workName : ""}`]); // row 3
-  wsData.push([`Period: ${formatDate(startDate)} to ${formatDate(new Date(endDate.getTime() - 1))}`]); // row 4
+  wsData.push([`Period: ${formatDate(startDate)} to ${formatDate(endDateInclusive)}`]); // row 4
   wsData.push([`Generated On: ${new Date().toLocaleString("en-IN", { hour12: true })}`]); // row 5
   wsData.push([]); // row 6 (blank)
   wsData.push(["Cashbook Head", "Description", "Budget Amount", "Received", "Expense"]); // row 7 header

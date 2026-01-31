@@ -58,7 +58,7 @@ function makePdfFromLines(lines: string[]) {
 
 export async function GET(req: NextRequest) {
   const auth = await guardApiPermissions(req, [
-    PERMISSIONS.READ_CASHBOOK_BUDGETS,
+    PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT,
   ]);
   if (!auth.ok) return auth.response;
 
@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
   const [mm, yyyy] = month.split("-");
   const startDate = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, 1));
   const endDate = new Date(Date.UTC(Number(yyyy), Number(mm), 1)); // exclusive
+  const endDateInclusive = new Date(Date.UTC(Number(yyyy), Number(mm), 0));
 
   const vouchers = await prisma.cashbook.findMany({
     where: {
@@ -200,9 +201,7 @@ export async function GET(req: NextRequest) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   const fromText = `From Date: ${startDate.toLocaleDateString("en-GB")}`;
-  const toText = `To Date: ${new Date(endDate.getTime() - 1).toLocaleDateString(
-    "en-GB"
-  )}`;
+  const toText = `To Date: ${endDateInclusive.toLocaleDateString("en-GB")}`;
   const siteText = `Site: ${siteMeta?.site ?? "-"}`;
   const boqText = `Boq No: ${boqMeta?.boqNo ?? "-"}`;
   let y = 48;

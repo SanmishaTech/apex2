@@ -45,7 +45,7 @@ type CashbookDetailRow = {
 
 export default function CashbookDetailsPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_CASHBOOKS)) {
+  if (!can(PERMISSIONS.VIEW_CASHBOOKS)) {
     return (
       <div className="text-muted-foreground">
         You do not have access to Cashbook details.
@@ -82,7 +82,7 @@ export default function CashbookDetailsPage() {
   );
 
   const { data: sitesData } = useSWR<{ data: { id: number; site: string }[] }>(
-    "/api/sites?perPage=1000",
+    can(PERMISSIONS.VIEW_CASHBOOKS) ? "/api/sites?perPage=1000" : null,
     apiGet
   );
 
@@ -92,7 +92,7 @@ export default function CashbookDetailsPage() {
   );
 
   const { data: cashbookHeadsData } = useSWR<{ data: { id: number; cashbookHeadName: string }[] }>(
-    "/api/cashbook-heads?perPage=1000",
+    can(PERMISSIONS.VIEW_CASHBOOKS) ? "/api/cashbook-heads?perPage=1000" : null,
     apiGet
   );
 
@@ -173,7 +173,7 @@ export default function CashbookDetailsPage() {
       },
       {
         key: "supportingBill",
-        header: "Bill",
+        header: "Supporting Bill",
         cellClassName: "whitespace-nowrap",
         accessor: (r) => (
           <StatusBadge
@@ -185,35 +185,32 @@ export default function CashbookDetailsPage() {
       },
       {
         key: "voucherNo",
-        header: "V.No",
-        className: "hidden md:table-cell",
-        cellClassName: "hidden md:table-cell whitespace-nowrap",
+        header: "Voucher No.",
+        cellClassName: "whitespace-nowrap",
         accessor: (r) => <div>{r.voucherNo || "-"}</div>,
       },
       {
         key: "openingBalance",
         header: "Opening Balance",
-        className: "hidden lg:table-cell",
-        cellClassName: "hidden lg:table-cell whitespace-nowrap text-right tabular-nums",
+        cellClassName: "whitespace-nowrap text-right tabular-nums",
         accessor: (r) => <div className="text-right">{formatAmount(r.openingBalance)}</div>,
       },
       {
         key: "amountReceived",
-        header: "Recvd",
+        header: "Amt. Received",
         cellClassName: "whitespace-nowrap text-right tabular-nums",
         accessor: (r) => <div className="text-right">{formatAmount(r.amountReceived)}</div>,
       },
       {
         key: "amountPaid",
-        header: "Paid",
+        header: "Amt. Paid",
         cellClassName: "whitespace-nowrap text-right tabular-nums",
         accessor: (r) => <div className="text-right">{formatAmount(r.amountPaid)}</div>,
       },
       {
         key: "closingBalance",
-        header: "Close",
-        className: "hidden lg:table-cell",
-        cellClassName: "hidden lg:table-cell whitespace-nowrap text-right tabular-nums",
+        header: "Closing Balance",
+        cellClassName: "whitespace-nowrap text-right tabular-nums",
         accessor: (r) => <div className="text-right">{formatAmount(r.closingBalance)}</div>,
       },
     ],
@@ -285,52 +282,74 @@ export default function CashbookDetailsPage() {
 
         <AppCard.Content>
           <FilterBar title="Search & Filter">
-            <ComboboxInput
-              control={control}
-              name="siteId"
-              label="Site"
-              required
-              options={siteOptions}
-              placeholder="Select site"
-            />
-            <ComboboxInput
-              control={control}
-              name="boqId"
-              label="BOQ"
-              required
-              options={boqOptions}
-              placeholder={resolvedSiteId ? "Select BOQ" : "Select site first"}
-              disabled={!resolvedSiteId}
-            />
-            <TextInput control={control} name="fromDate" label="From Date" type="date" required />
-            <TextInput control={control} name="toDate" label="To Date" type="date" required />
-            <MultiSelectInput
-              control={control}
-              name="cashbookHeadIds"
-              label="Cashbook Heads (Optional)"
-              options={headOptions}
-              className="w-full col-span-full"
-            />
-            <AppButton
-              size="sm"
-              type="button"
-              onClick={applyFilters}
-              disabled={!resolvedSiteId || !boqId || !fromDate || !toDate}
-              className="min-w-21"
-            >
-              Filter
-            </AppButton>
-            {applied && (
-              <AppButton
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={resetFilters}
-                className="min-w-21"
-              >
-                Reset
-              </AppButton>
-            )}
+            <div className="col-span-full grid grid-cols-1 md:grid-cols-4 gap-3">
+              <ComboboxInput
+                control={control}
+                name="siteId"
+                label="Site"
+                required
+                options={siteOptions}
+                placeholder="Select site"
+              />
+              <ComboboxInput
+                control={control}
+                name="boqId"
+                label="BOQ"
+                required
+                options={boqOptions}
+                placeholder={resolvedSiteId ? "Select BOQ" : "Select site first"}
+                disabled={!resolvedSiteId}
+              />
+              <TextInput
+                control={control}
+                name="fromDate"
+                label="From Date"
+                type="date"
+                required
+                span={1}
+                spanFrom="md"
+              />
+              <TextInput
+                control={control}
+                name="toDate"
+                label="To Date"
+                type="date"
+                required
+                span={1}
+                spanFrom="md"
+              />
+
+              <MultiSelectInput
+                control={control}
+                name="cashbookHeadIds"
+                label="Cashbook Heads (Optional)"
+                options={headOptions}
+                className="w-full md:col-span-4"
+              />
+
+              <div className="flex items-end gap-2 md:col-span-4">
+                <AppButton
+                  size="sm"
+                  type="button"
+                  onClick={applyFilters}
+                  disabled={!resolvedSiteId || !boqId || !fromDate || !toDate}
+                  className="min-w-21"
+                >
+                  Filter
+                </AppButton>
+                {applied && (
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={resetFilters}
+                    className="min-w-21"
+                  >
+                    Reset
+                  </AppButton>
+                )}
+              </div>
+            </div>
           </FilterBar>
 
           <div className="mt-6">

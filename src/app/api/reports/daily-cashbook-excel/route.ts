@@ -33,7 +33,9 @@ function addDaysUtc(d: Date, days: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOKS]);
+  const auth = await guardApiPermissions(req, [
+    PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT,
+  ]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;

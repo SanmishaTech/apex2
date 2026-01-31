@@ -54,6 +54,15 @@ type CashbookBudgetsResponse = {
 };
 
 export default function CashbookBudgetsPage() {
+	const { can } = usePermissions();
+	if (!can(PERMISSIONS.VIEW_CASHBOOK_BUDGETS)) {
+		return (
+			<div className='text-muted-foreground'>
+				You do not have access to Cashbook Budgets.
+			</div>
+		);
+	}
+
 	const [qp, setQp] = useQueryParamsState({
 		page: 1,
 		perPage: 10,
@@ -124,11 +133,9 @@ export default function CashbookBudgetsPage() {
 	}, [page, perPage, search, month, siteId, boqId, sort, order]);
 
 	const { data, error, isLoading, mutate } = useSWR<CashbookBudgetsResponse>(
-		query,
+		can(PERMISSIONS.VIEW_CASHBOOK_BUDGETS) ? query : null,
 		apiGet
 	);
-
-	const { can } = usePermissions();
 
 	if (error) {
 		toast.error((error as Error).message || 'Failed to load cashbook budgets');
@@ -198,14 +205,6 @@ export default function CashbookBudgetsPage() {
 				currency: 'INR',
 				minimumFractionDigits: 2
 			}).format(Number(r.approvedBudgetAmount)) : 'Rs. 0.00',
-		},
-		{
-			key: 'receivedAmount',
-			header: 'Received Amount',
-			sortable: false,
-			className: 'text-right whitespace-nowrap',
-			cellClassName: 'text-right font-mono whitespace-nowrap',
-			accessor: () => 'Rs. 0.00',
 		},
 		{
 			key: 'createdBy',
@@ -353,7 +352,7 @@ export default function CashbookBudgetsPage() {
                       )}
                       
                       {/* Approval 1 Button - First approval if not done */}
-                      {!hasApproved1 && (
+                      {can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L1) && !hasApproved1 && (
                         <Link href={`/cashbook-budgets/${budget.id}/approve-1`}>
                           <AppButton size='sm' variant='default' className='h-8 px-2 bg-blue-600 hover:bg-blue-700'>
                             Approval 1
@@ -362,7 +361,7 @@ export default function CashbookBudgetsPage() {
                       )}
                       
                       {/* Approval 2 Button - Second approval only if approved1 but not approved */}
-                      {hasApproved1 && !hasApproved && (
+                      {can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2) && hasApproved1 && !hasApproved && (
                         <Link href={`/cashbook-budgets/${budget.id}/approve`}>
                           <AppButton size='sm' variant='default' className='h-8 px-2 bg-green-600 hover:bg-green-700'>
                             Approval 2
@@ -371,7 +370,7 @@ export default function CashbookBudgetsPage() {
                       )}
                       
                       {/* Accept Button - only if both approvals done but not accepted */}
-                      {hasApproved && !hasAccepted && (
+                      {can(PERMISSIONS.ACCEPT_CASHBOOK_BUDGETS) && hasApproved && !hasAccepted && (
                         <AppButton 
                           size='sm' 
                           variant='default' 

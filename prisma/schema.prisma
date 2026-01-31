@@ -265,7 +265,7 @@ enum SiteStatus {
 // Site master data for location/branch management
 model Site {
   id        Int     @id @default(autoincrement())
-  siteCode     String?
+  siteCode     String?  @unique
   site      String  @unique
   shortName String?
 
@@ -1333,7 +1333,7 @@ model Cashbook {
   id Int @id @default(autoincrement())
 
   // Header Details
-  voucherNo            String // auto-generated like VCH-00001
+  voucherNo            String    @unique // auto-generated like VCH-00001
   voucherDate          DateTime @db.Date()
   siteId               Int?
   site                 Site?    @relation(fields: [siteId], references: [id])
