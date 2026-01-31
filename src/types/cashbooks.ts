@@ -73,7 +73,7 @@ export interface CashbooksResponse {
 
 export interface CreateCashbookRequest {
   voucherDate: string;
-  siteId: number | null;
+  siteId: number;
   boqId: number | null;
   attachVoucherCopyUrl?: string | null;
   cashbookDetails: Array<{

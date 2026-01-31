@@ -257,7 +257,7 @@ export async function PATCH(
     if (!statusAction) {
       const rolePerms = (auth.user.permissions || []) as string[];
       if (!rolePerms.includes(PERMISSIONS.EDIT_CASHBOOKS)) {
-        return BadRequest("Missing permission to edit cashbook");
+        return Forbidden("Missing permission to edit cashbook");
       }
     }
 
@@ -267,7 +267,7 @@ export async function PATCH(
     if (statusAction === "approve1") {
       const rolePerms = (auth.user.permissions || []) as string[];
       if (!rolePerms.includes(PERMISSIONS.APPROVE_CASHBOOKS_L1)) {
-        return BadRequest("Missing permission to approve level 1");
+        return Forbidden("Missing permission to approve level 1");
       }
       if (existing.isApproved1) {
         return BadRequest("Cashbook already approved (level 1)");
@@ -280,7 +280,7 @@ export async function PATCH(
     if (statusAction === "approve2") {
       const rolePerms = (auth.user.permissions || []) as string[];
       if (!rolePerms.includes(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
-        return BadRequest("Missing permission to approve level 2");
+        return Forbidden("Missing permission to approve level 2");
       }
       if (!existing.isApproved1) {
         return BadRequest("Only level 1 approved cashbook can be approved (level 2)");

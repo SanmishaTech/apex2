@@ -29,7 +29,7 @@ function parseHeadIds(raw: string | null) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOKS]);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.VIEW_CASHBOOKS]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;

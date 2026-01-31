@@ -20,7 +20,7 @@ type FormValues = {
 
 export default function CashbookBudgetReportPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_CASHBOOK_BUDGETS)) {
+  if (!can(PERMISSIONS.VIEW_CASHBOOK_BUDGET_REPORT)) {
     return <div className="text-muted-foreground">You do not have access to Cashbook Budget reports.</div>;
   }
 
@@ -31,7 +31,7 @@ export default function CashbookBudgetReportPage() {
   const { control, getValues, watch } = form;
 
   const { data: sitesData } = useSWR<{ data: { id: number; site: string }[] }>(
-    "/api/sites?perPage=1000",
+    can(PERMISSIONS.VIEW_CASHBOOK_BUDGET_REPORT) ? "/api/sites?perPage=1000" : null,
     apiGet
   );
 
@@ -70,6 +70,10 @@ export default function CashbookBudgetReportPage() {
   }, []);
 
   function handleGenerate() {
+    if (!can(PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT)) {
+      alert("You do not have permission to generate this report");
+      return;
+    }
     const { month, siteId, boqId, format } = getValues();
     if (!month || !/^\d{2}-\d{4}$/.test(month)) {
       alert("Please enter month in MM-YYYY format");
@@ -157,7 +161,13 @@ export default function CashbookBudgetReportPage() {
           </div>
         </AppCard.Content>
         <AppCard.Footer className="justify-end">
-          <AppButton type="button" onClick={handleGenerate}>Generate</AppButton>
+          <AppButton
+            type="button"
+            onClick={handleGenerate}
+            disabled={!can(PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT)}
+          >
+            Generate
+          </AppButton>
         </AppCard.Footer>
       </AppCard>
     </Form>

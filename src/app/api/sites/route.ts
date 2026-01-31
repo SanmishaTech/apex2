@@ -16,7 +16,7 @@ import {
 } from "@/lib/tax-validation";
 
 const createSchema = z.object({
-  siteCode: z.string().optional().nullable(),
+  siteCode: z.string().min(1, "Site Code is required"),
   site: z.string().min(1, "Site name is required"),
   shortName: z.string().optional().nullable(),
   companyId: z
@@ -122,6 +122,21 @@ const createSchema = z.object({
     .optional()
     .nullable(),
 }).superRefine(async (data, ctx) => {
+  const siteCode = String(data.siteCode || "").trim();
+  if (siteCode) {
+    const existingCode = await prisma.site.findUnique({
+      where: { siteCode },
+      select: { id: true },
+    });
+    if (existingCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["siteCode"],
+        message: "Site Code already exists",
+      });
+    }
+  }
+
   const siteName = String(data.site || "").trim();
   if (!siteName) return;
   const existing = await prisma.site.findUnique({
@@ -391,7 +406,7 @@ export async function POST(req: NextRequest) {
 
       // Prepare site data
       siteData = {
-        siteCode: form.get("siteCode") || null,
+        siteCode: String(form.get("siteCode") ?? ""),
         site: form.get("site") || null,
         shortName: form.get("shortName") || null,
         companyId: form.get("companyId") ? Number(form.get("companyId")) : null,
@@ -579,6 +594,25 @@ export async function POST(req: NextRequest) {
       return BadRequest(error.errors);
     }
     if (error.code === "P2002") {
+      const target = (error?.meta as any)?.target;
+      if (Array.isArray(target) && target.includes("siteCode")) {
+        return BadRequest([
+          {
+            code: "custom",
+            path: ["siteCode"],
+            message: "Site Code already exists",
+          },
+        ]);
+      }
+      if (Array.isArray(target) && target.includes("site")) {
+        return BadRequest([
+          {
+            code: "custom",
+            path: ["site"],
+            message: "Site name already exists",
+          },
+        ]);
+      }
       return ApiError("Site already exists", 409);
     }
     console.error("Create site error:", error);

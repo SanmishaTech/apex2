@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
@@ -13,57 +14,56 @@ import type { UploadConfig } from "@/lib/upload";
 import { ROLES } from "@/config/roles";
 import { recomputeCashbookBalances } from "@/lib/cashbook-balances";
 
+ const SITE_CODE_MISSING_ERROR = "SITE_CODE_MISSING";
+
 function toDateOnlyUtc(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return d;
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-function getCashbookMonthCode(d: Date) {
-  // April -> A, May -> B, ... March -> L
-  const m = d.getUTCMonth(); // 0=Jan
-  const codes = ["J", "K", "L", "A", "B", "C", "D", "E", "F", "G", "H", "I"] as const;
-  return codes[m] || "";
-}
+async function generateCashbookVoucherNo(
+  tx: typeof prisma,
+  opts: { siteId: number }
+) {
+  const year = new Date().getFullYear();
 
-async function generateCashbookVoucherNo(tx: typeof prisma, voucherDate: Date) {
-  const monthCode = getCashbookMonthCode(voucherDate);
-  const day = voucherDate.getUTCDate();
+  const site = await tx.site.findUnique({
+    where: { id: opts.siteId },
+    select: { siteCode: true },
+  });
+  if (!site) {
+    throw new Error("Invalid site");
+  }
+  if (!site.siteCode) {
+    throw new Error(SITE_CODE_MISSING_ERROR);
+  }
 
-  const monthStart = new Date(voucherDate);
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0, 0, 0, 0);
+  const prefix = `${site.siteCode}/${year}/`;
 
-  const monthEnd = new Date(monthStart);
-  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
-
-  const rows = await tx.cashbook.findMany({
-    where: {
-      voucherDate: {
-        gte: monthStart,
-        lt: monthEnd,
-      },
-    },
+  const last = await tx.cashbook.findFirst({
+    where: { voucherNo: { startsWith: prefix } },
+    orderBy: { voucherNo: "desc" },
     select: { voucherNo: true },
   });
 
-  let maxSeq = 0;
-  for (const r of rows) {
-    const v = r.voucherNo;
-    if (!v) continue;
-    const parts = v.split("/");
-    if (parts.length < 3) continue;
-    const seq = Number(parts[2]);
-    if (!Number.isNaN(seq) && seq > maxSeq) maxSeq = seq;
+  let nextSeq = 1;
+  const lastNo = last?.voucherNo;
+  if (typeof lastNo === "string" && lastNo.startsWith(prefix)) {
+    const parts = lastNo.split("/");
+    const lastSeq = Number(parts[2]);
+    if (Number.isFinite(lastSeq) && lastSeq >= 1) {
+      nextSeq = lastSeq + 1;
+    }
   }
 
-  const seq = maxSeq + 1;
-  return `${monthCode}/${day}/${seq}`;
+  const seqPart = String(nextSeq).padStart(5, "0");
+  return `${prefix}${seqPart}`;
 }
 
 const createSchema = z.object({
   voucherDate: z.string().min(1, "Voucher date is required"),
-  siteId: z.number().nullable().optional(),
+  siteId: z.number().int().positive(),
   boqId: z.number().nullable().optional(),
   attachVoucherCopyUrl: z.string().nullable().optional(),
   cashbookDetails: z
@@ -278,62 +278,83 @@ export async function POST(req: NextRequest) {
 
     const voucherDateObj = toDateOnlyUtc(voucherDate);
 
-    const created = await prisma.$transaction(async (tx) => {
-      const voucherNo = await generateCashbookVoucherNo(tx as any, voucherDateObj);
-      const createdRow = await tx.cashbook.create({
-        data: {
-          voucherNo,
-          voucherDate: voucherDateObj,
-          siteId,
-          boqId,
-          attachVoucherCopyUrl: finalAttachVoucherUrl,
-          createdById: auth.user.id,
-          updatedById: auth.user.id,
-          cashbookDetails: {
-            create: cashbookDetails.map((detail, detailIndex) => ({
-              cashbookHeadId: detail.cashbookHeadId,
-              description: detail.description ?? null,
-              openingBalance: detail.openingBalance ?? null,
-              closingBalance: detail.closingBalance ?? null,
-              amountReceived: detail.amountReceived ?? null,
-              amountPaid: detail.amountPaid ?? null,
-              documentUrl:
-                detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
-            })),
-          },
-        },
-        select: { id: true },
-      });
+    let created: any = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        created = await prisma.$transaction(async (tx) => {
+          const voucherNo = await generateCashbookVoucherNo(tx as any, { siteId });
 
-      await recomputeCashbookBalances({
-        tx: tx as any,
-        siteId,
-        boqId,
-        fromVoucherDate: voucherDateObj,
-      });
-
-      const refreshed = await tx.cashbook.findUnique({
-        where: { id: createdRow.id },
-        include: {
-          site: { select: { id: true, site: true } },
-          boq: { select: { id: true, boqNo: true } },
-          cashbookDetails: {
-            include: {
-              cashbookHead: { select: { id: true, cashbookHeadName: true } },
+          const createdRow = await tx.cashbook.create({
+            data: {
+              voucherNo,
+              voucherDate: voucherDateObj,
+              siteId,
+              boqId,
+              attachVoucherCopyUrl: finalAttachVoucherUrl,
+              createdById: auth.user.id,
+              updatedById: auth.user.id,
+              cashbookDetails: {
+                create: cashbookDetails.map((detail, detailIndex) => ({
+                  cashbookHeadId: detail.cashbookHeadId,
+                  description: detail.description ?? null,
+                  openingBalance: detail.openingBalance ?? null,
+                  closingBalance: detail.closingBalance ?? null,
+                  amountReceived: detail.amountReceived ?? null,
+                  amountPaid: detail.amountPaid ?? null,
+                  documentUrl:
+                    detailDocumentUrls[detailIndex] ?? detail.documentUrl ?? null,
+                })),
+              },
             },
-          },
-        },
-      });
+            select: { id: true },
+          });
 
-      if (!refreshed) throw new Error("Failed to load created cashbook");
-      return refreshed;
-    });
+          await recomputeCashbookBalances({
+            tx: tx as any,
+            siteId,
+            boqId,
+            fromVoucherDate: voucherDateObj,
+          });
+
+          const refreshed = await tx.cashbook.findUnique({
+            where: { id: createdRow.id },
+            include: {
+              site: { select: { id: true, site: true } },
+              boq: { select: { id: true, boqNo: true } },
+              cashbookDetails: {
+                include: {
+                  cashbookHead: { select: { id: true, cashbookHeadName: true } },
+                },
+              },
+            },
+          });
+
+          if (!refreshed) throw new Error("Failed to load created cashbook");
+          return refreshed;
+        });
+        break;
+      } catch (e: any) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+          const target = (e.meta as any)?.target;
+          if (Array.isArray(target) && target.includes("voucherNo")) {
+            continue;
+          }
+        }
+        throw e;
+      }
+    }
+    if (!created) throw new Error("Failed to generate unique voucher number");
     // Budget recompute disabled: received amount tracking removed
 
     return Success(created, 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
+    }
+    if (error instanceof Error && error.message === SITE_CODE_MISSING_ERROR) {
+      return BadRequest(
+        "Site Code is not added. Please add Site Code to generate the Voucher Number."
+      );
     }
     console.error("Create cashbook error:", error);
     return ApiError("Failed to create cashbook");

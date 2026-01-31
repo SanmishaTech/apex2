@@ -58,7 +58,7 @@ function makePdfFromLines(lines: string[]) {
 
 export async function GET(req: NextRequest) {
   const auth = await guardApiPermissions(req, [
-    PERMISSIONS.READ_CASHBOOK_BUDGETS,
+    PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT,
   ]);
   if (!auth.ok) return auth.response;
 

@@ -9,6 +9,8 @@ import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { usePermissions } from '@/hooks/use-permissions';
+import { PERMISSIONS } from '@/config/roles';
 
 type CashbookBudgetData = {
   id: number;
@@ -39,9 +41,13 @@ export default function ApproveCashbookBudgetPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [approvedRemarks, setApprovedRemarks] = useState('');
+
+  const { can } = usePermissions();
   
   const { data, isLoading, error, mutate } = useSWR<CashbookBudgetData>(
-    params?.id ? `/api/cashbook-budgets/${params.id}` : null,
+    params?.id && can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2)
+      ? `/api/cashbook-budgets/${params.id}`
+      : null,
     apiGet
   );
 
@@ -60,6 +66,16 @@ export default function ApproveCashbookBudgetPage() {
       setApprovedAmounts(initial);
     }
   }, [data, Object.keys(approvedAmounts).length]);
+
+  if (!can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">
+          You do not have permission to approve cashbook budgets (Level 2).
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

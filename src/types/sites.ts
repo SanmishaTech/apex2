@@ -83,7 +83,7 @@ export interface SitesResponse {
 }
 
 export interface CreateSiteData {
-  siteCode?: string | null;
+  siteCode: string;
   site: string;
   shortName?: string | null;
   companyId?: number | null;
@@ -111,7 +111,7 @@ export interface CreateSiteData {
 }
 
 export interface UpdateSiteData {
-  siteCode?: string | null;
+  siteCode: string;
   site?: string;
   shortName?: string | null;
   companyId?: number | null;

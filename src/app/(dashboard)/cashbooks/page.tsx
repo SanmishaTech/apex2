@@ -71,14 +71,23 @@ export default function CashbooksPage() {
     return `/api/cashbooks?${sp.toString()}`;
   }, [page, perPage, search, isVoucher, sort, order]);
 
+  const { can } = usePermissions();
+  const { user } = useCurrentUser();
+
   const { data, error, isLoading, mutate } = useSWR<CashbooksResponse>(
-    query,
+    can(PERMISSIONS.VIEW_CASHBOOKS) ? query : null,
     apiGet
   );
 
   const { pushWithScrollSave } = useScrollRestoration("cashbooks-list");
-  const { can } = usePermissions();
-  const { user } = useCurrentUser();
+
+  if (!can(PERMISSIONS.VIEW_CASHBOOKS)) {
+    return (
+      <div className="text-muted-foreground">
+        You do not have access to Cashbooks.
+      </div>
+    );
+  }
 
   async function handleDelete(id: string) {
     try {

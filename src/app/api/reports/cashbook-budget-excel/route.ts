@@ -13,7 +13,9 @@ function formatDate(d: Date) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_CASHBOOK_BUDGETS]);
+  const auth = await guardApiPermissions(req, [
+    PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT,
+  ]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;

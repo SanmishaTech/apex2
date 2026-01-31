@@ -121,7 +121,7 @@ export function SiteForm({
   );
 
   const schema = z.object({
-    siteCode: z.string().optional().nullable(),
+    siteCode: z.string().min(1, "Site Code is required"),
     site: z.string().min(1, "Site name is required"),
     shortName: z.string().optional().nullable(),
     companyId: z
@@ -331,6 +331,8 @@ export function SiteForm({
   const selectedCompanyId = watch("companyId");
   const selectedZoneId = watch("zoneId");
   const isCreate = mode === "create";
+  const isSiteCodeLocked =
+    mode === "edit" && Boolean(String(initial?.siteCode ?? "").trim());
 
   // Debug form state
   useEffect(() => {
@@ -600,6 +602,8 @@ export function SiteForm({
                   name="siteCode"
                   label="Site Code"
                   placeholder="Enter Site Code"
+                  required
+                  disabled={isSiteCodeLocked}
                 />
                 <TextInput
                   control={control}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error, Forbidden } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
-import { ROLES } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -38,6 +38,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
 
     if (!budget) return Error('Cashbook budget not found', 404);
+
+    // Permission checks per action
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    if (action === "approve_1") {
+      if (!permSet.has(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L1)) {
+        return Forbidden("Missing permission to approve cashbook budget (Level 1)");
+      }
+    }
+    if (action === "approve") {
+      if (!permSet.has(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2)) {
+        return Forbidden("Missing permission to approve cashbook budget (Level 2)");
+      }
+    }
+    if (action === "accept") {
+      if (!permSet.has(PERMISSIONS.ACCEPT_CASHBOOK_BUDGETS)) {
+        return Forbidden("Missing permission to accept cashbook budget");
+      }
+    }
 
     if (auth.user.role !== ROLES.ADMIN) {
       const employee = await prisma.employee.findFirst({

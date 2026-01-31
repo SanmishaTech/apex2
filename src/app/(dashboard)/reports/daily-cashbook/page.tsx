@@ -22,7 +22,7 @@ type FormValues = {
 
 export default function DailyCashbookReportPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_CASHBOOKS)) {
+  if (!can(PERMISSIONS.VIEW_DAILY_CASHBOOK_REPORT)) {
     return (
       <div className="text-muted-foreground">
         You do not have access to Cashbook reports.
@@ -37,7 +37,7 @@ export default function DailyCashbookReportPage() {
   const { control, getValues, watch } = form;
 
   const { data: sitesData } = useSWR<{ data: { id: number; site: string }[] }>(
-    "/api/sites?perPage=1000",
+    can(PERMISSIONS.VIEW_DAILY_CASHBOOK_REPORT) ? "/api/sites?perPage=1000" : null,
     apiGet
   );
 
@@ -65,6 +65,10 @@ export default function DailyCashbookReportPage() {
   );
 
   function handleGenerate() {
+    if (!can(PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT)) {
+      alert("You do not have permission to generate this report");
+      return;
+    }
     const { fromDate, toDate, siteId, boqId, format } = getValues();
     if (!fromDate || !toDate || !siteId || !boqId) {
       alert("All fields are mandatory");
@@ -145,7 +149,11 @@ export default function DailyCashbookReportPage() {
           </div>
         </AppCard.Content>
         <AppCard.Footer className="justify-end">
-          <AppButton type="button" onClick={handleGenerate}>
+          <AppButton
+            type="button"
+            onClick={handleGenerate}
+            disabled={!can(PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT)}
+          >
             Generate
           </AppButton>
         </AppCard.Footer>

@@ -183,7 +183,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   // Cashbooks
   { prefix: "/cashbooks/new", permissions: [PERMISSIONS.CREATE_CASHBOOKS] },
   // Allow viewing subpages (e.g., approve1/approve2) without requiring EDIT rights
-  { prefix: "/cashbooks/", permissions: [PERMISSIONS.READ_CASHBOOKS] },
+  { prefix: "/cashbooks/", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
   { prefix: "/cashbooks", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
   { prefix: "/cashbook-details", permissions: [PERMISSIONS.VIEW_CASHBOOKS] },
   // Indents
@@ -296,11 +296,15 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.READ_PAYSLIPS] },
   {
     prefix: "/reports/cashbook-budget",
-    permissions: [PERMISSIONS.VIEW_CASHBOOK_BUDGETS],
+    permissions: [PERMISSIONS.VIEW_CASHBOOK_BUDGET_REPORT],
   },
   {
-    prefix: "/reports/boq-bills",
-    permissions: [PERMISSIONS.VIEW_BOQ_BILLS],
+    prefix: "/reports/daily-cashbook",
+    permissions: [PERMISSIONS.VIEW_DAILY_CASHBOOK_REPORT],
+  },
+  {
+    prefix: "/reports/boq-targets",
+    permissions: [PERMISSIONS.READ_BOQS],
   },
 
   // add more page rules here (place more specific prefixes first)
@@ -547,16 +551,37 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
     prefix: "/api/cashbook-budgets",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+      GET: [PERMISSIONS.VIEW_CASHBOOK_BUDGETS],
       POST: [PERMISSIONS.CREATE_CASHBOOK_BUDGETS],
       PATCH: [PERMISSIONS.EDIT_CASHBOOK_BUDGETS],
       DELETE: [PERMISSIONS.DELETE_CASHBOOK_BUDGETS],
     },
   },
   {
+    // Subroutes like /api/cashbook-budgets/:id and /api/cashbook-budgets/:id/actions
+    prefix: "/api/cashbook-budgets/",
+    methods: {
+      GET: [PERMISSIONS.VIEW_CASHBOOK_BUDGETS],
+      DELETE: [PERMISSIONS.DELETE_CASHBOOK_BUDGETS],
+      // Let handler enforce approve/accept permissions per action
+      POST: [],
+    },
+  },
+  {
     prefix: "/api/cashbooks",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOKS],
+      GET: [PERMISSIONS.VIEW_CASHBOOKS],
+      POST: [PERMISSIONS.CREATE_CASHBOOKS],
+      // Let the handler enforce granular permissions: edit vs approve1/approve2
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_CASHBOOKS],
+    },
+  },
+  {
+    // Subroutes like /api/cashbooks/:id
+    prefix: "/api/cashbooks/",
+    methods: {
+      GET: [PERMISSIONS.VIEW_CASHBOOKS],
       POST: [PERMISSIONS.CREATE_CASHBOOKS],
       // Let the handler enforce granular permissions: edit vs approve1/approve2
       PATCH: [],
@@ -566,7 +591,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
     prefix: "/api/cashbook-details",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOKS],
+      GET: [PERMISSIONS.VIEW_CASHBOOKS],
     },
   },
   {
@@ -736,25 +761,25 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
   {
     prefix: "/api/reports/cashbook-budget-pdf",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+      GET: [PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT],
     },
   },
   {
     prefix: "/api/reports/cashbook-budget-excel",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOK_BUDGETS],
+      GET: [PERMISSIONS.GENERATE_CASHBOOK_BUDGET_REPORT],
     },
   },
   {
     prefix: "/api/reports/daily-cashbook-pdf",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOKS],
+      GET: [PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT],
     },
   },
   {
     prefix: "/api/reports/daily-cashbook-excel",
     methods: {
-      GET: [PERMISSIONS.READ_CASHBOOKS],
+      GET: [PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT],
     },
   },
   {

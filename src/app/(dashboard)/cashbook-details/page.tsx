@@ -45,7 +45,7 @@ type CashbookDetailRow = {
 
 export default function CashbookDetailsPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_CASHBOOKS)) {
+  if (!can(PERMISSIONS.VIEW_CASHBOOKS)) {
     return (
       <div className="text-muted-foreground">
         You do not have access to Cashbook details.
@@ -82,7 +82,7 @@ export default function CashbookDetailsPage() {
   );
 
   const { data: sitesData } = useSWR<{ data: { id: number; site: string }[] }>(
-    "/api/sites?perPage=1000",
+    can(PERMISSIONS.VIEW_CASHBOOKS) ? "/api/sites?perPage=1000" : null,
     apiGet
   );
 
@@ -92,7 +92,7 @@ export default function CashbookDetailsPage() {
   );
 
   const { data: cashbookHeadsData } = useSWR<{ data: { id: number; cashbookHeadName: string }[] }>(
-    "/api/cashbook-heads?perPage=1000",
+    can(PERMISSIONS.VIEW_CASHBOOKS) ? "/api/cashbook-heads?perPage=1000" : null,
     apiGet
   );
 
