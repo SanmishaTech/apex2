@@ -24,6 +24,7 @@ type MultiSelectInputProps<
   options: Option[];
   disabled?: boolean;
   className?: string;
+  size?: 'sm' | 'md';
   span?: number;
   spanFrom?: 'sm' | 'md' | 'lg' | 'xl';
 };
@@ -39,6 +40,7 @@ export function MultiSelectInput<
   options,
   disabled = false,
   className,
+  size = 'md',
   span,
   spanFrom,
 }: MultiSelectInputProps<TFieldValues, TName>) {
@@ -58,7 +60,64 @@ export function MultiSelectInput<
 
   const getSpanClasses = () => {
     if (!span || !spanFrom) return '';
-    return `${spanFrom}:col-span-${span}`;
+    const MAP_SM: Record<number, string> = {
+      1: 'sm:col-span-1',
+      2: 'sm:col-span-2',
+      3: 'sm:col-span-3',
+      4: 'sm:col-span-4',
+      5: 'sm:col-span-5',
+      6: 'sm:col-span-6',
+      7: 'sm:col-span-7',
+      8: 'sm:col-span-8',
+      9: 'sm:col-span-9',
+      10: 'sm:col-span-10',
+      11: 'sm:col-span-11',
+      12: 'sm:col-span-12',
+    };
+    const MAP_MD: Record<number, string> = {
+      1: 'md:col-span-1',
+      2: 'md:col-span-2',
+      3: 'md:col-span-3',
+      4: 'md:col-span-4',
+      5: 'md:col-span-5',
+      6: 'md:col-span-6',
+      7: 'md:col-span-7',
+      8: 'md:col-span-8',
+      9: 'md:col-span-9',
+      10: 'md:col-span-10',
+      11: 'md:col-span-11',
+      12: 'md:col-span-12',
+    };
+    const MAP_LG: Record<number, string> = {
+      1: 'lg:col-span-1',
+      2: 'lg:col-span-2',
+      3: 'lg:col-span-3',
+      4: 'lg:col-span-4',
+      5: 'lg:col-span-5',
+      6: 'lg:col-span-6',
+      7: 'lg:col-span-7',
+      8: 'lg:col-span-8',
+      9: 'lg:col-span-9',
+      10: 'lg:col-span-10',
+      11: 'lg:col-span-11',
+      12: 'lg:col-span-12',
+    };
+    const MAP_XL: Record<number, string> = {
+      1: 'xl:col-span-1',
+      2: 'xl:col-span-2',
+      3: 'xl:col-span-3',
+      4: 'xl:col-span-4',
+      5: 'xl:col-span-5',
+      6: 'xl:col-span-6',
+      7: 'xl:col-span-7',
+      8: 'xl:col-span-8',
+      9: 'xl:col-span-9',
+      10: 'xl:col-span-10',
+      11: 'xl:col-span-11',
+      12: 'xl:col-span-12',
+    };
+    const spanMap = spanFrom === 'sm' ? MAP_SM : spanFrom === 'md' ? MAP_MD : spanFrom === 'lg' ? MAP_LG : MAP_XL;
+    return span >= 1 && span <= 12 ? spanMap[span] : '';
   };
 
   return (
@@ -82,8 +141,12 @@ export function MultiSelectInput<
 
         const selectedOptions = options.filter(option => selectedValues.includes(option.value));
 
+        const buttonSizeClass = size === 'sm' ? 'min-h-9' : 'min-h-10';
+        const badgeSizeClass = size === 'sm' ? 'text-[11px] px-2 py-0' : 'text-xs';
+        const formItemSpacingClass = size === 'sm' ? 'space-y-1' : 'space-y-2';
+
         return (
-          <FormItem className={cn('space-y-2', getSpanClasses(), className)}>
+          <FormItem className={cn('col-span-12', formItemSpacingClass, getSpanClasses(), className)}>
             {label && <FormLabel>{label}</FormLabel>}
             <FormControl>
               <div ref={containerRef} className="relative">
@@ -93,7 +156,8 @@ export function MultiSelectInput<
                   role="combobox"
                   aria-expanded={isOpen}
                   className={cn(
-                    "w-full justify-between text-left font-normal h-auto min-h-10 items-start",
+                    "w-full justify-between text-left font-normal h-auto items-start",
+                    buttonSizeClass,
                     selectedValues.length === 0 && "text-muted-foreground"
                   )}
                   disabled={disabled}
@@ -107,7 +171,7 @@ export function MultiSelectInput<
                         <Badge
                           key={option.value}
                           variant="secondary"
-                          className="text-xs"
+                          className={badgeSizeClass}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveOption(option.value);

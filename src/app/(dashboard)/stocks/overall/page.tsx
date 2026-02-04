@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { useEffect, useMemo, useState } from "react";
 import { AppButton, AppCard } from "@/components/common";
+import { AppCombobox } from "@/components/common";
 import { DataTable, Column } from "@/components/common/data-table";
 import type { SortState } from "@/components/common/data-table";
 import { Pagination } from "@/components/common/pagination";
@@ -12,6 +13,7 @@ import { AppSelect } from "@/components/common/app-select";
 import { useProtectPage } from "@/hooks/use-protect-page";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { apiGet } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
 
 type Row = {
   id: number;
@@ -89,9 +91,53 @@ export default function OverallStockPage() {
   const { data, isLoading } = useSWR<OverallResponse>(query, apiGet);
   const { data: sitesOptions } = useSWR<any>("/api/sites/options", apiGet);
   const itemsOptionsKey = useMemo(() => {
-    return siteDraft ? `/api/items/options?siteId=${siteDraft}` : "/api/items/options";
+    return siteDraft
+      ? `/api/items/options?siteId=${siteDraft}`
+      : "/api/items/options?assignedOnly=true";
   }, [siteDraft]);
   const { data: itemsOptions } = useSWR<any>(itemsOptionsKey, apiGet);
+
+  const [exporting, setExporting] = useState(false);
+
+  const itemComboboxOptions = useMemo(() => {
+    const opts = (itemsOptions?.data || []).map((it: any) => ({
+      value: String(it.id),
+      label: it.itemCode ? `${it.itemCode} - ${it.item}` : String(it.item || ""),
+    }));
+    return [{ value: "", label: "All Items" }, ...opts];
+  }, [itemsOptions]);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const sp = new URLSearchParams();
+      if (search) sp.set("search", search);
+      if (siteId) sp.set("siteId", siteId);
+      if (itemId) sp.set("itemId", itemId);
+      if (sort) sp.set("sort", sort);
+      if (order) sp.set("order", order);
+
+      const url = `/api/stocks/overall/export?${sp.toString()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        toast.error(`Export failed (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `overall_stock_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to export overall stock");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const columns: Column<Row>[] = [
     { key: "site", header: "Site name", accessor: (r) => r.site, sortable: true },
@@ -149,18 +195,17 @@ export default function OverallStockPage() {
               </AppSelect.Item>
             ))}
           </AppSelect>
-          <AppSelect
-            value={itemDraft || "__all"}
-            onValueChange={(v) => setItemDraft(v === "__all" ? "" : v)}
-            placeholder="Item"
-          >
-            <AppSelect.Item value="__all">All Items</AppSelect.Item>
-            {(itemsOptions?.data || []).map((it: any) => (
-              <AppSelect.Item key={it.id} value={String(it.id)}>
-                {it.item}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
+          <div className="w-full">
+            <label className="sr-only">Item</label>
+            <AppCombobox
+              value={itemDraft || ""}
+              onValueChange={(v) => setItemDraft(v || "")}
+              options={itemComboboxOptions}
+              placeholder="All Items"
+              searchPlaceholder="Search item..."
+              emptyText="No items found."
+            />
+          </div>
           <AppButton
             size="sm"
             onClick={applyFilters}
@@ -179,6 +224,16 @@ export default function OverallStockPage() {
               Reset
             </AppButton>
           )}
+          <AppButton
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            isLoading={exporting}
+            disabled={exporting}
+            className="min-w-[84px]"
+          >
+            Export
+          </AppButton>
         </FilterBar>
 
         <DataTable

@@ -37,13 +37,32 @@ export async function GET(req: NextRequest) {
       Math.max(1, Number(searchParams.get("perPage")) || 10)
     );
     const search = searchParams.get("search")?.trim() || "";
-    const status = searchParams.get("status")?.trim() || "";
-    const assetGroupId = searchParams.get("assetGroupId");
+    const statusParam = searchParams.get("status")?.trim() || "";
+    const assetGroupIdParam = searchParams.get("assetGroupId")?.trim() || "";
     const assetCategoryId = searchParams.get("assetCategoryId");
     const transferStatus = searchParams.get("transferStatus");
-    const currentSiteId = searchParams.get("currentSiteId");
+    const currentSiteIdParam = searchParams.get("currentSiteId")?.trim() || "";
     const sort = searchParams.get("sort") || "createdAt";
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
+
+    const statusValues = statusParam
+      ? statusParam
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean)
+      : [];
+    const assetGroupIds = assetGroupIdParam
+      ? assetGroupIdParam
+          .split(",")
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n))
+      : [];
+    const currentSiteIds = currentSiteIdParam
+      ? currentSiteIdParam
+          .split(",")
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n))
+      : [];
 
     const where: any = {};
     if (search) {
@@ -57,11 +76,15 @@ export async function GET(req: NextRequest) {
         { assetCategory: { category: { contains: search } } },
       ];
     }
-    if (status) {
-      where.status = status;
+    if (statusValues.length === 1) {
+      where.status = statusValues[0];
+    } else if (statusValues.length > 1) {
+      where.status = { in: statusValues };
     }
-    if (assetGroupId) {
-      where.assetGroupId = parseInt(assetGroupId);
+    if (assetGroupIds.length === 1) {
+      where.assetGroupId = assetGroupIds[0];
+    } else if (assetGroupIds.length > 1) {
+      where.assetGroupId = { in: assetGroupIds };
     }
     if (assetCategoryId) {
       where.assetCategoryId = parseInt(assetCategoryId);
@@ -69,8 +92,10 @@ export async function GET(req: NextRequest) {
     if (transferStatus) {
       where.transferStatus = transferStatus;
     }
-    if (currentSiteId) {
-      where.currentSiteId = parseInt(currentSiteId);
+    if (currentSiteIds.length === 1) {
+      where.currentSiteId = currentSiteIds[0];
+    } else if (currentSiteIds.length > 1) {
+      where.currentSiteId = { in: currentSiteIds };
     }
 
     // Build orderBy object
@@ -87,11 +112,12 @@ export async function GET(req: NextRequest) {
         .map((s) => s.siteId)
         .filter((v): v is number => typeof v === "number");
       const inIds = assignedSiteIds.length > 0 ? assignedSiteIds : [-1];
-      if (currentSiteId) {
-        const requested = parseInt(currentSiteId);
-        (where as any).currentSiteId = inIds.includes(requested)
-          ? requested
-          : -1;
+
+      if (currentSiteIds.length > 0) {
+        const allowed = currentSiteIds.filter((id) => inIds.includes(id));
+        (where as any).currentSiteId = {
+          in: allowed.length > 0 ? allowed : [-1],
+        };
       } else {
         (where as any).currentSiteId = { in: inIds };
       }

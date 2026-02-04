@@ -10,8 +10,9 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
-    const where: any = { status: "ONGOING" };
+    const where: any = {};
     if ((auth as any).user?.role !== ROLES.ADMIN) {
+      where.status = "ONGOING";
       const employee = await prisma.employee.findFirst({
         where: { userId: (auth as any).user?.id },
         select: { siteEmployees: { select: { siteId: true } } },

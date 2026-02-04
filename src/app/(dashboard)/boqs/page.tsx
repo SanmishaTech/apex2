@@ -15,7 +15,7 @@ import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
-import { EditButton } from '@/components/common/icon-button';
+import { EditButton, ViewButton } from '@/components/common/icon-button';
 
 // Types
 
@@ -199,7 +199,7 @@ export default function BoqsPage() {
             size='sm'
             onClick={applyFilters}
             disabled={!filtersDirty && !searchDraft}
-            className='min-w-[84px]'
+            className='min-w-21'
           >
             Filter
           </AppButton>
@@ -208,7 +208,7 @@ export default function BoqsPage() {
               variant='secondary'
               size='sm'
               onClick={resetFilters}
-              className='min-w-[84px]'
+              className='min-w-21'
             >
               Reset
             </AppButton>
@@ -222,9 +222,11 @@ export default function BoqsPage() {
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={(row) => {
-            if (!can(PERMISSIONS.EDIT_BOQS) && !can(PERMISSIONS.DELETE_BOQS)) return null;
             return (
               <div className='flex'>
+                <Link href={`/boqs/view/${row.id}`}>
+                  <ViewButton tooltip='View BOQ' aria-label='View BOQ' />
+                </Link>
                 {can(PERMISSIONS.EDIT_BOQS) && (
                   <Link href={`/boqs/${row.id}/edit`}>
                     <EditButton tooltip='Edit BOQ' aria-label='Edit BOQ' />

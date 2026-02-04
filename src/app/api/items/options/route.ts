@@ -13,10 +13,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const assetParam = searchParams.get("asset");
     const siteIdParam = searchParams.get("siteId");
+    const assignedOnlyParam = searchParams.get("assignedOnly");
     const where: any = {};
     if (assetParam === "true") where.asset = true;
     if (assetParam === "false") where.asset = false;
     const siteIdNum = siteIdParam ? Number(siteIdParam) : undefined;
+    const assignedOnly = assignedOnlyParam === "true";
 
     // Restrict items to assigned sites for non-admin users
     if ((auth as any).user?.role !== ROLES.ADMIN) {
@@ -47,6 +49,9 @@ export async function GET(req: NextRequest) {
       // Admins: optional filter by siteId if provided
       if (siteIdNum && !Number.isNaN(siteIdNum)) {
         where.siteItems = { some: { siteId: siteIdNum } };
+      } else if (assignedOnly) {
+        // If explicitly requested, restrict to items that are assigned to at least one site
+        where.siteItems = { some: {} };
       }
     }
 
