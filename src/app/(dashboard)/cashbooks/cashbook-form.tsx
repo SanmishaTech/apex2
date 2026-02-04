@@ -451,7 +451,7 @@ export function CashbookForm({
       );
 
       setFilePreview({
-        url: fileUrl,
+        url: resolveDocumentUrl(fileUrl),
         type: isImage ? "image" : "document",
         name: fileName,
       });
@@ -522,6 +522,13 @@ export function CashbookForm({
   const isImageFile = (filename: string) => {
     const extension = filename.split(".").pop()?.toLowerCase();
     return ["jpg", "jpeg", "png", "gif", "webp"].includes(extension || "");
+  };
+
+  const resolveDocumentUrl = (url: string | null | undefined) => {
+    if (!url) return "#";
+    if (url.startsWith("/uploads/")) return `/api${url}`;
+    if (url.startsWith("http")) return url;
+    return `/api/documents/${url}`;
   };
 
   // Reset form values when initial data changes
@@ -1006,6 +1013,17 @@ export function CashbookForm({
                                           className="w-full h-full object-cover"
                                         />
                                       </div>
+                                    ) : !preview &&
+                                      typeof existingValue === "string" &&
+                                      hasExistingValue &&
+                                      isImageFile(existingValue) ? (
+                                      <div className="w-12 h-12 border rounded overflow-hidden bg-muted">
+                                        <img
+                                          src={resolveDocumentUrl(existingValue)}
+                                          alt="Document preview"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
                                     ) : null}
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs font-medium truncate">
@@ -1015,9 +1033,7 @@ export function CashbookForm({
                                               existingValue
                                             : "Selected file")}
                                       </p>
-                                      {preview?.type === "image" &&
-                                        preview.url &&
-                                        preview.url === existingValue && (
+                                      {preview?.type === "image" && preview.url && (
                                           <Button
                                             type="button"
                                             variant="outline"
@@ -1038,10 +1054,7 @@ export function CashbookForm({
                                           size="sm"
                                           onClick={() =>
                                             typeof existingValue === "string"
-                                              ? window.open(
-                                                  existingValue,
-                                                  "_blank"
-                                                )
+                                              ? window.open(resolveDocumentUrl(existingValue), "_blank")
                                               : undefined
                                           }
                                           className="h-7 text-xs mt-1"

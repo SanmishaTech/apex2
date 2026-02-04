@@ -96,13 +96,13 @@ export default function WorkDoneListPage() {
     { key: "description", header: "BOQ Item Description", accessor: (r) => r.description, sortable: false },
     { key: "qty", header: "BOQ Qty", accessor: (r) => highlight(r.qty), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "unit", header: "Unit", accessor: (r) => r.unit || "-", sortable: false },
-    { key: "orderedQty", header: "Ordered Qty", accessor: (r) => highlight(r.orderedQty), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "orderedQty", header: "Executed Qty", accessor: (r) => highlight(r.orderedQty), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "remainingQty", header: "Remaining Qty", accessor: (r) => highlight(r.remainingQty), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "rate", header: "Rate", accessor: (r) => fmt(r.rate), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "amount", header: "BOQ Amount", accessor: (r) => highlight(r.amount), sortable: false, className: "text-right", cellClassName: "text-right" },
-    { key: "orderedAmount", header: "Ordered Amount", accessor: (r) => highlight(r.orderedAmount), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "orderedAmount", header: "Executed Amount", accessor: (r) => highlight(r.orderedAmount), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "remainingAmount", header: "Remaining Amount", accessor: (r) => highlight(r.remainingAmount), sortable: false, className: "text-right", cellClassName: "text-right" },
-    { key: "orderedPct", header: "Ordered %", accessor: (r) => highlight(r.orderedPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
+    { key: "orderedPct", header: "Executed %", accessor: (r) => highlight(r.orderedPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "remainingPct", header: "Remaining %", accessor: (r) => highlight(r.remainingPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
   ];
 
@@ -111,7 +111,7 @@ export default function WorkDoneListPage() {
       <AppCard.Header>
         <div>
           <AppCard.Title>Work Done</AppCard.Title>
-          <AppCard.Description>List of BOQ items with ordered/remaining quantities and amounts.</AppCard.Description>
+          <AppCard.Description>List of BOQ items with executed/remaining quantities and amounts.</AppCard.Description>
         </div>
       </AppCard.Header>
       <AppCard.Content>
@@ -172,7 +172,7 @@ export default function WorkDoneListPage() {
               {Number(data?.totals?.amount || 0).toFixed(2)}
             </div>
             <div>
-              <span className="font-semibold">Ordered Amount: </span>
+              <span className="font-semibold">Executed Amount: </span>
               {Number(data?.totals?.orderedAmount || 0).toFixed(2)}
             </div>
             <div>
@@ -180,7 +180,7 @@ export default function WorkDoneListPage() {
               {Number(data?.totals?.remainingAmount || 0).toFixed(2)}
             </div>
             <div>
-              <span className="font-semibold">Ordered % (Total): </span>
+              <span className="font-semibold">Executed % (Total): </span>
               {Number(data?.totals?.orderedPctTotal || 0).toFixed(2)}%
             </div>
             <div>

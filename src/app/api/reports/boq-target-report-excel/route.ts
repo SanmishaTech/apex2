@@ -274,6 +274,13 @@ export async function GET(req: NextRequest) {
     m.set(iso, (m.get(iso) || 0) + qty);
   }
 
+  const monthExecutedQtyByItemId = new Map<number, number>();
+  for (const [itemId, byIso] of doneQtyByItemIdByIso.entries()) {
+    let sum = 0;
+    for (const v of byIso.values()) sum += Number(v || 0);
+    monthExecutedQtyByItemId.set(itemId, sum);
+  }
+
   const wsData: any[][] = [];
   wsData.push(["BOQ Target Report"]);
   wsData.push([
@@ -289,23 +296,24 @@ export async function GET(req: NextRequest) {
     "BOQ Item",
     "BOQ Qty",
     "Unit",
-    "Ordered Qty",
+    "Executed Qty",
     "Remaining Qty",
     "Rate",
     "BOQ Amount",
-    "Ordered Amount",
+    "Executed Amount",
     "Remaining Amount",
   ];
 
   const monthHeader = month.split(" ")[0] || month;
 
-  const headerRow1: any[] = [...fixedHeaders, monthHeader];
+  const monthSpan = 2;
+  const headerRow1: any[] = [...fixedHeaders, monthHeader, ""];
   for (const w of weeks) {
     headerRow1.push(w.label, "", "", "");
   }
 
   const headerRow2: any[] = Array.from({ length: fixedHeaders.length }).map(() => "");
-  headerRow2.push("Total Month Qty");
+  headerRow2.push("Total Target Qty", "Total Executed Qty");
   for (let i = 0; i < weeks.length; i++) {
     headerRow2.push("Target Qty", "Target Amount", "Executed Qty", "Executed Amount");
   }
@@ -316,6 +324,8 @@ export async function GET(req: NextRequest) {
   let totalBoqAmount = 0;
   let totalOrderedAmount = 0;
   let totalRemainingAmount = 0;
+  let totalMonthTargetQty = 0;
+  let totalMonthExecutedQty = 0;
   const totalTargetAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
   const totalExecutedAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
 
@@ -329,6 +339,9 @@ export async function GET(req: NextRequest) {
     const orderedAmount = Number((it as any).orderedValue || orderedQty * rate);
     const remainingAmount = Number((it as any).remainingValue || remainingQty * rate);
     const monthTotalQty = Number(monthTotalQtyByItemId.get(Number(it.id)) || 0);
+    const monthExecutedQty = Number(
+      monthExecutedQtyByItemId.get(Number(it.id)) || 0
+    );
 
     const row: any[] = [
       it.activityId || "",
@@ -342,6 +355,7 @@ export async function GET(req: NextRequest) {
       Number(fmtRs(orderedAmount)),
       Number(fmtRs(remainingAmount)),
       Number(fmtQty(monthTotalQty)),
+      Number(fmtQty(monthExecutedQty)),
     ];
 
     for (const w of weeks) {
@@ -361,6 +375,8 @@ export async function GET(req: NextRequest) {
       totalBoqAmount += boqAmount;
       totalOrderedAmount += orderedAmount;
       totalRemainingAmount += remainingAmount;
+      totalMonthTargetQty += monthTotalQty;
+      totalMonthExecutedQty += monthExecutedQty;
       for (let wi = 0; wi < weeks.length; wi++) {
         const w = weeks[wi];
         const targetQty = Number(byWeekIdByItemId.get(w.id)?.get(Number(it.id)) || 0);
@@ -391,7 +407,8 @@ export async function GET(req: NextRequest) {
     Number(fmtRs(totalBoqAmount)),
     `${fmtRs(totalOrderedAmount)} (${pct(totalOrderedAmount, totalBoqAmount)})`,
     `${fmtRs(totalRemainingAmount)} (${pct(totalRemainingAmount, totalBoqAmount)})`,
-    "",
+    Number(fmtQty(totalMonthTargetQty)),
+    Number(fmtQty(totalMonthExecutedQty)),
   ];
 
   for (let wi = 0; wi < weeks.length; wi++) {
@@ -413,7 +430,7 @@ export async function GET(req: NextRequest) {
     "Activity ID",
     "BOQ Item",
     "BOQ Qty",
-    "Ordered Qty",
+    "Executed Qty",
     "Remaining Qty",
     ...monthIsoDays.map((iso) => ddMMyyyyFromIso(iso)),
     "Total Qty",
@@ -455,7 +472,7 @@ export async function GET(req: NextRequest) {
   const headerStartRow = 6;
   const fixedEndCol = fixedHeaders.length - 1;
   const monthCol = fixedEndCol + 1;
-  const lastCol = monthCol + 1 + weeks.length * 4 - 1;
+  const lastCol = monthCol + monthSpan + weeks.length * 4 - 1;
 
   const blueHeader = {
     font: { bold: true, color: { rgb: "FFFFFFFF" } },
@@ -560,11 +577,15 @@ export async function GET(req: NextRequest) {
     merges.push({ s: { r: headerStartRow, c }, e: { r: headerStartRow + 1, c } });
   }
 
-  // Month column: merge first header row with second? keep month name + subheader, so no merge.
+  // Month group: merge first header row across monthSpan columns
+  merges.push({
+    s: { r: headerStartRow, c: monthCol },
+    e: { r: headerStartRow, c: monthCol + monthSpan - 1 },
+  });
 
   // Merge each week group label across 4 subcolumns
   for (let i = 0; i < weeks.length; i++) {
-    const start = monthCol + 1 + i * 4;
+    const start = monthCol + monthSpan + i * 4;
     merges.push({ s: { r: headerStartRow, c: start }, e: { r: headerStartRow, c: start + 3 } });
   }
 

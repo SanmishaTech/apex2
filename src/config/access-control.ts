@@ -110,6 +110,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/units", permissions: [PERMISSIONS.VIEW_UNITS] },
   // BOQs
   { prefix: "/boqs/new", permissions: [PERMISSIONS.CREATE_BOQS] },
+  { prefix: "/boqs/view", permissions: [PERMISSIONS.VIEW_BOQS] },
   { prefix: "/boqs/", permissions: [PERMISSIONS.EDIT_BOQS] },
   { prefix: "/boqs", permissions: [PERMISSIONS.VIEW_BOQS] },
   // daily Progress

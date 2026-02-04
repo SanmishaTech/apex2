@@ -11,6 +11,8 @@ type FilterBarProps = {
   title?: string;
   /** Visual style variant */
   variant?: 'subtle' | 'gradient' | 'outline' | 'glass';
+  /** Spacing density */
+  size?: 'sm' | 'md';
   /** Allow collapsing */
   collapsible?: boolean;
   /** Initial open state when collapsible */
@@ -29,15 +31,21 @@ export function FilterBar({
   className,
   title = 'Filters',
   variant = 'subtle',
+  size = 'md',
   collapsible = true,
   defaultOpen = true,
 }: FilterBarProps) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const sizeClasses =
+    size === 'sm'
+      ? 'rounded-md p-2 md:p-3 transition-colors group shadow-sm/10 ring-1 ring-transparent hover:shadow-sm flex flex-col gap-2'
+      : 'rounded-md p-3 md:p-4 transition-colors group shadow-sm/10 ring-1 ring-transparent hover:shadow-sm flex flex-col gap-3';
+
   return (
     <div
       className={cn(
-        'rounded-md p-3 md:p-4 transition-colors group shadow-sm/10 ring-1 ring-transparent hover:shadow-sm flex flex-col gap-3',
+        sizeClasses,
         variantClasses[variant],
         className
       )}
@@ -68,7 +76,12 @@ export function FilterBar({
         )}
       >
         <div className={cn(open ? 'overflow-visible' : 'overflow-hidden')}> 
-          <div className='grid gap-3 grid-cols-[repeat(auto-fit,minmax(180px,1fr))] auto-rows-fr'>
+          <div
+            className={cn(
+              'grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] auto-rows-fr',
+              size === 'sm' ? 'gap-2' : 'gap-3'
+            )}
+          >
             {children}
           </div>
         </div>
