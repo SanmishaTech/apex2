@@ -16,7 +16,6 @@ import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
@@ -125,6 +124,7 @@ type PurchaseOrderFormInitialData = {
   gstReverseStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
   gstReverseAmount?: string | null;
   purchaseOrderItems?: PurchaseOrderItem[];
+  boqId?: number | null;
 };
 
 export interface PurchaseOrderFormProps {
@@ -135,6 +135,13 @@ export interface PurchaseOrderFormProps {
   mutate?: () => Promise<any>;
   indentId?: number;
   refreshKey?: string;
+}
+
+interface BoqOption {
+  id: number;
+  boqNo?: string | null;
+  workOrderNo?: string | null;
+  siteId?: number | null;
 }
 
 const twoDpNumber = (
@@ -215,6 +222,16 @@ const createInputSchema = z.object({
       "Site is required"
     )
     .transform((val) => parseInt(val)),
+  boqId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => {
+      if (val === undefined || val === null || val === "") return 0;
+      const s = String(val);
+      if (s === "__none" || s === "0") return 0;
+      const n = parseInt(s, 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }),
   vendorId: z
     .union([z.string(), z.number()])
     .transform((val) => String(val))
@@ -298,8 +315,6 @@ export function PurchaseOrderForm({
   const [serverBudgetError, setServerBudgetError] = useState<string | null>(
     null
   );
-  const [hasBudgetError, setHasBudgetError] = useState(false);
-  const [ignoreBudget, setIgnoreBudget] = useState(false);
 
   // Mode flags
   const isCreate = mode === "create";
@@ -377,6 +392,7 @@ export function PurchaseOrderForm({
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
       deliveryDate: formatDateField(initial?.deliveryDate),
       siteId: initial?.siteId ?? 0,
+      boqId: (initial as any)?.boqId ?? 0,
       vendorId: initial?.vendorId ?? 0,
       billingAddressId: initial?.billingAddressId ?? 0,
       siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
@@ -583,6 +599,7 @@ export function PurchaseOrderForm({
   // }, [defaultValues.poStatus, form, isApprovalMode]);
 
   const siteValue = form.watch("siteId");
+  const boqValue = (form.watch("boqId") as any) as number;
   const items = form.watch("purchaseOrderItems");
   const vendorValue = form.watch("vendorId");
   const billingAddressValue = form.watch("billingAddressId");
@@ -606,6 +623,10 @@ export function PurchaseOrderForm({
 
   const sites = sitesData?.data ?? [];
   const activeSiteId = Number(siteValue || 0);
+
+  const boqsKey = activeSiteId > 0 ? `/api/boqs?perPage=500&siteId=${activeSiteId}` : null;
+  const { data: boqsData } = useSWR<{ data: BoqOption[] }>(boqsKey, apiGet);
+
   const currentSiteInList = sites.some((s) => s.id === activeSiteId);
   const currentSiteNameFromIndent =
     (indentData as any)?.data?.site?.site ??
@@ -817,24 +838,34 @@ export function PurchaseOrderForm({
 
   // Handle form submission
   const onSubmit = async (data: FormData) => {
-    if (isSubmitting) return;
+    setIsSubmitting(true);
 
     try {
-      setIsSubmitting(true);
-      setServerBudgetError(null);
-      setHasBudgetError(false);
-      // clear only approved qty field errors to avoid masking other zod errors
-      if (isApprovalMode) {
-        for (let i = 0; i < items.length; i++) {
-          const path = `purchaseOrderItems.${i}.${
-            isApproval2 ? "approved2Qty" : "approved1Qty"
-          }` as const;
-          form.clearErrors(path as any);
-          const ratePath = `purchaseOrderItems.${i}.rate` as const;
-          form.clearErrors(ratePath as any);
-          const amountPath = `purchaseOrderItems.${i}.amount` as const;
-          form.clearErrors(amountPath as any);
+      if (!isApprovalMode) {
+        const boqId = Number((data as any).boqId || 0);
+        if (!Number.isFinite(boqId) || boqId <= 0) {
+          form.setError("boqId" as any, {
+            type: "manual",
+            message: "BOQ is required",
+          });
+          setIsSubmitting(false);
+          return;
         }
+      }
+
+      // Clear any previous per-row errors before submitting
+      for (let i = 0; i < items.length; i++) {
+        const qtyField = isApprovalMode
+          ? isApproval2
+            ? "approved2Qty"
+            : "approved1Qty"
+          : "qty";
+        const qtyPath = `purchaseOrderItems.${i}.${qtyField}` as const;
+        form.clearErrors(qtyPath as any);
+        const ratePath = `purchaseOrderItems.${i}.rate` as const;
+        form.clearErrors(ratePath as any);
+        const amountPath = `purchaseOrderItems.${i}.amount` as const;
+        form.clearErrors(amountPath as any);
       }
 
       // Prepare the payload
@@ -936,6 +967,7 @@ export function PurchaseOrderForm({
       const payload: any = {
         ...data,
         siteId: data.siteId ? Number(data.siteId) : null,
+        boqId: (data as any).boqId ? Number((data as any).boqId) : null,
         vendorId: data.vendorId ? Number(data.vendorId) : null,
         billingAddressId: data.billingAddressId
           ? Number(data.billingAddressId)
@@ -966,9 +998,6 @@ export function PurchaseOrderForm({
         payload.statusAction = "approve1";
       } else if (isApproval2) {
         payload.statusAction = "approve2";
-      }
-      if (isApprovalMode && ignoreBudget) {
-        payload.ignoreBudgetValidation = true;
       }
 
       // Submit the form
@@ -1030,7 +1059,7 @@ export function PurchaseOrderForm({
               if (name && ratio) nameToRatio.set(name, ratio);
             }
           }
-          if (isApprovalMode && nameToRatio.size > 0) {
+          if (nameToRatio.size > 0) {
             for (let i = 0; i < items.length; i++) {
               const rowName = initial?.purchaseOrderItems?.[i]?.item?.item;
               const rowItemId = items?.[i]?.itemId;
@@ -1038,9 +1067,12 @@ export function PurchaseOrderForm({
                 (rowName && nameToRatio.get(rowName)) ||
                 (rowItemId ? nameToRatio.get(String(rowItemId)) : undefined);
               if (ratio) {
-                const path = `purchaseOrderItems.${i}.${
-                  isApproval2 ? "approved2Qty" : "approved1Qty"
-                }` as const;
+                const fieldName = isApprovalMode
+                  ? isApproval2
+                    ? "approved2Qty"
+                    : "approved1Qty"
+                  : "qty";
+                const path = `purchaseOrderItems.${i}.${fieldName}` as const;
                 form.setError(path as any, { type: "manual", message: ratio });
               }
             }
@@ -1110,7 +1142,6 @@ export function PurchaseOrderForm({
 
       if (matchedAny) {
         setServerBudgetError(cleaned);
-        setHasBudgetError(true);
       } else {
         toast.error(
           msg || `Failed to ${mode} purchase order. Please try again.`
@@ -1263,6 +1294,7 @@ export function PurchaseOrderForm({
                       const next = value === "__none" ? 0 : parseInt(value, 10);
                       form.setValue("siteId", next);
                       form.setValue("siteDeliveryAddressId", 0);
+                      form.setValue("boqId" as any, 0 as any);
                     }}
                     placeholder="Select Site"
                     disabled={isApprovalMode || Boolean(indentId)}
@@ -1279,6 +1311,34 @@ export function PurchaseOrderForm({
                   {errors.siteId ? (
                     <p className="text-sm text-destructive mt-2">
                       {errors.siteId.message as string}
+                    </p>
+                  ) : null}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    BOQ<span className="ml-0.5 text-destructive">*</span>
+                  </label>
+                  <AppSelect
+                    value={boqValue && boqValue > 0 ? boqValue.toString() : "__none"}
+                    onValueChange={(value) => {
+                      const next = value === "__none" ? 0 : parseInt(value, 10);
+                      form.setValue("boqId", next as any, { shouldValidate: true, shouldDirty: true });
+                    }}
+                    placeholder={siteValue && siteValue > 0 ? "Select BOQ" : "Select Site first"}
+                    disabled={isApprovalMode}
+                  >
+                    <AppSelect.Item key="boq-none" value="__none">
+                      Select BOQ
+                    </AppSelect.Item>
+                    {(boqsData?.data || []).map((b) => (
+                      <AppSelect.Item key={b.id} value={String(b.id)}>
+                        {b.boqNo && b.workOrderNo ? `${b.boqNo} - ${b.workOrderNo}` : b.boqNo || b.workOrderNo || `BOQ #${b.id}`}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {errors.boqId ? (
+                    <p className="text-sm text-destructive mt-2">
+                      {errors.boqId.message as string}
                     </p>
                   ) : null}
                 </div>
@@ -2444,16 +2504,6 @@ export function PurchaseOrderForm({
             >
               Cancel
             </AppButton>
-            {hasBudgetError && (
-              <label className="flex items-center gap-2 text-sm select-none">
-                <Checkbox
-                  id="ignoreBudget"
-                  checked={ignoreBudget}
-                  onCheckedChange={(c) => setIgnoreBudget(Boolean(c))}
-                />
-                Ignore budget
-              </label>
-            )}
             <AppButton
               type="submit"
               iconName={isCreate ? "Plus" : isApprovalMode ? "Check" : "Save"}

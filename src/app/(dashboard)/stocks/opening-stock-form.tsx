@@ -105,7 +105,7 @@ export function OpeningStockForm() {
     apiGet
   );
   const { data: itemsData } = useSWR<ItemsResponse>(
-    "/api/items/options",
+    "/api/items/options?all=true",
     apiGet
   );
   const mountTs = useRef<number>(Date.now());

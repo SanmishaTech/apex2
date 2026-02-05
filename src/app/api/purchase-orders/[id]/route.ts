@@ -118,7 +118,6 @@ const updateSchema = z.object({
   gstReverseAmount: z.string().nullable().optional(),
   remarks: z.string().nullable().optional(),
   billStatus: z.string().nullable().optional(),
-  ignoreBudgetValidation: z.boolean().optional(),
 });
 
 // GET /api/purchase-orders/[id] - Get single purchase order
@@ -141,6 +140,7 @@ export async function GET(
         purchaseOrderDate: true,
         deliveryDate: true,
         siteId: true,
+        boqId: true,
         vendorId: true,
         billingAddressId: true,
         siteDeliveryAddressId: true,
@@ -174,6 +174,12 @@ export async function GET(
           select: {
             id: true,
             site: true,
+          },
+        },
+        boq: {
+          select: {
+            id: true,
+            boqNo: true,
           },
         },
         vendor: {
@@ -293,7 +299,6 @@ export async function PATCH(
       const {
         purchaseOrderItems,
         statusAction,
-        ignoreBudgetValidation,
         ...poData
       } = updateData as any;
 

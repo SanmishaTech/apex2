@@ -14,14 +14,16 @@ export async function GET(req: NextRequest) {
     const assetParam = searchParams.get("asset");
     const siteIdParam = searchParams.get("siteId");
     const assignedOnlyParam = searchParams.get("assignedOnly");
+    const allParam = searchParams.get("all");
     const where: any = {};
     if (assetParam === "true") where.asset = true;
     if (assetParam === "false") where.asset = false;
     const siteIdNum = siteIdParam ? Number(siteIdParam) : undefined;
     const assignedOnly = assignedOnlyParam === "true";
+    const all = allParam === "true";
 
     // Restrict items to assigned sites for non-admin users
-    if ((auth as any).user?.role !== ROLES.ADMIN) {
+    if (!all && (auth as any).user?.role !== ROLES.ADMIN) {
       const employee = await prisma.employee.findFirst({
         where: { userId: (auth as any).user?.id },
         select: { siteEmployees: { select: { siteId: true } } },

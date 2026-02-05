@@ -82,6 +82,7 @@ export interface PurchaseOrder {
   id: number;
   indentId?: number | null;
   siteId: number;
+  boqId?: number | null;
   vendorId: number;
   billingAddressId: number;
   siteDeliveryAddressId: number;
@@ -191,6 +192,7 @@ export interface PurchaseOrdersResponse {
 export interface CreatePurchaseOrderRequest {
   indentId?: number;
   siteId: number;
+  boqId?: number | null;
   vendorId: number;
   billingAddressId: number;
   siteDeliveryAddressId: number;

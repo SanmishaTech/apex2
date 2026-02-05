@@ -857,11 +857,11 @@ model Boq {
   cashbooks                     Cashbook[]
   // Back-relation for CashbookBudget.boq
   cashbookBudgets               CashbookBudget[]
-
+  // Back-relation for PurchaseOrder.boq
+  purchaseOrders                PurchaseOrder[]
   // daily progress
-  dailyProgresses DailyProgress[]
+  dailyProgresses               DailyProgress[]
   boqBills BOQBill[]
-
   siteBudgets SiteBudget[]
 
 
@@ -1761,6 +1761,8 @@ model PurchaseOrder {
   indent    Indent?                @relation( fields: [indentId], references: [id], onDelete:Restrict)
   siteId                  Int
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
+  boqId                   Int?
+  boq                     Boq?     @relation(fields: [boqId], references: [id], onDelete: Restrict)
   siteDeliveryAddressId                  Int
   siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
   paymentTermId           Int?
@@ -1825,6 +1827,7 @@ model PurchaseOrder {
   purchaseOrderDetails PurchaseOrderDetail[] 
   inwardDeliveryChallan InwardDeliveryChallan?
 @@index([siteId])
+@@index([boqId])
 @@index([indentId])
 @@index([vendorId])
 @@index([billingAddressId])
