@@ -153,7 +153,7 @@ export function IndentForm({
     apiGet
   );
   const { data: itemsData } = useSWR<ItemsResponse>(
-    "/api/items?perPage=100",
+    "/api/items?perPage=5000",
     apiGet
   );
 

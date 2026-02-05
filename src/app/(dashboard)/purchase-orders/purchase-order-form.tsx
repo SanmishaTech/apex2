@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppSelect } from "@/components/common/app-select";
+import { MultiSelectInput } from "@/components/common/multi-select-input";
 import { TextInput } from "@/components/common/text-input";
 import { TextareaInput } from "@/components/common/textarea-input";
 import { apiPost, apiPatch } from "@/lib/api-client";
@@ -108,7 +109,7 @@ type PurchaseOrderFormInitialData = {
   vendorId?: number | null;
   billingAddressId?: number | null;
   siteDeliveryAddressId?: number | null;
-  paymentTermId?: number | null;
+  paymentTermIds?: number[] | null;
   quotationNo?: string;
   quotationDate?: string;
   transport?: string | null;
@@ -124,7 +125,6 @@ type PurchaseOrderFormInitialData = {
   gstReverseStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
   gstReverseAmount?: string | null;
   purchaseOrderItems?: PurchaseOrderItem[];
-  boqId?: number | null;
 };
 
 export interface PurchaseOrderFormProps {
@@ -135,13 +135,6 @@ export interface PurchaseOrderFormProps {
   mutate?: () => Promise<any>;
   indentId?: number;
   refreshKey?: string;
-}
-
-interface BoqOption {
-  id: number;
-  boqNo?: string | null;
-  workOrderNo?: string | null;
-  siteId?: number | null;
 }
 
 const twoDpNumber = (
@@ -222,16 +215,6 @@ const createInputSchema = z.object({
       "Site is required"
     )
     .transform((val) => parseInt(val)),
-  boqId: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((val) => {
-      if (val === undefined || val === null || val === "") return 0;
-      const s = String(val);
-      if (s === "__none" || s === "0") return 0;
-      const n = parseInt(s, 10);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    }),
   vendorId: z
     .union([z.string(), z.number()])
     .transform((val) => String(val))
@@ -256,13 +239,10 @@ const createInputSchema = z.object({
       "Delivery address is required"
     )
     .transform((val) => parseInt(val)),
-  paymentTermId: z
-    .union([z.string(), z.number()])
+  paymentTermIds: z
+    .array(z.union([z.string(), z.number()]).transform((v) => String(v)))
     .optional()
-    .transform((val) => {
-      if (!val || val === "__none" || val === "") return undefined;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+    .default([]),
   quotationNo: z.string().min(1, "Quotation No. is required"),
   quotationDate: z.string().min(1, "Quotation date is required"),
   transport: z.string().optional(),
@@ -312,9 +292,6 @@ export function PurchaseOrderForm({
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverBudgetError, setServerBudgetError] = useState<string | null>(
-    null
-  );
 
   // Mode flags
   const isCreate = mode === "create";
@@ -349,7 +326,7 @@ export function PurchaseOrderForm({
   );
 
   const { data: itemsData } = useSWR<ApiListResponse<Item>>(
-    "/api/items?perPage=1000&include=unit",
+    "/api/items?perPage=5000&include=unit",
     apiGet
   );
 
@@ -387,16 +364,23 @@ export function PurchaseOrderForm({
       const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : Number(v);
       return Number.isFinite(n) ? n : undefined;
     };
+
+    const initialPaymentTermIds: string[] = Array.isArray(initial?.paymentTermIds)
+      ? (initial?.paymentTermIds || [])
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .map((n) => String(n))
+      : [];
+
     return {
       purchaseOrderNo: initial?.purchaseOrderNo ?? "",
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
       deliveryDate: formatDateField(initial?.deliveryDate),
       siteId: initial?.siteId ?? 0,
-      boqId: (initial as any)?.boqId ?? 0,
       vendorId: initial?.vendorId ?? 0,
       billingAddressId: initial?.billingAddressId ?? 0,
       siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
-      paymentTermId: initial?.paymentTermId ?? 0,
+      paymentTermIds: initialPaymentTermIds,
       quotationNo: initial?.quotationNo ?? "",
       quotationDate: formatDateField(initial?.quotationDate, today),
       transport: initial?.transport ?? "",
@@ -406,7 +390,7 @@ export function PurchaseOrderForm({
           ? initial?.terms ?? ""
           : (initial?.terms && initial?.terms.trim() !== ""
               ? initial?.terms
-              : `1) Material Shall be Subject to approval for quality assurance & performance parameters as per datasheet. Rejections, if any, shall be on your\naccount.\n2) Material Test Certificate (MTC) should be sent along with the material.\n3) Material should be dispatched as per given dispatch schedule.\n4) Material should be delivered in seal pack condition with minimum 6 months shelf life.\n5) All invoices must be sent in duplicate to the head office for smooth release of payment and must include the purchase order number.`),
+              : `4) Material Shall be Subject to approval for quality assurance & performance parameters as per datasheet. Rejections, if any, shall be on your\naccount.\n5) Material Test Certificate (MTC) should be sent along with the material.\n6) Material should be dispatched as per given dispatch schedule.\n7) Material should be delivered in seal pack condition with minimum 6 months shelf life.\n8) All invoices must be sent in duplicate to the head office for smooth release of payment and must include the purchase order number.\n9) Jurisdiction & Conditions: Mumbai Courts, please refer the general terms and conditions governing this PO.`),
       poStatus: initial?.poStatus ?? null,
       paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
       deliverySchedule: initial?.deliverySchedule ?? "",
@@ -599,12 +583,10 @@ export function PurchaseOrderForm({
   // }, [defaultValues.poStatus, form, isApprovalMode]);
 
   const siteValue = form.watch("siteId");
-  const boqValue = (form.watch("boqId") as any) as number;
   const items = form.watch("purchaseOrderItems");
   const vendorValue = form.watch("vendorId");
   const billingAddressValue = form.watch("billingAddressId");
   const siteDeliveryAddressValue = form.watch("siteDeliveryAddressId");
-  const paymentTermValue = form.watch("paymentTermId");
   const poStatusValue = form.watch("poStatus");
   const transitInsuranceStatus = form.watch("transitInsuranceStatus");
   const transitInsuranceAmount = form.watch("transitInsuranceAmount");
@@ -623,9 +605,6 @@ export function PurchaseOrderForm({
 
   const sites = sitesData?.data ?? [];
   const activeSiteId = Number(siteValue || 0);
-
-  const boqsKey = activeSiteId > 0 ? `/api/boqs?perPage=500&siteId=${activeSiteId}` : null;
-  const { data: boqsData } = useSWR<{ data: BoqOption[] }>(boqsKey, apiGet);
 
   const currentSiteInList = sites.some((s) => s.id === activeSiteId);
   const currentSiteNameFromIndent =
@@ -841,18 +820,6 @@ export function PurchaseOrderForm({
     setIsSubmitting(true);
 
     try {
-      if (!isApprovalMode) {
-        const boqId = Number((data as any).boqId || 0);
-        if (!Number.isFinite(boqId) || boqId <= 0) {
-          form.setError("boqId" as any, {
-            type: "manual",
-            message: "BOQ is required",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       // Clear any previous per-row errors before submitting
       for (let i = 0; i < items.length; i++) {
         const qtyField = isApprovalMode
@@ -967,7 +934,6 @@ export function PurchaseOrderForm({
       const payload: any = {
         ...data,
         siteId: data.siteId ? Number(data.siteId) : null,
-        boqId: (data as any).boqId ? Number((data as any).boqId) : null,
         vendorId: data.vendorId ? Number(data.vendorId) : null,
         billingAddressId: data.billingAddressId
           ? Number(data.billingAddressId)
@@ -975,7 +941,15 @@ export function PurchaseOrderForm({
         siteDeliveryAddressId: data.siteDeliveryAddressId
           ? Number(data.siteDeliveryAddressId)
           : null,
-        paymentTermId: data.paymentTermId ? Number(data.paymentTermId) : null,
+        paymentTermIds: Array.isArray((data as any).paymentTermIds)
+          ? Array.from(
+              new Set(
+                ((data as any).paymentTermIds as any[])
+                  .map((v) => Number(v))
+                  .filter((n) => Number.isFinite(n) && n > 0)
+              )
+            )
+          : [],
         paymentTermsInDays: data.paymentTermsInDays
           ? Number(data.paymentTermsInDays)
           : undefined,
@@ -1140,13 +1114,7 @@ export function PurchaseOrderForm({
         }
       }
 
-      if (matchedAny) {
-        setServerBudgetError(cleaned);
-      } else {
-        toast.error(
-          msg || `Failed to ${mode} purchase order. Please try again.`
-        );
-      }
+      toast.error(msg || `Failed to ${mode} purchase order. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -1294,7 +1262,6 @@ export function PurchaseOrderForm({
                       const next = value === "__none" ? 0 : parseInt(value, 10);
                       form.setValue("siteId", next);
                       form.setValue("siteDeliveryAddressId", 0);
-                      form.setValue("boqId" as any, 0 as any);
                     }}
                     placeholder="Select Site"
                     disabled={isApprovalMode || Boolean(indentId)}
@@ -1311,34 +1278,6 @@ export function PurchaseOrderForm({
                   {errors.siteId ? (
                     <p className="text-sm text-destructive mt-2">
                       {errors.siteId.message as string}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    BOQ<span className="ml-0.5 text-destructive">*</span>
-                  </label>
-                  <AppSelect
-                    value={boqValue && boqValue > 0 ? boqValue.toString() : "__none"}
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : parseInt(value, 10);
-                      form.setValue("boqId", next as any, { shouldValidate: true, shouldDirty: true });
-                    }}
-                    placeholder={siteValue && siteValue > 0 ? "Select BOQ" : "Select Site first"}
-                    disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="boq-none" value="__none">
-                      Select BOQ
-                    </AppSelect.Item>
-                    {(boqsData?.data || []).map((b) => (
-                      <AppSelect.Item key={b.id} value={String(b.id)}>
-                        {b.boqNo && b.workOrderNo ? `${b.boqNo} - ${b.workOrderNo}` : b.boqNo || b.workOrderNo || `BOQ #${b.id}`}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                  {errors.boqId ? (
-                    <p className="text-sm text-destructive mt-2">
-                      {errors.boqId.message as string}
                     </p>
                   ) : null}
                 </div>
@@ -1496,31 +1435,18 @@ export function PurchaseOrderForm({
              
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Payment Term
-                  </label>
-                  <AppSelect
-                    value={
-                      paymentTermValue && paymentTermValue > 0
-                        ? paymentTermValue.toString()
-                        : "__none"
-                    }
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : parseInt(value, 10);
-                      form.setValue("paymentTermId", next);
-                    }}
-                    placeholder="Select Payment Term"
+                  <MultiSelectInput
+                    control={form.control}
+                    name={"paymentTermIds" as any}
+                    label="Payment Terms"
+                    placeholder="Select Payment Terms"
+                    options={paymentTerms.map((t) => ({
+                      value: String(t.id),
+                      label: t.paymentTerm,
+                    }))}
                     disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="payment-term-none" value="__none">
-                      Select Payment Term
-                    </AppSelect.Item>
-                    {paymentTerms.map((term) => (
-                      <AppSelect.Item key={term.id} value={term.id.toString()}>
-                        {term.paymentTerm}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
+                    size="sm"
+                  />
                 </div>
                   <div>
                 <TextInput
@@ -1567,7 +1493,6 @@ export function PurchaseOrderForm({
                   disabled={isApprovalMode}
                 />
                 </div>
-               
               </FormRow>
                <TextareaInput
                   control={form.control}

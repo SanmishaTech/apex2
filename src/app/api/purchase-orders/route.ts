@@ -7,11 +7,6 @@ import { paginate } from "@/lib/paginate";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 import { ROLES } from "@/config/roles";
-import {
-  applyBudgetValidation,
-  formatBudgetQtyViolationsForBadRequest,
-  validateSiteBoqBudgetQtyForItems,
-} from "@/lib/site-budget-validation";
 
 const purchaseOrderItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
@@ -55,13 +50,24 @@ const purchaseOrderItemSchema = z.object({
 const createSchema = z.object({
   indentId: z.coerce.number().optional(),
   siteId: z.coerce.number().min(1, "Site is required"),
-  boqId: z.coerce.number().optional().nullable(),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
   siteDeliveryAddressId: z.coerce
     .number()
     .min(1, "Site delivery address is required"),
-  paymentTermId: z.coerce.number().optional(),
+  paymentTermIds: z
+    .array(z.coerce.number())
+    .optional()
+    .transform((arr) =>
+      Array.from(
+        new Set(
+          (arr || [])
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      )
+    )
+    .default([]),
   purchaseOrderDate: z.string().transform((val) => new Date(val)),
   deliveryDate: z.string().transform((val) => new Date(val)),
   quotationNo: z.string().min(1, "Quotation No. is required"),
@@ -357,31 +363,9 @@ export async function POST(req: NextRequest) {
     const parsedData = createSchema.parse(body);
 
     const result = await prisma.$transaction(async (tx) => {
-      let resolvedBoqId: number | null =
-        parsedData.boqId && Number.isFinite(Number(parsedData.boqId))
-          ? Number(parsedData.boqId)
-          : null;
-
-      if (applyBudgetValidation && !resolvedBoqId) {
-        throw new Error("BAD_REQUEST: BOQ is required");
-      }
-
-      if (applyBudgetValidation && resolvedBoqId) {
-        const violations = await validateSiteBoqBudgetQtyForItems({
-          tx,
-          siteId: parsedData.siteId,
-          boqId: resolvedBoqId,
-          items: (parsedData.purchaseOrderItems || []).map((it) => ({
-            itemId: Number(it.itemId),
-            qty: Number(it.qty || 0),
-          })),
-        });
-        if (violations.length > 0) {
-          throw new Error(
-            `BAD_REQUEST: ${formatBudgetQtyViolationsForBadRequest(violations)}`
-          );
-        }
-      }
+      const paymentTermIds: number[] = (parsedData as any).paymentTermIds || [];
+      const primaryPaymentTermId: number | null =
+        paymentTermIds.length > 0 ? Number(paymentTermIds[0]) : null;
 
       // Generate financial year-based PO number within the transaction
       const purchaseOrderNo = await generatePONumber(
@@ -394,11 +378,10 @@ export async function POST(req: NextRequest) {
         purchaseOrderDate: parsedData.purchaseOrderDate,
         deliveryDate: parsedData.deliveryDate,
         siteId: parsedData.siteId,
-        boqId: resolvedBoqId,
         vendorId: parsedData.vendorId,
         billingAddressId: parsedData.billingAddressId,
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,
-        paymentTermId: parsedData.paymentTermId || null,
+        paymentTermId: primaryPaymentTermId,
         quotationNo: parsedData.quotationNo,
         note: parsedData.note || null,
         transport: parsedData.transport || null,
@@ -487,8 +470,30 @@ export async function POST(req: NextRequest) {
               description: true,
             },
           },
+          poPaymentTerms: {
+            select: {
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
+            },
+          },
         },
       });
+
+      if (paymentTermIds.length > 0) {
+        await tx.pOPaymentTerm.createMany({
+          data: paymentTermIds.map((paymentTermId) => ({
+            purchaseOrderId: purchaseOrder.id,
+            paymentTermId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       // Create PO items
       const poId = purchaseOrder.id;
@@ -620,6 +625,18 @@ export async function POST(req: NextRequest) {
               id: true,
               paymentTerm: true,
               description: true,
+            },
+          },
+          poPaymentTerms: {
+            select: {
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
             },
           },
           purchaseOrderDetails: {

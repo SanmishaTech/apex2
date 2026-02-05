@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const perPage = Math.min(100, Math.max(1, Number(searchParams.get("perPage")) || 10));
+  const perPage = Math.min(
+    5000,
+    Math.max(1, Number(searchParams.get("perPage")) || 10)
+  );
   const search = (searchParams.get("search") || "").trim();
   const sort = (searchParams.get("sort") || "itemCode") as string;
   const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
@@ -59,6 +62,7 @@ export async function GET(req: NextRequest) {
     orderBy,
     page,
     perPage,
+    maxPerPage: 5000,
     select: {
       id: true,
       itemCode: true,

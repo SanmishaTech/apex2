@@ -128,6 +128,7 @@ export function MultiSelectInput<
         const selectedValues: string[] = Array.isArray(field.value) ? field.value : [];
         
         const handleToggleOption = (optionValue: string) => {
+          if (disabled) return;
           const newValues = selectedValues.includes(optionValue)
             ? selectedValues.filter((v: string) => v !== optionValue)
             : [...selectedValues, optionValue];
@@ -135,6 +136,7 @@ export function MultiSelectInput<
         };
 
         const handleRemoveOption = (optionValue: string) => {
+          if (disabled) return;
           const newValues = selectedValues.filter((v: string) => v !== optionValue);
           field.onChange(newValues);
         };
@@ -161,7 +163,10 @@ export function MultiSelectInput<
                     selectedValues.length === 0 && "text-muted-foreground"
                   )}
                   disabled={disabled}
-                  onClick={() => setIsOpen(!isOpen)}
+                  onClick={() => {
+                    if (disabled) return;
+                    setIsOpen(!isOpen);
+                  }}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
                     {selectedValues.length === 0 ? (
@@ -172,13 +177,17 @@ export function MultiSelectInput<
                           key={option.value}
                           variant="secondary"
                           className={badgeSizeClass}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveOption(option.value);
-                          }}
+                          onClick={
+                            disabled
+                              ? undefined
+                              : (e) => {
+                                  e.stopPropagation();
+                                  handleRemoveOption(option.value);
+                                }
+                          }
                         >
                           {option.label}
-                          <X className="ml-1 h-3 w-3" />
+                          {!disabled ? <X className="ml-1 h-3 w-3" /> : null}
                         </Badge>
                       ))
                     )}

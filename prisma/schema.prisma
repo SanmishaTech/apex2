@@ -858,7 +858,6 @@ model Boq {
   // Back-relation for CashbookBudget.boq
   cashbookBudgets               CashbookBudget[]
   // Back-relation for PurchaseOrder.boq
-  purchaseOrders                PurchaseOrder[]
   // daily progress
   dailyProgresses               DailyProgress[]
   boqBills BOQBill[]
@@ -1101,9 +1100,26 @@ model PaymentTerm {
 
   purchaseOrders PurchaseOrder[]
     workOrders WorkOrder[]
+    poPaymentTerms POPaymentTerm[]
 
   @@index([paymentTerm])
   @@map("payment_terms")
+}
+
+model POPaymentTerm {
+  id          Int      @id @default(autoincrement())
+  purchaseOrderId      Int
+  paymentTermId Int  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete:Restrict)
+  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([paymentTermId])
+  @@unique([purchaseOrderId, paymentTermId])
+  @@map("po_payment_terms")
 }
 
 // Cashbook Heads master data
@@ -1761,8 +1777,6 @@ model PurchaseOrder {
   indent    Indent?                @relation( fields: [indentId], references: [id], onDelete:Restrict)
   siteId                  Int
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
-  boqId                   Int?
-  boq                     Boq?     @relation(fields: [boqId], references: [id], onDelete: Restrict)
   siteDeliveryAddressId                  Int
   siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
   paymentTermId           Int?
@@ -1826,8 +1840,9 @@ model PurchaseOrder {
 
   purchaseOrderDetails PurchaseOrderDetail[] 
   inwardDeliveryChallan InwardDeliveryChallan?
+  poPaymentTerms POPaymentTerm[]
+
 @@index([siteId])
-@@index([boqId])
 @@index([indentId])
 @@index([vendorId])
 @@index([billingAddressId])
@@ -2626,3 +2641,5 @@ model SiteBudgetItem {
   @@map("site_budget_items")
 }
 
+
+//Make terms and Conditions Hardcoded.
