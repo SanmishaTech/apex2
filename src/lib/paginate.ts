@@ -7,6 +7,7 @@ export type PaginateParams<TSelect extends object | undefined, TWhere extends ob
   orderBy?: Record<string, 'asc' | 'desc'>;
   page?: number;
   perPage?: number;
+  maxPerPage?: number;
   select?: TSelect;
 };
 
@@ -22,7 +23,13 @@ export async function paginate<TSelect extends object | undefined, TWhere extend
   params: PaginateParams<TSelect, TWhere>
 ): Promise<PaginatedResult<T>> {
   const page = Math.max(1, params.page || 1);
-  const perPage = Math.min(100, Math.max(1, params.perPage || 10));
+  const maxPerPage = Math.max(
+    1,
+    Number.isFinite(params.maxPerPage as number)
+      ? Number(params.maxPerPage)
+      : 100
+  );
+  const perPage = Math.min(maxPerPage, Math.max(1, params.perPage || 10));
   const [total, rows] = await Promise.all([
     params.model.count({ where: params.where }),
     params.model.findMany({

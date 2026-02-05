@@ -82,6 +82,18 @@ const updateSchema = z.object({
   billingAddressId: z.number().optional(),
   siteDeliveryAddressId: z.number().optional(),
   paymentTermId: z.number().nullable().optional(),
+  paymentTermIds: z
+    .array(z.coerce.number())
+    .optional()
+    .transform((arr) =>
+      Array.from(
+        new Set(
+          (arr || [])
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      )
+    ),
   quotationNo: z.string().optional(),
   quotationDate: z
     .string()
@@ -140,7 +152,6 @@ export async function GET(
         purchaseOrderDate: true,
         deliveryDate: true,
         siteId: true,
-        boqId: true,
         vendorId: true,
         billingAddressId: true,
         siteDeliveryAddressId: true,
@@ -174,12 +185,6 @@ export async function GET(
           select: {
             id: true,
             site: true,
-          },
-        },
-        boq: {
-          select: {
-            id: true,
-            boqNo: true,
           },
         },
         vendor: {
@@ -222,6 +227,18 @@ export async function GET(
           select: {
             id: true,
             paymentTerm: true,
+          },
+        },
+        poPaymentTerms: {
+          select: {
+            paymentTermId: true,
+            paymentTerm: {
+              select: {
+                id: true,
+                paymentTerm: true,
+                description: true,
+              },
+            },
           },
         },
         purchaseOrderDetails: {
@@ -299,12 +316,51 @@ export async function PATCH(
       const {
         purchaseOrderItems,
         statusAction,
+        paymentTermIds: paymentTermIdsRaw,
         ...poData
       } = updateData as any;
+
+      const paymentTermIdsFromRaw: number[] | undefined = Array.isArray(
+        paymentTermIdsRaw
+      )
+        ? (paymentTermIdsRaw as number[])
+        : undefined;
+
+      const paymentTermIdsFromSingle: number[] | undefined =
+        typeof (updateData as any).paymentTermId === "number" &&
+        Number.isFinite(Number((updateData as any).paymentTermId)) &&
+        Number((updateData as any).paymentTermId) > 0
+          ? [Number((updateData as any).paymentTermId)]
+          : Object.prototype.hasOwnProperty.call(updateData, "paymentTermId")
+          ? []
+          : undefined;
+
+      const nextPaymentTermIds: number[] | undefined =
+        paymentTermIdsFromRaw ?? paymentTermIdsFromSingle;
 
       // Update basic fields if provided
       if (Object.keys(poData).length > 0 || statusAction) {
         const updateData: any = { ...poData };
+
+        if (nextPaymentTermIds !== undefined) {
+          updateData.paymentTermId =
+            nextPaymentTermIds.length > 0
+              ? Number(nextPaymentTermIds[0])
+              : null;
+
+          await tx.pOPaymentTerm.deleteMany({
+            where: { purchaseOrderId: id },
+          });
+          if (nextPaymentTermIds.length > 0) {
+            await tx.pOPaymentTerm.createMany({
+              data: nextPaymentTermIds.map((paymentTermId) => ({
+                purchaseOrderId: id,
+                paymentTermId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
 
         // Handle status actions
         if (statusAction) {
@@ -655,6 +711,18 @@ export async function PATCH(
               id: true,
               paymentTerm: true,
               description: true,
+            },
+          },
+          poPaymentTerms: {
+            select: {
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
             },
           },
           purchaseOrderDetails: {

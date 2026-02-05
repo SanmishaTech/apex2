@@ -55,6 +55,7 @@ interface PaymentTerm {
   id: number;
   paymentTerm: string;
   days: number;
+  description?: string;
 }
 
 interface Item {
@@ -82,11 +83,14 @@ export interface PurchaseOrder {
   id: number;
   indentId?: number | null;
   siteId: number;
-  boqId?: number | null;
   vendorId: number;
   billingAddressId: number;
   siteDeliveryAddressId: number;
   paymentTermId?: number | null;
+  poPaymentTerms?: {
+    paymentTermId: number;
+    paymentTerm: PaymentTerm;
+  }[];
   purchaseOrderNo: string;
   purchaseOrderDate: string;
   deliveryDate: string;
@@ -192,11 +196,10 @@ export interface PurchaseOrdersResponse {
 export interface CreatePurchaseOrderRequest {
   indentId?: number;
   siteId: number;
-  boqId?: number | null;
   vendorId: number;
   billingAddressId: number;
   siteDeliveryAddressId: number;
-  paymentTermId?: number;
+  paymentTermIds?: number[];
   purchaseOrderDate: string;
   deliveryDate: string;
   quotationNo?: string;

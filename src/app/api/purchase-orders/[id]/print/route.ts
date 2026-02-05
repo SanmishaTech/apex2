@@ -175,6 +175,17 @@ export async function GET(
           description: true,
         },
       },
+      poPaymentTerms: {
+        select: {
+          paymentTermId: true,
+          paymentTerm: {
+            select: {
+              description: true,
+              paymentTerm: true,
+            },
+          },
+        },
+      },
       deliverySchedule: true,
       amount: true,
       amountInWords: true,
@@ -211,6 +222,15 @@ export async function GET(
             },
           },
           pinCode: true,
+          siteContactPersons: {
+            take: 1,
+            orderBy: { id: "asc" },
+            select: {
+              name: true,
+              contactNo: true,
+              email: true,
+            },
+          },
           company: {
             select: {
               companyName: true,
@@ -323,13 +343,19 @@ export async function GET(
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
+  doc.setDrawColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 8; // tighter margins to help fit one page
   const usableWidth = pageWidth - margin * 2;
 
+  const headingFontSize = 10;
+  const smallFontSize = 7;
+  const tableFontSize = 7;
+  const lineHeight = 3.0;
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(headingFontSize);
   // Place the company logo from public/ (fallbacks supported) - top-right with larger sizing
   const logoHeight = 22;
   const logoWidth = 78;
@@ -342,20 +368,18 @@ export async function GET(
     }
   } catch {}
 
-  const headerY = logoY + logoHeight + 4;
-  const headerHeight = 12;
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.4);
-  doc.rect(margin, headerY, usableWidth, headerHeight);
-  doc.text("PURCHASE ORDER", pageWidth / 2, headerY + headerHeight / 2 + 2, {
+  const headerY = logoY + logoHeight + 3;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(headingFontSize);
+  doc.text("PURCHASE ORDER", pageWidth / 2, headerY, {
     align: "center",
   });
 
-  const topBoxY = headerY + headerHeight + 6;
+  const topBoxY = headerY + 3;
   const halfWidth = usableWidth / 2;
   const topBoxX = margin;
 
-  doc.setFontSize(9);
+  doc.setFontSize(smallFontSize);
   const vendorPhone = [
     purchaseOrder.vendor?.mobile1,
     purchaseOrder.vendor?.mobile2,
@@ -382,9 +406,7 @@ export async function GET(
     { text: `Contact No : ${vendorPhone || "-"}` },
     { text: `Email Id : ${safeText(purchaseOrder.vendor?.email)}` },
     { text: `GST No : ${safeText(purchaseOrder.vendor?.gstNumber)}` },
-    { text: `State Code : ${safeText(purchaseOrder.vendor?.stateCode)}` },
   ];
-  // Prepare billing/PO/delivery blocks
 
   const billing = purchaseOrder.billingAddress;
   const billingPhone = [billing?.landline1, billing?.landline2]
@@ -395,10 +417,10 @@ export async function GET(
     { text: safeText(billing?.companyName), bold: true },
     { text: safeText(billing?.addressLine1) },
     { text: safeText(billing?.addressLine2) },
+    { text: `State : ${safeText(billing?.state?.state)}` },
     {
       text: [
         safeText(billing?.city?.city),
-        safeText(billing?.state?.state),
         safeText(billing?.pincode),
       ]
         .filter((line) => line !== "-")
@@ -407,48 +429,36 @@ export async function GET(
     { text: `Email : ${safeText(billing?.email)}` },
     { text: `Contact : ${billingPhone || "-"}` },
     { text: `GST No : ${safeText(billing?.gstNumber)}` },
-    { text: `State Code : ${safeText(billing?.stateCode)}` },
   ];
 
   const poHeaderLines = [
     { text: "INLAND PURCHASE ORDER", bold: true },
     { text: `P O Number : ${safeText(purchaseOrder.purchaseOrderNo)}` },
-    { text: `Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
-    { text: `Quotation No : ${safeText(purchaseOrder.quotationNo)}` },
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
+    { text: `Delivery Date : ${formatDateSafe(purchaseOrder.deliveryDate)}` },
     { text: `Indent No : ${safeText(purchaseOrder.indent?.indentNo)}` },
   ];
 
   const deliver = purchaseOrder.siteDeliveryAddress;
+  const firstSiteContact = (purchaseOrder.site as any)?.siteContactPersons?.[0];
   const deliverLines = [
-    { text: "Deliver to :", bold: true },
-    {
-      text: safeText(purchaseOrder.site?.shortName || purchaseOrder.site?.site),
-      bold: true,
-    },
+    { text: "Delivery/Shipping Address :", bold: true },
     { text: safeText(deliver?.addressLine1) },
     { text: safeText(deliver?.addressLine2) },
+    { text: safeText(deliver?.state?.state) },
     {
-      text: [
-        safeText(deliver?.city?.city),
-        safeText(deliver?.state?.state),
-        safeText(deliver?.pinCode),
-      ]
-        .filter((line) => line !== "-")
-        .join(", "),
+      text: `Contact Person : ${safeText(firstSiteContact?.name)}`,
     },
     {
-      text: `Contact Person : ${safeText(
-        purchaseOrder.site?.company?.contactPerson
-      )}`,
+      text: `Contact No : ${safeText(firstSiteContact?.contactNo)}`,
     },
     {
-      text: `Contact No : ${safeText(purchaseOrder.site?.company?.contactNo)}`,
+      text: `Email Id : ${safeText(firstSiteContact?.email)}`,
     },
   ];
+
   // Compute dynamic heights for top/bottom halves and draw the box & dividers
   const colTextWidth = halfWidth - 4; // padding 2mm on each side
-  const lineHeight = 3.6; // normal line height for readability
   const vendorHeight = measureWrappedLinesHeight(
     doc,
     vendorLines,
@@ -480,6 +490,7 @@ export async function GET(
   const topBoxHeight = topHalfHeight + bottomHalfHeight;
 
   doc.setDrawColor(0);
+  doc.setLineWidth(0.2);
   doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
   // vertical center divider
   doc.line(
@@ -536,11 +547,12 @@ export async function GET(
     lineHeight
   );
 
-  const summaryYStart = topBoxY + topBoxHeight + 6;
+  const summaryGap = 3;
+  const summaryYStart = topBoxY + topBoxHeight + summaryGap;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  doc.setFontSize(smallFontSize);
   const summaryText =
-    "Dear Sir/Madam: Kindly supply the following items as per agreed terms and conditions. Please quote this PO number in all related documents.";
+    "Dear Sir/Madam: Kindly supply the following items as per agreed Rate, terms and conditions.";
   const summarySpec = [{ text: summaryText }];
   const summaryHeight = measureWrappedLinesHeight(
     doc,
@@ -557,39 +569,199 @@ export async function GET(
     lineHeight
   );
 
-  const tableStartY = summaryYStart + summaryHeight + 6;
+  const tableStartY = summaryYStart + summaryHeight + summaryGap;
   // Build item rows matching screenshot format
-  const itemRows = purchaseOrder.purchaseOrderDetails.map((detail, index) => [
-    (index + 1).toString(),
-    [
-      detail.item?.item ?? "",
-      detail.item?.description ? String(detail.item.description) : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    detail.item?.hsnCode ?? "",
-    detail.item?.unit?.unitName ?? "",
-    formatNumber(detail.qty, 4),
-    formatNumber(detail.rate, 3),
-    formatNumber(detail.discountPercent),
-    formatCurrency(detail.disAmt),
-    formatNumber(detail.cgstPercent),
-    formatCurrency(detail.cgstAmt),
-    formatNumber(detail.sgstPercent),
-    formatCurrency(detail.sgstAmt),
-    formatNumber(detail.igstPercent),
-    formatCurrency(detail.igstAmt),
-    formatCurrency(detail.amount),
-  ]);
+  const itemRows = purchaseOrder.purchaseOrderDetails.map((detail, index) => {
+    const qtyNum = toNumberOrZero(detail.qty);
+    const rateNum = toNumberOrZero(detail.rate);
+    const basicAmountNum = qtyNum * rateNum;
+    return [
+      (index + 1).toString(),
+      [
+        detail.item?.item ?? "",
+        detail.item?.description ? String(detail.item.description) : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      detail.item?.hsnCode ?? "",
+      detail.item?.unit?.unitName ?? "",
+      formatNumber(detail.qty, 4),
+      formatNumber(detail.rate, 3),
+      formatCurrency(basicAmountNum),
+      formatNumber(detail.discountPercent),
+      formatCurrency(detail.disAmt),
+      formatNumber(detail.cgstPercent),
+      formatCurrency(detail.cgstAmt),
+      formatNumber(detail.sgstPercent),
+      formatCurrency(detail.sgstAmt),
+      formatNumber(detail.igstPercent),
+      formatCurrency(detail.igstAmt),
+      formatCurrency(detail.amount),
+    ];
+  });
+
+  const totals = purchaseOrder.purchaseOrderDetails.reduce(
+    (acc, detail) => {
+      const qtyNum = toNumberOrZero(detail.qty);
+      const rateNum = toNumberOrZero(detail.rate);
+      const basicAmount = qtyNum * rateNum;
+      const amount = Number(detail.amount ?? 0);
+      const cgst = Number(detail.cgstAmt ?? 0);
+      const sgst = Number(detail.sgstAmt ?? 0);
+      const igst = Number(detail.igstAmt ?? 0);
+      const discount = Number(detail.disAmt ?? 0);
+      return {
+        basicAmount: acc.basicAmount + basicAmount,
+        amount: acc.amount + amount,
+        cgst: acc.cgst + cgst,
+        sgst: acc.sgst + sgst,
+        igst: acc.igst + igst,
+        discount: acc.discount + discount,
+      };
+    },
+    { basicAmount: 0, amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
+  );
+
+  const transitAmountRaw = purchaseOrder.transitInsuranceAmount;
+  const pfAmountRaw = purchaseOrder.pfCharges;
+  const gstReverseAmountRaw = purchaseOrder.gstReverseAmount;
+
+  const transitAmountNum = toNumberOrZero(transitAmountRaw);
+  const pfAmountNum = toNumberOrZero(pfAmountRaw);
+  const gstReverseAmountNum = toNumberOrZero(gstReverseAmountRaw);
+
+  const grandTotal =
+    Number(purchaseOrder.amount ?? 0) ||
+    totals.amount + transitAmountNum + pfAmountNum + gstReverseAmountNum;
+
+  const amountWords =
+    safeText(purchaseOrder.amountInWords) || "Rupees Zero Only";
+  const amountWordsDisplay = `Rupees : ${amountWords} Only`;
+
+  const totalsRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "Total", styles: { fontStyle: "bold", halign: "right" } },
+    {
+      content: formatCurrency(totals.basicAmount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.discount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.cgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.sgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.igst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    {
+      content: formatCurrency(totals.amount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const transportRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "Transport\u00A0Charges", styles: { halign: "right" } },
+    { content: displayCharge(pfAmountRaw), styles: { halign: "right" } },
+  ];
+
+  const transitRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "Transit\u00A0Insurance", styles: { halign: "right" } },
+    { content: displayCharge(transitAmountRaw), styles: { halign: "right" } },
+  ];
+
+  const gstReverseRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "GST\u00A0Reverse\u00A0Charge", styles: { halign: "right" } },
+    { content: displayCharge(gstReverseAmountRaw), styles: { halign: "right" } },
+  ];
+
+  const amountWordsRow: any[] = [
+    {
+      content: amountWordsDisplay,
+      colSpan: 15,
+      styles: { fontStyle: "bold", halign: "left" },
+    },
+    {
+      content: formatCurrency(grandTotal),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const itemRowsWithSummary: any[] = [
+    ...(itemRows as any[]),
+    totalsRow,
+    transportRow,
+    transitRow,
+    gstReverseRow,
+    amountWordsRow,
+  ];
 
   const headRows: CellDef[][] = [
     [
       { content: "Sr. No.", rowSpan: 2 as any },
       { content: "Material Description", rowSpan: 2 as any },
-      { content: "HSN/SAC Code", rowSpan: 2 as any },
+      { content: "HSN/SAC", rowSpan: 2 as any },
       { content: "Unit", rowSpan: 2 as any },
       { content: "Qty", rowSpan: 2 as any },
       { content: "Rate (INR)", rowSpan: 2 as any },
+      { content: "Basic Amount (INR)", rowSpan: 2 as any },
       { content: "Discount", colSpan: 2 as any },
       { content: "CGST", colSpan: 2 as any },
       { content: "SGST", colSpan: 2 as any },
@@ -609,22 +781,25 @@ export async function GET(
   ];
 
   const itemTableStyles: any = {
-    fontSize: 9, // normal readable size
-    cellPadding: 0.8,
+    fontSize: tableFontSize,
+    textColor: 0,
+    lineColor: [0, 0, 0],
+    cellPadding: 0.45,
     valign: "top",
-    lineWidth: 0.2,
+    lineWidth: 0.15,
   };
 
   autoTable(doc, {
     startY: tableStartY,
     head: headRows,
-    body: itemRows,
+    body: itemRowsWithSummary,
     theme: "grid",
     styles: itemTableStyles,
     headStyles: {
       textColor: 0,
-      fontSize: 9,
-      fillColor: null as any,
+      lineWidth: 0.15,
+      fontSize: tableFontSize,
+      fillColor: [255, 255, 255],
     },
     margin: margin,
     columnStyles: {
@@ -642,210 +817,181 @@ export async function GET(
       12: { halign: "right" },
       13: { halign: "right" },
       14: { halign: "right" },
-    },
-  });
-
-  const tableEndY = (doc as any).lastAutoTable.finalY;
-  doc.setLineWidth(0.4);
-  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
-  doc.setLineWidth(0.2);
-
-  const totals = purchaseOrder.purchaseOrderDetails.reduce(
-    (acc, detail) => {
-      const amount = Number(detail.amount ?? 0);
-      const cgst = Number(detail.cgstAmt ?? 0);
-      const sgst = Number(detail.sgstAmt ?? 0);
-      const igst = Number(detail.igstAmt ?? 0);
-      const discount = Number(detail.disAmt ?? 0);
-      return {
-        amount: acc.amount + amount,
-        cgst: acc.cgst + cgst,
-        sgst: acc.sgst + sgst,
-        igst: acc.igst + igst,
-        discount: acc.discount + discount,
-      };
-    },
-    { amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
-  );
-
-  const transitAmountRaw = purchaseOrder.transitInsuranceAmount;
-  const pfAmountRaw = purchaseOrder.pfCharges;
-  const gstReverseAmountRaw = purchaseOrder.gstReverseAmount;
-
-  const transitAmountNum = toNumberOrZero(transitAmountRaw);
-  const pfAmountNum = toNumberOrZero(pfAmountRaw);
-  const gstReverseAmountNum = toNumberOrZero(gstReverseAmountRaw);
-
-  const baseAmount = totals.amount - totals.cgst - totals.sgst - totals.igst;
-  const totalGST = totals.cgst + totals.sgst + totals.igst;
-  const grandTotal =
-    Number(purchaseOrder.amount ?? 0) ||
-    baseAmount +
-      totals.cgst +
-      totals.sgst +
-      totals.igst +
-      transitAmountNum +
-      pfAmountNum +
-      gstReverseAmountNum;
-
-  const chargesY = tableEndY + 6;
-
-  // Build a 4-column grid: [Left Label, Left Value, Right Label, Right Value]
-  const leftValuePaymentTerms = purchaseOrder.paymentTerm?.description ?? "-";
-
-  const validityText = safeText(
-    "If you have any query, please revert within 48 hours, else we will presume that order is accepted by you. Purchase Order validity is upto 30 days"
-  );
-  const jurisText =
-    "Mumbai Courts, please refer the general terms and conditions governing this PO.";
-
-  const amountWords =
-    safeText(purchaseOrder.amountInWords) || "Rupees Zero Only";
-  const chargesRows: any[][] = [
-    [
-      "Delivery Schedule:",
-      safeText(purchaseOrder.deliverySchedule),
-      "Transport Charges",
-      displayCharge(pfAmountRaw),
-    ],
-    [
-      "Payment Terms:",
-      leftValuePaymentTerms,
-      "Transit Insurance",
-      displayCharge(transitAmountRaw),
-    ],
-    [
-      "Validity:",
-      validityText,
-      "Total Amount before Tax",
-      formatCurrency(baseAmount),
-    ],
-    [
-      "Jurisdiction & Conditions:",
-      jurisText,
-      "CGST",
-      formatCurrency(totals.cgst),
-    ],
-    [
-      "Note:",
-      safeText(purchaseOrder.note),
-      "SGST",
-      formatCurrency(totals.sgst),
-    ],
-    ["", "", "IGST", formatCurrency(totals.igst)],
-    ["", "", "Total GST", formatCurrency(totalGST)],
-    [
-      "",
-      "",
-      "GST Reverse Charge",
-      displayCharge(gstReverseAmountRaw),
-    ],
-    [
-      { content: amountWords, colSpan: 2, styles: { fontStyle: "bold" } },
-      "Total Amount",
-      formatCurrency(grandTotal),
-    ],
-  ];
-
-  const leftSectionWidth = usableWidth * 0.6;
-  const rightSectionWidth = usableWidth * 0.4;
-
-  const boldRightLabels = new Set([
-    "Total Amount before Tax",
-    "Total GST",
-    "Total Amount",
-  ]);
-
-  const chargesTableStyles: any = {
-    fontSize: 9, // normal readable size to match items table
-    cellPadding: 1.0,
-    lineWidth: 0.2,
-  };
-
-  autoTable(doc, {
-    startY: chargesY,
-    body: chargesRows as any,
-    theme: "grid",
-    styles: chargesTableStyles,
-    margin: margin,
-    columnStyles: {
-      0: { cellWidth: leftSectionWidth * 0.45 },
-      1: { cellWidth: leftSectionWidth * 0.55 },
-      2: { cellWidth: rightSectionWidth * 0.65 },
-      3: { cellWidth: rightSectionWidth * 0.35, halign: "right" },
+      15: { halign: "right" },
     },
     didParseCell: (data: any) => {
-      if (data.section === "body" && data.column.index === 2) {
-        const label = String(data.cell.raw ?? "");
-        if (boldRightLabels.has(label)) {
-          data.cell.styles.fontStyle = "bold";
+      if (data.section !== "body") return;
+      const summaryStartIndex = (itemRows as any[]).length;
+      if (data.row.index < summaryStartIndex) return;
+
+      const totalsRowIndex = summaryStartIndex;
+      const transportRowIndex = summaryStartIndex + 1;
+      const transitRowIndex = summaryStartIndex + 2;
+      const gstReverseRowIndex = summaryStartIndex + 3;
+      const amountWordsRowIndex = summaryStartIndex + 4;
+
+      // Default for summary rows: no vertical lines (keep only horizontal)
+      data.cell.styles.lineWidth = {
+        top: 0.15,
+        bottom: 0.15,
+        left: 0,
+        right: 0,
+      };
+
+      // Totals row: show vertical lines starting from Rate column (index 5)
+      if (data.row.index === totalsRowIndex) {
+        if (data.column.index >= 5) {
+          data.cell.styles.lineWidth = 0.15;
         }
+        return;
+      }
+
+      // Charge rows: show only a single vertical separator between label (IGST area)
+      // and Amount column.
+      if (
+        data.row.index === transportRowIndex ||
+        data.row.index === transitRowIndex ||
+        data.row.index === gstReverseRowIndex
+      ) {
+        // Label is column 14 and amount is column 15
+        if (data.column.index === 14) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0.15,
+          };
+          return;
+        }
+        if (data.column.index === 15) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0,
+          };
+          return;
+        }
+        return;
+      }
+
+      // Amount in words row: show vertical separator between words and final amount
+      if (data.row.index === amountWordsRowIndex) {
+        if (data.column.index === 0) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0,
+            right: 0.15,
+          };
+          return;
+        }
+        if (data.column.index === 15) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0,
+          };
+          return;
+        }
+        return;
       }
     },
   });
 
-  const chargesTableEndY = (doc as any).lastAutoTable.finalY;
-  doc.setLineWidth(0.4);
-  doc.rect(margin, chargesY, usableWidth, chargesTableEndY - chargesY);
+  const tableEndY = (doc as any).lastAutoTable.finalY;
+  doc.setDrawColor(0);
   doc.setLineWidth(0.2);
+  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
+  doc.setLineWidth(0.15);
 
-  const afterChargesY = chargesTableEndY + 4;
-
-  // Start after charges table
-  let cursorY = afterChargesY + 4;
+  let cursorY = tableEndY + 6;
   const signatureBoxHeight = 16; // compact signature box
   const footerSpace = 10;
   const padX = margin + 4; // extra left padding to avoid touching border
 
-  // Remarks section (always show heading; render "-" if empty) with pagination
-  const remarksTextRaw = (
-    purchaseOrder.remarks ||
-    ""
-  ).trim();
-  const remarksText = remarksTextRaw || "-";
+  const paymentTermsFromJoin = Array.isArray((purchaseOrder as any).poPaymentTerms)
+    ? (((purchaseOrder as any).poPaymentTerms as any[])
+        .map((pt) =>
+          safeText(
+            pt?.paymentTerm?.description || pt?.paymentTerm?.paymentTerm || "-"
+          )
+        )
+        .filter((t) => t && t !== "-"))
+    : [];
+  const leftValuePaymentTerms = purchaseOrder.paymentTerm?.description ?? "-";
+  const paymentTermsToPrint =
+    paymentTermsFromJoin.length > 0
+      ? paymentTermsFromJoin
+      : leftValuePaymentTerms && leftValuePaymentTerms !== "-"
+      ? [safeText(leftValuePaymentTerms)]
+      : ["-"];
+
+  const validityText = safeText(
+    "Purchase Order validity is upto 30 days."
+  );
+
+  // Terms & Conditions section
+  const termsText = (purchaseOrder.terms || "").trim();
+  const termsHeader = "Terms & Conditions:";
+  const paymentTermLines = [
+    "2) Payment terms:",
+    ...paymentTermsToPrint.map((t) => `   ${safeText(t)}`),
+  ].join("\n");
+  const termsIntroLines = [
+    `1) Delivery Schedule: ${safeText(purchaseOrder.deliverySchedule)}`,
+    paymentTermLines,
+    `3) Validity: ${validityText}`,
+  ].join("\n");
+
+  const otherNotesLine = `10) Other Notes: ${safeText(purchaseOrder.note)}`;
+  const fullTermsText = [termsIntroLines, termsText].filter(Boolean).join("\n\n");
+  const fullTermsWithNotes = [fullTermsText, otherNotesLine]
+    .filter(Boolean)
+    .join("\n\n");
+
   doc.setFont("helvetica", "bold");
-  const remarksHeadingHeight = lineHeight + 2;
-  const remarksLines = doc.splitTextToSize(remarksText, usableWidth);
-  const remarksHeight =
-    (Array.isArray(remarksLines) ? remarksLines.length : 0) * lineHeight;
+  const termsHeadingHeight = lineHeight + 2;
+  const termsLines = doc.splitTextToSize(fullTermsWithNotes || "-", usableWidth);
+  const termsHeight =
+    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
   cursorY = ensureSpace(
     doc,
     cursorY,
-    remarksHeadingHeight + remarksHeight + signatureBoxHeight + footerSpace,
+    termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
     margin
   );
-  doc.text("Remarks:", padX, cursorY);
+  doc.text(termsHeader, padX, cursorY);
   doc.setFont("helvetica", "normal");
-  const remarksBlock = Array.isArray(remarksLines)
-    ? remarksLines.map((t) => ({ text: t }))
-    : [{ text: String(remarksLines) }];
-  drawWrappedLines(doc, remarksBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
-  cursorY = cursorY + 5 + remarksHeight + 5;
+  const termsBlock = Array.isArray(termsLines)
+    ? termsLines.map((t) => ({ text: t }))
+    : [{ text: String(termsLines) }];
+  drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+  cursorY = cursorY + 5 + termsHeight + 5;
 
-  // Terms & Conditions section (always show heading; body only if present) with pagination
-  const termsText = (purchaseOrder.terms || "").trim();
+  // Acknowledgement text
+  const ackText = "Please acknowledge the order and confirm acceptance";
   doc.setFont("helvetica", "bold");
-  const termsHeadingHeight = lineHeight + 2;
-  const termsLines = termsText
-    ? doc.splitTextToSize(termsText, usableWidth)
-    : [];
-  const termsHeight =
-    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
-  if (termsText) {
-    cursorY = ensureSpace(
-      doc,
-      cursorY,
-      termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
-      margin
-    );
-    doc.text("Terms & Conditions:", padX, cursorY);
-    doc.setFont("helvetica", "normal");
-    const termsBlock = Array.isArray(termsLines)
-      ? termsLines.map((t) => ({ text: t }))
-      : [{ text: String(termsLines) }];
-    drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
-    cursorY = cursorY + 5 + termsHeight + 5;
-  }
+  const ackLines = doc.splitTextToSize(ackText, usableWidth);
+  const ackHeight =
+    (Array.isArray(ackLines) ? ackLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    ackHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(ackLines as any, padX, cursorY);
+  cursorY = cursorY + ackHeight + 6;
+
+  const forCompanyName =
+    safeText((purchaseOrder.site as any)?.company?.companyName) !== "-"
+      ? safeText((purchaseOrder.site as any)?.company?.companyName)
+      : "Dynasoure Concrete Treatment Pvt Ltd.";
+  doc.setFont("helvetica", "bold");
+  doc.text(`For M/s ${forCompanyName}`, padX, cursorY);
+  cursorY = cursorY + lineHeight + 4;
 
   // Signature section: ensure room, otherwise push to next page
   cursorY = ensureSpace(
@@ -856,11 +1002,10 @@ export async function GET(
   );
   const signatureBoxY = cursorY + 6;
   doc.setFont("helvetica", "bold");
-  const rightPadX = margin + usableWidth * 0.75; // start at 75% width
-  doc.text("Authorised Signatory", rightPadX, signatureBoxY + 18);
+  doc.text("Authorised Signatory", padX, signatureBoxY + 8);
 
   const totalPages = doc.getNumberOfPages();
-  doc.setFontSize(8);
+  doc.setFontSize(smallFontSize);
   doc.setFont("helvetica", "bold");
   const footerLeft = "DCTPL";
   const footerCenter = `Generated on ${format(
@@ -871,6 +1016,7 @@ export async function GET(
     doc.setPage(i);
     // Draw a horizontal line below the outer border and place footer outside the box
     const lineY = pageHeight - margin - 4; // lift footer for better bottom margin
+    doc.setDrawColor(0);
     doc.line(margin, lineY, pageWidth - margin, lineY);
     const y = lineY + 4; // footer below the line
     doc.text(footerLeft, padX, y);

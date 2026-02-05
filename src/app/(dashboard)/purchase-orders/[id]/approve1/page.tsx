@@ -32,11 +32,17 @@ export default function PurchaseOrderApprove1Page() {
       purchaseOrderDate: purchaseOrder.purchaseOrderDate,
       deliveryDate: purchaseOrder.deliveryDate,
       siteId: purchaseOrder.site?.id,
-      boqId: (purchaseOrder as any).boqId ?? null,
       vendorId: purchaseOrder.vendor?.id,
       billingAddressId: purchaseOrder.billingAddress?.id,
       siteDeliveryAddressId: purchaseOrder.siteDeliveryAddress?.id,
-      paymentTermId: purchaseOrder.paymentTerm?.id,
+      paymentTermIds:
+        (purchaseOrder as any)?.poPaymentTerms?.length > 0
+          ? ((purchaseOrder as any).poPaymentTerms as any[])
+              .map((pt) => Number(pt.paymentTermId))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          : purchaseOrder.paymentTerm?.id
+          ? [Number(purchaseOrder.paymentTerm.id)]
+          : [],
       quotationNo: purchaseOrder.quotationNo ?? undefined,
       quotationDate: purchaseOrder.quotationDate ?? undefined,
       transport: purchaseOrder.transport,
