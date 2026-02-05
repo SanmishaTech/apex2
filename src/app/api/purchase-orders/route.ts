@@ -7,6 +7,11 @@ import { paginate } from "@/lib/paginate";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 import { ROLES } from "@/config/roles";
+import {
+  applyBudgetValidation,
+  formatBudgetQtyViolationsForBadRequest,
+  validateSiteBoqBudgetQtyForItems,
+} from "@/lib/site-budget-validation";
 
 const purchaseOrderItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
@@ -50,6 +55,7 @@ const purchaseOrderItemSchema = z.object({
 const createSchema = z.object({
   indentId: z.coerce.number().optional(),
   siteId: z.coerce.number().min(1, "Site is required"),
+  boqId: z.coerce.number().optional().nullable(),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
   siteDeliveryAddressId: z.coerce
@@ -351,17 +357,44 @@ export async function POST(req: NextRequest) {
     const parsedData = createSchema.parse(body);
 
     const result = await prisma.$transaction(async (tx) => {
+      let resolvedBoqId: number | null =
+        parsedData.boqId && Number.isFinite(Number(parsedData.boqId))
+          ? Number(parsedData.boqId)
+          : null;
+
+      if (applyBudgetValidation && !resolvedBoqId) {
+        throw new Error("BAD_REQUEST: BOQ is required");
+      }
+
+      if (applyBudgetValidation && resolvedBoqId) {
+        const violations = await validateSiteBoqBudgetQtyForItems({
+          tx,
+          siteId: parsedData.siteId,
+          boqId: resolvedBoqId,
+          items: (parsedData.purchaseOrderItems || []).map((it) => ({
+            itemId: Number(it.itemId),
+            qty: Number(it.qty || 0),
+          })),
+        });
+        if (violations.length > 0) {
+          throw new Error(
+            `BAD_REQUEST: ${formatBudgetQtyViolationsForBadRequest(violations)}`
+          );
+        }
+      }
+
       // Generate financial year-based PO number within the transaction
       const purchaseOrderNo = await generatePONumber(
         tx,
         parsedData.purchaseOrderDate
       );
 
-      const poData: Prisma.PurchaseOrderUncheckedCreateInput = {
+      const poData: any = {
         purchaseOrderNo,
         purchaseOrderDate: parsedData.purchaseOrderDate,
         deliveryDate: parsedData.deliveryDate,
         siteId: parsedData.siteId,
+        boqId: resolvedBoqId,
         vendorId: parsedData.vendorId,
         billingAddressId: parsedData.billingAddressId,
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,
@@ -631,6 +664,11 @@ export async function POST(req: NextRequest) {
     }
     if (error.code === "P2002") {
       return ApiError("Purchase order number already exists", 409);
+    }
+    if (error?.message && typeof error.message === "string") {
+      if (error.message.startsWith("BAD_REQUEST:")) {
+        return BadRequest(error.message.replace(/^BAD_REQUEST:\s*/i, ""));
+      }
     }
     console.error("Create purchase order error:", error);
     return ApiError("Failed to create purchase order");
