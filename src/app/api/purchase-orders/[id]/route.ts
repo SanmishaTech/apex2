@@ -101,7 +101,7 @@ const updateSchema = z.object({
     .optional(),
   transport: z.string().optional(),
   note: z.string().optional(),
-  terms: z.string().optional(),
+  terms: z.string().nullable().optional(),
   paymentTermsInDays: z.number().optional(),
   deliverySchedule: z.string().optional(),
   purchaseOrderItems: z.array(purchaseOrderItemSchema).optional(),
@@ -305,6 +305,10 @@ export async function PATCH(
 
     const body = await req.json();
     const updateData = updateSchema.parse(body);
+
+    if (Object.prototype.hasOwnProperty.call(updateData, "terms")) {
+      (updateData as any).terms = null;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return BadRequest("No valid fields to update");

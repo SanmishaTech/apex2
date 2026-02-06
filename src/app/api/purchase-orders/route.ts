@@ -74,7 +74,7 @@ const createSchema = z.object({
   quotationDate: z.string().transform((val) => new Date(val)),
   transport: z.string().optional(),
   note: z.string().optional(),
-  terms: z.string().optional(),
+  terms: z.string().nullable().optional(),
   poStatus: z.enum(["HOLD"]).optional().nullable(),
   paymentTermsInDays: z.coerce.number().optional(),
   transitInsuranceStatus: z
@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
         pfCharges: parsedData.pfCharges || null,
         gstReverseStatus: parsedData.gstReverseStatus || null,
         gstReverseAmount: parsedData.gstReverseAmount || null,
-        terms: parsedData.terms || null,
+        terms: null,
         poStatus: parsedData.poStatus ?? null,
         paymentTermsInDays: parsedData.paymentTermsInDays || null,
         deliverySchedule: parsedData.deliverySchedule || null,

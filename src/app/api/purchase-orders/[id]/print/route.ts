@@ -933,7 +933,14 @@ export async function GET(
   );
 
   // Terms & Conditions section
-  const termsText = (purchaseOrder.terms || "").trim();
+  const termsText = [
+    "4) Material Shall be Subject to approval for quality assurance & performance parameters as per datasheet. Rejections, if any, shall be on your account.",
+    "5) Material Test Certificate (MTC) should be sent along with the material.",
+    "6) Material should be dispatched as per given dispatch schedule.",
+    "7) Material should be delivered in seal pack condition with minimum 6 months shelf life.",
+    "8) All invoices must be sent in duplicate to the head office for smooth release of payment and must include the purchase order number.",
+    "9) Jurisdiction & Conditions: Mumbai Courts, please refer the general terms and conditions governing this PO.",
+  ].join("\n");
   const termsHeader = "Terms & Conditions:";
   const paymentTermLines = [
     "2) Payment terms:",
