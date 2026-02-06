@@ -114,7 +114,6 @@ type PurchaseOrderFormInitialData = {
   quotationDate?: string;
   transport?: string | null;
   note?: string | null;
-  terms?: string | null;
   poStatus?: "HOLD" | null;
   paymentTermsInDays?: number | null;
   deliverySchedule?: string | null;
@@ -247,7 +246,6 @@ const createInputSchema = z.object({
   quotationDate: z.string().min(1, "Quotation date is required"),
   transport: z.string().optional(),
   note: z.string().optional(),
-  terms: z.string().optional(),
   poStatus: z.union([z.literal("HOLD"), z.null()]).optional(),
   paymentTermsInDays: z
     .union([z.string(), z.number()])
@@ -385,12 +383,6 @@ export function PurchaseOrderForm({
       quotationDate: formatDateField(initial?.quotationDate, today),
       transport: initial?.transport ?? "",
       note: initial?.note ?? "",
-      terms:
-        isApprovalMode
-          ? initial?.terms ?? ""
-          : (initial?.terms && initial?.terms.trim() !== ""
-              ? initial?.terms
-              : `4) Material Shall be Subject to approval for quality assurance & performance parameters as per datasheet. Rejections, if any, shall be on your\naccount.\n5) Material Test Certificate (MTC) should be sent along with the material.\n6) Material should be dispatched as per given dispatch schedule.\n7) Material should be delivered in seal pack condition with minimum 6 months shelf life.\n8) All invoices must be sent in duplicate to the head office for smooth release of payment and must include the purchase order number.\n9) Jurisdiction & Conditions: Mumbai Courts, please refer the general terms and conditions governing this PO.`),
       poStatus: initial?.poStatus ?? null,
       paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
       deliverySchedule: initial?.deliverySchedule ?? "",
@@ -1513,15 +1505,6 @@ export function PurchaseOrderForm({
                   label="Note"
    rows={4}
                   span={2}                />
-                </div>
-                <div>
-                <TextareaInput
-                  control={form.control}
-                  name="terms"
-                  label="Terms & Conditions"
-                  rows={4}
-                  span={2}
-                />
                 </div>
               </FormRow>
             </FormSection>
