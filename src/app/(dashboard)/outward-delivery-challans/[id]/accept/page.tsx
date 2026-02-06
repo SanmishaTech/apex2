@@ -14,6 +14,8 @@ import { TextInput } from "@/components/common/text-input";
 import { Form } from "@/components/ui/form";
 import { FormSection } from "@/components/common/app-form";
 import { toast } from "@/lib/toast";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 const rowSchema = z.object({
   id: z.number(),
@@ -33,8 +35,17 @@ export default function AcceptOutwardDeliveryChallanPage() {
   const router = useRouter();
   const id = Number(params?.id);
 
+  const { can } = usePermissions();
+  const allowed = can(PERMISSIONS.ACCEPT_OUTWARD_DELIVERY_CHALLAN);
+
+  useEffect(() => {
+    if (allowed) return;
+    toast.error("You do not have permission to accept outward delivery challan");
+    router.replace("/outward-delivery-challans");
+  }, [allowed, router]);
+
   const { data: challan, isLoading, error, mutate } = useSWR<any>(
-    Number.isFinite(id) ? `/api/outward-delivery-challans/${id}` : null,
+    allowed && Number.isFinite(id) ? `/api/outward-delivery-challans/${id}` : null,
     apiGet
   );
 

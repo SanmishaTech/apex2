@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
-import { ROLES } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 
 async function generateOutwardChallanNumber(
   tx: Prisma.TransactionClient
@@ -78,6 +78,9 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    const canRead = permSet.has(PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN);
+
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(
@@ -121,6 +124,11 @@ export async function GET(req: NextRequest) {
       ? { [sort]: order }
       : { outwardChallanNo: "asc" };
 
+    // VIEW-only users are allowed to access the list page but must not see any records.
+    if (!canRead) {
+      return Success({ data: [], page, perPage, total: 0, totalPages: 1 });
+    }
+
     // Site-based visibility: only ADMIN can see all; others restricted to assigned sites (either fromSite or toSite)
     if ((auth as any).user?.role !== ROLES.ADMIN) {
       const employee = await prisma.employee.findFirst({
@@ -151,12 +159,16 @@ export async function GET(req: NextRequest) {
         toSiteId: true,
         createdById: true,
         approved1ById: true,
+        acceptedById: true,
         isApproved1: true,
         isAccepted: true,
         createdAt: true,
         updatedAt: true,
         fromSite: { select: { id: true, site: true } },
         toSite: { select: { id: true, site: true } },
+        createdBy: { select: { id: true, name: true } },
+        approved1By: { select: { id: true, name: true } },
+        acceptedBy: { select: { id: true, name: true } },
         outwardDeliveryChallanDetails: {
           select: {
             id: true,

@@ -154,6 +154,22 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.ADD_INWARD_BILL_PAYMENT],
   },
 
+  // Outward Delivery Challans
+  {
+    prefix: "/outward-delivery-challans/new",
+    permissions: [PERMISSIONS.CREATE_OUTWARD_DELIVERY_CHALLAN],
+  },
+  {
+    // detail pages: /outward-delivery-challans/:id, /approve, /accept ...
+    prefix: "/outward-delivery-challans/",
+    permissions: [PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN],
+  },
+  {
+    // list page
+    prefix: "/outward-delivery-challans",
+    permissions: [PERMISSIONS.VIEW_OUTWARD_DELIVERY_CHALLAN],
+  },
+
   // BOQ Bills
   { prefix: "/boq-bills/new", permissions: [PERMISSIONS.CREATE_BOQ_BILLS] },
   { prefix: "/boq-bills/", permissions: [PERMISSIONS.EDIT_BOQ_BILLS] },
@@ -648,9 +664,19 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
-    prefix: "/api/outward-delivery-challans",
+    // Detail routes like /api/outward-delivery-challans/:id
+    prefix: "/api/outward-delivery-challans/",
     methods: {
       GET: [PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN],
+      // Let handler enforce granular approve/accept permissions
+      PATCH: [],
+    },
+  },
+  {
+    prefix: "/api/outward-delivery-challans",
+    methods: {
+      // List endpoint supports VIEW-only (returns no data unless READ is present)
+      GET: [PERMISSIONS.VIEW_OUTWARD_DELIVERY_CHALLAN],
       POST: [PERMISSIONS.CREATE_OUTWARD_DELIVERY_CHALLAN],
       PATCH: [],
     },
