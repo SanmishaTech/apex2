@@ -214,6 +214,65 @@ export function DailyProgressForm({
     replace: replaceDetail,
   } = useFieldArray({ control, name: "details" });
 
+  // Populate details table whenever BOQ items are available (like BOQ Targets)
+  useEffect(() => {
+    const current = (getValues("details") || []) as any[];
+
+    if (!selectedBoqId) {
+      if (current.length) replaceDetail([]);
+      return;
+    }
+
+    if (!Array.isArray(boqItems) || boqItems.length === 0) return;
+
+    const doneByItemId = new Map<string, string>();
+    const particularsByItemId = new Map<string, string>();
+
+    current.forEach((d) => {
+      const k = String(d?.boqItemId || "");
+      if (!k) return;
+      doneByItemId.set(k, String(d?.doneQty ?? ""));
+      particularsByItemId.set(k, String(d?.particulars ?? ""));
+    });
+
+    // Bring in persisted values from initial payload (edit) when current is empty
+    if (!current.length && Array.isArray(initial?.dailyProgressDetails ?? initial?.details)) {
+      (initial?.dailyProgressDetails ?? initial?.details ?? []).forEach((d: any) => {
+        const k = d?.boqItemId ? String(d.boqItemId) : "";
+        if (!k) return;
+        doneByItemId.set(k, d?.doneQty == null ? "" : String(d.doneQty));
+        particularsByItemId.set(k, d?.particulars == null ? "" : String(d.particulars));
+      });
+    }
+
+    const next = boqItems.map((it: any) => {
+      const key = String(it.id);
+      return {
+        boqItemId: key,
+        clientSerialNo: String(it.clientSrNo ?? ""),
+        activityId: String(it.activityId ?? ""),
+        item: String(it.item ?? ""),
+        unit: String(it.unit ?? ""),
+        boqQty: String(it.boqQty ?? ""),
+        doneQty: doneByItemId.get(key) ?? "",
+        particulars: particularsByItemId.get(key) ?? "",
+        amount: String(it.amount ?? ""),
+      };
+    });
+
+    const isSame =
+      current.length === next.length &&
+      current.every(
+        (d, i) =>
+          String(d?.boqItemId ?? "") === String((next[i] as any)?.boqItemId ?? "") &&
+          String(d?.doneQty ?? "") === String((next[i] as any)?.doneQty ?? "") &&
+          String(d?.particulars ?? "") ===
+            String((next[i] as any)?.particulars ?? "")
+      );
+
+    if (!isSame) replaceDetail(next as any);
+  }, [selectedBoqId, boqItems, replaceDetail, getValues, initial?.dailyProgressDetails, initial?.details]);
+
   useEffect(() => {
     details.forEach((detail, index) => {
       const boqItemId = detail?.boqItemId;
@@ -404,162 +463,71 @@ export function DailyProgressForm({
                 </span>
               }
             >
-              <div className="flex flex-col gap-4">
-                {detailFields.map((field, index) => {
-                  const detail = (details || [])[index] as any;
-                  const selectedIds = new Set(
-                    (details || [])
-                      .map((d: any) =>
-                        d?.boqItemId ? String(d.boqItemId) : ""
-                      )
-                      .filter(Boolean)
-                  );
-
-                  return (
-                    <div
-                      key={field.id}
-                      className="border rounded-md p-4 bg-card"
-                    >
-                      <div className="grid grid-cols-12 gap-4 items-center">
-                        <AppSelect
-                          control={control}
-                          name={`details.${index}.boqItemId`}
-                          label="Activity ID"
-                          placeholder="Select Activity"
-                          className="col-span-12 md:col-span-2"
-                          onValueChange={(value) => {
-                            setValue(`details.${index}.boqItemId`, value, {
-                              shouldValidate: true,
-                            });
-
-                            const selected = boqItems.find(
-                              (it) => String(it.id) === value
-                            );
-                            if (selected) {
-                              setValue(
-                                `details.${index}.clientSerialNo`,
-                                selected.clientSrNo
-                              );
-                              setValue(
-                                `details.${index}.activityId`,
-                                selected.activityId
-                              );
-                              setValue(`details.${index}.item`, selected.item);
-                              setValue(`details.${index}.unit`, selected.unit);
-                              setValue(
-                                `details.${index}.boqQty`,
-                                selected.boqQty
-                              );
-                              setValue(`details.${index}.doneQty`, "");
-                              setValue(
-                                `details.${index}.amount`,
-                                selected.boqQty
-                              );
-                            }
-                          }}
-                        >
-                          {boqItems.length === 0
-                            ? ""
-                            : boqItems
-                                .filter(
-                                  (it) =>
-                                    !selectedIds.has(String(it.id)) ||
-                                    String(it.id) ===
-                                      String(detail?.boqItemId || "")
-                                )
-                                .map((it) => (
-                                  <AppSelect.Item
-                                    key={it.id}
-                                    value={String(it.id)}
-                                  >
-                                    {it.activityId ??
-                                      it.item ??
-                                      "Unnamed Activity"}
-                                  </AppSelect.Item>
-                                ))}
-                        </AppSelect>
-
-                        <div className="col-span-12 md:col-span-4">
-                          <FormLabel>Client Sr No</FormLabel>
-                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail?.clientSerialNo || "-"}
-                          </div>
-                        </div>
-                        <div className="col-span-12 md:col-span-4">
-                          <FormLabel>Unit</FormLabel>
-                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail?.unit || "-"}
-                          </div>
-                        </div>
-                        <div className="col-span-12 md:col-span-2">
-                          <FormLabel>Remaining Qty</FormLabel>
-                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail?.boqQty || "-"}
-                          </div>
-                        </div>
-                        <div className="col-span-12 md:col-span-12">
-                          <FormLabel>Item</FormLabel>
-                          <div className="border mt-2 px-2 py-1 rounded bg-muted">
-                            {detail?.item || "-"}
-                          </div>
-                        </div>
-
-                        <div className="col-span-12 md:col-span-2">
-                          <TextInput
-                            control={control}
-                            name={`details.${index}.doneQty`}
-                            label="Done Today"
-                            type="number"
-                            className="col-span-12 md:col-span-2"
-                          />
-                        </div>
-                        <div className="col-span-12 md:col-span-10">
-                          <TextInput
-                            control={control}
-                            name={`details.${index}.particulars`}
-                            label="Particulars"
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex justify-end">
-                        <AppButton
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          iconName="Trash"
-                          onClick={() => removeDetail(index)}
-                        >
-                          Remove
-                        </AppButton>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div>
-                  <AppButton
-                    type="button"
-                    size="sm"
-                    iconName="Plus"
-                    onClick={() =>
-                      appendDetail({
-                        boqItemId: "",
-                        clientSerialNo: "",
-                        activityId: "",
-                        item: "",
-                        unit: "",
-                        boqQty: "",
-                        doneQty: "",
-                        particulars: "",
-                        amount: "",
-                      })
-                    }
-                  >
-                    Add Detail
-                  </AppButton>
+              {selectedBoqId && detailFields.length > 0 ? (
+                <div className="overflow-x-auto border rounded-md">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left font-medium px-3 py-2">Activity ID</th>
+                        <th className="text-left font-medium px-3 py-2">Description of item</th>
+                        <th className="text-left font-medium px-3 py-2">Unit</th>
+                        <th className="text-right font-medium px-3 py-2">Remaining Qty</th>
+                        <th className="text-right font-medium px-3 py-2">Done Today</th>
+                        <th className="text-left font-medium px-3 py-2">Particulars</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailFields.map((field, index) => {
+                        const detail = (details || [])[index] as any;
+                        return (
+                          <tr key={field.id} className="border-t">
+                            <td className="px-3 py-2 align-top whitespace-nowrap">
+                              {detail?.activityId || "—"}
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              {detail?.item || "—"}
+                              {detail?.clientSerialNo ? (
+                                <div className="text-xs text-muted-foreground">
+                                  Client Sr No: {detail.clientSerialNo}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-2 align-top whitespace-nowrap">
+                              {detail?.unit || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums align-top whitespace-nowrap">
+                              {detail?.boqQty || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums align-top whitespace-nowrap">
+                              <TextInput
+                                control={control}
+                                name={`details.${index}.doneQty`}
+                                label=""
+                                type="number"
+                                className="w-32"
+                              />
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <TextInput
+                                control={control}
+                                name={`details.${index}.particulars`}
+                                label=""
+                                className="w-[320px]"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  {selectedBoqId
+                    ? "No BOQ items found."
+                    : "Select a BOQ to view items."}
+                </div>
+              )}
             </FormSection>
 
             {/* ===== Hindrances Section ===== */}

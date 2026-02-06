@@ -12,7 +12,7 @@ import { AppButton } from "@/components/common/app-button";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/config/roles";
 import { DataTable, SortState, Column } from "@/components/common/data-table";
-import { formatRelativeTime, formatDate } from "@/lib/locales";
+import { formatDate } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -35,6 +35,10 @@ type ODCListItem = {
   toSite: { id: number; site: string } | null;
   createdById: number;
   approved1ById?: number | null;
+  acceptedById?: number | null;
+  createdBy?: { id: number; name: string } | null;
+  approved1By?: { id: number; name: string } | null;
+  acceptedBy?: { id: number; name: string } | null;
   isApproved1: boolean;
   isAccepted: boolean;
   createdAt: string;
@@ -104,6 +108,21 @@ export default function OutwardDeliveryChallansPage() {
     }
   }
 
+  function UserBadge({
+    name,
+    className,
+  }: {
+    name?: string | null;
+    className: string;
+  }) {
+    if (!name) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${className}`}>
+        {name}
+      </span>
+    );
+  }
+
   const columns: Column<ODCListItem>[] = [
     {
       key: "outwardChallanNo",
@@ -150,18 +169,37 @@ export default function OutwardDeliveryChallansPage() {
       className: "whitespace-nowrap",
     },
     {
+      key: "createdBy",
+      header: "Created By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge name={r.createdBy?.name} className="bg-sky-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved1By",
+      header: "Approved By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge name={r.approved1By?.name} className="bg-emerald-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "acceptedBy",
+      header: "Accepted By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge name={r.acceptedBy?.name} className="bg-violet-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
       key: "createdAt",
       header: "Created",
       sortable: true,
       accessor: (r) => formatDate(r.createdAt),
-      className: "whitespace-nowrap",
-      cellClassName: "text-muted-foreground whitespace-nowrap",
-    },
-    {
-      key: "updatedAt",
-      header: "Updated",
-      sortable: false,
-      accessor: (r) => formatRelativeTime(r.updatedAt),
       className: "whitespace-nowrap",
       cellClassName: "text-muted-foreground whitespace-nowrap",
     },

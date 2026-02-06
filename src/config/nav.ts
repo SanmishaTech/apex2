@@ -369,7 +369,7 @@ export const NAV_ITEMS: NavItem[] = [
         title: "Outward Delivery Challan",
         href: "/outward-delivery-challans",
         icon: FileText,
-        permission: PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN,
+        permission: PERMISSIONS.VIEW_OUTWARD_DELIVERY_CHALLAN,
       },
       // {
       //   title: "Work Orders",

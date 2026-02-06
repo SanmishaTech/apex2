@@ -4,6 +4,7 @@ import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import { ROLES } from "@/config/roles";
 
 function toDbDate(input: string): Date {
   const s = String(input || "").trim();
@@ -53,6 +54,28 @@ export async function GET(req: NextRequest) {
         { billName: { contains: search } },
         { boq: { boqNo: { contains: search } } },
       ];
+    }
+
+    const role = auth.user.role;
+    const isAdmin = role === ROLES.ADMIN;
+
+    if (!isAdmin) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId: auth.user.id },
+        select: { siteEmployees: { select: { siteId: true } } },
+      });
+      const assignedSiteIds = (employee?.siteEmployees || [])
+        .map((s) => s.siteId)
+        .filter((v): v is number => typeof v === "number");
+
+      if (!assignedSiteIds || assignedSiteIds.length === 0) {
+        return Success({ data: [], page, perPage, total: 0, totalPages: 1 });
+      }
+
+      where.boq = {
+        ...(where.boq || {}),
+        siteId: { in: assignedSiteIds },
+      };
     }
 
     const boqId = Number(searchParams.get("boqId"));
