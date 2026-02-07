@@ -190,8 +190,7 @@ export default function EditAttendancePage() {
       } as Record<string, Partial<AttendanceEdit>>;
 
       // Rules:
-      // - If Idle is checked => OT becomes 0 and not editable (handled by disabled in UI)
-      // - If OT > 0 => Present must be checked and cannot be unchecked
+      // - If OT != 0 => Present must be checked and cannot be unchecked
       if (field === "isIdle") {
         const checked = Boolean(value);
         if (checked) {
@@ -199,18 +198,26 @@ export default function EditAttendancePage() {
             ...next[uniqueKey],
             isIdle: true,
             isPresent: true,
-            ot: 0,
           };
         }
       }
 
       if (field === "ot") {
         const otNum = value === null || value === "" ? null : Number(value);
-        if (otNum != null && Number.isFinite(otNum) && otNum > 0) {
+        const allowedOtValues = [-0.25, -0.5, -0.75, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+        const clampedOtNum =
+          otNum != null && allowedOtValues.includes(otNum) ? otNum : null;
+
+        if (clampedOtNum != null && clampedOtNum !== 0) {
           next[uniqueKey] = {
             ...next[uniqueKey],
-            ot: otNum,
+            ot: clampedOtNum,
             isPresent: true,
+          };
+        } else if (clampedOtNum != null) {
+          next[uniqueKey] = {
+            ...next[uniqueKey],
+            ot: clampedOtNum,
           };
         }
       }
@@ -545,7 +552,7 @@ export default function EditAttendancePage() {
                                       const otNow = Number(
                                         getEditedValue(uniqueKey, "ot", record) || 0
                                       );
-                                      if (otNow > 0 && !e.target.checked) return;
+                                      if (otNow !== 0 && !e.target.checked) return;
                                       if (isIdleNow && !e.target.checked) return;
                                       handleFieldChange(
                                         uniqueKey,
@@ -562,7 +569,7 @@ export default function EditAttendancePage() {
                                       ) as boolean) === true ||
                                       Number(
                                         getEditedValue(uniqueKey, "ot", record) || 0
-                                      ) > 0
+                                      ) !== 0
                                     }
                                   />
                                 </td>
@@ -590,16 +597,13 @@ export default function EditAttendancePage() {
                                           "isPresent",
                                           true
                                         );
-                                        handleFieldChange(uniqueKey, "ot", 0);
                                       }
                                     }}
                                     className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
                                   />
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  <input
-                                    type="number"
-                                    step="0.5"
+                                  <select
                                     value={
                                       (getEditedValue(
                                         uniqueKey,
@@ -611,21 +615,16 @@ export default function EditAttendancePage() {
                                       handleFieldChange(
                                         uniqueKey,
                                         "ot",
-                                        e.target.value
-                                          ? parseFloat(e.target.value)
-                                          : null
+                                        e.target.value ? parseFloat(e.target.value) : null
                                       )
                                     }
                                     className="w-20 px-2 py-1 border border-input rounded bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-ring"
-                                    placeholder="0"
-                                    disabled={
-                                      (getEditedValue(
-                                        uniqueKey,
-                                        "isIdle",
-                                        record
-                                      ) as boolean) === true
-                                    }
-                                  />
+                                  >
+                                    <option value="">0</option>
+                                    {[-0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
                                 </td>
                               </tr>
                             );

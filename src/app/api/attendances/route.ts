@@ -6,6 +6,8 @@ import { paginate } from "@/lib/paginate";
 import { z } from "zod";
 import { ROLES } from "@/config/roles";
 
+const allowedOtValues = [-0.25, -0.5, -0.75, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 // Schema for creating attendance
 const createAttendanceSchema = z.object({
   date: z.string(),
@@ -15,7 +17,10 @@ const createAttendanceSchema = z.object({
       manpowerId: z.number().int().positive(),
       isPresent: z.boolean(),
       isIdle: z.boolean(),
-      ot: z.number().optional().nullable(),
+      ot: z.number().optional().nullable().refine(
+        (val) => val === null || val === undefined || allowedOtValues.includes(val),
+        { message: "OT must be one of: " + allowedOtValues.join(", ") }
+      ),
     })
   ),
 });
@@ -27,7 +32,10 @@ const editAttendanceSchema = z.object({
       id: z.number().int().positive(),
       isPresent: z.boolean(),
       isIdle: z.boolean(),
-      ot: z.number().optional().nullable(),
+      ot: z.number().optional().nullable().refine(
+        (val) => val === null || val === undefined || allowedOtValues.includes(val),
+        { message: "OT must be one of: " + allowedOtValues.join(", ") }
+      ),
     })
   ),
 });
@@ -215,7 +223,8 @@ export async function POST(req: NextRequest) {
     // Use upsert to handle cases where attendance already exists for the date
     const results = await Promise.all(
       attendances.map((att) => {
-        const derivedIsPresent = att.isIdle ? true : att.isPresent;
+        const otNum = att.ot === undefined || att.ot === null ? 0 : Number(att.ot);
+        const derivedIsPresent = att.isIdle || otNum !== 0 ? true : att.isPresent;
         return prisma.attendance.upsert({
           where: {
             date_siteId_manpowerId: {
@@ -272,7 +281,8 @@ export async function PATCH(req: NextRequest) {
     // Update each attendance record
     const results = await Promise.all(
       attendances.map((att) => {
-        const derivedIsPresent = att.isIdle ? true : att.isPresent;
+        const otNum = att.ot === undefined || att.ot === null ? 0 : Number(att.ot);
+        const derivedIsPresent = att.isIdle || otNum !== 0 ? true : att.isPresent;
         return prisma.attendance.update({
           where: { id: att.id },
           data: {

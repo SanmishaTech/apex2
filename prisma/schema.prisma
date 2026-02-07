@@ -42,7 +42,6 @@ model User {
   cashbookBudgetsAccepted   CashbookBudget[]   @relation("CashbookBudgetAccepted")
 
   siteEmployeesAssigned             SiteEmployee[]    @relation("siteAssignedBy")
-  // siteEmployeesUnassigned   SiteEmployee[]    @relation("siteUnassignedBy")
 
   siteEmployeesAssignedLogs          SiteEmployeeLog[]  @relation("siteAssignedByLogs")
   siteEmployeesUnassignedLogs SiteEmployeeLog[] @relation("siteUnassignedByLogs")
@@ -99,7 +98,13 @@ model User {
   
   userRoles UserRole[]
   userPermissions UserPermission[]
+
+  siteManpowerAssigned             SiteManpower[]    @relation("SiteManpowerAssigned")
+
+siteManpowerAssignedLogs          SiteManpowerLog[]  @relation("siteManpowerAssignedByLogs")
+siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedByLogs")
   
+
   @@map("users")
 }
 
@@ -335,7 +340,6 @@ model Site {
   assets                Asset[]
   assetTransfersFrom    AssetTransfer[]    @relation("FromSiteTransfers")
   assetTransfersTo      AssetTransfer[]    @relation("ToSiteTransfers")
-  assignedManpower      Manpower[]
   manpowerTransfersFrom ManpowerTransfer[] @relation("FromSiteManpowerTransfers")
   manpowerTransfersTo   ManpowerTransfer[] @relation("ToSiteManpowerTransfers")
   attendances           Attendance[]       @relation("SiteAttendances")
@@ -357,6 +361,9 @@ model Site {
 
   stockAdjustments  StockAdjustment[]
   openingStocks     OpeningStock[]
+  siteManpowers     SiteManpower[]
+  siteManpowerLogs SiteManpowerLog[]
+
 
   @@index([site])
   @@index([shortName])
@@ -501,6 +508,8 @@ model Category {
 
   // Back-relation for MinimumWage.category
   minimumWages MinimumWage[]
+  siteManpowers SiteManpower[]
+
 
   @@index([categoryName])
   @@map("categories")
@@ -529,6 +538,7 @@ model SkillSet {
 
   // Back-relation for MinimumWage.skillSet
   minimumWages MinimumWage[]
+  siteManpowers SiteManpower[]
 
   @@index([skillsetName])
   @@map("skill_sets")
@@ -1016,7 +1026,6 @@ model Manpower {
   address      String?  @db.Text
   location     String?
   mobileNumber String?
-  wage         Decimal? @db.Decimal(12, 2)
 
   // Bank details
   bank          String?
@@ -1041,32 +1050,80 @@ model Manpower {
   watch                     Boolean @default(false)
 
   // Assignment tracking fields
-  category      String?
-  skillSet      String?
-  minWage       Decimal?  @db.Decimal(10, 2)
-  hours         Decimal?  @db.Decimal(5, 2)
-  esic          Decimal?  @db.Decimal(10, 2)
-  pf            Boolean   @default(false)
-  pt            Decimal?  @db.Decimal(10, 2)
-  hra           Decimal?  @db.Decimal(10, 2)
-  mlwf          Decimal?  @db.Decimal(10, 2)
+  
   isAssigned    Boolean   @default(false)
-  currentSiteId Int?
-  assignedAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  currentSite   Site?                  @relation(fields: [currentSiteId], references: [id])
   transferItems ManpowerTransferItem[]
   attendances   Attendance[]           @relation("ManpowerAttendances")
   paySlips      PaySlip[]
   manpowerDocuments     ManpowerDocument[]
+  siteManpower      SiteManpower?
+  siteManpowerLogs SiteManpowerLog[]
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
-  @@index([currentSiteId])
   @@map("manpower")
+}
+model SiteManpower {
+  id           Int      @id @default(autoincrement())
+  siteId       Int    
+  manpowerId   Int      @unique
+  isPresent    Boolean  @default(false)   
+  categoryId   Int?
+  skillsetId   Int?
+  wage         Decimal? @db.Decimal(10, 2) 
+  minWage      Decimal? @db.Decimal(10, 2) 
+  pf           Boolean  @default(false)
+  esic          Boolean  @default(false)
+  hra           Boolean  @default(false)
+  pt           Boolean  @default(false)
+  mlwf         Boolean  @default(false)
+  // end
+  assignedDate DateTime
+  assignedById   Int
+ 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  manpower    Manpower @relation(fields: [manpowerId], references: [id],onDelete: Restrict)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("SiteManpowerAssigned", fields: [assignedById], references: [id], onDelete: Restrict)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  skillset    SkillSet?   @relation(fields: [skillsetId], references: [id], onDelete: Restrict)
+  @@index([siteId])
+  @@index([categoryId])
+  @@index([skillsetId])
+  @@index([manpowerId])
+  @@index([assignedById])
+  // @@index([unassignedById])
+  @@map("site_manpowers")
+}
+
+model SiteManpowerLog {
+  id           Int      @id @default(autoincrement())
+  siteId       Int    
+  manpowerId   Int     
+  assignedDate DateTime
+  assignedById   Int
+  unassignedDate DateTime?
+  unassignedById Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("siteManpowerAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
+  unassignedBy User? @relation("siteManpowerUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
+
+
+  @@index([siteId])
+  @@index([manpowerId])
+  @@index([assignedById])
+  @@index([unassignedById])
+  @@map("site_manpower_logs")
 }
 
 // Minimum wage mapping per Site + Category + SkillSet
@@ -2641,5 +2698,3 @@ model SiteBudgetItem {
   @@map("site_budget_items")
 }
 
-
-//Make terms and Conditions Hardcoded.

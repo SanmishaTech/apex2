@@ -150,7 +150,7 @@ export default function MarkAttendancePage({
         if (field === 'isPresent') {
           const isPresent = Boolean(value);
           // If idle is selected, do not allow unchecking present
-          if ((m.isIdle || Number(m.ot || 0) > 0) && !isPresent) {
+          if ((m.isIdle || Number(m.ot || 0) !== 0) && !isPresent) {
             return m; // ignore attempt to uncheck present while idle
           }
           return {
@@ -165,19 +165,18 @@ export default function MarkAttendancePage({
             ...m,
             isIdle,
             isPresent: isIdle ? true : m.isPresent,
-            ot: isIdle ? 0 : m.ot,
+            ot: m.ot,
           };
         }
 
         if (field === 'ot') {
-          if (m.isIdle) {
-            return m;
-          }
-          const otValue = typeof value === 'number' ? value : m.ot;
+          const rawOtValue = typeof value === 'number' ? value : Number(m.ot ?? 0);
+          const allowedOtValues = [-0.25, -0.5, -0.75, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+          const clampedOtValue = allowedOtValues.includes(rawOtValue) ? rawOtValue : 0;
           return {
             ...m,
-            ot: otValue,
-            isPresent: Number(otValue || 0) > 0 ? true : m.isPresent,
+            ot: clampedOtValue,
+            isPresent: Number(clampedOtValue || 0) !== 0 ? true : m.isPresent,
           };
         }
 
@@ -393,9 +392,7 @@ export default function MarkAttendancePage({
                             </div>
                           </td>
                           <td className="px-3 py-2 text-center">
-                            <input
-                              type="number"
-                              step="0.5"
+                            <select
                               value={manpower.ot}
                               onChange={(e) =>
                                 handleFieldChange(
@@ -404,9 +401,14 @@ export default function MarkAttendancePage({
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-16 px-2 py-1 text-sm border border-input bg-background text-foreground rounded text-center"
-                              disabled={manpower.isLocked || manpower.isIdle}
-                            />
+                              className="w-16 px-1 py-1 text-sm border border-input bg-background text-foreground rounded text-center"
+                              disabled={manpower.isLocked}
+                            >
+                              <option value="">0</option>
+                              {[-0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(v => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <input
@@ -419,7 +421,7 @@ export default function MarkAttendancePage({
                               disabled={
                                 manpower.isLocked ||
                                 manpower.isIdle ||
-                                Number(manpower.ot || 0) > 0
+                                Number(manpower.ot || 0) !== 0
                               }
                             />
                           </td>
