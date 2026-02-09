@@ -42,15 +42,27 @@ export async function GET(req: NextRequest) {
     // Build where clause for manpower
     const manpowerWhere: any = {
       isAssigned: true,
-      currentSiteId: { in: siteIds },
+      siteManpower: {
+        siteId: { in: siteIds },
+      },
     };
 
     if (category) {
-      manpowerWhere.category = category;
+      manpowerWhere.siteManpower = {
+        ...(manpowerWhere.siteManpower || {}),
+        category: {
+          categoryName: category,
+        },
+      };
     }
 
     if (skillSet) {
-      manpowerWhere.skillSet = skillSet;
+      manpowerWhere.siteManpower = {
+        ...(manpowerWhere.siteManpower || {}),
+        skillset: {
+          skillsetName: skillSet,
+        },
+      };
     }
 
     // Fetch assigned manpower for the selected sites with filters
@@ -63,11 +75,28 @@ export async function GET(req: NextRequest) {
             supplierName: true,
           },
         },
-        currentSite: {
+        siteManpower: {
           select: {
-            id: true,
-            site: true,
-            shortName: true,
+            siteId: true,
+            site: {
+              select: {
+                id: true,
+                site: true,
+                shortName: true,
+              },
+            },
+            category: {
+              select: {
+                id: true,
+                categoryName: true,
+              },
+            },
+            skillset: {
+              select: {
+                id: true,
+                skillsetName: true,
+              },
+            },
           },
         },
         attendances: {
@@ -90,7 +119,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [
-        { currentSiteId: 'asc' },
+        { siteManpower: { siteId: 'asc' } },
         { manpowerSupplier: { supplierName: 'asc' } },
         { firstName: 'asc' },
       ],
@@ -151,10 +180,10 @@ export async function GET(req: NextRequest) {
           manpowerName: `${manpower.firstName} ${manpower.middleName || ''} ${manpower.lastName}`.trim(),
           supplierId: manpower.manpowerSupplier.id,
           supplierName: manpower.manpowerSupplier.supplierName,
-          category: manpower.category,
-          skillSet: manpower.skillSet,
-          siteId: manpower.currentSite!.id,
-          siteName: manpower.currentSite!.site,
+          category: manpower.siteManpower?.category?.categoryName ?? null,
+          skillSet: manpower.siteManpower?.skillset?.skillsetName ?? null,
+          siteId: manpower.siteManpower!.site.id,
+          siteName: manpower.siteManpower!.site.site,
           dailyAttendance,
           totalPresent,
           totalAbsent,

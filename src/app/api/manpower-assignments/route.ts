@@ -27,6 +27,26 @@ function asDate(v: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+async function resolveCategoryId(tx: any, raw: unknown): Promise<number | null> {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  if (Number.isFinite(n)) return n;
+  const name = String(raw).trim();
+  if (!name) return null;
+  const rec = await tx.category.findFirst({ where: { categoryName: name }, select: { id: true } });
+  return rec?.id ?? null;
+}
+
+async function resolveSkillsetId(tx: any, raw: unknown): Promise<number | null> {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  if (Number.isFinite(n)) return n;
+  const name = String(raw).trim();
+  if (!name) return null;
+  const rec = await tx.skillSet.findFirst({ where: { skillsetName: name }, select: { id: true } });
+  return rec?.id ?? null;
+}
+
 // GET /api/manpower-assignments?siteId=123&mode=assigned|available&supplierId=&search=&page=&perPage=
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -46,7 +66,7 @@ export async function GET(req: NextRequest) {
     if (mode === 'assigned') {
       if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required for mode=assigned');
       where.isAssigned = true;
-      where.currentSiteId = siteId;
+      where.siteManpower = { siteId };
     } else if (mode === 'available') {
       // Only unassigned manpower
       where.isAssigned = false;
@@ -83,24 +103,52 @@ export async function GET(req: NextRequest) {
         supplierId: true,
         manpowerSupplier: { select: { id: true, supplierName: true } },
         mobileNumber: true,
-        // assignment fields
-        category: true,
-        skillSet: true,
-        wage: true,
-        minWage: true,
-        esic: true,
-        pf: true,
-        pt: true,
-        hra: true,
-        mlwf: true,
         isAssigned: true,
-        currentSiteId: true,
+        siteManpower: {
+          select: {
+            siteId: true,
+            wage: true,
+            minWage: true,
+            pf: true,
+            esic: true,
+            pt: true,
+            hra: true,
+            mlwf: true,
+            assignedDate: true,
+            category: { select: { id: true, categoryName: true } },
+            skillset: { select: { id: true, skillsetName: true } },
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    return Success(result);
+    const normalized = {
+      ...result,
+      data: Array.isArray((result as any).data)
+        ? (result as any).data.map((row: any) => {
+            const sm = row?.siteManpower;
+            return {
+              ...row,
+              // Back-compat keys used by older UI
+              currentSiteId: sm?.siteId ?? null,
+              assignedAt: sm?.assignedDate ?? null,
+              wage: sm?.wage ?? null,
+              minWage: sm?.minWage ?? null,
+              pf: sm?.pf ?? false,
+              esic: sm?.esic ?? false,
+              pt: sm?.pt ?? false,
+              hra: sm?.hra ?? false,
+              mlwf: sm?.mlwf ?? false,
+              category: sm?.category?.categoryName ?? null,
+              skillSet: sm?.skillset?.skillsetName ?? null,
+            };
+          })
+        : (result as any).data,
+    };
+
+    return Success(normalized);
   } catch (e) {
     return ApiError('Failed to fetch manpower assignments');
   }
@@ -121,37 +169,59 @@ export async function POST(req: NextRequest) {
     if (ids.length === 0) return ApiBadRequest('Valid manpowerIds are required');
 
     const updated = await prisma.$transaction(async (tx) => {
-      // Ensure all target manpower are currently unassigned
-      const existing = await tx.manpower.findMany({ where: { id: { in: ids } }, select: { id: true, isAssigned: true } });
+      const now = new Date();
+
+      const existing = await tx.manpower.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, isAssigned: true },
+      });
       const notAllowed = existing.filter((m) => m.isAssigned);
       if (notAllowed.length > 0) {
         throw new Error('Some manpower already assigned. Refresh and try again.');
       }
-      // Apply updates
-      const now = new Date();
-      const updates = await Promise.all(
-        items.map((i) =>
-          tx.manpower.update({
-            where: { id: Number(i.manpowerId) },
-            data: {
-              currentSiteId: siteId,
-              isAssigned: true,
-              assignedAt: asDate(i.assignedAt) ?? now,
-              category: (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null),
-              skillSet: (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null),
-              wage: asNonNegativeDecimal(i.wage) as any,
-              minWage: asNonNegativeDecimal(i.minWage) as any,
-              esic: asStringDecimal(i.esic) as any,
-              pf: i.pf === true,
-              pt: asStringDecimal(i.pt) as any,
-              hra: asStringDecimal(i.hra) as any,
-              mlwf: asStringDecimal(i.mlwf) as any,
-            } as any,
-            select: { id: true },
-          })
-        )
-      );
-      return updates.length;
+
+      for (const i of items) {
+        const manpowerId = Number(i.manpowerId);
+        if (!Number.isFinite(manpowerId)) continue;
+
+        const categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+        const skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+
+        await tx.siteManpower.create({
+          data: {
+            siteId,
+            manpowerId,
+            assignedDate: asDate(i.assignedAt) ?? now,
+            assignedById: auth.user.id,
+            categoryId,
+            skillsetId,
+            wage: asNonNegativeDecimal(i.wage) as any,
+            minWage: asNonNegativeDecimal(i.minWage) as any,
+            pf: !!i.pf,
+            esic: !!i.esic,
+            pt: !!i.pt,
+            hra: !!i.hra,
+            mlwf: !!i.mlwf,
+          } as any,
+        });
+
+        await tx.siteManpowerLog.create({
+          data: {
+            siteId,
+            manpowerId,
+            assignedDate: asDate(i.assignedAt) ?? now,
+            assignedById: auth.user.id,
+          },
+        });
+
+        await tx.manpower.update({
+          where: { id: manpowerId },
+          data: { isAssigned: true },
+          select: { id: true },
+        });
+      }
+
+      return items.length;
     });
 
     return Success({ count: updated }, 201);
@@ -173,26 +243,29 @@ export async function PATCH(req: NextRequest) {
     const updates = await prisma.$transaction(async (tx) => {
       let count = 0;
       for (const i of items) {
-        const id = Number(i.manpowerId);
-        if (!Number.isFinite(id)) continue;
+        const manpowerId = Number(i.manpowerId);
+        if (!Number.isFinite(manpowerId)) continue;
+
+        const where: any = { manpowerId };
+        if (siteId !== undefined) where.siteId = siteId;
+
         const data: any = {};
-        if (i.category !== undefined) data.category = (typeof i.category === 'string' && i.category.trim() === '') ? null : (i.category ?? null);
-        if (i.skillSet !== undefined) data.skillSet = (typeof i.skillSet === 'string' && i.skillSet.trim() === '') ? null : (i.skillSet ?? null);
+        if (i.category !== undefined || i.categoryId !== undefined) {
+          data.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+        }
+        if (i.skillSet !== undefined || i.skillsetId !== undefined) {
+          data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+        }
         if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
         if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
-        if (i.esic !== undefined) data.esic = asStringDecimal(i.esic) as any;
         if (i.pf !== undefined) data.pf = !!i.pf;
-        if (i.pt !== undefined) data.pt = asStringDecimal(i.pt) as any;
-        if (i.hra !== undefined) data.hra = asStringDecimal(i.hra) as any;
-        if (i.mlwf !== undefined) data.mlwf = asStringDecimal(i.mlwf) as any;
-        if (i.assignedAt !== undefined) data.assignedAt = asDate(i.assignedAt);
-        
+        if (i.esic !== undefined) data.esic = !!i.esic;
+        if (i.pt !== undefined) data.pt = !!i.pt;
+        if (i.hra !== undefined) data.hra = !!i.hra;
+        if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
+        if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
 
-        const where: any = { id };
-        if (siteId !== undefined) where.currentSiteId = siteId;
-        await tx.manpower.update({ where, data: data as any, select: { id: true } }).catch((err) => {
-          throw err;
-        });
+        await tx.siteManpower.update({ where, data, select: { id: true } });
         count++;
       }
       return count;
@@ -215,29 +288,38 @@ export async function DELETE(req: NextRequest) {
     if (manpowerIds.length === 0) return ApiBadRequest('manpowerIds are required');
 
     const count = await prisma.$transaction(async (tx) => {
-      const updates = await Promise.all(
-        manpowerIds.map((id) =>
-          tx.manpower.update({
-            where: siteId != null ? { id, currentSiteId: siteId } as any : { id },
-            data: {
-              isAssigned: false,
-              currentSiteId: null,
-              assignedAt: null,
-              category: null,
-              skillSet: null,
-              wage: null as any,
-              minWage: null as any,
-              esic: null as any,
-              pf: false,
-              pt: null as any,
-              hra: null as any,
-              mlwf: null as any,
-            } as any,
-            select: { id: true },
-          })
-        )
-      );
-      return updates.length;
+      const now = new Date();
+      let updated = 0;
+      for (const manpowerId of manpowerIds) {
+        const where: any = { manpowerId };
+        if (siteId != null) where.siteId = siteId;
+
+        const existing = await tx.siteManpower.findFirst({ where, select: { siteId: true, manpowerId: true } });
+        if (!existing) continue;
+
+        await tx.siteManpower.delete({ where: { manpowerId } });
+
+        await tx.siteManpowerLog.updateMany({
+          where: {
+            manpowerId,
+            siteId: existing.siteId,
+            unassignedDate: null,
+          },
+          data: {
+            unassignedDate: now,
+            unassignedById: auth.user.id,
+          },
+        });
+
+        await tx.manpower.update({
+          where: { id: manpowerId },
+          data: { isAssigned: false },
+          select: { id: true },
+        });
+
+        updated++;
+      }
+      return updated;
     });
 
     return Success({ count });

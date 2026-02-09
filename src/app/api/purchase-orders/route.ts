@@ -70,8 +70,14 @@ const createSchema = z.object({
     .default([]),
   purchaseOrderDate: z.string().transform((val) => new Date(val)),
   deliveryDate: z.string().transform((val) => new Date(val)),
-  quotationNo: z.string().min(1, "Quotation No. is required"),
-  quotationDate: z.string().transform((val) => new Date(val)),
+  quotationNo: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim() ? val.trim() : null)),
+  quotationDate: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim() ? new Date(val) : null)),
   transport: z.string().optional(),
   note: z.string().optional(),
   terms: z.string().nullable().optional(),
@@ -382,10 +388,10 @@ export async function POST(req: NextRequest) {
         billingAddressId: parsedData.billingAddressId,
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,
         paymentTermId: primaryPaymentTermId,
-        quotationNo: parsedData.quotationNo,
+        quotationNo: (parsedData as any).quotationNo,
         note: parsedData.note || null,
         transport: parsedData.transport || null,
-        quotationDate: parsedData.quotationDate,
+        quotationDate: (parsedData as any).quotationDate,
         transitInsuranceStatus: parsedData.transitInsuranceStatus || null,
         transitInsuranceAmount: parsedData.transitInsuranceAmount || null,
         pfStatus: parsedData.pfStatus || null,

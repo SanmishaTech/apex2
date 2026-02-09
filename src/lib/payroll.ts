@@ -92,8 +92,33 @@ export async function generatePayroll(params: GeneratePayrollParams) {
 
   // Preload manpower records
   const manpowerIds = Array.from(byManpower.keys());
-  const manpowerList = await prisma.manpower.findMany({ where: { id: { in: manpowerIds.length ? manpowerIds : [0] } } });
+  const manpowerList = await prisma.manpower.findMany({
+    where: { id: { in: manpowerIds.length ? manpowerIds : [0] } },
+  });
   const manpowerMap = new Map(manpowerList.map((m) => [m.id, m]));
+
+  // Preload site-specific assignment/payroll fields
+  const siteIds = Array.from(new Set(Array.from(aggs.values()).map((a) => a.siteId)));
+  const siteManpowerList = await prisma.siteManpower.findMany({
+    where: {
+      manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
+      siteId: { in: siteIds.length ? siteIds : [0] },
+    },
+    select: {
+      manpowerId: true,
+      siteId: true,
+      wage: true,
+      minWage: true,
+      pf: true,
+      esic: true,
+      hra: true,
+      pt: true,
+      mlwf: true,
+    },
+  });
+  const siteManpowerMap = new Map(
+    siteManpowerList.map((s) => [`${s.manpowerId}:${s.siteId}`, s] as const)
+  );
 
   const results: { mode: PayrollMode; created: number; warnings: string[] }[] = [];
 
@@ -117,7 +142,8 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       for (const d of details as any[]) {
         // Legacy parity: OT is treated as DAYS, not hours
         const totalDays = d.presentDays + Number(d.otDays);
-        const wage = mp.wage ? Number(mp.wage) : mp.minWage ? Number(mp.minWage) : 0;
+        const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        const wage = smp?.wage ? Number(smp.wage) : smp?.minWage ? Number(smp.minWage) : 0;
         if (!wage) warnings.push(`Manpower ${manpowerId} has no wage/minWage; computed as 0 for site ${d.siteId}`);
         const gross = toFixed2(totalDays * wage);
         const total = Math.round(gross);
@@ -187,18 +213,18 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       const dets: any[] = [];
       for (const d of details as any[]) {
         const workingDays = Math.min(d.presentDays, cap);
-        const minWage = mp.minWage ? Number(mp.minWage) : 0;
+        const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        const minWage = smp?.minWage ? Number(smp.minWage) : 0;
         if (!minWage) warnings.push(`Manpower ${manpowerId} has no minWage; computed as 0 for site ${d.siteId}`);
         const gross = toFixed2(workingDays * minWage);
 
-        // HRA flag: treat presence of mp.hra (non-null and > 0) as enabled (to mimic legacy boolean)
-        const applyHra = mp.hra !== null && mp.hra !== undefined && Number(mp.hra) !== 0;
+        const applyHra = Boolean(smp?.hra);
         const hra = applyHra ? toFixed2((gross * hraPct) / 100) : 0;
 
-        const applyPf = Boolean(mp.pf);
+        const applyPf = Boolean(smp?.pf);
         const pf = applyPf ? Math.round((gross * pfPct) / 100) : 0;
 
-        const applyEsic = mp.esic !== null && mp.esic !== undefined && Number(mp.esic) !== 0;
+        const applyEsic = Boolean(smp?.esic);
         const esicBase = gross + hra;
         const esic = applyEsic ? toFixed2((esicBase * esicPct) / 100) : 0;
 
@@ -209,7 +235,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         if (month === 2) pt = febPtAmt; // Feb override
 
         let mlwf = 0;
-        if (mlwfMonths.includes(`${month}`.padStart(2, "0"))) mlwf = mlwfAmt;
+        if (Boolean(smp?.mlwf) && mlwfMonths.includes(`${month}`.padStart(2, "0"))) mlwf = mlwfAmt;
 
         const total = Math.round(gross + hra - pf - esic - pt - mlwf);
         net += total;

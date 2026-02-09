@@ -1844,8 +1844,8 @@ model PurchaseOrder {
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
   purchaseOrderNo         String   @db.VarChar(30)  @unique
   purchaseOrderDate       DateTime 
-  quotationNo             String   @db.VarChar(100)
-  quotationDate           DateTime 
+  quotationNo             String?   @db.VarChar(100)
+  quotationDate           DateTime?   @db.Date() 
   deliveryDate            DateTime 
   transport               String?   @db.VarChar(100)
   note                    String?   @db.Text

@@ -33,7 +33,9 @@ export async function GET(
     const manpower = await prisma.manpower.findMany({
       where: {
         isAssigned: true,
-        currentSiteId: siteId,
+        siteManpower: {
+          siteId,
+        },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
       select: {
@@ -41,7 +43,11 @@ export async function GET(
         firstName: true,
         middleName: true,
         lastName: true,
-        assignedAt: true,
+        siteManpower: {
+          select: {
+            assignedDate: true,
+          },
+        },
       },
     });
 
@@ -63,7 +69,7 @@ export async function GET(
           middleName: m.middleName,
           lastName: m.lastName,
           lastAttendance: lastAttendance?.date.toISOString() || null,
-          assignedAt: m.assignedAt?.toISOString() || null,
+          assignedAt: m.siteManpower?.assignedDate?.toISOString() || null,
           ot: 0,
           isPresent: false,
           isIdle: false,

@@ -36,6 +36,13 @@ export async function GET(req: NextRequest) {
         manpower: {
           include: {
             manpowerSupplier: true,
+            siteManpower: {
+              select: {
+                siteId: true,
+                category: { select: { categoryName: true } },
+                skillset: { select: { skillsetName: true } },
+              },
+            },
           },
         },
       },
@@ -57,6 +64,13 @@ export async function GET(req: NextRequest) {
             manpower: {
               include: {
                 manpowerSupplier: true,
+                siteManpower: {
+                  select: {
+                    siteId: true,
+                    category: { select: { categoryName: true } },
+                    skillset: { select: { skillsetName: true } },
+                  },
+                },
               },
             },
           },
@@ -100,6 +114,10 @@ export async function GET(req: NextRequest) {
       const manpowerId = detail.paySlip.manpowerId;
       const manpower = detail.paySlip.manpower;
 
+      const siteManpowerForThisSite = (manpower as any)?.siteManpower?.siteId === siteId
+        ? (manpower as any).siteManpower
+        : null;
+
       if (!siteGroups.has(siteId)) {
         siteGroups.set(siteId, {
           siteId,
@@ -142,10 +160,10 @@ export async function GET(req: NextRequest) {
         manpowerName: `${manpower?.firstName || ""} ${
           manpower?.lastName || ""
         }`.trim(),
-        designation: manpower?.category || "",
+        designation: siteManpowerForThisSite?.category?.categoryName || "",
         unaNo: manpower?.unaNo || "",
         esicNo: manpower?.esicNo || "",
-        skillSet: manpower?.skillSet || "",
+        skillSet: siteManpowerForThisSite?.skillset?.skillsetName || "",
         supplierId: manpower?.supplierId || 0,
         supplierName: manpower?.manpowerSupplier?.supplierName || "",
         dailyAttendance,

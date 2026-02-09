@@ -18,9 +18,11 @@ export async function GET(req: NextRequest) {
     const where: any = {};
 
     // Only show sites with assigned manpower
-    where.assignedManpower = {
+    where.siteManpowers = {
       some: {
-        isAssigned: true,
+        manpower: {
+          isAssigned: true,
+        },
       },
     };
 
@@ -66,8 +68,8 @@ export async function GET(req: NextRequest) {
         id: true,
         site: true,
         shortName: true,
-        assignedManpower: {
-          where: { isAssigned: true },
+        siteManpowers: {
+          where: { manpower: { isAssigned: true } },
           select: { id: true },
         },
       },
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest) {
           site: site.site,
           shortName: site.shortName,
           lastAttendanceDate: lastAttendance?.date.toISOString() || null,
-          assignedManpowerCount: site.assignedManpower.length,
+          assignedManpowerCount: site.siteManpowers.length,
         };
       })
     );

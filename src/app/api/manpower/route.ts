@@ -16,17 +16,6 @@ function nil(v: any) {
   return v == null || v === "" ? null : v;
 }
 
-// Utility to coerce wage-like inputs to a decimal string or null
-function wageOrNull(v: any): string | null {
-  if (v === undefined || v === null) return null;
-  const s = String(v).trim();
-  if (s === "" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined")
-    return null;
-  // accept integers or decimals
-  const dec = /^\d+(?:\.\d+)?$/;
-  return dec.test(s) ? s : null;
-}
-
 // Save uploaded file to /uploads/manpower and return URL
 async function saveDoc(file: File | null, subname: string) {
   if (!file || file.size === 0) return null;
@@ -98,14 +87,16 @@ export async function GET(req: NextRequest) {
 
   // Filter by current site
   if (currentSiteId) {
-    where.currentSiteId = parseInt(currentSiteId);
+    const sid = parseInt(currentSiteId);
+    if (!Number.isNaN(sid)) {
+      where.siteManpower = { siteId: sid };
+    }
   }
 
   const sortable = new Set([
     "firstName",
     "lastName",
     "mobileNumber",
-    "wage",
     "createdAt",
   ]);
   const orderBy: Record<string, "asc" | "desc"> = sortable.has(sort)
@@ -129,7 +120,6 @@ export async function GET(req: NextRequest) {
       address: true,
       location: true,
       mobileNumber: true,
-      wage: true,
       bank: true,
       branch: true,
       accountNumber: true,
@@ -143,24 +133,52 @@ export async function GET(req: NextRequest) {
       drivingLicenceNo: true,
       bankDetails: true,
       watch: true,
-      // Assignment tracking fields
-      category: true,
-      skillSet: true,
-      minWage: true,
-      hours: true,
-      esic: true,
-      pf: true,
-      pt: true,
-      hra: true,
-      mlwf: true,
       isAssigned: true,
-      currentSiteId: true,
-      assignedAt: true,
+      siteManpower: {
+        select: {
+          siteId: true,
+          assignedDate: true,
+          wage: true,
+          minWage: true,
+          pf: true,
+          esic: true,
+          pt: true,
+          hra: true,
+          mlwf: true,
+          category: { select: { categoryName: true } },
+          skillset: { select: { skillsetName: true } },
+        },
+      },
       createdAt: true,
       updatedAt: true,
     },
   });
-  return Success(result);
+
+  const normalized = {
+    ...result,
+    data: Array.isArray((result as any).data)
+      ? (result as any).data.map((row: any) => {
+          const sm = row?.siteManpower;
+          return {
+            ...row,
+            // Back-compat fields expected by some UIs
+            currentSiteId: sm?.siteId ?? null,
+            assignedAt: sm?.assignedDate ?? null,
+            category: sm?.category?.categoryName ?? null,
+            skillSet: sm?.skillset?.skillsetName ?? null,
+            wage: sm?.wage ?? null,
+            minWage: sm?.minWage ?? null,
+            pf: sm?.pf ?? false,
+            esic: sm?.esic ?? false,
+            pt: sm?.pt ?? false,
+            hra: sm?.hra ?? false,
+            mlwf: sm?.mlwf ?? false,
+          };
+        })
+      : (result as any).data,
+  };
+
+  return Success(normalized);
 }
 
 // POST /api/manpower - supports multipart for document uploads
@@ -193,13 +211,10 @@ export async function POST(req: NextRequest) {
         middleName: get("middleName"),
         lastName: get("lastName"),
         supplierId: get("supplierId"),
-        category: get("category"),
-        skillSet: get("skillSet"),
         dateOfBirth: get("dateOfBirth"),
         address: get("address"),
         location: get("location"),
         mobileNumber: get("mobileNumber"),
-        wage: get("wage"),
         bank: get("bank"),
         branch: get("branch"),
         accountNumber: get("accountNumber"),
@@ -301,13 +316,10 @@ export async function POST(req: NextRequest) {
           middleName: nil(body.middleName) as any,
           lastName: nil(body.lastName) as any,
           supplierId: supplierIdNum,
-          category: nil(body.category) as any,
-          skillSet: nil(body.skillSet) as any,
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
           address: nil(body.address) as any,
           location: nil(body.location) as any,
           mobileNumber: nil(body.mobileNumber) as any,
-          wage: wageOrNull(body.wage) as any,
           bank: nil(body.bank) as any,
           branch: nil(body.branch) as any,
           accountNumber: nil(body.accountNumber) as any,
@@ -405,13 +417,10 @@ export async function PATCH(req: NextRequest) {
         middleName: get("middleName"),
         lastName: get("lastName"),
         supplierId: get("supplierId"),
-        category: get("category"),
-        skillSet: get("skillSet"),
         dateOfBirth: get("dateOfBirth"),
         address: get("address"),
         location: get("location"),
         mobileNumber: get("mobileNumber"),
-        wage: get("wage"),
         bank: get("bank"),
         branch: get("branch"),
         accountNumber: get("accountNumber"),
@@ -505,14 +514,11 @@ export async function PATCH(req: NextRequest) {
     set("lastName", body.lastName);
     if (body.supplierId !== undefined)
       data.supplierId = body.supplierId ? Number(body.supplierId) : null;
-    set("category", body.category);
-    set("skillSet", body.skillSet);
     if (body.dateOfBirth !== undefined)
       data.dateOfBirth = body.dateOfBirth ? new Date(body.dateOfBirth) : null;
     set("address", body.address);
     set("location", body.location);
     set("mobileNumber", body.mobileNumber);
-    if (body.wage !== undefined) data.wage = wageOrNull(body.wage) as any;
     set("bank", body.bank);
     set("branch", body.branch);
     set("accountNumber", body.accountNumber);
