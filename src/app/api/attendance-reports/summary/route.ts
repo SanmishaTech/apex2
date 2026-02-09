@@ -37,17 +37,36 @@ export async function GET(req: NextRequest) {
     // Build where clause for manpower
     const manpowerWhere: any = {
       isAssigned: true,
-      currentSiteId: { in: siteIds },
+      siteManpower: {
+        siteId: { in: siteIds },
+      },
     };
-    if (category) manpowerWhere.category = category;
-    if (skillSet) manpowerWhere.skillSet = skillSet;
+    if (category) {
+      manpowerWhere.siteManpower = {
+        ...(manpowerWhere.siteManpower || {}),
+        category: { categoryName: category },
+      };
+    }
+    if (skillSet) {
+      manpowerWhere.siteManpower = {
+        ...(manpowerWhere.siteManpower || {}),
+        skillset: { skillsetName: skillSet },
+      };
+    }
 
     // Fetch manpower with attendances in the given month
     const manpowerList = await prisma.manpower.findMany({
       where: manpowerWhere,
       include: {
         manpowerSupplier: { select: { id: true, supplierName: true } },
-        currentSite: { select: { id: true, site: true } },
+        siteManpower: {
+          select: {
+            siteId: true,
+            site: { select: { id: true, site: true } },
+            category: { select: { categoryName: true } },
+            skillset: { select: { skillsetName: true } },
+          },
+        },
         attendances: {
           where: {
             date: { gte: startDate, lte: endDate },
@@ -58,7 +77,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [
-        { currentSiteId: "asc" },
+        { siteManpower: { siteId: "asc" } },
         { manpowerSupplier: { supplierName: "asc" } },
         { firstName: "asc" },
       ],
@@ -90,10 +109,10 @@ export async function GET(req: NextRequest) {
           manpowerName: `${mp.firstName} ${mp.middleName || ""} ${mp.lastName}`.trim(),
           supplierId: mp.manpowerSupplier.id,
           supplierName: mp.manpowerSupplier.supplierName,
-          category: mp.category,
-          skillSet: mp.skillSet,
-          siteId: mp.currentSite!.id,
-          siteName: mp.currentSite!.site,
+          category: mp.siteManpower?.category?.categoryName ?? null,
+          skillSet: mp.siteManpower?.skillset?.skillsetName ?? null,
+          siteId: mp.siteManpower!.site.id,
+          siteName: mp.siteManpower!.site.site,
           totalPresent,
           totalAbsent,
           totalOT,

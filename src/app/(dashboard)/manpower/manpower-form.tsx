@@ -26,13 +26,10 @@ export interface ManpowerInitialData {
   middleName?: string | null;
   lastName?: string;
   supplierId?: number | null;
-  category?: string | null;
-  skillSet?: string | null;
   dateOfBirth?: string | null; // ISO
   address?: string | null;
   location?: string | null;
   mobileNumber?: string | null;
-  wage?: string | null; // keep as string for input
   bank?: string | null;
   branch?: string | null;
   accountNumber?: string | null;
@@ -92,14 +89,11 @@ const schema = z.object({
   middleName: z.string().optional(),
   lastName: z.string().optional(),
   supplierId: z.string().min(1, "Manpower supplier is required"),
-  category: z.string().optional(),
-  skillSet: z.string().optional(),
   dateOfBirth: z.string().optional(), // yyyy-mm-dd
   // Contact
   address: z.string().optional(),
   location: z.string().optional(),
   mobileNumber: z.string().optional(),
-  wage: z.string().optional(),
   // Bank
   bank: z.string().optional(),
   branch: z.string().optional(),
@@ -155,8 +149,6 @@ export default function ManpowerForm({
       middleName: initial?.middleName || "",
       lastName: initial?.lastName || "",
       supplierId: initial?.supplierId ? String(initial.supplierId) : "",
-      category: initial?.category || "",
-      skillSet: initial?.skillSet || "",
       dateOfBirth: initial?.dateOfBirth
         ? initial.dateOfBirth.split("T")[0]
         : "",
@@ -164,7 +156,6 @@ export default function ManpowerForm({
       address: initial?.address || "",
       location: initial?.location || "",
       mobileNumber: initial?.mobileNumber || "",
-      wage: initial?.wage || "",
       // Bank
       bank: initial?.bank || "",
       branch: initial?.branch || "",
@@ -191,17 +182,6 @@ export default function ManpowerForm({
   type SuppliersResponse = { data: { id: number; supplierName: string }[] };
   const { data: suppliers } = useSWR<SuppliersResponse>(
     "/api/manpower-suppliers?perPage=100",
-    apiGet
-  );
-  // Load categories and skill sets for dropdowns
-  type CategoriesResponse = { data: { id: number; categoryName: string }[] };
-  type SkillSetsResponse = { data: { id: number; skillsetName: string }[] };
-  const { data: categories } = useSWR<CategoriesResponse>(
-    "/api/categories?perPage=100",
-    apiGet
-  );
-  const { data: skillSets } = useSWR<SkillSetsResponse>(
-    "/api/skill-sets?perPage=100",
     apiGet
   );
 
@@ -244,13 +224,10 @@ export default function ManpowerForm({
       if (values.middleName) fd.append("middleName", values.middleName.trim());
       if (values.lastName) fd.append("lastName", values.lastName.trim());
       fd.append("supplierId", values.supplierId);
-      if (values.category) fd.append("category", values.category);
-      if (values.skillSet) fd.append("skillSet", values.skillSet);
       if (values.dateOfBirth) fd.append("dateOfBirth", values.dateOfBirth);
       if (values.address) fd.append("address", values.address);
       if (values.location) fd.append("location", values.location);
       if (values.mobileNumber) fd.append("mobileNumber", values.mobileNumber);
-      if (values.wage) fd.append("wage", values.wage);
       if (values.bank) fd.append("bank", values.bank);
       if (values.branch) fd.append("branch", values.branch);
       if (values.accountNumber)
@@ -264,6 +241,7 @@ export default function ManpowerForm({
       if (values.voterIdNo) fd.append("voterIdNo", values.voterIdNo);
       if (values.drivingLicenceNo)
         fd.append("drivingLicenceNo", values.drivingLicenceNo);
+      if (values.bankDetails) fd.append("bankDetails", values.bankDetails);
       if (values.watch) fd.append("watch", String(values.watch));
       // docs
       if (values.panDocument) fd.append("panDocument", values.panDocument);
@@ -380,32 +358,7 @@ export default function ManpowerForm({
                 />
               </FormRow>
               <FormRow className="grid-cols-12">
-                <AppSelect
-                  control={control}
-                  name="category"
-                  label="Category"
-                  placeholder="Select category"
-                  className="col-span-6"
-                >
-                  {categories?.data?.map((c) => (
-                    <AppSelect.Item key={c.id} value={c.categoryName}>
-                      {c.categoryName}
-                    </AppSelect.Item>
-                  ))}
-                </AppSelect>
-                <AppSelect
-                  control={control}
-                  name="skillSet"
-                  label="Skill Set"
-                  placeholder="Select skill set"
-                  className="col-span-6"
-                >
-                  {skillSets?.data?.map((s) => (
-                    <AppSelect.Item key={s.id} value={s.skillsetName}>
-                      {s.skillsetName}
-                    </AppSelect.Item>
-                  ))}
-                </AppSelect>
+                <div className="col-span-12" />
               </FormRow>
             </FormSection>
 
@@ -434,13 +387,7 @@ export default function ManpowerForm({
                   placeholder="Mobile number"
                   itemClassName="col-span-6"
                 />
-                <TextInput
-                  control={control}
-                  name="wage"
-                  label="Wage"
-                  placeholder="0.00"
-                  itemClassName="col-span-6"
-                />
+                <div className="col-span-6" />
               </FormRow>
             </FormSection>
 

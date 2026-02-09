@@ -336,7 +336,7 @@ export async function GET(req: NextRequest) {
         siteContactPersons: true,
         _count: {
           select: {
-            assignedManpower: true,
+            siteManpowers: true,
             siteBudgets: true,
             siteEmployees: true,
           },
@@ -344,7 +344,28 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return Success(result);
+    const normalized = {
+      ...result,
+      data: Array.isArray((result as any).data)
+        ? (result as any).data.map((row: any) => {
+            const count = row?._count;
+            if (!count) return row;
+            // Back-compat: older UI expects _count.assignedManpower
+            return {
+              ...row,
+              _count: {
+                ...count,
+                assignedManpower:
+                  typeof count.siteManpowers === "number"
+                    ? count.siteManpowers
+                    : (count.assignedManpower ?? 0),
+              },
+            };
+          })
+        : (result as any).data,
+    };
+
+    return Success(normalized);
   } catch (error) {
     console.error("Get sites error:", error);
     return ApiError("Failed to fetch sites");

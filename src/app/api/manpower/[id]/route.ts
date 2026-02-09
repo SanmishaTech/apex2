@@ -29,9 +29,6 @@ export async function GET(
         address: true,
         location: true,
         mobileNumber: true,
-        wage: true,
-        category: true,
-        skillSet: true,
         bank: true,
         branch: true,
         accountNumber: true,
@@ -48,6 +45,7 @@ export async function GET(
         drivingLicenceNo: true,
         drivingLicenceDocumentUrl: true,
         bankDetailsDocumentUrl: true,
+        bankDetails: true,
         watch: true,
         createdAt: true,
         updatedAt: true,
@@ -88,6 +86,9 @@ export async function DELETE(
         voterIdDocumentUrl: true,
         drivingLicenceDocumentUrl: true,
         bankDetailsDocumentUrl: true,
+        manpowerDocuments: {
+          select: { documentUrl: true },
+        },
       },
     });
 
@@ -100,6 +101,7 @@ export async function DELETE(
       rec?.voterIdDocumentUrl,
       rec?.drivingLicenceDocumentUrl,
       rec?.bankDetailsDocumentUrl,
+      ...(rec?.manpowerDocuments?.map((d) => d.documentUrl) ?? []),
     ].filter((u): u is string => typeof u === "string" && !!u);
 
     for (const url of urls) {

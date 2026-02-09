@@ -49,20 +49,27 @@ export async function GET(
         supplierId: true,
         manpowerSupplier: { select: { id: true, supplierName: true } },
         mobileNumber: true,
-        // assignment fields
-        category: true,
-        skillSet: true,
-        wage: true,
-        minWage: true,
-        esic: true,
-        pf: true,
-        pt: true,
-        hra: true,
-        mlwf: true,
         isAssigned: true,
-        currentSiteId: true,
-        assignedAt: true,
-        currentSite: { select: { id: true, site: true, shortName: true } },
+        siteManpower: {
+          select: {
+            id: true,
+            siteId: true,
+            site: { select: { id: true, site: true, shortName: true } },
+            assignedDate: true,
+            assignedById: true,
+            categoryId: true,
+            skillsetId: true,
+            category: { select: { id: true, categoryName: true } },
+            skillset: { select: { id: true, skillsetName: true } },
+            wage: true,
+            minWage: true,
+            pf: true,
+            esic: true,
+            hra: true,
+            pt: true,
+            mlwf: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -89,41 +96,100 @@ export async function PATCH(
 
   try {
     const body = await req.json().catch(() => ({}));
-    const data: any = {};
+    const assignmentData: any = {};
 
-    if (body.category !== undefined) data.category = (typeof body.category === 'string' && body.category.trim() === '') ? null : (body.category ?? null);
-    if (body.skillSet !== undefined) data.skillSet = (typeof body.skillSet === 'string' && body.skillSet.trim() === '') ? null : (body.skillSet ?? null);
-    if (body.wage !== undefined) data.wage = asNonNegativeDecimal(body.wage) as any;
-    if (body.minWage !== undefined) data.minWage = asNonNegativeDecimal(body.minWage) as any;
-    if (body.esic !== undefined) data.esic = asStringDecimal(body.esic) as any;
-    if (body.pf !== undefined) data.pf = !!body.pf;
-    if (body.pt !== undefined) data.pt = asStringDecimal(body.pt) as any;
-    if (body.hra !== undefined) data.hra = asStringDecimal(body.hra) as any;
-    if (body.mlwf !== undefined) data.mlwf = asStringDecimal(body.mlwf) as any;
-    if (body.assignedAt !== undefined) data.assignedAt = asDate(body.assignedAt);
-
-    if (body.currentSiteId !== undefined) {
-      if (body.currentSiteId === null) {
-        data.currentSiteId = null;
-        data.isAssigned = false;
-      } else {
-        const siteId = Number(body.currentSiteId);
-        if (!Number.isFinite(siteId)) return ApiBadRequest('Invalid currentSiteId');
-        data.currentSiteId = siteId;
-        data.isAssigned = true;
-        if (!data.assignedAt) data.assignedAt = new Date();
+    if (body.categoryId !== undefined) {
+      assignmentData.categoryId = body.categoryId === null ? null : Number(body.categoryId);
+      if (assignmentData.categoryId !== null && !Number.isFinite(assignmentData.categoryId)) {
+        return ApiBadRequest('Invalid categoryId');
       }
     }
+    if (body.skillsetId !== undefined) {
+      assignmentData.skillsetId = body.skillsetId === null ? null : Number(body.skillsetId);
+      if (assignmentData.skillsetId !== null && !Number.isFinite(assignmentData.skillsetId)) {
+        return ApiBadRequest('Invalid skillsetId');
+      }
+    }
+    if (body.wage !== undefined) assignmentData.wage = asNonNegativeDecimal(body.wage) as any;
+    if (body.minWage !== undefined) assignmentData.minWage = asNonNegativeDecimal(body.minWage) as any;
+    if (body.pf !== undefined) assignmentData.pf = !!body.pf;
+    if (body.esic !== undefined) assignmentData.esic = !!body.esic;
+    if (body.hra !== undefined) assignmentData.hra = !!body.hra;
+    if (body.pt !== undefined) assignmentData.pt = !!body.pt;
+    if (body.mlwf !== undefined) assignmentData.mlwf = !!body.mlwf;
+    if (body.assignedDate !== undefined) assignmentData.assignedDate = asDate(body.assignedDate);
 
-    if (Object.keys(data).length === 0) return ApiBadRequest('No fields to update');
+    const hasAssignmentFieldUpdates = Object.keys(assignmentData).length > 0;
+    const currentSiteIdProvided = body.currentSiteId !== undefined;
 
-    const updated = await prisma.manpower.update({
-      where: { id },
-      data,
-      select: { id: true },
+    if (!hasAssignmentFieldUpdates && !currentSiteIdProvided) {
+      return ApiBadRequest('No fields to update');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (currentSiteIdProvided) {
+        if (body.currentSiteId === null) {
+          // Unassign: delete current assignment row and close the open log
+          await tx.siteManpower.delete({ where: { manpowerId: id } }).catch(() => null);
+          await tx.siteManpowerLog
+            .updateMany({
+              where: {
+                manpowerId: id,
+                unassignedDate: null,
+              },
+              data: {
+                unassignedDate: new Date(),
+                unassignedById: auth.user.id,
+              },
+            })
+            .catch(() => null);
+          await tx.manpower.update({ where: { id }, data: { isAssigned: false } });
+          return;
+        }
+
+        const siteId = Number(body.currentSiteId);
+        if (!Number.isFinite(siteId)) throw new Error('Invalid currentSiteId');
+
+        const assignedDate = asDate(body.assignedDate) ?? new Date();
+
+        // Create or update current assignment row
+        await tx.siteManpower.upsert({
+          where: { manpowerId: id },
+          create: {
+            manpowerId: id,
+            siteId,
+            assignedDate,
+            assignedById: auth.user.id,
+            ...(hasAssignmentFieldUpdates ? assignmentData : {}),
+          },
+          update: {
+            siteId,
+            ...(hasAssignmentFieldUpdates ? assignmentData : {}),
+          },
+        });
+
+        // Ensure manpower marked assigned
+        await tx.manpower.update({ where: { id }, data: { isAssigned: true } });
+
+        // Create a history log row for this assignment
+        await tx.siteManpowerLog.create({
+          data: {
+            manpowerId: id,
+            siteId,
+            assignedDate,
+            assignedById: auth.user.id,
+          },
+        });
+        return;
+      }
+
+      // Update fields only (site remains same)
+      if (hasAssignmentFieldUpdates) {
+        await tx.siteManpower.update({ where: { manpowerId: id }, data: assignmentData });
+      }
     });
 
-    return Success({ id: updated.id, updated: true });
+    return Success({ id, updated: true });
   } catch (e) {
     return ApiError('Failed to update manpower assignment');
   }
@@ -142,23 +208,21 @@ export async function DELETE(
   if (!Number.isFinite(id)) return ApiBadRequest('Invalid id');
 
   try {
-    await prisma.manpower.update({
-      where: { id },
-      data: {
-        isAssigned: false,
-        currentSiteId: null,
-        assignedAt: null,
-        category: null,
-        skillSet: null,
-        wage: null as any,
-        minWage: null as any,
-        esic: null as any,
-        pf: false,
-        pt: null as any,
-        hra: null as any,
-        mlwf: null as any,
-      } as any,
-      select: { id: true },
+    await prisma.$transaction(async (tx) => {
+      await tx.siteManpower.delete({ where: { manpowerId: id } }).catch(() => null);
+      await tx.siteManpowerLog
+        .updateMany({
+          where: {
+            manpowerId: id,
+            unassignedDate: null,
+          },
+          data: {
+            unassignedDate: new Date(),
+            unassignedById: auth.user.id,
+          },
+        })
+        .catch(() => null);
+      await tx.manpower.update({ where: { id }, data: { isAssigned: false } });
     });
     return Success({ id, unassigned: true });
   } catch (e) {

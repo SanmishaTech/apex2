@@ -181,23 +181,52 @@ export async function PATCH(
           // Update each manpower individually to preserve their specific assignment data
           await Promise.all(
             existingTransfer.transferItems.map(async (item) => {
+              const assignedDate = existingTransfer.challanDate;
+
+              const previous = await tx.siteManpower.findUnique({
+                where: { manpowerId: item.manpowerId },
+                select: { siteId: true, manpowerId: true },
+              });
+
+              if (previous) {
+                await tx.siteManpower.delete({ where: { manpowerId: item.manpowerId } });
+                await tx.siteManpowerLog.updateMany({
+                  where: {
+                    manpowerId: item.manpowerId,
+                    siteId: previous.siteId,
+                    unassignedDate: null,
+                  },
+                  data: {
+                    unassignedDate: new Date(),
+                    unassignedById: guardResult.user.id,
+                  },
+                });
+              }
+
+              // Create a fresh assignment with details reset
+              await tx.siteManpower.create({
+                data: {
+                  manpowerId: item.manpowerId,
+                  siteId: existingTransfer.toSiteId,
+                  assignedDate,
+                  assignedById: guardResult.user.id,
+                  // categoryId/skillsetId/wage/minWage/pf/esic/pt/hra/mlwf intentionally omitted to reset
+                } as any,
+              });
+
+              await tx.siteManpowerLog.create({
+                data: {
+                  manpowerId: item.manpowerId,
+                  siteId: existingTransfer.toSiteId,
+                  assignedDate,
+                  assignedById: guardResult.user.id,
+                },
+              });
+
               await tx.manpower.update({
                 where: { id: item.manpowerId },
                 data: {
-                  currentSiteId: existingTransfer.toSiteId,
-                  assignedAt: existingTransfer.challanDate,
-                  // Copy all assignment details from transfer item
-                  category: item.category,
-                  skillSet: item.skillSet,
-                  wage: item.wage,
-                  minWage: item.minWage,
-                  hours: item.hours,
-                  esic: item.esic,
-                  pf: item.pf,
-                  pt: item.pt,
-                  hra: item.hra,
-                  mlwf: item.mlwf,
-                  isAssigned: true, // Ensure they remain assigned
+                  isAssigned: true,
                 },
               });
             })

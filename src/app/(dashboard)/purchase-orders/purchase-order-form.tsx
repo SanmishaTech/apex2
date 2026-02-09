@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppSelect } from "@/components/common/app-select";
+import { AppCombobox } from "@/components/common/app-combobox";
 import { MultiSelectInput } from "@/components/common/multi-select-input";
 import { TextInput } from "@/components/common/text-input";
 import { TextareaInput } from "@/components/common/textarea-input";
@@ -60,7 +61,17 @@ type Vendor = {
 type BillingAddress = {
   id: number;
   companyName: string;
-  city: string;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: {
+    id: number;
+    city: string;
+  } | null;
+  state?: {
+    id: number;
+    state: string;
+  } | null;
+  pincode?: string | null;
 };
 
 type PaymentTerm = {
@@ -242,8 +253,18 @@ const createInputSchema = z.object({
     .array(z.union([z.string(), z.number()]).transform((v) => String(v)))
     .optional()
     .default([]),
-  quotationNo: z.string().min(1, "Quotation No. is required"),
-  quotationDate: z.string().min(1, "Quotation date is required"),
+  quotationNo: z
+    .preprocess(
+      (val) => (val === "" || val === null || val === undefined ? undefined : val),
+      z.string().min(1, "Quotation No. is required").optional()
+    )
+    .optional(),
+  quotationDate: z
+    .preprocess(
+      (val) => (val === "" || val === null || val === undefined ? undefined : val),
+      z.string().min(1, "Quotation date is required").optional()
+    )
+    .optional(),
   transport: z.string().optional(),
   note: z.string().optional(),
   poStatus: z.union([z.literal("HOLD"), z.null()]).optional(),
@@ -310,13 +331,13 @@ export function PurchaseOrderForm({
   );
 
   const { data: vendorsData } = useSWR<ApiListResponse<Vendor>>(
-    "/api/vendors?perPage=1000",
+    "/api/vendors?perPage=10000",
     apiGet
   );
 
   const { data: billingAddressesData } = useSWR<
     ApiListResponse<BillingAddress>
-  >("/api/billing-addresses?perPage=1000", apiGet);
+  >("/api/billing-addresses?perPage=10000", apiGet);
 
   const { data: paymentTermsData } = useSWR<ApiListResponse<PaymentTerm>>(
     "/api/payment-terms?perPage=1000",
@@ -354,6 +375,19 @@ export function PurchaseOrderForm({
     return value.slice(0, 10) || fallback || "";
   };
 
+  const formatBillingAddressLabel = (address: BillingAddress): string => {
+    const parts = [
+      address.addressLine1,
+      address.addressLine2,
+      address.city?.city,
+      address.state?.state,
+      address.pincode,
+    ]
+      .map((p) => (typeof p === "string" ? p.trim() : ""))
+      .filter(Boolean);
+    return parts.join(", ") || address.companyName || `Address ${address.id}`;
+  };
+
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
@@ -380,7 +414,9 @@ export function PurchaseOrderForm({
       siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
       paymentTermIds: initialPaymentTermIds,
       quotationNo: initial?.quotationNo ?? "",
-      quotationDate: formatDateField(initial?.quotationDate, today),
+      quotationDate: initial?.quotationDate
+        ? formatDateField(initial?.quotationDate, today)
+        : "",
       transport: initial?.transport ?? "",
       note: initial?.note ?? "",
       poStatus: initial?.poStatus ?? null,
@@ -1304,32 +1340,37 @@ export function PurchaseOrderForm({
                   <label className="block text-sm font-medium mb-2">
                     Vendor<span className="ml-0.5 text-destructive">*</span>
                   </label>
-                  <AppSelect
-                    value={
-                      vendorValue && vendorValue > 0
-                        ? vendorValue.toString()
-                        : "__none"
-                    }
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : Number(value);
-                      form.setValue("vendorId", next);
-                      onVendorChange(value);
-                    }}
-                    placeholder="Select Vendor"
-                    disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="vendor-none" value="__none">
-                      Select Vendor
-                    </AppSelect.Item>
-                    {vendors.map((vendor) => (
-                      <AppSelect.Item
-                        key={vendor.id}
-                        value={vendor.id.toString()}
-                      >
-                        {vendor.vendorName}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
+                  <FormField
+                    control={form.control}
+                    name={"vendorId" as any}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <AppCombobox
+                            value={field.value && field.value > 0 ? String(field.value) : "__none"}
+                            onValueChange={(value) => {
+                              const next = value === "__none" ? 0 : parseInt(value, 10);
+                              field.onChange(next);
+                              onVendorChange(value);
+                            }}
+                            options={[
+                              { value: "__none", label: "Select Vendor" },
+                              ...vendors.map((v) => ({
+                                value: String(v.id),
+                                label: v.vendorName,
+                              })),
+                            ]}
+                            placeholder="Select Vendor"
+                            searchPlaceholder="Search vendor..."
+                            emptyText="No vendor found."
+                            disabled={isApprovalMode}
+                            className="overflow-hidden"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   {errors.vendorId ? (
                     <p className="text-sm text-destructive mt-2">
                       {errors.vendorId.message as string}
@@ -1342,31 +1383,36 @@ export function PurchaseOrderForm({
                     Billing Address
                     <span className="ml-0.5 text-destructive">*</span>
                   </label>
-                  <AppSelect
-                    value={
-                      billingAddressValue && billingAddressValue > 0
-                        ? billingAddressValue.toString()
-                        : "__none"
-                    }
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : parseInt(value, 10);
-                      form.setValue("billingAddressId", next);
-                    }}
-                    placeholder="Select Billing Address"
-                    disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="billing-none" value="__none">
-                      Select Billing Address
-                    </AppSelect.Item>
-                    {billingAddresses.map((address) => (
-                      <AppSelect.Item
-                        key={address.id}
-                        value={address.id.toString()}
-                      >
-                        {`${address.companyName}`}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
+                  <FormField
+                    control={form.control}
+                    name={"billingAddressId" as any}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <AppCombobox
+                            value={field.value && field.value > 0 ? String(field.value) : "__none"}
+                            onValueChange={(value) => {
+                              const next = value === "__none" ? 0 : parseInt(value, 10);
+                              field.onChange(next);
+                            }}
+                            options={[
+                              { value: "__none", label: "Select Billing Address" },
+                              ...billingAddresses.map((a) => ({
+                                value: String(a.id),
+                                label: formatBillingAddressLabel(a),
+                              })),
+                            ]}
+                            placeholder="Select Billing Address"
+                            searchPlaceholder="Search address..."
+                            emptyText="No address found."
+                            disabled={isApprovalMode}
+                            className="overflow-hidden"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   {errors.billingAddressId ? (
                     <p className="text-sm text-destructive mt-2">
                       {errors.billingAddressId.message as string}
@@ -1446,7 +1492,7 @@ export function PurchaseOrderForm({
                   name="quotationNo"
                   label="Quotation No."
                   placeholder="Enter quotation number"
-                  required
+                  required={false}
                   disabled={isApprovalMode}
                 />
                 </div>
@@ -1456,7 +1502,7 @@ export function PurchaseOrderForm({
                   name="quotationDate"
                   label="Quotation Date"
                   type="date"
-                  required
+                  required={false}
                   disabled={isApprovalMode}
                 />
                 </div>

@@ -137,20 +137,16 @@ export async function POST(req: NextRequest) {
         update: {
           minWage: String(parsed.minWage) as any,
         },
-        select: { 
-          id: true,
-          category: { select: { categoryName: true } },
-          skillSet: { select: { skillsetName: true } },
-        },
+        select: { id: true },
       });
 
       // Update all assigned manpower with matching site, category, and skillset
-      await tx.manpower.updateMany({
+      await tx.siteManpower.updateMany({
         where: {
-          currentSiteId: parsed.siteId,
-          category: upserted.category.categoryName,
-          skillSet: upserted.skillSet.skillsetName,
-          isAssigned: true,
+          siteId: parsed.siteId,
+          categoryId: parsed.categoryId,
+          skillsetId: parsed.skillSetId,
+          manpower: { isAssigned: true },
         },
         data: {
           minWage: String(parsed.minWage) as any,
@@ -203,19 +199,19 @@ export async function PATCH(req: NextRequest) {
         select: { 
           id: true,
           siteId: true,
-          category: { select: { categoryName: true } },
-          skillSet: { select: { skillsetName: true } },
+          categoryId: true,
+          skillSetId: true,
           minWage: true,
         } 
       });
 
       // Update all assigned manpower with matching site, category, and skillset
-      await tx.manpower.updateMany({
+      await tx.siteManpower.updateMany({
         where: {
-          currentSiteId: updated.siteId,
-          category: updated.category.categoryName,
-          skillSet: updated.skillSet.skillsetName,
-          isAssigned: true,
+          siteId: updated.siteId,
+          categoryId: updated.categoryId,
+          skillsetId: updated.skillSetId,
+          manpower: { isAssigned: true },
         },
         data: {
           minWage: updated.minWage as any,
