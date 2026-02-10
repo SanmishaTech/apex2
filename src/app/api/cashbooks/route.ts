@@ -115,6 +115,12 @@ export async function GET(req: NextRequest) {
     );
     const search = searchParams.get("search")?.trim() || "";
     const isVoucher = searchParams.get("isVoucher")?.trim() || "";
+    const approval1Pending = (searchParams.get("approval1Pending") || "")
+      .trim()
+      .toLowerCase();
+    const approval2Pending = (searchParams.get("approval2Pending") || "")
+      .trim()
+      .toLowerCase();
     const sort = (searchParams.get("sort") || "voucherDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
@@ -142,6 +148,17 @@ export async function GET(req: NextRequest) {
       where.AND.push({
         cashbookDetails: { none: { documentUrl: { not: null } } },
       });
+    }
+
+    // Filter by Approval 1 pending
+    if (approval1Pending === "1" || approval1Pending === "true" || approval1Pending === "yes") {
+      where.isApproved1 = false;
+    }
+
+    // Filter by Approval 2 pending
+    if (approval2Pending === "1" || approval2Pending === "true" || approval2Pending === "yes") {
+      where.isApproved1 = true;
+      where.isApproved2 = false;
     }
 
     // Allow listed sortable fields only
@@ -182,6 +199,9 @@ export async function GET(req: NextRequest) {
         isApproved2: true,
         approved2ById: true,
         approved2At: true,
+        createdBy: { select: { id: true, name: true, email: true } },
+        approved1By: { select: { id: true, name: true, email: true } },
+        approved2By: { select: { id: true, name: true, email: true } },
         site: { select: { id: true, site: true } },
         boq: { select: { id: true, boqNo: true } },
         createdAt: true,
