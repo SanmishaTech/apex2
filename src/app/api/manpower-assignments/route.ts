@@ -107,6 +107,7 @@ export async function GET(req: NextRequest) {
         siteManpower: {
           select: {
             siteId: true,
+            isPresent: true,
             wage: true,
             minWage: true,
             pf: true,
@@ -141,6 +142,7 @@ export async function GET(req: NextRequest) {
               pt: sm?.pt ?? false,
               hra: sm?.hra ?? false,
               mlwf: sm?.mlwf ?? false,
+              isPresent: sm?.isPresent ?? false,
               category: sm?.category?.categoryName ?? null,
               skillSet: sm?.skillset?.skillsetName ?? null,
             };
@@ -191,6 +193,7 @@ export async function POST(req: NextRequest) {
           data: {
             siteId,
             manpowerId,
+            isPresent: !!i.present,
             assignedDate: asDate(i.assignedAt) ?? now,
             assignedById: auth.user.id,
             categoryId,
@@ -263,6 +266,7 @@ export async function PATCH(req: NextRequest) {
         if (i.pt !== undefined) data.pt = !!i.pt;
         if (i.hra !== undefined) data.hra = !!i.hra;
         if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
+        if (i.present !== undefined) data.isPresent = !!i.present;
         if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
 
         await tx.siteManpower.update({ where, data, select: { id: true } });

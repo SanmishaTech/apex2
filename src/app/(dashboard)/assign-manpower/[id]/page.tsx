@@ -107,6 +107,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
     pt?: boolean | number | string | null;
     hra?: boolean | null;
     mlwf?: boolean | null;
+    present?: boolean;
   };
   const [edits, setEdits] = useState<Record<number, ViewEdit>>({});
   const [selected, setSelected] = useState<Record<number, boolean>>({});
@@ -176,6 +177,20 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       sortable: true,
       accessor: (r) =>
         `${r.firstName}${r.middleName ? " " + r.middleName : ""} ${r.lastName}`,
+    },
+    {
+      key: "present",
+      header: "Present",
+      sortable: false,
+      className: "text-center",
+      cellClassName: "text-center",
+      accessor: (r) => (
+        <input
+          type="checkbox"
+          checked={edits[r.id]?.present ?? r.isPresent ?? false}
+          onChange={(e) => setField(r.id, "present", e.currentTarget.checked)}
+        />
+      ),
     },
     {
       key: "category",
@@ -339,6 +354,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       pt: typeof v.pt === "boolean" ? (v.pt ? 1 : null) : v.pt,
       hra: typeof v.hra === "boolean" ? (v.hra ? 1 : null) : v.hra,
       mlwf: typeof v.mlwf === "boolean" ? (v.mlwf ? 1 : null) : v.mlwf,
+      present: v.present,
     }));
     if (items.length === 0) {
       toast.error("No changes to save");

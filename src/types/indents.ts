@@ -24,6 +24,12 @@ export interface Indent {
   indentDate: string;
   deliveryDate: string;
   siteId?: number;
+  createdById?: number | null;
+  approved1ById?: number | null;
+  approved2ById?: number | null;
+  createdBy?: { id: number; name: string | null } | null;
+  approved1By?: { id: number; name: string | null } | null;
+  approved2By?: { id: number; name: string | null } | null;
   approvalStatus?:
     | "DRAFT"
     | "APPROVED_LEVEL_1"

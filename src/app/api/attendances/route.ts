@@ -195,8 +195,12 @@ export async function GET(req: NextRequest) {
             firstName: true,
             middleName: true,
             lastName: true,
-            category: true,
-            skillSet: true,
+            siteManpower: {
+              select: {
+                category: { select: { categoryName: true } },
+                skillset: { select: { skillsetName: true } },
+              },
+            },
           },
         },
       },

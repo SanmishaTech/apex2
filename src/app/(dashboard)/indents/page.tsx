@@ -98,6 +98,49 @@ export default function IndentsPage() {
     }
   }
 
+  function UserBadge({
+    name,
+    className,
+  }: {
+    name?: string | null;
+    className: string;
+  }) {
+    if (!name) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${className}`}
+      >
+        {name}
+      </span>
+    );
+  }
+
+  function StatusBadge({
+    status,
+    suspended,
+  }: {
+    status?: string;
+    suspended?: boolean;
+  }) {
+    const label = suspended ? "Suspended" : prettyStatus(status);
+    const cls = suspended
+      ? "bg-rose-600"
+      : status === "APPROVED_LEVEL_1"
+        ? "bg-amber-600"
+        : status === "APPROVED_LEVEL_2"
+          ? "bg-sky-600"
+          : status === "COMPLETED"
+            ? "bg-emerald-600"
+            : "bg-slate-600";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}
+      >
+        {label}
+      </span>
+    );
+  }
+
   function getAvailableActions(
     s?: string,
     isSuspended?: boolean,
@@ -239,7 +282,9 @@ export default function IndentsPage() {
       sortable: false,
       className: "whitespace-nowrap",
       cellClassName: "whitespace-nowrap",
-      accessor: (r) => prettyStatus(r.approvalStatus),
+      accessor: (r) => (
+        <StatusBadge status={r.approvalStatus} suspended={r.suspended} />
+      ),
     },
     {
       key: "site",
@@ -273,6 +318,39 @@ export default function IndentsPage() {
       className: "whitespace-nowrap",
       cellClassName: "text-muted-foreground whitespace-nowrap",
       accessor: (r) => formatDate(r.createdAt),
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge name={r.createdBy?.name ?? null} className="bg-sky-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved1By",
+      header: "Approved 1 By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge
+          name={r.approved1By?.name ?? null}
+          className="bg-emerald-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved2By",
+      header: "Approved 2 By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge
+          name={r.approved2By?.name ?? null}
+          className="bg-violet-600"
+        />
+      ),
+      className: "whitespace-nowrap",
     },
   ];
 
@@ -594,120 +672,127 @@ export default function IndentsPage() {
               </AppButton>
             )}
           </FilterBar>
-          {/* Horizontal scroll wrapper for mobile */}
-          <DataTable
-            columns={columns}
-            data={data?.data || []}
-            loading={isLoading}
-            sort={sortState}
-            onSortChange={(s) => toggleSort(s.field)}
-            stickyColumns={1}
-            renderRowActions={(indent) => {
-              const canAnyAction =
-                can(PERMISSIONS.EDIT_INDENTS) ||
-                can(PERMISSIONS.DELETE_INDENTS) ||
-                can(PERMISSIONS.APPROVE_INDENTS_L1) ||
-                can(PERMISSIONS.APPROVE_INDENTS_L2) ||
-                can(PERMISSIONS.COMPLETE_INDENTS) ||
-                can(PERMISSIONS.SUSPEND_INDENTS) ||
-                can(PERMISSIONS.GENERATE_PO_FROM_INDENT);
-              if (!canAnyAction) return null;
-              return (
-                <div className="flex gap-2">
-                  {(can(PERMISSIONS.EDIT_INDENTS) ||
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-max">
+              <DataTable
+                columns={columns}
+                data={data?.data || []}
+                loading={isLoading}
+                sort={sortState}
+                onSortChange={(s) => toggleSort(s.field)}
+                stickyColumns={1}
+                renderRowActions={(indent) => {
+                  const canAnyAction =
+                    can(PERMISSIONS.EDIT_INDENTS) ||
+                    can(PERMISSIONS.DELETE_INDENTS) ||
                     can(PERMISSIONS.APPROVE_INDENTS_L1) ||
                     can(PERMISSIONS.APPROVE_INDENTS_L2) ||
                     can(PERMISSIONS.COMPLETE_INDENTS) ||
                     can(PERMISSIONS.SUSPEND_INDENTS) ||
-                    can(PERMISSIONS.GENERATE_PO_FROM_INDENT)) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <AppButton
-                          size="sm"
-                          variant="secondary"
-                          disabled={
-                            indent.suspended ||
-                            indent.approvalStatus === "SUSPENDED"
-                          }
-                        >
-                          Actions
-                        </AppButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {(() => {
-                          const items = indent.indentItems ?? [];
-                          const completedCount = items.filter(
-                            (item) =>
-                              item.purchaseOrderDetailId !== null &&
-                              item.purchaseOrderDetailId !== undefined
-                          ).length;
-                          const allItemsCompleted =
-                            items.length > 0 && completedCount === items.length;
-                          const canGeneratePo =
-                            can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
-                            (indent.approvalStatus === "APPROVED_LEVEL_2" ||
-                              indent.approvalStatus === "COMPLETED") &&
-                            !indent.suspended &&
-                            !allItemsCompleted;
-
-                          return canGeneratePo ? (
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                handleGeneratePO(
-                                  indent.id,
-                                  // Prefer explicit siteId if available, else nested site.id
-                                  (indent as any).siteId ?? indent.site?.id ?? null
-                                )
+                    can(PERMISSIONS.GENERATE_PO_FROM_INDENT);
+                  if (!canAnyAction) return null;
+                  return (
+                    <div className="flex gap-2">
+                      {(can(PERMISSIONS.EDIT_INDENTS) ||
+                        can(PERMISSIONS.APPROVE_INDENTS_L1) ||
+                        can(PERMISSIONS.APPROVE_INDENTS_L2) ||
+                        can(PERMISSIONS.COMPLETE_INDENTS) ||
+                        can(PERMISSIONS.SUSPEND_INDENTS) ||
+                        can(PERMISSIONS.GENERATE_PO_FROM_INDENT)) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <AppButton
+                              size="sm"
+                              variant="secondary"
+                              disabled={
+                                indent.suspended ||
+                                indent.approvalStatus === "SUSPENDED"
                               }
                             >
-                              Generate PO
-                            </DropdownMenuItem>
-                          ) : null;
-                        })()}
-                        {(() => {
-                          const actions = getAvailableActions(
-                            indent.approvalStatus,
-                            indent.suspended,
-                            (indent as any).createdById === user?.id,
-                            (indent as any).approved1ById === user?.id
-                          );
-                          const items = indent.indentItems ?? [];
-                          const completedCount = items.filter(
-                            (item) =>
-                              item.purchaseOrderDetailId !== null &&
-                              item.purchaseOrderDetailId !== undefined
-                          ).length;
-                          const allItemsCompleted =
-                            items.length > 0 && completedCount === items.length;
-                          const showGenerate =
-                            can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
-                            (indent.approvalStatus === "APPROVED_LEVEL_2" ||
-                              indent.approvalStatus === "COMPLETED") &&
-                            !indent.suspended &&
-                            !allItemsCompleted;
-                          if (actions.length === 0 && !showGenerate) {
-                            return (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                No actions available
-                              </div>
-                            );
-                          }
-                          return actions.map((a) => (
-                            <DropdownMenuItem
-                              key={a.key}
-                              onSelect={() => openApproval(indent.id, a.key)}
-                            >
-                              {a.label}
-                            </DropdownMenuItem>
-                          ));
-                        })()}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              );
-            }}
-          />
+                              Actions
+                            </AppButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {(() => {
+                              const items = indent.indentItems ?? [];
+                              const completedCount = items.filter(
+                                (item) =>
+                                  item.purchaseOrderDetailId !== null &&
+                                  item.purchaseOrderDetailId !== undefined
+                              ).length;
+                              const allItemsCompleted =
+                                items.length > 0 &&
+                                completedCount === items.length;
+                              const canGeneratePo =
+                                can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
+                                (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+                                  indent.approvalStatus === "COMPLETED") &&
+                                !indent.suspended &&
+                                !allItemsCompleted;
+
+                              return canGeneratePo ? (
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    handleGeneratePO(
+                                      indent.id,
+                                      // Prefer explicit siteId if available, else nested site.id
+                                      (indent as any).siteId ??
+                                        indent.site?.id ??
+                                        null
+                                    )
+                                  }
+                                >
+                                  Generate PO
+                                </DropdownMenuItem>
+                              ) : null;
+                            })()}
+                            {(() => {
+                              const actions = getAvailableActions(
+                                indent.approvalStatus,
+                                indent.suspended,
+                                (indent as any).createdById === user?.id,
+                                (indent as any).approved1ById === user?.id
+                              );
+                              const items = indent.indentItems ?? [];
+                              const completedCount = items.filter(
+                                (item) =>
+                                  item.purchaseOrderDetailId !== null &&
+                                  item.purchaseOrderDetailId !== undefined
+                              ).length;
+                              const allItemsCompleted =
+                                items.length > 0 &&
+                                completedCount === items.length;
+                              const showGenerate =
+                                can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
+                                (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+                                  indent.approvalStatus === "COMPLETED") &&
+                                !indent.suspended &&
+                                !allItemsCompleted;
+                              if (actions.length === 0 && !showGenerate) {
+                                return (
+                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                    No actions available
+                                  </div>
+                                );
+                              }
+                              return actions.map((a) => (
+                                <DropdownMenuItem
+                                  key={a.key}
+                                  onSelect={() => openApproval(indent.id, a.key)}
+                                >
+                                  {a.label}
+                                </DropdownMenuItem>
+                              ));
+                            })()}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+            </div>
+          </div>
         </AppCard.Content>
         <AppCard.Footer className="justify-end">
           <Pagination

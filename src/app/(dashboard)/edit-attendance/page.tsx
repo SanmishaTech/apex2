@@ -71,7 +71,7 @@ export default function EditAttendancePage() {
   // Fetch assigned manpower for the site
   const { data: manpowerData } = useSWR<{ data: AssignedManpower[] }>(
     siteId
-      ? `/api/manpower?currentSiteId=${siteId}&isAssigned=true&perPage=1000`
+      ? `/api/manpower?currentSiteId=${siteId}&isAssigned=true&activeOnly=true&perPage=1000`
       : null,
     swrFetcher
   );

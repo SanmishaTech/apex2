@@ -143,13 +143,15 @@ export async function PATCH(
 
       // Update transfer in a transaction to handle manpower assignment changes
       const updatedTransfer = await prisma.$transaction(async (tx) => {
+        const actionDate = new Date();
+
         // Update the transfer status
         const transfer = await tx.manpowerTransfer.update({
           where: { id },
           data: {
             status,
             approvedById: status !== 'Pending' ? approvedById : null,
-            approvedAt: status !== 'Pending' ? new Date() : null,
+            approvedAt: status !== 'Pending' ? actionDate : null,
             remarks,
           },
           include: {
@@ -181,7 +183,7 @@ export async function PATCH(
           // Update each manpower individually to preserve their specific assignment data
           await Promise.all(
             existingTransfer.transferItems.map(async (item) => {
-              const assignedDate = existingTransfer.challanDate;
+              const assignedDate = actionDate;
 
               const previous = await tx.siteManpower.findUnique({
                 where: { manpowerId: item.manpowerId },
