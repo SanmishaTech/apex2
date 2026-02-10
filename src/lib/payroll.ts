@@ -103,6 +103,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     where: {
       manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
       siteId: { in: siteIds.length ? siteIds : [0] },
+      isPresent: true,
     },
     select: {
       manpowerId: true,
@@ -143,6 +144,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         // Legacy parity: OT is treated as DAYS, not hours
         const totalDays = d.presentDays + Number(d.otDays);
         const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        if (!smp) continue;
         const wage = smp?.wage ? Number(smp.wage) : smp?.minWage ? Number(smp.minWage) : 0;
         if (!wage) warnings.push(`Manpower ${manpowerId} has no wage/minWage; computed as 0 for site ${d.siteId}`);
         const gross = toFixed2(totalDays * wage);
@@ -159,6 +161,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
           amountInWords: amountInWords(total),
         });
       }
+      if (dets.length === 0) continue;
       paySlipsToCreate.push({
         manpowerId,
         period: params.period,
@@ -214,6 +217,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       for (const d of details as any[]) {
         const workingDays = Math.min(d.presentDays, cap);
         const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        if (!smp) continue;
         const minWage = smp?.minWage ? Number(smp.minWage) : 0;
         if (!minWage) warnings.push(`Manpower ${manpowerId} has no minWage; computed as 0 for site ${d.siteId}`);
         const gross = toFixed2(workingDays * minWage);
@@ -255,6 +259,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
           amountInWords: amountInWords(total),
         });
       }
+      if (dets.length === 0) continue;
       paySlipsToCreate.push({
         manpowerId,
         period: params.period,

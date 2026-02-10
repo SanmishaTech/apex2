@@ -118,6 +118,8 @@ export async function GET(req: NextRequest) {
         ? (manpower as any).siteManpower
         : null;
 
+      if (!siteManpowerForThisSite) continue;
+
       if (!siteGroups.has(siteId)) {
         siteGroups.set(siteId, {
           siteId,

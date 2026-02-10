@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
   const supplierId = searchParams.get("supplierId");
   const isAssigned = searchParams.get("isAssigned");
   const currentSiteId = searchParams.get("currentSiteId");
+  const activeOnly = searchParams.get("activeOnly");
 
   const where: any = {};
 
@@ -89,7 +90,10 @@ export async function GET(req: NextRequest) {
   if (currentSiteId) {
     const sid = parseInt(currentSiteId);
     if (!Number.isNaN(sid)) {
-      where.siteManpower = { siteId: sid };
+      where.siteManpower = {
+        siteId: sid,
+        ...(activeOnly === "true" ? { isPresent: true } : {}),
+      };
     }
   }
 
@@ -137,6 +141,7 @@ export async function GET(req: NextRequest) {
       siteManpower: {
         select: {
           siteId: true,
+          isPresent: true,
           assignedDate: true,
           wage: true,
           minWage: true,
@@ -173,6 +178,7 @@ export async function GET(req: NextRequest) {
             pt: sm?.pt ?? false,
             hra: sm?.hra ?? false,
             mlwf: sm?.mlwf ?? false,
+            isPresent: sm?.isPresent ?? false,
           };
         })
       : (result as any).data,

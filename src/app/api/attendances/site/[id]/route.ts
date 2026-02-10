@@ -35,6 +35,7 @@ export async function GET(
         isAssigned: true,
         siteManpower: {
           siteId,
+          isPresent: true,
         },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],

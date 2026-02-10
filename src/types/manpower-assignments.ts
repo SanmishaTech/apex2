@@ -16,6 +16,7 @@ export interface AssignedManpowerItem {
   pt?: string | null; // Prisma Decimal serialized to string
   hra?: string | null; // Prisma Decimal serialized to string
   mlwf?: string | null; // Prisma Decimal serialized to string
+  isPresent: boolean;
   isAssigned: boolean;
   currentSiteId?: number | null;
   assignedAt?: string | null;

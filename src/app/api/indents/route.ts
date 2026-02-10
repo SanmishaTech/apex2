@@ -130,11 +130,15 @@ export async function GET(req: NextRequest) {
         siteId: true,
         createdById: true,
         approved1ById: true,
+        approved2ById: true,
         approvalStatus: true,
         suspended: true,
         remarks: true,
         createdAt: true,
         updatedAt: true,
+        createdBy: { select: { id: true, name: true } },
+        approved1By: { select: { id: true, name: true } },
+        approved2By: { select: { id: true, name: true } },
         site: {
           select: {
             id: true,

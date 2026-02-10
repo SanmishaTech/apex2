@@ -117,7 +117,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
           pt: asBool(row.pt),
           hra: asBool(row.hra),
           mlwf: asBool(row.mlwf),
-          present: false,
+          present: true,
         };
       } else {
         delete copy[row.id];
@@ -146,7 +146,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
             pt: asBool(row.pt),
             hra: asBool(row.hra),
             mlwf: asBool(row.mlwf),
-            present: false,
+            present: true,
             [key]: value,
           },
         };
@@ -252,7 +252,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
   const sortState: SortState = { field: sort, order };
 
   async function handleAssign() {
-    const items: AssignManpowerRequestItem[] = Object.values(selected).map(({ manpowerId, category, skillSet, wage, minWage, esic, pf, pt, hra, mlwf }) => ({
+    const items: AssignManpowerRequestItem[] = Object.values(selected).map(({ manpowerId, category, skillSet, wage, minWage, esic, pf, pt, hra, mlwf, present }) => ({
       manpowerId,
       category,
       skillSet,
@@ -263,6 +263,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
       pt: typeof pt === 'boolean' ? (pt ? 1 : null) : (pt as any),
       hra: typeof hra === 'boolean' ? (hra ? 1 : null) : (hra as any),
       mlwf: typeof mlwf === 'boolean' ? (mlwf ? 1 : null) : (mlwf as any),
+      present,
     }));
     if (items.length === 0) { toast.error('Select at least one manpower'); return; }
     try {
