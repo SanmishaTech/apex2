@@ -313,6 +313,25 @@ export async function GET(req: NextRequest) {
         updatedAt: true,
         createdById: true,
         approved1ById: true,
+        approved2ById: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved1By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved2By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         site: {
           select: {
             id: true,

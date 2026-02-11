@@ -28,6 +28,8 @@ export type DataTableProps<T extends object> = {
 	onSortChange?: (next: SortState) => void;
 	getRowKey?: (row: T, index: number) => string | number;
 	getRowClassName?: (row: T, index: number) => string;
+	isRowExpanded?: (row: T, index: number) => boolean;
+	renderExpandedRow?: (row: T, index: number) => React.ReactNode;
 	renderRowActions?: (row: T) => React.ReactNode;
 	actionsHeader?: React.ReactNode;
 	className?: string;
@@ -54,6 +56,8 @@ export function DataTable<T extends object>({
 	onSortChange,
 	getRowKey,
 	getRowClassName,
+	isRowExpanded,
+	renderExpandedRow,
 	renderRowActions,
 	actionsHeader = 'Actions',
 	className,
@@ -233,9 +237,9 @@ export function DataTable<T extends object>({
 							{renderRowActions && hasAnyActions && (
 								<th
 									className={cn(
-											simpleStyle
-												? 'px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap'
-												: 'py-2.5 px-3 font-medium align-middle border-b border-border/70 text-xs tracking-wide last:rounded-tr-lg whitespace-nowrap text-right'
+										simpleStyle
+											? 'px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap'
+											: 'py-2.5 px-3 font-medium align-middle border-b border-border/70 text-xs tracking-wide last:rounded-tr-lg whitespace-nowrap text-right'
 									)}
 								>
 									{actionsHeader}
@@ -243,87 +247,112 @@ export function DataTable<T extends object>({
 							)}
 						</tr>
 					</thead>
-						<tbody className={cn('text-xs leading-tight', simpleStyle && 'divide-y divide-border bg-background')}>
-							{loading &&
-								Array.from({ length: skeletonRows }).map((_, rIdx) => (
-									<tr
-										key={`sk-${rIdx}`}
-										className={cn(
-											simpleStyle ? '' : 'border-t',
-											!noStriping && !simpleStyle && rIdx % 2 === 1 && 'bg-muted/20'
-										)}
-									>
-										{columns.map((col, cIdx) => (
-											<td
-												key={col.key + cIdx}
-												className={cn(
-													simpleStyle ? 'px-6 py-4 whitespace-nowrap' : 'py-2 px-3',
-													dense && 'py-1',
-													col.cellClassName
-												)}
-											>
-												<div className='h-4 w-full max-w-[140px] bg-muted/60 rounded animate-pulse' />
-											</td>
-										))}
-										{renderRowActions && hasAnyActions && (
-											<td className={cn(simpleStyle ? 'px-6 py-4 whitespace-nowrap text-right' : 'py-2 px-3 whitespace-nowrap text-right', dense && 'py-1')}>
-												<div className='h-4 w-12 bg-muted/60 rounded animate-pulse' />
-											</td>
-										)}
-									</tr>
-								))}
-
-							{!loading && data.length === 0 && (
-								<tr>
-									<td
-										colSpan={columns.length + (renderRowActions ? 1 : 0)}
-										className='py-8 text-center text-muted-foreground'
-									>
-										{emptyMessage}
-									</td>
-								</tr>
-							)}
-
-						{!loading &&
-							data.map((row, i) => (
+					<tbody className={cn('text-xs leading-tight', simpleStyle && 'divide-y divide-border bg-background')}>
+						{loading &&
+							Array.from({ length: skeletonRows }).map((_, rIdx) => (
 								<tr
-									key={rowKey(row, i)}
+									key={`sk-${rIdx}`}
 									className={cn(
-										simpleStyle
-											? 'transition-colors hover:bg-muted/30'
-											: 'border-t transition-colors hover:bg-muted/40',
-										!noStriping && !simpleStyle && i % 2 === 1 && 'bg-muted/20 dark:bg-muted/10',
-										getRowClassName?.(row, i)
+										simpleStyle ? '' : 'border-t',
+										!noStriping && !simpleStyle && rIdx % 2 === 1 && 'bg-muted/20'
 									)}
 								>
-										{columns.map((col, cIdx) => (
-											<td
-												key={col.key}
-												className={cn(
-													simpleStyle ? 'px-6 py-4 whitespace-nowrap align-middle' : 'py-2 px-3 align-middle',
-													dense && 'py-1',
-													col.cellClassName,
-													isSticky(cIdx) && 'sticky z-10 bg-background border-r border-border/60'
-												)}
-												style={isSticky(cIdx) ? { left: leftOffsets[cIdx] || 0 } : undefined}
-											>
-												{col.accessor
-													? col.accessor(row)
-													: ((row as unknown as Record<string, unknown>)[
-														col.key
-													] as React.ReactNode) ?? '—'}
-											</td>
-										))}
-										{renderRowActions && hasAnyActions && (
-											<td className={cn(simpleStyle ? 'px-6 py-4 whitespace-nowrap text-right' : 'py-2 px-3 whitespace-nowrap text-right', dense && 'py-1')}>
-												<div className='flex justify-end gap-2'>
-													{renderRowActions(row)}
-												</div>
-											</td>
+									{columns.map((col, cIdx) => (
+										<td
+											key={col.key + cIdx}
+											className={cn(
+												simpleStyle ? 'px-6 py-4 whitespace-nowrap' : 'py-2 px-3',
+												dense && 'py-1',
+												col.cellClassName
+											)}
+										>
+											<div className='h-4 w-full max-w-[140px] bg-muted/60 rounded animate-pulse' />
+										</td>
+									))}
+									{renderRowActions && hasAnyActions && (
+										<td className={cn(simpleStyle ? 'px-6 py-4 whitespace-nowrap text-right' : 'py-2 px-3 whitespace-nowrap text-right', dense && 'py-1')}>
+											<div className='h-4 w-12 bg-muted/60 rounded animate-pulse' />
+										</td>
+									)}
+								</tr>
+							))}
+
+						{!loading && data.length === 0 && (
+							<tr>
+								<td
+									colSpan={columns.length + (renderRowActions ? 1 : 0)}
+									className='py-8 text-center text-muted-foreground'
+								>
+									{emptyMessage}
+								</td>
+							</tr>
+						)}
+
+						{!loading &&
+							data.map((row, i) => {
+								const expanded = !!isRowExpanded?.(row, i) && !!renderExpandedRow;
+								return (
+									<React.Fragment key={rowKey(row, i)}>
+										<tr
+											className={cn(
+												simpleStyle
+													? 'transition-colors hover:bg-muted/30'
+													: 'border-t transition-colors hover:bg-muted/40',
+												!noStriping && !simpleStyle && i % 2 === 1 && 'bg-muted/20 dark:bg-muted/10',
+												getRowClassName?.(row, i)
+											)}
+										>
+											{columns.map((col, cIdx) => (
+												<td
+													key={col.key}
+													className={cn(
+														simpleStyle
+															? 'px-6 py-4 whitespace-nowrap align-middle'
+															: 'py-2 px-3 align-middle',
+														dense && 'py-1',
+														col.cellClassName,
+														isSticky(cIdx) &&
+															'sticky z-10 bg-background border-r border-border/60'
+													)}
+													style={
+														isSticky(cIdx) ? { left: leftOffsets[cIdx] || 0 } : undefined
+													}
+												>
+													{col.accessor
+														? col.accessor(row)
+														: ((row as unknown as Record<string, unknown>)[
+															col.key
+														] as React.ReactNode) ?? '—'}
+												</td>
+											))}
+											{renderRowActions && hasAnyActions && (
+												<td
+													className={cn(
+														simpleStyle
+															? 'px-6 py-4 whitespace-nowrap text-right'
+															: 'py-2 px-3 whitespace-nowrap text-right',
+														dense && 'py-1'
+													)}
+												>
+													<div className='flex justify-end gap-2'>{renderRowActions(row)}</div>
+												</td>
+											)}
+										</tr>
+
+										{expanded && (
+											<tr key={`${rowKey(row, i)}-expanded`} className={cn(simpleStyle ? '' : 'border-t')}>
+												<td
+													colSpan={columns.length + (renderRowActions && hasAnyActions ? 1 : 0)}
+													className={cn(simpleStyle ? 'px-6 py-4' : 'py-3 px-3')}
+												>
+													{renderExpandedRow?.(row, i)}
+												</td>
+											</tr>
 										)}
-									</tr>
-								))}
-						</tbody>
+									</React.Fragment>
+								);
+							})}
+					</tbody>
 				</table>
 			</div>
 		</div>

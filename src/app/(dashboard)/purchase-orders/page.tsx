@@ -48,6 +48,7 @@ type PurchaseOrder = {
   vendorId: number;
   createdById: number;
   approved1ById?: number | null;
+  approved2ById?: number | null;
   site: {
     id: number;
     site: string;
@@ -56,6 +57,9 @@ type PurchaseOrder = {
     id: number;
     vendorName: string;
   };
+  createdBy?: { id: number; name: string } | null;
+  approved1By?: { id: number; name: string } | null;
+  approved2By?: { id: number; name: string } | null;
   amount: number;
   approvalStatus: string;
   isSuspended: boolean;
@@ -167,6 +171,23 @@ export default function PurchaseOrdersPage() {
       default:
         return "Draft";
     }
+  }
+
+  function UserBadge({
+    name,
+    className,
+  }: {
+    name?: string | null;
+    className: string;
+  }) {
+    if (!name) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${className}`}
+      >
+        {name}
+      </span>
+    );
   }
 
   function getAvailableActions(
@@ -465,6 +486,39 @@ export default function PurchaseOrdersPage() {
         </div>
       ),
     },
+    {
+      key: "createdBy",
+      header: "Created By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge name={row.createdBy?.name ?? null} className="bg-sky-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved1By",
+      header: "Approve 1 By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge
+          name={row.approved1By?.name ?? null}
+          className="bg-emerald-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved2By",
+      header: "Approve 2 By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge
+          name={row.approved2By?.name ?? null}
+          className="bg-violet-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
   ];
 
   function toggleSort(field: string) {
@@ -499,7 +553,7 @@ export default function PurchaseOrdersPage() {
       <AppCard>
         <AppCard.Content>
           <FilterBar title="Search & Filter">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="col-span-full grid grid-cols-4 gap-3 items-end">
               <NonFormTextInput
                 label="Search"
                 placeholder="PO No., Quotation No., Note..."
@@ -508,6 +562,7 @@ export default function PurchaseOrdersPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") applyFilters();
                 }}
+                containerClassName="min-w-0"
               />
               <AppSelect
                 label="Site"
@@ -535,8 +590,12 @@ export default function PurchaseOrdersPage() {
                   </AppSelect.Item>
                 ))}
               </AppSelect>
+              <div />
             </div>
-            <div className="flex gap-2 mt-4">
+
+            <div className="col-span-full grid grid-cols-4 gap-3 items-end">
+              <div />
+              <div />
               <AppButton
                 size="sm"
                 onClick={applyFilters}
@@ -577,29 +636,25 @@ export default function PurchaseOrdersPage() {
               onSortChange={(s) => toggleSort(s.field)}
               stickyColumns={1}
               renderRowActions={(po) => {
-                const canAnyAction =
-                  can(PERMISSIONS.EDIT_PURCHASE_ORDERS) ||
-                  can(PERMISSIONS.DELETE_PURCHASE_ORDERS) ||
-                  can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1) ||
-                  can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2);
                 const showPrint = po.approvalStatus === "APPROVED_LEVEL_2";
-                const showMenu = canAnyAction || showPrint;
-                if (!showMenu) return null;
                 return (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <AppButton
                         size="sm"
                         variant="secondary"
-                        disabled={
-                          po.approvalStatus === "SUSPENDED" ||
-                          po.approvalStatus === "COMPLETED"
-                        }
                       >
                         Actions
                       </AppButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          pushWithScrollSave(`/purchase-orders/${po.id}/view`)
+                        }
+                      >
+                        View
+                      </DropdownMenuItem>
                       {showPrint && (
                         <DropdownMenuItem onClick={() => handlePrint(po)}>
                           Print
