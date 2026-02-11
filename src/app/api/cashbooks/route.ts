@@ -115,6 +115,12 @@ export async function GET(req: NextRequest) {
     );
     const search = searchParams.get("search")?.trim() || "";
     const isVoucher = searchParams.get("isVoucher")?.trim() || "";
+    const fromDate = searchParams.get("fromDate")?.trim() || "";
+    const toDate = searchParams.get("toDate")?.trim() || "";
+    const siteIdParamRaw = searchParams.get("siteId");
+    const siteIdParam = siteIdParamRaw ? Number(siteIdParamRaw) : NaN;
+    const boqIdParamRaw = searchParams.get("boqId");
+    const boqIdParam = boqIdParamRaw ? Number(boqIdParamRaw) : NaN;
     const approval1Pending = (searchParams.get("approval1Pending") || "")
       .trim()
       .toLowerCase();
@@ -133,6 +139,25 @@ export async function GET(req: NextRequest) {
         { site: { site: { contains: search } } },
         { boq: { boqNo: { contains: search } } },
       ];
+    }
+
+    // Filter by voucherDate range (inclusive)
+    if (fromDate || toDate) {
+      const voucherDateFilter: { gte?: Date; lte?: Date } = {};
+
+      if (fromDate) {
+        const d = toDateOnlyUtc(fromDate);
+        if (Number.isNaN(d.getTime())) return BadRequest("Invalid fromDate");
+        voucherDateFilter.gte = d;
+      }
+
+      if (toDate) {
+        const d = toDateOnlyUtc(toDate);
+        if (Number.isNaN(d.getTime())) return BadRequest("Invalid toDate");
+        voucherDateFilter.lte = d;
+      }
+
+      where.voucherDate = voucherDateFilter;
     }
 
     // Filter by voucher attachment
@@ -161,6 +186,14 @@ export async function GET(req: NextRequest) {
       where.isApproved2 = false;
     }
 
+    // Optional filter by siteId / boqId
+    if (!Number.isNaN(siteIdParam) && siteIdParam > 0) {
+      where.siteId = siteIdParam;
+    }
+    if (!Number.isNaN(boqIdParam) && boqIdParam > 0) {
+      where.boqId = boqIdParam;
+    }
+
     // Allow listed sortable fields only
     const sortableFields = new Set(["voucherNo", "voucherDate", "createdAt"]);
     const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort)
@@ -176,8 +209,16 @@ export async function GET(req: NextRequest) {
       const assignedSiteIds: number[] = (employee?.siteEmployees || [])
         .map((s) => s.siteId)
         .filter((v): v is number => typeof v === "number");
+
       // Apply restrictive filter (will yield empty if none)
-      where.siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+      // If a specific siteId is requested, ensure it's within assigned sites.
+      if (typeof where.siteId === "number") {
+        where.siteId = assignedSiteIds.includes(where.siteId)
+          ? where.siteId
+          : { in: [-1] };
+      } else {
+        where.siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
+      }
     }
 
     const result = await paginate({

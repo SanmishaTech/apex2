@@ -18,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppSelect } from "@/components/common/app-select";
+import { AppCombobox } from "@/components/common/app-combobox";
 import { apiUpload } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
@@ -757,73 +758,68 @@ export function CashbookForm({
                     render={({ field }) => (
                       <FormItem className="space-y-0">
                         <FormControl>
-                          <AppSelect
+                          <AppCombobox
                             value={String(field.value || "__none")}
-                            onValueChange={async (val) => {
+                            options={[
+                              { value: "__none", label: "Select Cashbook Head" },
+                              ...(getAvailableHeadsForRow(field.value) || []).map((head: any) => ({
+                                value: head.id?.toString?.() ?? String(head.id),
+                                label: String(head.cashbookHeadName ?? head.name ?? head.id),
+                              })),
+                            ]}
+                            placeholder="Select Cashbook Head"
+                            searchPlaceholder="Search cashbook head..."
+                            onValueChange={(val) => {
                               field.onChange(val);
                               if (mode !== "create") return;
                               // After selecting head, try to fetch last closing balance and set as opening balance
-                              try {
-                                const siteVal = form.getValues("siteId") as
-                                  | string
-                                  | number
-                                  | undefined
-                                  | null;
-                                const boqVal = form.getValues("boqId") as
-                                  | string
-                                  | number
-                                  | undefined
-                                  | null;
-                                const siteId =
-                                  siteVal &&
-                                  siteVal !== "__none" &&
-                                  siteVal !== ""
-                                    ? Number(siteVal)
-                                    : undefined;
-                                const boqId =
-                                  boqVal && boqVal !== "__none" && boqVal !== ""
-                                    ? Number(boqVal)
-                                    : undefined;
-                                if (siteId) {
-                                  const qs = new URLSearchParams({
-                                    siteId: String(siteId),
-                                  });
-                                  if (boqId) qs.set("boqId", String(boqId));
-                                  const voucherDate = form.getValues(
-                                    "voucherDate"
-                                  ) as any;
-                                  if (voucherDate) {
-                                    qs.set("voucherDate", String(voucherDate));
+                              (async () => {
+                                try {
+                                  const siteVal = form.getValues("siteId") as
+                                    | string
+                                    | number
+                                    | undefined
+                                    | null;
+                                  const boqVal = form.getValues("boqId") as
+                                    | string
+                                    | number
+                                    | undefined
+                                    | null;
+                                  const siteId =
+                                    siteVal &&
+                                    siteVal !== "__none" &&
+                                    siteVal !== ""
+                                      ? Number(siteVal)
+                                      : undefined;
+                                  const boqId =
+                                    boqVal && boqVal !== "__none" && boqVal !== ""
+                                      ? Number(boqVal)
+                                      : undefined;
+                                  if (siteId) {
+                                    const qs = new URLSearchParams({
+                                      siteId: String(siteId),
+                                    });
+                                    if (boqId) qs.set("boqId", String(boqId));
+                                    const voucherDate = form.getValues("voucherDate") as any;
+                                    if (voucherDate) {
+                                      qs.set("voucherDate", String(voucherDate));
+                                    }
+                                    const res = await apiGet(
+                                      `/api/cashbooks/last-balance?${qs.toString()}` as any
+                                    );
+                                    const closing =
+                                      (res as any)?.data?.closingBalance ??
+                                      (res as any)?.closingBalance ??
+                                      null;
+                                    const baseOpening = Number(closing ?? 0) || 0;
+                                    recomputeBalanceChain(baseOpening);
                                   }
-                                  const res = await apiGet(
-                                    `/api/cashbooks/last-balance?${qs.toString()}` as any
-                                  );
-                                  const closing =
-                                    (res as any)?.data?.closingBalance ??
-                                    (res as any)?.closingBalance ??
-                                    null;
-                                  const baseOpening = Number(closing ?? 0) || 0;
-                                  recomputeBalanceChain(baseOpening);
+                                } catch (e) {
+                                  // fail-silent for UX; keep opening balance unchanged
                                 }
-                              } catch (e) {
-                                // fail-silent for UX; keep opening balance unchanged
-                              }
+                              })();
                             }}
-                          >
-                            <AppSelect.Item value="__none">
-                              Select Cashbook Head
-                            </AppSelect.Item>
-                            {getAvailableHeadsForRow(field.value)?.map(
-                              (head: any) => (
-                                <AppSelect.Item
-                                  key={head.id}
-                                  value={head.id.toString()}
-                                >
-                                  {head.cashbookHeadName}
-                                </AppSelect.Item>
-                              )
-                            )}
-                          </AppSelect>
+                          />
                         </FormControl>
                         <div className="min-h-[16px]">
                           <FormMessage className="text-xs" />
