@@ -233,10 +233,13 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         const esic = applyEsic ? toFixed2((esicBase * esicPct) / 100) : 0;
 
         const gwHra = gross + hra;
+        const applyPt = Boolean(smp?.pt);
         let pt = 0;
-        if (gwHra > ptTh1 && gwHra < ptTh2) pt = ptAmt1;
-        if (gwHra > ptTh2) pt = ptAmt2;
-        if (month === 2) pt = febPtAmt; // Feb override
+        if (applyPt) {
+          if (gwHra > ptTh1 && gwHra < ptTh2) pt = ptAmt1;
+          if (gwHra > ptTh2) pt = ptAmt2;
+          if (month === 2) pt = febPtAmt; // Feb override
+        }
 
         let mlwf = 0;
         if (Boolean(smp?.mlwf) && mlwfMonths.includes(`${month}`.padStart(2, "0"))) mlwf = mlwfAmt;

@@ -1,55 +1,36 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { apiGet, apiPatch } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
+import { apiGet } from '@/lib/api-client';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { FormRow, FormSection } from '@/components/common/app-form';
 import { useProtectPage } from '@/hooks/use-protect-page';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useCurrentUser } from '@/hooks/use-current-user';
 import { PERMISSIONS } from '@/config/roles';
 import type { Cashbook } from '@/types/cashbooks';
 
-export default function CashbookApprove1Page() {
+export default function CashbookViewPage() {
   const params = useParams<{ id?: string }>();
   const router = useRouter();
   const cashbookId = params?.id as string | undefined;
 
   const { loading: pageGuardLoading } = useProtectPage({ manual: true });
-
   const { can } = usePermissions();
-  const { user } = useCurrentUser();
 
   useEffect(() => {
     if (pageGuardLoading) return;
-    if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L1)) {
-      router.replace('/cashbooks');
+    if (!can(PERMISSIONS.VIEW_CASHBOOKS)) {
+      router.replace('/dashboard');
     }
   }, [pageGuardLoading, can, router]);
 
-  const [submitting, setSubmitting] = useState(false);
-
-  const { data, error, isLoading, mutate } = useSWR<Cashbook>(
-    cashbookId && can(PERMISSIONS.APPROVE_CASHBOOKS_L1)
-      ? `/api/cashbooks/${cashbookId}`
-      : null,
+  const { data, error, isLoading } = useSWR<Cashbook>(
+    cashbookId && can(PERMISSIONS.VIEW_CASHBOOKS) ? `/api/cashbooks/${cashbookId}` : null,
     apiGet
   );
-
-  const canApprove = useMemo(() => {
-    if (!data?.id) return false;
-    if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L1)) return false;
-    if (data.isApproved1) return false;
-    // creator cannot approve own cashbook
-    if (typeof data.createdById === 'number' && typeof user?.id === 'number' && data.createdById === user.id) {
-      return false;
-    }
-    return true;
-  }, [can, data?.id, data?.isApproved1, data?.createdById, user?.id]);
 
   const resolveDocumentUrl = useMemo(() => {
     return (url: string | null | undefined) => {
@@ -60,33 +41,7 @@ export default function CashbookApprove1Page() {
     };
   }, []);
 
-  const createdByText =
-    data?.createdBy?.name || data?.createdBy?.email || (data?.createdById ? `User #${data.createdById}` : '-');
-  const approved1ByText =
-    data?.approved1By?.name || data?.approved1By?.email || (data?.approved1ById ? `User #${data.approved1ById}` : '-');
-  const approved2ByText =
-    data?.approved2By?.name || data?.approved2By?.email || (data?.approved2ById ? `User #${data.approved2ById}` : '-');
-
-  async function handleApprove() {
-    if (!data?.id) return;
-    if (!canApprove) {
-      toast.error('You cannot approve this cashbook');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await apiPatch(`/api/cashbooks/${data.id}`, { statusAction: 'approve1' });
-      toast.success('Cashbook approved (Level 1)');
-      await mutate();
-      router.push('/cashbooks');
-    } catch (e) {
-      toast.error((e as Error).message || 'Failed to approve cashbook');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (pageGuardLoading || !can(PERMISSIONS.APPROVE_CASHBOOKS_L1)) return null;
+  if (pageGuardLoading || !can(PERMISSIONS.VIEW_CASHBOOKS)) return null;
 
   if (isLoading) {
     return (
@@ -114,19 +69,11 @@ export default function CashbookApprove1Page() {
     <div className="container mx-auto py-6">
       <AppCard>
         <AppCard.Header>
-          <AppCard.Title>Approve Cashbook (Level 1)</AppCard.Title>
-          <AppCard.Description>
-            Review the cashbook details below (read-only) and approve.
-          </AppCard.Description>
+          <AppCard.Title>Cashbook View</AppCard.Title>
+          <AppCard.Description>Read-only view of this cashbook voucher.</AppCard.Description>
         </AppCard.Header>
 
         <AppCard.Content className="space-y-6">
-          {!canApprove && (
-            <div className="p-3 rounded border bg-muted text-sm text-muted-foreground">
-              This cashbook cannot be approved right now (already approved, or you are not allowed to approve it).
-            </div>
-          )}
-
           <FormSection legend="Header">
             <FormRow cols={2}>
               <div className="space-y-2">
@@ -164,35 +111,6 @@ export default function CashbookApprove1Page() {
                     '-'
                   )}
                 </div>
-              </div>
-            </FormRow>
-          </FormSection>
-
-          <FormSection legend="Approval / Audit">
-            <FormRow cols={2}>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Created By</div>
-                <div className="p-2 rounded border bg-muted">{createdByText}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Created At</div>
-                <div className="p-2 rounded border bg-muted">{String(data.createdAt).replace('T', ' ').slice(0, 19)}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Approved 1 By</div>
-                <div className="p-2 rounded border bg-muted">{approved1ByText}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Approved 1 At</div>
-                <div className="p-2 rounded border bg-muted">{data.approved1At ? String(data.approved1At).replace('T', ' ').slice(0, 19) : '-'}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Approved 2 By</div>
-                <div className="p-2 rounded border bg-muted">{approved2ByText}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Approved 2 At</div>
-                <div className="p-2 rounded border bg-muted">{data.approved2At ? String(data.approved2At).replace('T', ' ').slice(0, 19) : '-'}</div>
               </div>
             </FormRow>
           </FormSection>
@@ -243,16 +161,8 @@ export default function CashbookApprove1Page() {
         </AppCard.Content>
 
         <AppCard.Footer className="justify-end space-x-3">
-          <AppButton variant="secondary" onClick={() => router.push('/cashbooks')} disabled={submitting}>
+          <AppButton variant="secondary" onClick={() => router.push('/cashbooks')}>
             Back
-          </AppButton>
-          <AppButton
-            onClick={handleApprove}
-            isLoading={submitting}
-            disabled={submitting || !canApprove}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            Approve 1
           </AppButton>
         </AppCard.Footer>
       </AppCard>

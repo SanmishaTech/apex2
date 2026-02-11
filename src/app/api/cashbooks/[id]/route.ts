@@ -421,6 +421,11 @@ export async function DELETE(
   if (auth.ok === false) return auth.response;
 
   try {
+    const rolePerms = (auth.user.permissions || []) as string[];
+    if (!rolePerms.includes(PERMISSIONS.DELETE_CASHBOOKS)) {
+      return Forbidden("Missing permission to delete cashbook");
+    }
+
     const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) return BadRequest("Invalid ID");
@@ -433,10 +438,16 @@ export async function DELETE(
         siteId: true,
         boqId: true,
         voucherDate: true,
+        isApproved1: true,
+        isApproved2: true,
         cashbookDetails: { select: { cashbookHeadId: true } },
       },
     });
     if (!existing) return NotFound("Cashbook not found");
+
+    if (existing.isApproved1 || existing.isApproved2) {
+      return BadRequest("Approved cashbook cannot be deleted");
+    }
 
     if (auth.user.role !== ROLES.ADMIN) {
       const currentSiteId = existing.siteId;
