@@ -1558,40 +1558,40 @@ export function PurchaseOrderForm({
             {/* Items Table */}
             <FormSection legend="Items">
               <div className="w-full overflow-x-auto rounded-md border border-border bg-card">
-                <table className="w-full min-w-max table-auto divide-y divide-gray-200 dark:divide-slate-700">
+                <table className="w-full min-w-max table-auto border-separate border-spacing-0 [&_thead_th]:border-b [&_thead_th]:border-border [&_thead_th]:border-r [&_thead_th:last-child]:border-r-0 [&_tbody_td]:border-r [&_tbody_td:last-child]:border-r-0 [&_thead_th]:px-1 [&_thead_th]:py-1.5 [&_tbody_td]:px-1 [&_tbody_td]:py-1.5">
                   <thead className="bg-gray-50 dark:bg-slate-800/60">
                     <tr>
-                      <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-1 py-2 text-left text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                         Item
                       </th>
-                      <th className="w-[200px] min-w-[200px] px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[140px] min-w-[140px] px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                         Closing Stock
                       </th>
                       {isApprovalMode && (
-                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                           Ordered Qty
                         </th>
                       )}
                       {isApproval2 && (
-                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                           Approved 1 Qty
                         </th>
                       )}
-                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[120px] min-w-[120px] px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                         {isApproval2
                           ? "Approved 2 Qty"
                           : isApproval1
                           ? "Approved 1 Qty"
                           : "Qty"}
                       </th>
-                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[120px] min-w-[120px] px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                         Rate
                       </th>
-                      <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[150px] min-w-[150px] px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                         Amount
                       </th>
                       {!isApprovalMode && (
-                        <th className="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="w-10 px-1 py-2 text-right text-xs font-medium text-gray-900 dark:text-slate-100 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -1604,6 +1604,9 @@ export function PurchaseOrderForm({
                           <td className="px-1 py-2 align-top">
                             {isApprovalMode ? (
                               <>
+                                <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                  Item
+                                </div>
                                 <div className="font-medium">
                                   {initial?.purchaseOrderItems?.[index]?.item
                                     ?.itemCode
@@ -1611,7 +1614,7 @@ export function PurchaseOrderForm({
                                     : initial?.purchaseOrderItems?.[index]?.item
                                         ?.item || ""}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-gray-900 dark:text-slate-100">
                                   Unit:{" "}
                                   {initial?.purchaseOrderItems?.[index]?.item
                                     ?.unit?.unitName || ""}
@@ -1619,33 +1622,28 @@ export function PurchaseOrderForm({
                               </>
                             ) : (
                               <>
+                                <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                  Item
+                                </div>
                                 <FormField
                                   control={form.control}
                                   name={`purchaseOrderItems.${index}.itemId`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
                                       <FormControl>
-                                        <AppSelect
+                                        <AppCombobox
                                           value={
                                             field.value && field.value > 0
-                                              ? field.value.toString()
+                                              ? String(field.value)
                                               : "__none"
                                           }
-                                          triggerClassName="w-[200px] min-w-[200px] max-w-[320px]"
                                           onValueChange={(value) => {
-                                            if (value === "__none") {
-                                              field.onChange(0);
-                                              return;
-                                            }
-
-                                            const parsedValue = parseInt(
-                                              value,
-                                              10
-                                            );
-                                            field.onChange(
-                                              Number.isNaN(parsedValue)
+                                            const next =
+                                              value === "__none"
                                                 ? 0
-                                                : parsedValue
+                                                : parseInt(value, 10);
+                                            field.onChange(
+                                              Number.isNaN(next) ? 0 : next
                                             );
 
                                             // Update rate if item is selected
@@ -1653,44 +1651,28 @@ export function PurchaseOrderForm({
                                               value !== "__none" &&
                                               itemOptions.length
                                             ) {
-                                              const selectedItem =
-                                                itemOptions.find(
-                                                  (item) =>
-                                                    item.id.toString() === value
-                                                );
-                                              if (selectedItem) {
-                                                // You might want to fetch the item's standard rate here
-                                                // For now, we'll just set a default rate of 0
-                                                form.setValue(
-                                                  `purchaseOrderItems.${index}.rate`,
-                                                  0
-                                                );
-                                              }
+                                              form.setValue(
+                                                `purchaseOrderItems.${index}.rate`,
+                                                0
+                                              );
                                             }
                                           }}
+                                          options={[
+                                            { value: "__none", label: "Select Item" },
+                                            ...itemOptions.map((item) => ({
+                                              value: String(item.id),
+                                              label: item.itemCode
+                                                ? `${item.itemCode} - ${item.item}`
+                                                : item.item,
+                                            })),
+                                          ]}
                                           placeholder="Select Item"
                                           disabled={
                                             (items?.[index] as any)
                                               ?.fromIndent === true
                                           }
-                                        >
-                                          <AppSelect.Item
-                                            key={`item-placeholder-${index}`}
-                                            value="__none"
-                                          >
-                                            Select Item
-                                          </AppSelect.Item>
-                                          {itemOptions.map((item) => (
-                                            <AppSelect.Item
-                                              key={item.id}
-                                              value={item.id.toString()}
-                                            >
-                                              {item.itemCode
-                                                ? `${item.itemCode} - ${item.item}`
-                                                : item.item}
-                                            </AppSelect.Item>
-                                          ))}
-                                        </AppSelect>
+                                          className="min-w-[200px] max-w-[200px] overflow-hidden"
+                                        />
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
@@ -1699,7 +1681,7 @@ export function PurchaseOrderForm({
                               </>
                             )}
                             <div className="mt-2">
-                              <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
+                              <div className="w-full mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                 Discount
                               </div>
                               <FormField
@@ -1718,9 +1700,15 @@ export function PurchaseOrderForm({
                                             `purchaseOrderItems.${index}.discountPercent`
                                           )(e.target.value)
                                         }
-                                        className="h-9 text-right w-[200px]"
+                                        className="h-8 text-right w-full text-xs"
                                       />
                                     </FormControl>
+                                    <div className="text-xs text-gray-900 dark:text-slate-100 text-left">
+                                      Discount Amt:{" "}
+                                      {formatAmount(
+                                        computedItems[index]?.disAmt
+                                      )}
+                                    </div>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -1740,8 +1728,11 @@ export function PurchaseOrderForm({
                               ? closingMap[rowItemId]
                               : undefined;
                           return (
-                            <td className="w-[200px] min-w-[200px] px-1 py-2 text-right align-top">
-                              <div className="w-[200px]">
+                            <td className="w-[140px] min-w-[140px] px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Closing Stock Qty
+                              </div>
+                              <div className="w-full">
                                 <Input
                                   readOnly
                                   tabIndex={-1}
@@ -1751,7 +1742,7 @@ export function PurchaseOrderForm({
                                       : ""
                                   }
                                   placeholder="-"
-                                  className="h-9 text-right w-[200px]"
+                                  className="h-8 text-right w-full text-xs"
                                 />
                               </div>
                               <div className="mt-2">
@@ -1760,7 +1751,7 @@ export function PurchaseOrderForm({
                                   name={`purchaseOrderItems.${index}.cgstPercent`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
-                                      <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
+                                      <div className="w-full mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                         CGST
                                       </div>
                                       <FormControl>
@@ -1775,10 +1766,10 @@ export function PurchaseOrderForm({
                                               field.onChange(v);
                                             }
                                           }}
-                                          className="h-9 text-right w-[200px]"
+                                          className="h-8 text-right w-full text-xs"
                                         />
                                       </FormControl>
-                                      <div className="text-xs text-muted-foreground text-right">
+                                      <div className="text-xs text-gray-900 dark:text-slate-100 text-left">
                                         CGST Amt:{" "}
                                         {formatAmount(
                                           computedItems[index]?.cgstAmt
@@ -1819,7 +1810,14 @@ export function PurchaseOrderForm({
                             })}
                           </td>
                           )}
-                          <td className="px-1 py-2 align-top">
+                          <td className="w-[120px] min-w-[120px] px-1 py-2 align-top">
+                          <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                            {isApproval2
+                              ? "Approved 2 Qty"
+                              : isApproval1
+                              ? "Approved 1 Qty"
+                              : "Qty"}
+                          </div>
                           {isApproval1 ? (
                             <FormField
                               control={form.control}
@@ -1841,7 +1839,7 @@ export function PurchaseOrderForm({
                                             `purchaseOrderItems.${index}.approved1Qty`
                                           )(e.target.value)
                                         }
-                                        className="h-9 text-right w-[200px]"
+                                        className="h-8 text-right w-full text-xs"
                                       />
                                   </FormControl>
                                   <FormMessage />
@@ -1870,7 +1868,7 @@ export function PurchaseOrderForm({
                                           field.onChange(v);
                                         }
                                       }}
-                                      className="h-9 text-right w-[200px]"
+                                      className="h-8 text-right w-full text-xs"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1899,7 +1897,7 @@ export function PurchaseOrderForm({
                                           field.onChange(v);
                                         }
                                       }}
-                                      className="h-9 text-right w-[200px]"
+                                      className="h-8 text-right w-full text-xs"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1913,7 +1911,7 @@ export function PurchaseOrderForm({
                               name={`purchaseOrderItems.${index}.sgstPercent`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
-                                  <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
+                                  <div className="w-full mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                     SGST
                                   </div>
                                   <FormControl>
@@ -1932,10 +1930,10 @@ export function PurchaseOrderForm({
                                           field.onChange(v);
                                         }
                                       }}
-                                      className="h-9 text-right w-[200px]"
+                                      className="h-8 text-right w-full text-xs"
                                     />
                                   </FormControl>
-                                  <div className="text-xs text-muted-foreground text-right">
+                                  <div className="text-xs text-gray-900 dark:text-slate-100 text-left">
                                     SGST Amt:{" "}
                                     {formatAmount(computedItems[index]?.sgstAmt)}
                                   </div>
@@ -1945,7 +1943,10 @@ export function PurchaseOrderForm({
                             />
                           </div>
                           </td>
-                          <td className="px-1 py-2 align-top">
+                          <td className="w-[120px] min-w-[120px] px-1 py-2 align-top">
+                          <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                            Rate
+                          </div>
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.rate`}
@@ -1967,7 +1968,7 @@ export function PurchaseOrderForm({
                                         field.onChange(v);
                                       }
                                     }}
-                                    className="h-9 text-right w-[200px]"
+                                    className="h-8 text-right w-full text-xs"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1980,7 +1981,7 @@ export function PurchaseOrderForm({
                               name={`purchaseOrderItems.${index}.igstPercent`}
                               render={({ field }) => (
                                 <FormItem className="space-y-1">
-                                  <div className="w-[200px] mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 text-right leading-none">
+                                  <div className="w-full mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                     IGST
                                   </div>
                                   <FormControl>
@@ -1999,10 +2000,10 @@ export function PurchaseOrderForm({
                                           field.onChange(v);
                                         }
                                       }}
-                                      className="h-9 text-right w-[200px]"
+                                      className="h-8 text-right w-full text-xs"
                                     />
                                   </FormControl>
-                                  <div className="text-xs text-muted-foreground text-right">
+                                  <div className="text-xs text-gray-900 dark:text-slate-100 text-left">
                                     IGST Amt:{" "}
                                     {formatAmount(computedItems[index]?.igstAmt)}
                                   </div>
@@ -2012,7 +2013,7 @@ export function PurchaseOrderForm({
                             />
                           </div>
                           </td>
-                          <td className="px-1 py-2 text-right text-sm font-medium align-top">
+                          <td className="w-[240px] min-w-[240px] px-1 py-2 text-right text-sm font-medium align-top">
                           <FormField
                             control={form.control}
                             name={`purchaseOrderItems.${index}.amount`}
@@ -2040,7 +2041,7 @@ export function PurchaseOrderForm({
                           </td>
                           )}
                         </tr>
-                        <tr className="!border-t-0 border-b border-gray-200 dark:border-slate-800">
+                        <tr>
                           <td
                             colSpan={
                               4 + (isApprovalMode ? 1 : 0) + (isApproval2 ? 1 : 0)
@@ -2048,7 +2049,7 @@ export function PurchaseOrderForm({
                             className="px-1 py-2 align-top"
                           >
                             <div>
-                              <div className="mb-1 text-sm font-medium text-gray-900 dark:text-slate-100 leading-none">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                 Remarks
                               </div>
                               <FormField
@@ -2061,17 +2062,16 @@ export function PurchaseOrderForm({
                                         {...field}
                                         placeholder="Remarks"
                                         value={field.value || ""}
-                                        className="h-9 text-sm w-full"
+                                        className="h-8 text-xs w-full"
                                       />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
+                              <div className="mt-3 h-px bg-border w-full" />
                             </div>
                           </td>
-                          <td className="px-1 py-2" />
-                          {!isApprovalMode && <td className="w-10 px-1 py-2" />}
                         </tr>
                       </Fragment>
                     ))}
@@ -2080,9 +2080,22 @@ export function PurchaseOrderForm({
                     <tr>
                       <td
                         colSpan={isApproval2 ? 6 : isApprovalMode ? 5 : 4}
-                        className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
+                        className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
                       >
-                        Subtotal
+                        <div className="flex items-center justify-between gap-3">
+                          {!isApprovalMode ? (
+                            <Button
+                              type="button"
+                              onClick={addItem}
+                              className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <span />
+                          )}
+                          <span className="text-right">Subtotal</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.taxableAmount)}
@@ -2432,20 +2445,6 @@ export function PurchaseOrderForm({
                 </table>
               </div>
 
-              {!isApprovalMode && (
-                <div className="mt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addItem}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Item
-                  </Button>
-                </div>
-              )}
             </FormSection>
           </AppCard.Content>
           <AppCard.Footer className="justify-end gap-3">

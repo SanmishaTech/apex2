@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api-client';
@@ -45,6 +46,14 @@ export default function EditCashbookPage() {
     apiGet
   );
 
+  useEffect(() => {
+    if (!cashbookId) return;
+    if (!cashbook) return;
+    if (cashbook.isApproved1 || cashbook.isApproved2) {
+      router.replace(`/cashbooks/${cashbookId}/view`);
+    }
+  }, [cashbookId, cashbook, router]);
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-6">
@@ -66,6 +75,8 @@ export default function EditCashbookPage() {
       </div>
     );
   }
+
+  if (cashbook.isApproved1 || cashbook.isApproved2) return null;
 
   return (
     <div className="container mx-auto py-6">

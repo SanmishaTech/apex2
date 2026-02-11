@@ -14,6 +14,7 @@ import { DataTable, SortState, Column } from "@/components/common/data-table";
 import { DeleteButton } from "@/components/common/delete-button";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useProtectPage } from "@/hooks/use-protect-page";
 import { PERMISSIONS } from "@/config/roles";
 import { formatDateDMY } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
@@ -29,6 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function CashbooksPage() {
+  useProtectPage();
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -113,11 +116,7 @@ export default function CashbooksPage() {
   const { pushWithScrollSave } = useScrollRestoration("cashbooks-list");
 
   if (!can(PERMISSIONS.VIEW_CASHBOOKS)) {
-    return (
-      <div className="text-muted-foreground">
-        You do not have access to Cashbooks.
-      </div>
-    );
+    return null;
   }
 
   async function handleDelete(id: string) {
@@ -175,6 +174,18 @@ export default function CashbooksPage() {
   const approvalMode = approval1Mode ? "approve1" : approval2Mode ? "approve2" : null;
   const canApprove1Any = can(PERMISSIONS.APPROVE_CASHBOOKS_L1);
   const canApprove2Any = can(PERMISSIONS.APPROVE_CASHBOOKS_L2);
+
+  useEffect(() => {
+    if (approval1Mode && !canApprove1Any) {
+      toast.error("You do not have permission to approve (Level 1)");
+      setQp({ approval1Pending: "", approval2Pending: "" });
+      return;
+    }
+    if (approval2Mode && !canApprove2Any) {
+      toast.error("You do not have permission to approve (Level 2)");
+      setQp({ approval2Pending: "", approval1Pending: "" });
+    }
+  }, [approval1Mode, approval2Mode, canApprove1Any, canApprove2Any, setQp]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -540,8 +551,15 @@ export default function CashbooksPage() {
                   typeof user?.id === "number" &&
                   cashbook.approved1ById === user.id;
 
-                const canEdit = can(PERMISSIONS.EDIT_CASHBOOKS);
-                const canDelete = can(PERMISSIONS.DELETE_CASHBOOKS);
+                const canView = can(PERMISSIONS.VIEW_CASHBOOKS);
+                const canEdit =
+                  can(PERMISSIONS.EDIT_CASHBOOKS) &&
+                  !cashbook.isApproved1 &&
+                  !cashbook.isApproved2;
+                const canDelete =
+                  can(PERMISSIONS.DELETE_CASHBOOKS) &&
+                  !cashbook.isApproved1 &&
+                  !cashbook.isApproved2;
                 const canApprove1 =
                   can(PERMISSIONS.APPROVE_CASHBOOKS_L1) &&
                   !cashbook.isApproved1 &&
@@ -553,7 +571,8 @@ export default function CashbooksPage() {
                   !isCreator &&
                   !isL1Approver;
 
-                if (!canEdit && !canDelete && !canApprove1 && !canApprove2) return null;
+                if (!canView && !canEdit && !canDelete && !canApprove1 && !canApprove2)
+                  return null;
                 return (
                   <div className="flex">
                     <DropdownMenu>
@@ -563,6 +582,17 @@ export default function CashbooksPage() {
                         </AppButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canView && (
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              pushWithScrollSave(`/cashbooks/${cashbook.id}/view`);
+                            }}
+                          >
+                            View
+                          </DropdownMenuItem>
+                        )}
+
                         {canEdit && (
                           <DropdownMenuItem
                             onSelect={(e) => {

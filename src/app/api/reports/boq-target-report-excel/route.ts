@@ -412,11 +412,16 @@ export async function GET(req: NextRequest) {
   ];
 
   for (let wi = 0; wi < weeks.length; wi++) {
+    const weekTargetAmount = totalTargetAmountByWeekIdx[wi];
+    const weekExecutedAmount = totalExecutedAmountByWeekIdx[wi];
+
     totalRow.push(
       "",
-      `${fmtRs(totalTargetAmountByWeekIdx[wi])} (${pct(totalTargetAmountByWeekIdx[wi], totalBoqAmount)})`,
+      wi < 4
+        ? `${fmtRs(weekTargetAmount)}`
+        : `${fmtRs(weekTargetAmount)} (${pct(weekTargetAmount, totalBoqAmount)})`,
       "",
-      `${fmtRs(totalExecutedAmountByWeekIdx[wi])} (${pct(totalExecutedAmountByWeekIdx[wi], totalBoqAmount)})`
+      `${fmtRs(weekExecutedAmount)} (${pct(weekExecutedAmount, weekTargetAmount)})`
     );
   }
   wsData.push(totalRow);

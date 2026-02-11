@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { apiGet, apiPatch } from '@/lib/api-client';
@@ -19,10 +19,17 @@ export default function CashbookApprove2Page() {
   const router = useRouter();
   const cashbookId = params?.id as string | undefined;
 
-  useProtectPage();
+  const { loading: pageGuardLoading } = useProtectPage({ manual: true });
 
   const { can } = usePermissions();
   const { user } = useCurrentUser();
+
+  useEffect(() => {
+    if (pageGuardLoading) return;
+    if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
+      router.replace('/cashbooks');
+    }
+  }, [pageGuardLoading, can, router]);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -86,24 +93,7 @@ export default function CashbookApprove2Page() {
     }
   }
 
-  if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
-    return (
-      <div className="container mx-auto py-6">
-        <AppCard>
-          <AppCard.Content className="p-6">
-            <div className="text-center text-muted-foreground">
-              You do not have permission to approve cashbook (Level 2).
-            </div>
-            <div className="mt-4 flex justify-center">
-              <AppButton variant="secondary" onClick={() => router.push('/cashbooks')}>
-                Back
-              </AppButton>
-            </div>
-          </AppCard.Content>
-        </AppCard>
-      </div>
-    );
-  }
+  if (pageGuardLoading || !can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) return null;
 
   if (isLoading) {
     return (
