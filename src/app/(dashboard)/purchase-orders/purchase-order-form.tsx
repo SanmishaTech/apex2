@@ -125,7 +125,7 @@ type PurchaseOrderFormInitialData = {
   quotationDate?: string;
   transport?: string | null;
   note?: string | null;
-  poStatus?: "HOLD" | null;
+  poStatus?: "ORDER_PLACED" | "IN_TRANSIT" | "RECEIVED" | "HOLD" | "OPEN" | null;
   paymentTermsInDays?: number | null;
   deliverySchedule?: string | null;
   transitInsuranceStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
@@ -267,14 +267,16 @@ const createInputSchema = z.object({
     .optional(),
   transport: z.string().optional(),
   note: z.string().optional(),
-  poStatus: z.union([z.literal("HOLD"), z.null()]).optional(),
+  poStatus: z
+    .preprocess(
+      (v) => (v === "" || v === null || v === undefined ? "OPEN" : v),
+      z.enum(["OPEN", "ORDER_PLACED", "IN_TRANSIT", "RECEIVED", "HOLD"])
+    )
+    .optional(),
   paymentTermsInDays: z
     .union([z.string(), z.number()])
     .optional()
-    .transform((val) => {
-      if (!val || val === "") return undefined;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+    .transform((v) => (v === "" || v === null || v === undefined ? undefined : Number(v))),
   deliverySchedule: z.string().optional(),
   transitInsuranceStatus: z
     .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
@@ -415,11 +417,11 @@ export function PurchaseOrderForm({
       paymentTermIds: initialPaymentTermIds,
       quotationNo: initial?.quotationNo ?? "",
       quotationDate: initial?.quotationDate
-        ? formatDateField(initial?.quotationDate, today)
+        ? formatDateField(initial.quotationDate, undefined)
         : "",
       transport: initial?.transport ?? "",
       note: initial?.note ?? "",
-      poStatus: initial?.poStatus ?? null,
+      poStatus: initial?.poStatus ?? "OPEN",
       paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
       deliverySchedule: initial?.deliverySchedule ?? "",
       transitInsuranceStatus: initial?.transitInsuranceStatus ?? null,
@@ -588,6 +590,7 @@ export function PurchaseOrderForm({
     if (!indentId || !indentData) return;
     try {
       const raw = (indentData as any).data ?? indentData;
+      if (!raw) return;
       const computedSiteId = Number(raw?.siteId ?? raw?.site?.id ?? 0);
       const currentSite = Number(form.getValues("siteId") || 0);
       if (computedSiteId > 0 && currentSite === 0) {
@@ -1314,19 +1317,17 @@ export function PurchaseOrderForm({
                     PO Status
                   </label>
                   <AppSelect
-                    value={poStatusValue === "HOLD" ? "HOLD" : "__none"}
+                    value={poStatusValue ? poStatusValue : "OPEN"}
                     onValueChange={(value) => {
-                      const next = value === "HOLD" ? "HOLD" : null;
-                      form.setValue("poStatus", next);
+                      form.setValue("poStatus", value as any);
                     }}
                     placeholder="Select PO Status"
                   >
-                    <AppSelect.Item key="po-status-none" value="__none">
-                      No Status
-                    </AppSelect.Item>
-                    <AppSelect.Item key="po-status-hold" value="HOLD">
-                      Hold
-                    </AppSelect.Item>
+                    <AppSelect.Item value="OPEN">Open</AppSelect.Item>
+                    <AppSelect.Item value="ORDER_PLACED">Order Placed</AppSelect.Item>
+                    <AppSelect.Item value="IN_TRANSIT">In Transit</AppSelect.Item>
+                    <AppSelect.Item value="RECEIVED">Received</AppSelect.Item>
+                    <AppSelect.Item value="HOLD">Hold</AppSelect.Item>
                   </AppSelect>
                 </div>
               </FormRow>
@@ -1661,9 +1662,7 @@ export function PurchaseOrderForm({
                                             { value: "__none", label: "Select Item" },
                                             ...itemOptions.map((item) => ({
                                               value: String(item.id),
-                                              label: item.itemCode
-                                                ? `${item.itemCode} - ${item.item}`
-                                                : item.item,
+                                              label: item.item,
                                             })),
                                           ]}
                                           placeholder="Select Item"

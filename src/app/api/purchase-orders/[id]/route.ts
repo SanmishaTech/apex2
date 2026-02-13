@@ -105,7 +105,12 @@ const updateSchema = z.object({
   paymentTermsInDays: z.number().optional(),
   deliverySchedule: z.string().optional(),
   purchaseOrderItems: z.array(purchaseOrderItemSchema).optional(),
-  poStatus: z.enum(["HOLD"]).optional().nullable(),
+  poStatus: z
+    .preprocess(
+      (v) => (v === null || v === "" ? undefined : v),
+      z.enum(["ORDER_PLACED", "IN_TRANSIT", "RECEIVED", "HOLD", "OPEN"]).optional()
+    )
+    .optional(),
   statusAction: z
     .enum(["approve1", "approve2", "complete", "suspend", "unsuspend"])
     .optional(),
@@ -148,6 +153,7 @@ export async function GET(
       where: { id },
       select: {
         id: true,
+        indentId: true,
         purchaseOrderNo: true,
         purchaseOrderDate: true,
         deliveryDate: true,
@@ -169,6 +175,10 @@ export async function GET(
         totalCgstAmount: true,
         totalSgstAmount: true,
         totalIgstAmount: true,
+        exciseTaxStatus: true,
+        exciseTaxAmount: true,
+        octroiTaxStatus: true,
+        octroiTaxAmount: true,
         transitInsuranceStatus: true,
         transitInsuranceAmount: true,
         pfStatus: true,
@@ -178,9 +188,23 @@ export async function GET(
         approvalStatus: true,
         isSuspended: true,
         isComplete: true,
+        isApproved1: true,
+        approved1ById: true,
+        approved1At: true,
+        isApproved2: true,
+        approved2ById: true,
+        approved2At: true,
+        billStatus: true,
         remarks: true,
+        suspendedById: true,
+        suspendedAt: true,
+        completedById: true,
+        completedAt: true,
+        createdById: true,
         createdAt: true,
+        updatedById: true,
         updatedAt: true,
+        revision: true,
         site: {
           select: {
             id: true,
@@ -193,12 +217,47 @@ export async function GET(
             vendorName: true,
           },
         },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved1By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved2By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        suspendedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        completedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         billingAddress: {
           select: {
             id: true,
             companyName: true,
             addressLine1: true,
+            addressLine2: true,
             city: true,
+            pincode: true,
+            email: true,
+            gstNumber: true,
+            state: true,
           },
         },
         siteDeliveryAddress: {
@@ -265,9 +324,12 @@ export async function GET(
             orderedQty: true,
             approved1Qty: true,
             approved2Qty: true,
+            receivedQty: true,
             rate: true,
             discountPercent: true,
             disAmt: true,
+            tax: true,
+            taxAmt: true,
             cgstPercent: true,
             cgstAmt: true,
             sgstPercent: true,
@@ -275,6 +337,8 @@ export async function GET(
             igstPercent: true,
             igstAmt: true,
             amount: true,
+            createdAt: true,
+            updatedAt: true,
           },
           orderBy: {
             serialNo: "asc",
@@ -341,6 +405,32 @@ export async function PATCH(
 
       const nextPaymentTermIds: number[] | undefined =
         paymentTermIdsFromRaw ?? paymentTermIdsFromSingle;
+
+      // Only allow normal edits when PO is in DRAFT
+      if (!statusAction) {
+        const current: any = await tx.purchaseOrder.findUnique({
+          where: { id },
+          select: { approvalStatus: true } as any,
+        });
+        if (!current) {
+          throw new Error("BAD_REQUEST: Purchase order not found");
+        }
+
+        const keys = Object.keys(updateData);
+        const allowedKeysWhenNotDraft = new Set(["remarks", "billStatus", "poStatus"]);
+        const isOnlyAllowedWhenNotDraft =
+          keys.length > 0 && keys.every((k) => allowedKeysWhenNotDraft.has(k));
+
+        if (current.approvalStatus === "SUSPENDED") {
+          throw new Error("BAD_REQUEST: Suspended purchase order cannot be edited");
+        }
+
+        if (current.approvalStatus !== "DRAFT" && !isOnlyAllowedWhenNotDraft) {
+          throw new Error(
+            "BAD_REQUEST: Only PO Status, Bill Status or Remarks can be updated after approval"
+          );
+        }
+      }
 
       // Update basic fields if provided
       if (Object.keys(poData).length > 0 || statusAction) {

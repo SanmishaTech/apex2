@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { toast } from "@/lib/toast";
 
@@ -17,7 +16,7 @@ import { AppSelect } from "@/components/common/app-select";
 import { Button } from "@/components/ui/button";
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
-import { DataTable } from "@/components/common/data-table";
+import { DataTable, type Column, type SortState } from "@/components/common/data-table";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { FilterBar } from "@/components/common";
+import FilterBar from "@/components/common/filter-bar";
 import { NonFormTextInput } from "@/components/common/non-form-text-input";
 import { Pagination } from "@/components/common/pagination";
 
@@ -49,6 +48,7 @@ type PurchaseOrder = {
   createdById: number;
   approved1ById?: number | null;
   approved2ById?: number | null;
+  poStatus?: "ORDER_PLACED" | "IN_TRANSIT" | "RECEIVED" | "HOLD" | "OPEN" | null;
   site: {
     id: number;
     site: string;
@@ -88,23 +88,7 @@ type VendorsResponse = {
   data: Array<{ id: number; vendorName: string }>;
 };
 
-interface Column<TData = any> {
-  key: string;
-  header: string;
-  sortable?: boolean;
-  className?: string;
-  align?: "left" | "right" | "center";
-  accessor?: (row: TData) => React.ReactNode;
-  render?: (row: TData) => React.ReactNode;
-}
-
-type SortState = {
-  field: string;
-  order: "asc" | "desc";
-};
-
 export default function PurchaseOrdersPage() {
-  const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("purchase-orders-list");
   const { can } = usePermissions();
   const { user } = useCurrentUser();
@@ -158,6 +142,39 @@ export default function PurchaseOrdersPage() {
     });
   }
 
+  function formatDateDmy(date?: string | Date | null) {
+    if (!date) return "—";
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-GB");
+  }
+
+  function IndentLikeStatusBadge({
+    status,
+    suspended,
+  }: {
+    status?: string;
+    suspended?: boolean;
+  }) {
+    const label = suspended ? "Suspended" : prettyStatus(status);
+    const cls = suspended
+      ? "bg-rose-600"
+      : status === "APPROVED_LEVEL_1"
+        ? "bg-amber-600"
+        : status === "APPROVED_LEVEL_2"
+          ? "bg-sky-600"
+          : status === "COMPLETED"
+            ? "bg-emerald-600"
+            : "bg-slate-600";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}
+      >
+        {label}
+      </span>
+    );
+  }
+
   function prettyStatus(s?: string) {
     switch (s) {
       case "APPROVED_LEVEL_1":
@@ -171,6 +188,42 @@ export default function PurchaseOrdersPage() {
       default:
         return "Draft";
     }
+  }
+
+  function prettyPOStatus(s?: string | null) {
+    switch ((s || "OPEN").toUpperCase()) {
+      case "ORDER_PLACED":
+        return "Order Placed";
+      case "IN_TRANSIT":
+        return "In Transit";
+      case "RECEIVED":
+        return "Received";
+      case "HOLD":
+        return "Hold";
+      default:
+        return "Open";
+    }
+  }
+
+  function POStatusBadge({ status }: { status?: string | null }) {
+    const value = (status || "OPEN").toUpperCase();
+    const cls =
+      value === "HOLD"
+        ? "bg-rose-600"
+        : value === "RECEIVED"
+          ? "bg-emerald-600"
+          : value === "IN_TRANSIT"
+            ? "bg-sky-600"
+            : value === "ORDER_PLACED"
+              ? "bg-amber-600"
+              : "bg-slate-600";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}
+      >
+        {prettyPOStatus(value)}
+      </span>
+    );
   }
 
   function UserBadge({
@@ -239,10 +292,7 @@ export default function PurchaseOrdersPage() {
         break;
 
       case "SUSPENDED":
-        if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
-          baseActions.push({ key: "unsuspend", label: "Unsuspend" });
-        }
-        break;
+        return [];
 
       case "COMPLETED":
       default:
@@ -301,6 +351,14 @@ export default function PurchaseOrdersPage() {
   );
   const [billStatusText, setBillStatusText] = useState("");
 
+  const [showUpdateStatusDialog, setShowUpdateStatusDialog] = useState(false);
+  const [poForUpdateStatus, setPoForUpdateStatus] = useState<PurchaseOrder | null>(
+    null
+  );
+  const [poStatusDraft, setPoStatusDraft] = useState<
+    "OPEN" | "ORDER_PLACED" | "IN_TRANSIT" | "RECEIVED" | "HOLD"
+  >("OPEN");
+
   const openApproval = (
     id: number,
     key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend"
@@ -338,6 +396,12 @@ export default function PurchaseOrdersPage() {
     setShowBillStatusDialog(true);
   };
 
+  const handleUpdateStatusClick = (po: PurchaseOrder) => {
+    setPoForUpdateStatus(po);
+    setPoStatusDraft((po.poStatus || "OPEN") as any);
+    setShowUpdateStatusDialog(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!poToDelete) return;
 
@@ -350,6 +414,25 @@ export default function PurchaseOrdersPage() {
     } finally {
       setShowDeleteConfirm(false);
       setPoToDelete(null);
+    }
+  };
+
+  const handleUpdateStatusSubmit = async () => {
+    if (!poForUpdateStatus) return;
+
+    try {
+      await apiPatch(`/api/purchase-orders/${poForUpdateStatus.id}`, {
+        poStatus: poStatusDraft,
+      });
+
+      toast.success("PO status updated successfully");
+      mutate();
+    } catch (error) {
+      toast.error("Failed to update PO status");
+    } finally {
+      setShowUpdateStatusDialog(false);
+      setPoForUpdateStatus(null);
+      setPoStatusDraft("OPEN");
     }
   };
 
@@ -438,16 +521,20 @@ export default function PurchaseOrdersPage() {
     {
       key: "purchaseOrderNo",
       header: "PO No.",
-      accessor: (row) => row.purchaseOrderNo,
       sortable: true,
-      render: (row) => (
+      accessor: (row) => (
         <div className="font-medium">
           <div>{row.purchaseOrderNo}</div>
-          <div className="text-sm text-muted-foreground">
-            {formatDate(new Date(row.createdAt))}
-          </div>
         </div>
       ),
+    },
+    {
+      key: "createdAt",
+      header: "Created At",
+      sortable: true,
+      className: "whitespace-nowrap",
+      cellClassName: "text-muted-foreground whitespace-nowrap",
+      accessor: (row) => formatDateDmy(row.createdAt),
     },
     {
       key: "site",
@@ -462,29 +549,28 @@ export default function PurchaseOrdersPage() {
     {
       key: "amount",
       header: "Amount",
-      align: "right",
+      className: "text-right",
+      cellClassName: "text-right",
       accessor: (row) => row.amount || 0,
+    },
+    {
+      key: "approvalStatus",
+      header: "Approval Status",
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+      accessor: (row) => (
+        <IndentLikeStatusBadge
+          status={row.approvalStatus}
+          suspended={!!row.isSuspended}
+        />
+      ),
     },
     {
       key: "status",
       header: "Status",
-      accessor: (row) => prettyStatus(row.approvalStatus),
-      render: (row) => (
-        <div className="flex items-center">
-          <div
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              row.isSuspended
-                ? "bg-yellow-100 text-yellow-800"
-                : row.isComplete
-                ? "bg-green-100 text-green-800"
-                : "bg-blue-100 text-blue-800"
-            }`}
-          >
-            {prettyStatus(row.approvalStatus)}
-            {row.isSuspended && " (Suspended)"}
-          </div>
-        </div>
-      ),
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+      accessor: (row) => <POStatusBadge status={(row as any).poStatus ?? null} />,
     },
     {
       key: "createdBy",
@@ -494,6 +580,7 @@ export default function PurchaseOrdersPage() {
         <UserBadge name={row.createdBy?.name ?? null} className="bg-sky-600" />
       ),
       className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
     },
     {
       key: "approved1By",
@@ -506,6 +593,7 @@ export default function PurchaseOrdersPage() {
         />
       ),
       className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
     },
     {
       key: "approved2By",
@@ -518,6 +606,7 @@ export default function PurchaseOrdersPage() {
         />
       ),
       className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
     },
   ];
 
@@ -553,22 +642,46 @@ export default function PurchaseOrdersPage() {
       <AppCard>
         <AppCard.Content>
           <FilterBar title="Search & Filter">
-            <div className="col-span-full grid grid-cols-4 gap-3 items-end">
-              <NonFormTextInput
-                label="Search"
-                placeholder="PO No., Quotation No., Note..."
-                value={searchDraft}
-                onChange={(e) => setSearchDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerClassName="min-w-0"
-              />
+            <div className="col-span-full grid grid-cols-4 gap-3 items-start">
+              <div className="flex flex-col gap-2 min-w-0">
+                <NonFormTextInput
+                  label="Search"
+                  placeholder="PO No., Quotation No., Note..."
+                  value={searchDraft}
+                  onChange={(e) => setSearchDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") applyFilters();
+                  }}
+                  containerClassName="min-w-0"
+                />
+                {(search || site || vendor) && (
+                  <AppButton
+                    variant="secondary"
+                    type="button"
+                    onClick={() => {
+                      setSearchDraft("");
+                      setSiteDraft("");
+                      setVendorDraft("");
+                      setQp({
+                        search: "",
+                        site: "",
+                        vendor: "",
+                        page: 1,
+                      });
+                    }}
+                    className="h-9 w-full"
+                  >
+                    Reset
+                  </AppButton>
+                )}
+              </div>
               <AppSelect
                 label="Site"
                 value={siteDraft || "__none"}
                 onValueChange={(v) => setSiteDraft(v === "__none" ? "" : v)}
                 placeholder="All Sites"
+                triggerClassName="h-9"
+                className="min-w-0"
               >
                 <AppSelect.Item value="__none">All Sites</AppSelect.Item>
                 {sites.map((s) => (
@@ -582,6 +695,8 @@ export default function PurchaseOrdersPage() {
                 value={vendorDraft || "__none"}
                 onValueChange={(v) => setVendorDraft(v === "__none" ? "" : v)}
                 placeholder="All Vendors"
+                triggerClassName="h-9"
+                className="min-w-0"
               >
                 <AppSelect.Item value="__none">All Vendors</AppSelect.Item>
                 {vendors.map((v) => (
@@ -590,40 +705,14 @@ export default function PurchaseOrdersPage() {
                   </AppSelect.Item>
                 ))}
               </AppSelect>
-              <div />
-            </div>
-
-            <div className="col-span-full grid grid-cols-4 gap-3 items-end">
-              <div />
-              <div />
               <AppButton
-                size="sm"
+                type="button"
                 onClick={applyFilters}
                 disabled={!filtersDirty}
-                className="min-w-[84px]"
+                className="mt-5 h-9 w-full"
               >
                 Filter
               </AppButton>
-              {(search || site || vendor) && (
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setSearchDraft("");
-                    setSiteDraft("");
-                    setVendorDraft("");
-                    setQp({
-                      search: "",
-                      site: "",
-                      vendor: "",
-                      page: 1,
-                    });
-                  }}
-                  className="min-w-[84px]"
-                >
-                  Reset
-                </AppButton>
-              )}
             </div>
           </FilterBar>
 
@@ -635,8 +724,12 @@ export default function PurchaseOrdersPage() {
               sort={sortState}
               onSortChange={(s) => toggleSort(s.field)}
               stickyColumns={1}
+              minTableWidth={1200}
               renderRowActions={(po) => {
-                const showPrint = po.approvalStatus === "APPROVED_LEVEL_2";
+                const showPrint =
+                  po.approvalStatus === "APPROVED_LEVEL_2" ||
+                  po.approvalStatus === "COMPLETED";
+                const isSuspended = po.approvalStatus === "SUSPENDED";
                 return (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -655,23 +748,40 @@ export default function PurchaseOrdersPage() {
                       >
                         View
                       </DropdownMenuItem>
+
+                      {isSuspended ? null : (
+                        <>
+                      {can(PERMISSIONS.EDIT_PURCHASE_ORDERS) &&
+                      po.approvalStatus === "DRAFT" ? (
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            pushWithScrollSave(`/purchase-orders/${po.id}/edit`)
+                          }
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                      ) : null}
                       {showPrint && (
                         <DropdownMenuItem onClick={() => handlePrint(po)}>
                           Print
                         </DropdownMenuItem>
                       )}
-                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) && (
+                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) ? (
                         <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
                           Add Remark
                         </DropdownMenuItem>
-                      )}
-                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS) && (
+                      ) : null}
+                      {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_BILL_STATUS) ? (
                         <DropdownMenuItem
                           onClick={() => handleBillStatusClick(po)}
                         >
                           Bill Status
                         </DropdownMenuItem>
-                      )}
+                      ) : null}
+
+                      <DropdownMenuItem onClick={() => handleUpdateStatusClick(po)}>
+                        Update Status
+                      </DropdownMenuItem>
                       {(() => {
                         const actions = getAvailableActions(
                           po.approvalStatus,
@@ -689,6 +799,8 @@ export default function PurchaseOrdersPage() {
                           </DropdownMenuItem>
                         ));
                       })()}
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 );
@@ -779,6 +891,42 @@ export default function PurchaseOrdersPage() {
               {statusAction.action === "suspend" && "Suspend"}
               {statusAction.action === "unsuspend" && "Unsuspend"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showUpdateStatusDialog}
+        onOpenChange={setShowUpdateStatusDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Status</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <AppSelect
+              label="PO Status"
+              value={poStatusDraft}
+              onValueChange={(v) => setPoStatusDraft(v as any)}
+              placeholder="Select PO Status"
+            >
+              <AppSelect.Item value="OPEN">Open</AppSelect.Item>
+              <AppSelect.Item value="ORDER_PLACED">Order Placed</AppSelect.Item>
+              <AppSelect.Item value="IN_TRANSIT">In Transit</AppSelect.Item>
+              <AppSelect.Item value="RECEIVED">Received</AppSelect.Item>
+              <AppSelect.Item value="HOLD">Hold</AppSelect.Item>
+            </AppSelect>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowUpdateStatusDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateStatusSubmit}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

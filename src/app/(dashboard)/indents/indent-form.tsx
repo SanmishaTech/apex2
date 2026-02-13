@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import {
   Form,
   FormControl,
@@ -17,6 +17,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
+import { ComboboxInput } from "@/components/common/combobox-input";
+import { AppCombobox } from "@/components/common/app-combobox";
 import { AppSelect } from "@/components/common/app-select";
 import { apiPost, apiPatch } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
@@ -27,13 +29,18 @@ import { formatDateForInput } from "@/lib/locales";
 import { Plus, Trash2 } from "lucide-react";
 import type { SitesResponse } from "@/types/sites";
 import type { ItemsResponse } from "@/types/items";
-import type { CreateIndentRequest, IndentItem } from "@/types/indents";
+import type {
+  CreateIndentRequest,
+  IndentItem,
+  UpdateIndentRequest,
+} from "@/types/indents";
 
 export interface IndentFormInitialData {
   id?: number;
   indentNo?: string;
   indentDate?: string;
   deliveryDate?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
   siteId?: number | null;
   remarks?: string | null;
   indentItems?: IndentItem[];
@@ -47,6 +54,7 @@ export interface IndentFormProps {
 }
 
 const indentItemSchema = z.object({
+  id: z.coerce.number().optional(),
   itemId: z
     .union([z.string(), z.number()])
     .transform((val) => String(val))
@@ -72,6 +80,7 @@ const indentItemSchema = z.object({
 const createInputSchema = z.object({
   indentDate: z.string().min(1, "Indent date is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
   siteId: z.preprocess(
     (v) => (v === null || typeof v === "undefined" ? "" : String(v).trim()),
     z
@@ -94,9 +103,11 @@ const createInputSchema = z.object({
 type FormData = {
   indentDate: string;
   deliveryDate: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
   siteId?: string | number;
   remarks?: string;
   indentItems: {
+    id?: number;
     itemId: string | number;
     remark?: string;
     indentQty: string | number; // HTML number inputs return strings
@@ -122,9 +133,11 @@ export function IndentForm({
       deliveryDate: initial?.deliveryDate
         ? formatDateForInput(initial.deliveryDate)
         : formatDateForInput(new Date().toISOString()),
+      priority: initial?.priority ?? "LOW",
       siteId: initial?.siteId ? String(initial.siteId) : "__none",
       remarks: initial?.remarks || "",
       indentItems: initial?.indentItems?.map((item) => ({
+        id: item.id,
         itemId: item.itemId
           ? String(item.itemId)
           : item.item?.id
@@ -157,6 +170,17 @@ export function IndentForm({
     apiGet
   );
 
+  const siteOptions = (sitesData?.data || [])
+    .filter((s) => s.id && s.site)
+    .map((s) => ({ value: String(s.id), label: s.site }));
+
+  const itemOptions = (itemsData?.data || [])
+    .filter((it) => it.id && it.item)
+    .map((it) => ({
+      value: String(it.id),
+      label: it.itemCode ? `${it.item} (${it.itemCode})` : it.item,
+    }));
+
   // Reset form values when initial data changes
   useEffect(() => {
     if (initial && mode === "edit") {
@@ -167,9 +191,11 @@ export function IndentForm({
         deliveryDate: initial.deliveryDate
           ? formatDateForInput(initial.deliveryDate)
           : formatDateForInput(new Date().toISOString()),
+        priority: initial.priority ?? "LOW",
         siteId: initial.siteId ? String(initial.siteId) : "__none",
         remarks: initial.remarks || "",
         indentItems: initial.indentItems?.map((item) => ({
+          id: item.id,
           itemId: item.itemId
             ? String(item.itemId)
             : item.item?.id
@@ -215,23 +241,36 @@ export function IndentForm({
         return date.toISOString().split("T")[0];
       };
 
-      const payload: CreateIndentRequest = {
+      const basePayload = {
         indentDate: formatDateForApi(transformedData.indentDate),
         deliveryDate: formatDateForApi(transformedData.deliveryDate),
         siteId: transformedData.siteId,
+        priority: transformedData.priority ?? "LOW",
         remarks: transformedData.remarks || undefined,
-        indentItems: transformedData.indentItems.map((item) => ({
-          itemId: item.itemId,
-          remark: item.remark || undefined,
-          indentQty: item.indentQty,
-        })),
       };
 
       let result;
       if (mode === "create") {
+        const payload: CreateIndentRequest = {
+          ...basePayload,
+          indentItems: transformedData.indentItems.map((item) => ({
+            itemId: item.itemId,
+            remark: item.remark || undefined,
+            indentQty: item.indentQty,
+          })),
+        };
         result = await apiPost("/api/indents", payload);
         toast.success("Indent created successfully");
       } else {
+        const payload: UpdateIndentRequest = {
+          ...basePayload,
+          indentItems: transformedData.indentItems.map((item) => ({
+            id: item.id,
+            itemId: item.itemId,
+            remark: item.remark || undefined,
+            indentQty: item.indentQty,
+          })),
+        };
         result = await apiPatch(`/api/indents/${initial?.id}`, payload);
         toast.success("Indent updated successfully");
       }
@@ -266,30 +305,28 @@ export function IndentForm({
               <td className="p-4">
                 <FormField
                   control={form.control}
+                  name={`indentItems.${index}.id`}
+                  render={({ field }) => (
+                    <input type="hidden" value={field.value ?? ""} readOnly />
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name={`indentItems.${index}.itemId`}
                   render={({ field }) => (
                     <FormItem className="space-y-1">
                       <FormControl>
-                        <AppSelect
+                        <AppCombobox
                           value={String(field.value || "__none")}
                           onValueChange={field.onChange}
-                        >
-                          <AppSelect.Item value="__none">
-                            Select Item
-                          </AppSelect.Item>
-                          {itemsData?.data
-                            ?.filter(
-                              (item) => item.id && item.item && item.itemCode
-                            )
-                            .map((item) => (
-                              <AppSelect.Item
-                                key={item.id}
-                                value={item.id.toString()}
-                              >
-                                {item.item} ({item.itemCode})
-                              </AppSelect.Item>
-                            ))}
-                        </AppSelect>
+                          options={[
+                            { value: "__none", label: "Select Item" },
+                            ...itemOptions,
+                          ]}
+                          placeholder="Select Item"
+                          searchPlaceholder="Search item..."
+                          emptyText="No item found."
+                        />
                       </FormControl>
                       <div className="min-h-[20px]">
                         <FormMessage className="text-xs" />
@@ -411,34 +448,45 @@ export function IndentForm({
 
               <FormField
                 control={form.control}
-                name="siteId"
+                name="priority"
                 render={({ field }) => (
                   <FormItem className="pt-6">
-                    <FormLabel>Site<span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>Priority</FormLabel>
                     <FormControl>
                       <AppSelect
-                        value={String(field.value || "__none")}
-                        onValueChange={field.onChange}
+                        value={String(field.value ?? "LOW")}
+                        onValueChange={(v) =>
+                          field.onChange(
+                            (v as "LOW" | "MEDIUM" | "HIGH") ?? "LOW"
+                          )
+                        }
+                        placeholder="Priority"
                       >
-                        <AppSelect.Item value="__none">
-                          Select Site
-                        </AppSelect.Item>
-                        {sitesData?.data
-                          ?.filter((site) => site.id && site.site)
-                          .map((site) => (
-                            <AppSelect.Item
-                              key={site.id}
-                              value={site.id.toString()}
-                            >
-                              {site.site}
-                            </AppSelect.Item>
-                          ))}
+                        <AppSelect.Item value="LOW">Low</AppSelect.Item>
+                        <AppSelect.Item value="MEDIUM">Medium</AppSelect.Item>
+                        <AppSelect.Item value="HIGH">High</AppSelect.Item>
                       </AppSelect>
                     </FormControl>
-                    <div className="min-h-[20px]">
-                      <FormMessage className="text-xs" />
-                    </div>
+                    <FormMessage />
                   </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="siteId"
+                render={() => (
+                  <ComboboxInput
+                    control={form.control}
+                    name="siteId"
+                    label="Site"
+                    required
+                    options={[{ value: "__none", label: "Select Site" }, ...siteOptions]}
+                    placeholder="Select Site"
+                    searchPlaceholder="Search site..."
+                    emptyText="No site found."
+                    className="pt-6"
+                  />
                 )}
               />
             </div>
