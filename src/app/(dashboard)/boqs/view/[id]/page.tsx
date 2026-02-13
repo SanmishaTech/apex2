@@ -156,7 +156,7 @@ export default function ViewBoqPage() {
     },
     {
       key: 'orderedQty',
-      header: 'Ordered Qty',
+      header: 'Executed Qty',
       accessor: (r) => num(r.orderedQty).toFixed(2),
       className: 'whitespace-nowrap text-right',
       cellClassName: 'whitespace-nowrap text-right tabular-nums',

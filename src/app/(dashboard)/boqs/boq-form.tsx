@@ -748,20 +748,24 @@ export function BoqForm({
                         <div className="grid grid-cols-12 gap-6 mt-3">
                           <div className="col-span-12 md:col-span-6 lg:col-span-6">
                             <FormLabel className="text-xs text-muted-foreground">
-                              Ordered Qty
+                              Executed Qty
                             </FormLabel>
                             <TextInput
                               control={control}
                               name={`items.${index}.orderedQty`}
                               label=""
                               type="number"
+                              step="0.01"
                               placeholder="0"
+                              disabled={submitting || mode === "edit"}
+                              className={mode === "edit" ? "bg-gray-700 text-white" : ""}
                               onInput={(e) => {
                                 const v = (
                                   e as React.FormEvent<HTMLInputElement>
                                 ).currentTarget.value;
                                 const r = Number(itemsWatch?.[index]?.rate);
                                 const oq = Number(v);
+
                                 const orderedValue =
                                   isFinite(oq) && isFinite(r)
                                     ? (oq * r).toFixed(2)
@@ -771,6 +775,7 @@ export function BoqForm({
                                   orderedValue,
                                   { shouldValidate: true, shouldDirty: true }
                                 );
+
                                 const q = Number(itemsWatch?.[index]?.qty);
                                 const remainingQty =
                                   isFinite(q) && isFinite(oq)
@@ -779,6 +784,17 @@ export function BoqForm({
                                 setValue(
                                   `items.${index}.remainingQty` as any,
                                   remainingQty,
+                                  { shouldValidate: true, shouldDirty: true }
+                                );
+
+                                const rq = Number(remainingQty);
+                                const remainingValue =
+                                  isFinite(rq) && isFinite(r)
+                                    ? (rq * r).toFixed(2)
+                                    : "";
+                                setValue(
+                                  `items.${index}.remainingValue` as any,
+                                  remainingValue,
                                   { shouldValidate: true, shouldDirty: true }
                                 );
                               }}

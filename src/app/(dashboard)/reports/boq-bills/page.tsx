@@ -230,7 +230,7 @@ export default function BoqBillsReportPage() {
                           BOQ AMOUNT
                         </th>
                         <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
-                          Done Qty
+                          Executed Quantity
                         </th>
                         <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
                           Unbilled Qty
