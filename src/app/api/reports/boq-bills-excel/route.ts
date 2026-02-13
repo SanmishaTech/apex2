@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
           qty: true,
           rate: true,
           amount: true,
+          orderedQty: true,
         },
       },
     },
@@ -55,23 +56,6 @@ export async function GET(req: NextRequest) {
 
   if (!boq) {
     return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
-  }
-
-  const doneAgg = await prisma.dailyProgressDetail.groupBy({
-    by: ["boqItemId"],
-    _sum: { doneQty: true },
-    where: {
-      dailyProgress: {
-        boqId,
-      },
-    },
-  });
-  const doneQtyByItemId = new Map<number, number>();
-  for (const r of doneAgg) {
-    doneQtyByItemId.set(
-      Number(r.boqItemId),
-      Number((r as any)?._sum?.doneQty || 0)
-    );
   }
 
   const bills = await prisma.bOQBill.findMany({
@@ -143,7 +127,7 @@ export async function GET(req: NextRequest) {
     "BOQ QTY",
     "Rate",
     "BOQ AMOUNT",
-    "Done Qty",
+    "Executed Quantity",
     "Unbilled Qty",
   ];
   const headerRow1: any[] = [...fixedHeaders, "Total Upto date billed", ""];
@@ -160,7 +144,7 @@ export async function GET(req: NextRequest) {
     const totalQty = Number(fmtQty(billed?.totalQty || 0));
     const totalAmt = Number(fmtRs(billed?.totalAmount || 0));
 
-    const doneQty = Number(fmtQty(doneQtyByItemId.get(Number(it.id)) || 0));
+    const doneQty = Number(fmtQty(Number((it as any).orderedQty || 0) || 0));
     const unbilledQty = Number(fmtQty(doneQty - totalQty));
 
     const row: any[] = [
@@ -184,10 +168,7 @@ export async function GET(req: NextRequest) {
 
   const totalBoqQty = (boq.items || []).reduce((s, it) => s + Number(it.qty || 0), 0);
   const totalBoqAmount = (boq.items || []).reduce((s, it) => s + Number(it.amount || 0), 0);
-  const totalDoneQty = (boq.items || []).reduce(
-    (s, it) => s + Number(doneQtyByItemId.get(Number(it.id)) || 0),
-    0
-  );
+  const totalDoneQty = (boq.items || []).reduce((s, it) => s + Number((it as any).orderedQty || 0), 0);
   let totalUptoQty = 0;
   let totalUptoAmount = 0;
   for (const v of byItemId.values()) {
