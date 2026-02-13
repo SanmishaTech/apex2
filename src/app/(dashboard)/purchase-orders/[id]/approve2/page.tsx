@@ -47,7 +47,7 @@ export default function PurchaseOrderApprove2Page() {
       quotationDate: purchaseOrder.quotationDate ?? undefined,
       transport: purchaseOrder.transport,
       note: purchaseOrder.note,
-      poStatus: purchaseOrder.poStatus === "HOLD" ? ("HOLD" as const) : null,
+      poStatus: (purchaseOrder.poStatus as any) ?? null,
       paymentTermsInDays: purchaseOrder.paymentTermsInDays,
       deliverySchedule: purchaseOrder.deliverySchedule,
       transitInsuranceStatus:

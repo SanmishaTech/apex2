@@ -1,30 +1,33 @@
 "use client";
 
-import { useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import useSWR from "swr";
+
 import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { AppCard } from "@/components/common/app-card";
-import type { PurchaseOrder } from "@/types/purchase-orders";
 import { PurchaseOrderForm } from "../../purchase-order-form";
 
-export default function PurchaseOrderApprove1Page() {
-  const params = useParams();
-  const router = useRouter();
-  const id = params?.id ? parseInt(params.id as string, 10) : null;
+import type { PurchaseOrder } from "@/types/purchase-orders";
 
-  const {
-    data: purchaseOrder,
-    isLoading,
-    error,
-    mutate,
-  } = useSWR<PurchaseOrder>(id ? `/api/purchase-orders/${id}` : null, apiGet);
+export default function EditPurchaseOrderPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const searchParams = useSearchParams();
+  const idRaw = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const id = idRaw ? parseInt(idRaw, 10) : null;
+
+  // Build redirect URL with preserved query parameters
+  const search = searchParams ? searchParams.toString() : "";
+  const redirectUrl = search ? `/purchase-orders?${search}` : "/purchase-orders";
+
+  const { data: purchaseOrder, error, isLoading, mutate } = useSWR<PurchaseOrder>(
+    id ? `/api/purchase-orders/${id}` : null,
+    apiGet
+  );
 
   const initialData = useMemo(() => {
-    if (!purchaseOrder || !id) {
-      return null;
-    }
+    if (!purchaseOrder || !id) return null;
 
     return {
       id: purchaseOrder.id,
@@ -41,8 +44,8 @@ export default function PurchaseOrderApprove1Page() {
               .map((pt) => Number(pt.paymentTermId))
               .filter((n) => Number.isFinite(n) && n > 0)
           : purchaseOrder.paymentTerm?.id
-          ? [Number(purchaseOrder.paymentTerm.id)]
-          : [],
+            ? [Number(purchaseOrder.paymentTerm.id)]
+            : [],
       quotationNo: purchaseOrder.quotationNo ?? undefined,
       quotationDate: purchaseOrder.quotationDate ?? undefined,
       transport: purchaseOrder.transport,
@@ -63,23 +66,20 @@ export default function PurchaseOrderApprove1Page() {
         purchaseOrder.transitInsuranceAmount == null
           ? null
           : typeof purchaseOrder.transitInsuranceAmount === "string"
-          ? purchaseOrder.transitInsuranceAmount
-          : String(purchaseOrder.transitInsuranceAmount),
+            ? purchaseOrder.transitInsuranceAmount
+            : String(purchaseOrder.transitInsuranceAmount),
       pfStatus:
         purchaseOrder.pfStatus === "EXCLUSIVE" ||
         purchaseOrder.pfStatus === "INCLUSIVE" ||
         purchaseOrder.pfStatus === "NOT_APPLICABLE"
-          ? (purchaseOrder.pfStatus as
-              | "EXCLUSIVE"
-              | "INCLUSIVE"
-              | "NOT_APPLICABLE")
+          ? (purchaseOrder.pfStatus as "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE")
           : null,
       pfCharges:
         purchaseOrder.pfCharges == null
           ? null
           : typeof purchaseOrder.pfCharges === "string"
-          ? purchaseOrder.pfCharges
-          : String(purchaseOrder.pfCharges),
+            ? purchaseOrder.pfCharges
+            : String(purchaseOrder.pfCharges),
       gstReverseStatus:
         purchaseOrder.gstReverseStatus === "EXCLUSIVE" ||
         purchaseOrder.gstReverseStatus === "INCLUSIVE" ||
@@ -93,67 +93,64 @@ export default function PurchaseOrderApprove1Page() {
         purchaseOrder.gstReverseAmount == null
           ? null
           : typeof purchaseOrder.gstReverseAmount === "string"
-          ? purchaseOrder.gstReverseAmount
-          : String(purchaseOrder.gstReverseAmount),
-      purchaseOrderItems: purchaseOrder.purchaseOrderDetails?.map(
-        (detail: any) => ({
-          id: detail.id,
-          itemId: detail.itemId,
-          item: detail.item,
-          remark: detail.remark,
-          qty: detail.qty,
-          orderedQty: detail.orderedQty,
-          approved1Qty: detail.approved1Qty,
-          rate: detail.rate,
-          discountPercent: detail.discountPercent,
-          disAmt: detail.disAmt,
-          cgstPercent: detail.cgstPercent,
-          cgstAmt: detail.cgstAmt,
-          sgstPercent: detail.sgstPercent,
-          sgstAmt: detail.sgstAmt,
-          igstPercent: detail.igstPercent,
-          igstAmt: detail.igstAmt,
-          amount: detail.amount,
-        })
-      ),
+            ? purchaseOrder.gstReverseAmount
+            : String(purchaseOrder.gstReverseAmount),
+      purchaseOrderItems: purchaseOrder.purchaseOrderDetails?.map((detail: any) => ({
+        id: detail.id,
+        itemId: detail.itemId,
+        item: detail.item,
+        remark: detail.remark,
+        qty: detail.qty,
+        orderedQty: detail.orderedQty,
+        approved1Qty: detail.approved1Qty,
+        approved2Qty: detail.approved2Qty,
+        rate: detail.rate,
+        discountPercent: detail.discountPercent,
+        disAmt: detail.disAmt,
+        cgstPercent: detail.cgstPercent,
+        cgstAmt: detail.cgstAmt,
+        sgstPercent: detail.sgstPercent,
+        sgstAmt: detail.sgstAmt,
+        igstPercent: detail.igstPercent,
+        igstAmt: detail.igstAmt,
+        amount: detail.amount,
+        indentItemId: detail.indentItemId,
+      })),
     };
   }, [id, purchaseOrder]);
 
-  if (error) {
-    toast.error("Failed to load purchase order");
+  useEffect(() => {
+    if (error) {
+      toast.error((error as Error).message || "Failed to load purchase order");
+    }
+  }, [error]);
+
+  if (isLoading || !id) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <AppCard>
-          <AppCard.Content>
-            <p className="text-center text-muted-foreground">
-              Failed to load purchase order. Please try again.
-            </p>
-          </AppCard.Content>
-        </AppCard>
-      </div>
+      <AppCard>
+        <AppCard.Content className="p-6">
+          <p>Loading purchase order...</p>
+        </AppCard.Content>
+      </AppCard>
     );
   }
 
-  if (isLoading || !initialData) {
+  if (!purchaseOrder || !initialData) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">
-            Loading purchase order...
-          </p>
-        </div>
-      </div>
+      <AppCard>
+        <AppCard.Content className="p-6">
+          <p className="text-muted-foreground">Purchase order not found</p>
+        </AppCard.Content>
+      </AppCard>
     );
   }
 
   return (
     <PurchaseOrderForm
-      mode="approval1"
-      initial={initialData}
-      mutate={mutate}
-      onSuccess={() => router.push("/purchase-orders")}
-      redirectOnSuccess="/purchase-orders"
+      mode="edit"
+      initial={initialData as any}
+      redirectOnSuccess={redirectUrl}
+      mutate={mutate as any}
     />
   );
 }

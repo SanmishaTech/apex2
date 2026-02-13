@@ -81,7 +81,12 @@ const createSchema = z.object({
   transport: z.string().optional(),
   note: z.string().optional(),
   terms: z.string().nullable().optional(),
-  poStatus: z.enum(["HOLD"]).optional().nullable(),
+  poStatus: z
+    .preprocess(
+      (v) => (v === null || v === "" ? undefined : v),
+      z.enum(["ORDER_PLACED", "IN_TRANSIT", "RECEIVED", "HOLD", "OPEN"]).optional()
+    )
+    .optional(),
   paymentTermsInDays: z.coerce.number().optional(),
   transitInsuranceStatus: z
     .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
@@ -109,6 +114,7 @@ const createSchema = z.object({
 });
 
 const COMPANY_CODE = "DCTPL";
+const SITE_CODE_MISSING_ERROR = "SITE_CODE_MISSING";
 
 function normalizeYear(year: number): number {
   if (!Number.isFinite(year)) {
@@ -150,14 +156,26 @@ function getFinancialYearInfo(rawDate: Date) {
 
 async function generatePONumber(
   tx: Prisma.TransactionClient,
-  _purchaseOrderDate: Date
+  _purchaseOrderDate: Date,
+  opts: { siteId: number }
 ): Promise<string> {
   // Always use the server's current date to determine the financial year label
   const { startDate, endDate, financialYearLabel } = getFinancialYearInfo(
     new Date()
   );
 
-  const prefix = `${COMPANY_CODE}/${financialYearLabel}/`;
+  const site = await tx.site.findUnique({
+    where: { id: opts.siteId },
+    select: { siteCode: true },
+  });
+  if (!site) {
+    throw new Error("Invalid site");
+  }
+  if (!site.siteCode) {
+    throw new Error(SITE_CODE_MISSING_ERROR);
+  }
+
+  const prefix = `${COMPANY_CODE}/${financialYearLabel}/${site.siteCode}/`;
 
   const latestPO = await tx.purchaseOrder.findFirst({
     where: {
@@ -395,7 +413,8 @@ export async function POST(req: NextRequest) {
       // Generate financial year-based PO number within the transaction
       const purchaseOrderNo = await generatePONumber(
         tx,
-        parsedData.purchaseOrderDate
+        parsedData.purchaseOrderDate,
+        { siteId: parsedData.siteId }
       );
 
       const poData: any = {
@@ -418,7 +437,7 @@ export async function POST(req: NextRequest) {
         gstReverseStatus: parsedData.gstReverseStatus || null,
         gstReverseAmount: parsedData.gstReverseAmount || null,
         terms: null,
-        poStatus: parsedData.poStatus ?? null,
+        poStatus: parsedData.poStatus ?? undefined,
         paymentTermsInDays: parsedData.paymentTermsInDays || null,
         deliverySchedule: parsedData.deliverySchedule || null,
         amount: parsedData.amount,
@@ -463,6 +482,7 @@ export async function POST(req: NextRequest) {
             select: {
               id: true,
               site: true,
+              siteCode: true,
             },
           },
           vendor: {
@@ -700,9 +720,14 @@ export async function POST(req: NextRequest) {
     });
 
     return Success(result, 201);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
+    }
+    if (error instanceof Error && error.message === SITE_CODE_MISSING_ERROR) {
+      return BadRequest(
+        "Site Code is not added. Please add Site Code to generate the Purchase Order Number."
+      );
     }
     if (error.code === "P2002") {
       return ApiError("Purchase order number already exists", 409);

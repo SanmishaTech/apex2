@@ -1265,6 +1265,28 @@ enum IndentApprovalStatus {
   COMPLETED
   SUSPENDED
 }
+
+enum POApprovalStatus {
+  DRAFT
+  APPROVED_LEVEL_1
+  APPROVED_LEVEL_2
+  COMPLETED
+  SUSPENDED
+}
+
+enum POStatus {
+  ORDER_PLACED
+  IN_TRANSIT
+  RECEIVED
+  HOLD
+  OPEN
+}
+
+enum IndentPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
 // Indent master data for material requisitions
 model Indent {
   id             Int                  @id @default(autoincrement())
@@ -1275,6 +1297,7 @@ model Indent {
   deliveryDate   DateTime
   remarks        String?              @db.Text
   // Approval workflow
+  priority IndentPriority @default(LOW)
   approvalStatus IndentApprovalStatus @default(DRAFT)
   approved1ById  Int?
   approved1By    User?                @relation("IndentApproved1By", fields: [approved1ById], references: [id])
@@ -1308,6 +1331,7 @@ model Indent {
   @@index([indentNo])
   @@index([siteId])
   @@index([indentDate])
+  @@index([priority])
   @@index([approvalStatus])
   @@index([suspended])
   @@index([createdById])
@@ -1867,8 +1891,8 @@ model PurchaseOrder {
   transitInsuranceStatus  String?   @db.VarChar(20)
   transitInsuranceAmount  String?   @db.VarChar(50)
   amountInWords           String?   @db.VarChar(255)
-  approvalStatus IndentApprovalStatus @default(DRAFT)
-  poStatus                   String?  //HOLD OR NULL
+  approvalStatus POApprovalStatus @default(DRAFT)
+  poStatus            POStatus    @default(OPEN) 
   isApproved1             Boolean  @default(false)
   approved1ById  Int?
   approved1By    User?                @relation("POApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)

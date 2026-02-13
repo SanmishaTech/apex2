@@ -105,6 +105,10 @@ export interface PurchaseOrder {
   totalCgstAmount?: number | null;
   totalSgstAmount?: number | null;
   totalIgstAmount?: number | null;
+  exciseTaxStatus?: string | null;
+  exciseTaxAmount?: string | number | null;
+  octroiTaxStatus?: string | null;
+  octroiTaxAmount?: string | number | null;
   approvalStatus:
     | "DRAFT"
     | "APPROVED_LEVEL_1"
@@ -130,7 +134,7 @@ export interface PurchaseOrder {
   suspendedAt?: string | null;
   completedAt?: string | null;
   revision?: number | null;
-  poStatus: string | null | undefined;
+  poStatus?: "ORDER_PLACED" | "IN_TRANSIT" | "RECEIVED" | "HOLD" | "OPEN";
   transitInsuranceStatus: string | null | undefined;
   transitInsuranceAmount: number | null | undefined | string;
   pfStatus: string | null | undefined;
@@ -166,6 +170,8 @@ export interface PurchaseOrderDetail {
   rate?: number | null;
   discountPercent?: number | null;
   disAmt?: number | null;
+  tax?: number | null;
+  taxAmt?: number | null;
   cgstPercent?: number | null;
   cgstAmt?: number | null;
   sgstPercent?: number | null;

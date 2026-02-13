@@ -115,6 +115,25 @@ export default function IndentsPage() {
     );
   }
 
+  function PriorityBadge({ priority }: { priority?: string | null }) {
+    const value = (priority || "LOW").toUpperCase();
+    const label =
+      value === "HIGH" ? "High" : value === "MEDIUM" ? "Medium" : "Low";
+    const cls =
+      value === "HIGH"
+        ? "bg-rose-600"
+        : value === "MEDIUM"
+          ? "bg-amber-600"
+          : "bg-slate-600";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}
+      >
+        {label}
+      </span>
+    );
+  }
+
   function StatusBadge({
     status,
     suspended,
@@ -285,6 +304,14 @@ export default function IndentsPage() {
       accessor: (r) => (
         <StatusBadge status={r.approvalStatus} suspended={r.suspended} />
       ),
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      sortable: false,
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+      accessor: (r) => <PriorityBadge priority={(r as any).priority ?? "LOW"} />,
     },
     {
       key: "site",
@@ -704,15 +731,32 @@ export default function IndentsPage() {
                             <AppButton
                               size="sm"
                               variant="secondary"
-                              disabled={
-                                indent.suspended ||
-                                indent.approvalStatus === "SUSPENDED"
-                              }
                             >
                               Actions
                             </AppButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                pushWithScrollSave(`/indents/${indent.id}/view`)
+                              }
+                            >
+                              View
+                            </DropdownMenuItem>
+                            {can(PERMISSIONS.EDIT_INDENTS) &&
+                            indent.approvalStatus === "DRAFT" ? (
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  pushWithScrollSave(
+                                    `/indents/${indent.id}/edit?${
+                                      searchParams?.toString() || ""
+                                    }`
+                                  )
+                                }
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                            ) : null}
                             {(() => {
                               const items = indent.indentItems ?? [];
                               const completedCount = items.filter(

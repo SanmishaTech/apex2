@@ -43,6 +43,7 @@ const updateSchema = z.object({
     .transform((val) => new Date(val))
     .optional(),
   siteId: z.number().optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
   remarks: z.string().optional(),
   indentItems: z.array(indentItemSchema).optional(),
   statusAction: z
@@ -69,12 +70,27 @@ export async function GET(
         indentNo: true,
         indentDate: true,
         siteId: true,
+        priority: true,
         approvalStatus: true,
         suspended: true,
+        approved1ById: true,
+        approved1At: true,
+        approved2ById: true,
+        approved2At: true,
+        suspendedById: true,
+        suspendedAt: true,
+        completedById: true,
+        completedAt: true,
+        createdById: true,
         remarks: true,
         deliveryDate: true,
         createdAt: true,
         updatedAt: true,
+        createdBy: { select: { id: true, name: true } },
+        approved1By: { select: { id: true, name: true } },
+        approved2By: { select: { id: true, name: true } },
+        suspendedBy: { select: { id: true, name: true } },
+        completedBy: { select: { id: true, name: true } },
         site: {
           select: {
             id: true,
@@ -142,6 +158,20 @@ export async function PATCH(
     const result = await prisma.$transaction(async (tx) => {
       // Update indent header
       const { indentItems, statusAction, ...indentData } = updateData as any;
+
+      // Only allow normal edits when indent is in DRAFT
+      if (!statusAction) {
+        const current: any = await tx.indent.findUnique({
+          where: { id },
+          select: { approvalStatus: true } as any,
+        });
+        if (!current) {
+          throw new Error("BAD_REQUEST: Indent not found");
+        }
+        if (current.approvalStatus !== "DRAFT") {
+          throw new Error("BAD_REQUEST: Only DRAFT indents can be edited");
+        }
+      }
 
       // Update basic fields if provided
       if (Object.keys(indentData).length > 0) {
@@ -315,34 +345,96 @@ export async function PATCH(
         }
       }
 
-      if (indentItems && indentItems.length > 0) {
-        for (const item of indentItems) {
-          if (!item.id) continue; // skip any item without ID
-
-          const existingItem = await tx.indentItem.findFirst({
-            where: { id: item.id, indentId: id },
-            select: { id: true },
+      // Item updates
+      // - For normal edit (no statusAction): allow add/update/remove items
+      // - For approval actions: only update existing items by id (do NOT create/delete)
+      if (Array.isArray(indentItems)) {
+        if (!statusAction) {
+          const existing = await tx.indentItem.findMany({
+            where: { indentId: id },
+            select: { id: true, purchaseOrderDetailId: true },
           });
 
-          if (existingItem) {
-            await tx.indentItem.update({
-              where: { id: existingItem.id },
-              data: {
-                remark: item.remark ?? null,
-                indentQty: item.indentQty,
-                approved1Qty:
-                  item.approved1Qty !== undefined
-                    ? item.approved1Qty
-                    : undefined,
-                approved2Qty:
-                  item.approved2Qty !== undefined
-                    ? item.approved2Qty
-                    : undefined,
-                updatedAt: new Date(),
-              },
+          const existingById = new Map(existing.map((it) => [it.id, it]));
+
+          const payloadIds = new Set<number>();
+          for (const item of indentItems) {
+            if (item.id) payloadIds.add(item.id);
+          }
+
+          // Delete removed items (only if not already linked to a PO)
+          const removed = existing.filter((it) => !payloadIds.has(it.id));
+          const blocked = removed.filter((it) => it.purchaseOrderDetailId != null);
+          if (blocked.length > 0) {
+            throw new Error(
+              "BAD_REQUEST: Cannot remove items already linked to a Purchase Order"
+            );
+          }
+          if (removed.length > 0) {
+            await tx.indentItem.deleteMany({
+              where: { id: { in: removed.map((it) => it.id) } },
             });
           }
-          // else skip silently — do not create new items
+
+          // Upsert payload items
+          for (const item of indentItems) {
+            if (item.id) {
+              const currentItem = existingById.get(item.id);
+              if (!currentItem) {
+                throw new Error("BAD_REQUEST: Invalid indent item");
+              }
+              await tx.indentItem.update({
+                where: { id: item.id },
+                data: {
+                  itemId: item.itemId,
+                  remark: item.remark ?? null,
+                  indentQty: item.indentQty,
+                  updatedAt: new Date(),
+                },
+              });
+            } else {
+              await tx.indentItem.create({
+                data: {
+                  indentId: id,
+                  itemId: item.itemId,
+                  remark: item.remark ?? null,
+                  indentQty: item.indentQty,
+                },
+              });
+            }
+          }
+        } else {
+          // Approval-related updates (keep existing behavior)
+          if (indentItems.length > 0) {
+            for (const item of indentItems) {
+              if (!item.id) continue; // skip any item without ID
+
+              const existingItem = await tx.indentItem.findFirst({
+                where: { id: item.id, indentId: id },
+                select: { id: true },
+              });
+
+              if (existingItem) {
+                await tx.indentItem.update({
+                  where: { id: existingItem.id },
+                  data: {
+                    remark: item.remark ?? null,
+                    indentQty: item.indentQty,
+                    approved1Qty:
+                      item.approved1Qty !== undefined
+                        ? item.approved1Qty
+                        : undefined,
+                    approved2Qty:
+                      item.approved2Qty !== undefined
+                        ? item.approved2Qty
+                        : undefined,
+                    updatedAt: new Date(),
+                  },
+                });
+              }
+              // else skip silently — do not create new items
+            }
+          }
         }
       }
 
@@ -355,6 +447,7 @@ export async function PATCH(
           indentDate: true,
           deliveryDate: true,
           siteId: true,
+          priority: true,
           approvalStatus: true,
           remarks: true,
           createdAt: true,
