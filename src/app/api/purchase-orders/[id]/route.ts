@@ -709,11 +709,157 @@ export async function PATCH(
           (item) => !updatedItemIds.has(item.id)
         );
         if (itemsToDelete.length > 0) {
+          // Delete dependent indent allocations first (if any) to avoid FK constraint errors
+          await tx.indentItemPO.deleteMany({
+            where: {
+              purchaseOrderDetailId: { in: itemsToDelete.map((item) => item.id) },
+            },
+          });
           await tx.purchaseOrderDetail.deleteMany({
             where: {
               id: { in: itemsToDelete.map((item) => item.id) },
             },
           });
+        }
+
+        // If PO is linked to indents, keep IndentItemPO allocations consistent with updated items.
+        // We reconcile by deleting old allocations for this PO and re-allocating FIFO based on the
+        // current purchaseOrderDetails after the edit.
+        const poIndentLinks = await tx.purchaseOrderIndent.findMany({
+          where: { purchaseOrderId: id },
+          select: { indentId: true },
+        });
+        const linkedIndentIds = Array.from(
+          new Set(
+            (poIndentLinks || [])
+              .map((x) => Number(x.indentId))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          )
+        );
+
+        if (linkedIndentIds.length > 0) {
+          // Enforce: linked indents must belong to same site as PO (and prevent changing siteId to mismatch)
+          const currentPO = await tx.purchaseOrder.findUnique({
+            where: { id },
+            select: { siteId: true, approvalStatus: true },
+          });
+          if (!currentPO) {
+            throw new Error("BAD_REQUEST: Purchase order not found");
+          }
+
+          const linkedIndents = await tx.indent.findMany({
+            where: { id: { in: linkedIndentIds } },
+            select: { id: true, siteId: true },
+          });
+          const badSite = linkedIndents.find((i) => i.siteId !== currentPO.siteId);
+          if (badSite) {
+            throw new Error(
+              "BAD_REQUEST: Linked indents site does not match purchase order site"
+            );
+          }
+
+          const currentDetails = await tx.purchaseOrderDetail.findMany({
+            where: { purchaseOrderId: id },
+            select: { id: true, itemId: true, qty: true },
+            orderBy: { serialNo: "asc" },
+          });
+
+          const detailIds = currentDetails.map((d) => d.id);
+          if (detailIds.length > 0) {
+            await tx.indentItemPO.deleteMany({
+              where: { purchaseOrderDetailId: { in: detailIds } },
+            });
+          }
+
+          const toNum = (v: any) => {
+            const n = typeof v === "string" ? parseFloat(v) : Number(v);
+            return Number.isFinite(n) ? n : 0;
+          };
+
+          for (const detail of currentDetails) {
+            const itemId = Number(detail.itemId);
+            let need = toNum(detail.qty);
+            if (!(need > 0)) continue;
+
+            const candidates = await tx.indentItem.findMany({
+              where: {
+                indentId: { in: linkedIndentIds },
+                itemId,
+              },
+              select: {
+                id: true,
+                approved2Qty: true,
+                indent: { select: { indentDate: true, id: true } },
+                indentItemPOs: { select: { orderedQty: true } },
+              },
+              orderBy: [
+                { indent: { indentDate: "asc" } },
+                { indentId: "asc" },
+                { id: "asc" },
+              ],
+            });
+
+            // Item not present in selected indents => no allocation required
+            if (!candidates || candidates.length === 0) continue;
+
+            for (const c of candidates) {
+              if (!(need > 0)) break;
+              const cap = toNum(c.approved2Qty);
+              const already = (c.indentItemPOs || []).reduce(
+                (s, x) => s + toNum(x.orderedQty),
+                0
+              );
+              const remaining = Math.max(0, cap - already);
+              if (!(remaining > 0)) continue;
+
+              const take = Math.min(remaining, need);
+              await tx.indentItemPO.create({
+                data: {
+                  indentItemId: c.id,
+                  purchaseOrderDetailId: detail.id,
+                  orderedQty: take as any,
+                },
+              });
+              need -= take;
+            }
+
+            // If edited qty exceeds remaining approved2Qty across selected indents, allocate only
+            // up to remaining (FIFO). Any leftover qty stays unallocated and does not error.
+          }
+
+          // Reconcile PO <-> indent links based on actual allocations now present for this PO
+          const allocationIndentRows = await tx.indentItemPO.findMany({
+            where: { purchaseOrderDetailId: { in: detailIds } },
+            select: {
+              indentItem: {
+                select: {
+                  indentId: true,
+                },
+              },
+            } as any,
+          });
+
+          const usedIndentIds = Array.from(
+            new Set(
+              (allocationIndentRows || [])
+                .map((r: any) => Number(r?.indentItem?.indentId))
+                .filter((n: number) => Number.isFinite(n) && n > 0)
+            )
+          );
+
+          // Replace links to match used indents; if none, PO becomes a normal PO
+          await tx.purchaseOrderIndent.deleteMany({
+            where: { purchaseOrderId: id },
+          });
+          if (usedIndentIds.length > 0) {
+            await tx.purchaseOrderIndent.createMany({
+              data: usedIndentIds.map((indentId) => ({
+                purchaseOrderId: id,
+                indentId,
+              })),
+              skipDuplicates: true,
+            });
+          }
         }
       } else if (autoApproved2) {
         // Auto-approval to level 2 happened, but no items were sent in the payload.
