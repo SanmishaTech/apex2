@@ -417,6 +417,10 @@ export function PurchaseOrderForm({
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
+    const indentLinkedEdit =
+      mode === "edit" &&
+      Array.isArray((initial as any)?.purchaseOrderIndent) &&
+      (((initial as any)?.purchaseOrderIndent?.length as any) || 0) > 0;
     const toNum = (v: unknown): number | undefined => {
       if (v === null || v === undefined || v === "") return undefined;
       const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : Number(v);
@@ -455,9 +459,11 @@ export function PurchaseOrderForm({
       gstReverseStatus: initial?.gstReverseStatus ?? null,
       gstReverseAmount: initial?.gstReverseAmount ?? null,
       purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
+        id: (item as any).id,
         itemId: item.itemId ?? 0,
         remark: item.remark ?? "",
         qty: toNum((item as any).qty),
+        lockItem: indentLinkedEdit,
         // normalize approved quantities: keep as numbers or undefined
         approved1Qty: isApprovalMode
           ? (toNum((item as any).approved1Qty) ?? toNum((item as any).qty) ?? undefined)
@@ -484,10 +490,11 @@ export function PurchaseOrderForm({
           sgstPercent: undefined,
           igstPercent: undefined,
           amount: 0,
+          lockItem: false,
         },
       ],
     };
-  }, [initial, isApprovalMode, isApproval2]);
+  }, [initial, isApprovalMode, isApproval2, mode]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(createInputSchema) as unknown as Resolver<FormData>,
@@ -745,6 +752,10 @@ export function PurchaseOrderForm({
   const itemOptions = itemsData?.data ?? [];
 
   const isFromIndent = resolvedIndentIds.length > 0;
+  const isIndentLinkedEdit =
+    isEdit &&
+    Array.isArray((initial as any)?.purchaseOrderIndent) &&
+    ((initial as any)?.purchaseOrderIndent?.length || 0) > 0;
 
   // Closing stock for items at selected site
   const selectedItemIds: number[] = (
@@ -907,6 +918,7 @@ export function PurchaseOrderForm({
       cgstPercent: undefined,
       sgstPercent: undefined,
       igstPercent: undefined,
+      lockItem: false,
     } as any);
   };
 
@@ -915,6 +927,7 @@ export function PurchaseOrderForm({
     if (fields.length === 1 && index === 0) {
       // Reset the only/top row to an empty default instead of removing all rows
       update(0, {
+        id: undefined,
         itemId: 0,
         remark: "",
         qty: undefined,
@@ -924,6 +937,7 @@ export function PurchaseOrderForm({
         sgstPercent: undefined,
         igstPercent: undefined,
         amount: 0,
+        lockItem: false,
         // Ensure it's no longer treated as sourced from indent
         ...(typeof (items?.[0] as any) === "object"
           ? { fromIndent: false }
@@ -1389,7 +1403,7 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", 0);
                     }}
                     placeholder="Select Site"
-                    disabled={isApprovalMode || Boolean(resolvedIndentIds?.length)}
+                    disabled={isEdit || isApprovalMode || Boolean(resolvedIndentIds?.length)}
                   >
                     <AppSelect.Item key="site-none" value="__none">
                       Select Site
@@ -1761,8 +1775,8 @@ export function PurchaseOrderForm({
                                           ]}
                                           placeholder="Select Item"
                                           disabled={
-                                            (items?.[index] as any)
-                                              ?.fromIndent === true
+                                            (items?.[index] as any)?.fromIndent === true ||
+                                            (items?.[index] as any)?.lockItem === true
                                           }
                                           className="min-w-[200px] max-w-[200px] overflow-hidden"
                                         />

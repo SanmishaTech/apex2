@@ -35,6 +35,7 @@ export default function EditPurchaseOrderPage() {
       purchaseOrderDate: purchaseOrder.purchaseOrderDate,
       deliveryDate: purchaseOrder.deliveryDate,
       siteId: purchaseOrder.site?.id,
+      purchaseOrderIndent: (purchaseOrder as any).purchaseOrderIndent,
       vendorId: purchaseOrder.vendor?.id,
       billingAddressId: purchaseOrder.billingAddress?.id,
       siteDeliveryAddressId: purchaseOrder.siteDeliveryAddress?.id,
