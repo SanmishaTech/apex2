@@ -81,7 +81,6 @@ interface SiteDeliveryAddress {
 // Main Purchase Order Types
 export interface PurchaseOrder {
   id: number;
-  indentId?: number | null;
   siteId: number;
   vendorId: number;
   billingAddressId: number;
@@ -154,6 +153,13 @@ export interface PurchaseOrder {
   suspendedBy?: User | null;
   completedBy?: User | null;
   purchaseOrderDetails: PurchaseOrderDetail[];
+  purchaseOrderIndent?: Array<{
+    indent: {
+      id: number;
+      indentNo: string | null;
+      indentDate: string;
+    };
+  }>;
 }
 
 export interface PurchaseOrderDetail {
@@ -200,7 +206,7 @@ export interface PurchaseOrdersResponse {
 
 // Request Types
 export interface CreatePurchaseOrderRequest {
-  indentId?: number;
+  indentIds?: number[];
   siteId: number;
   vendorId: number;
   billingAddressId: number;

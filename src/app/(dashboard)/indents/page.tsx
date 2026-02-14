@@ -27,6 +27,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Indent, IndentsResponse } from "@/types/indents";
 import type { SitesResponse } from "@/types/sites";
 import {
@@ -279,7 +280,121 @@ export default function IndentsPage() {
     }
   }
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    // When list changes (pagination/filter), drop selection
+    setSelectedIds(new Set());
+  }, [query]);
+
+  const visibleRows = (data?.data || []) as Indent[];
+
+  const selectableIds = useMemo(() => {
+    return visibleRows
+      .filter((indent) => {
+        const items = indent.indentItems ?? [];
+        const completedCount = items.filter((item) => {
+          const orderedQty = (item as any)?.indentItemPOs
+            ? (item as any).indentItemPOs.reduce(
+                (s: number, x: any) => s + Number(x?.orderedQty || 0),
+                0
+              )
+            : 0;
+          const cap = Number((item as any)?.approved2Qty || 0);
+          return cap > 0 && orderedQty >= cap;
+        }).length;
+        const allItemsCompleted =
+          items.length > 0 && completedCount === items.length;
+        return (
+          can(PERMISSIONS.GENERATE_PO_FROM_INDENT) &&
+          (indent.approvalStatus === "APPROVED_LEVEL_2" ||
+            indent.approvalStatus === "COMPLETED") &&
+          !indent.suspended &&
+          !allItemsCompleted
+        );
+      })
+      .map((r) => r.id);
+  }, [visibleRows, can]);
+
+  const allSelected =
+    selectableIds.length > 0 &&
+    selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = selectableIds.some((id) => selectedIds.has(id));
+
+  function toggleSelectAll(next: boolean) {
+    setSelectedIds(() => {
+      const n = new Set<number>();
+      if (next) {
+        for (const id of selectableIds) n.add(id);
+      }
+      return n;
+    });
+  }
+
+  function toggleSelectOne(id: number, next: boolean) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (next) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  }
+
+  function handleGeneratePOBulk() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      toast.error("Please select at least one indent");
+      return;
+    }
+
+    const selectedIndents = visibleRows.filter((r) => selectedIds.has(r.id));
+    const siteIds = Array.from(
+      new Set(
+        selectedIndents
+          .map((x) => Number((x as any).siteId ?? x.site?.id ?? 0))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      )
+    );
+    if (siteIds.length !== 1) {
+      toast.error("Please select indents from the same site");
+      return;
+    }
+
+    pushWithScrollSave(
+      `/purchase-orders/new?indentIds=${ids.join(",")}&siteId=${siteIds[0]}&r=${Date.now()}`
+    );
+  }
+
   const columns: Column<Indent>[] = [
+    {
+      key: "__select",
+      header: (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            onCheckedChange={(v) => toggleSelectAll(!!v)}
+            disabled={selectableIds.length === 0}
+            aria-label="Select all indents"
+          />
+        </div>
+      ),
+      accessor: (indent) => {
+        const canSelect = selectableIds.includes(indent.id);
+        return (
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={selectedIds.has(indent.id)}
+              onCheckedChange={(v) => toggleSelectOne(indent.id, !!v)}
+              disabled={!canSelect}
+              aria-label={`Select indent ${indent.id}`}
+            />
+          </div>
+        );
+      },
+      sortable: false,
+      className: "w-10",
+      cellClassName: "w-10",
+    },
     {
       key: "indentNo",
       header: "Indent No",
@@ -330,10 +445,14 @@ export default function IndentsPage() {
         const items = r.indentItems ?? [];
         const total = items.length;
         const completed = items.reduce((count, item) => {
-          return item.purchaseOrderDetailId !== null &&
-            item.purchaseOrderDetailId !== undefined
-            ? count + 1
-            : count;
+          const orderedQty = (item as any)?.indentItemPOs
+            ? (item as any).indentItemPOs.reduce(
+                (s: number, x: any) => s + Number(x?.orderedQty || 0),
+                0
+              )
+            : 0;
+          const cap = Number((item as any)?.approved2Qty || 0);
+          return cap > 0 && orderedQty >= cap ? count + 1 : count;
         }, 0);
         return `${completed}/${total}`;
       },
@@ -515,7 +634,6 @@ export default function IndentsPage() {
     },
     [pushWithScrollSave]
   );
-
   const MAX_DEC = 99999999.9999; // MySQL DECIMAL(12,4)
   const clampDec = (n: number) => Math.min(Math.max(0, n), MAX_DEC);
   const setEdit = useCallback(
@@ -646,18 +764,31 @@ export default function IndentsPage() {
         <AppCard.Header>
           <AppCard.Title>Indents</AppCard.Title>
           <AppCard.Description>Manage application indents.</AppCard.Description>
-          {can(PERMISSIONS.CREATE_INDENTS) && (
-            <AppCard.Action>
-              <AppButton
-                size="sm"
-                iconName="Plus"
-                type="button"
-                onClick={() => pushWithScrollSave("/indents/new")}
-              >
-                Add
-              </AppButton>
-            </AppCard.Action>
-          )}
+          <AppCard.Action>
+            <div className="flex items-center gap-2">
+              {can(PERMISSIONS.GENERATE_PO_FROM_INDENT) && (
+                <AppButton
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                  disabled={selectedIds.size === 0}
+                  onClick={handleGeneratePOBulk}
+                >
+                  Generate PO
+                </AppButton>
+              )}
+              {can(PERMISSIONS.CREATE_INDENTS) && (
+                <AppButton
+                  size="sm"
+                  iconName="Plus"
+                  type="button"
+                  onClick={() => pushWithScrollSave("/indents/new")}
+                >
+                  Add
+                </AppButton>
+              )}
+            </div>
+          </AppCard.Action>
         </AppCard.Header>
         <AppCard.Content>
           <FilterBar title="Search & Filter">
@@ -760,9 +891,19 @@ export default function IndentsPage() {
                             {(() => {
                               const items = indent.indentItems ?? [];
                               const completedCount = items.filter(
-                                (item) =>
-                                  item.purchaseOrderDetailId !== null &&
-                                  item.purchaseOrderDetailId !== undefined
+                                (item) => {
+                                  const orderedQty = (item as any)?.indentItemPOs
+                                    ? (item as any).indentItemPOs.reduce(
+                                        (s: number, x: any) =>
+                                          s + Number(x?.orderedQty || 0),
+                                        0
+                                      )
+                                    : 0;
+                                  const cap = Number(
+                                    (item as any)?.approved2Qty || 0
+                                  );
+                                  return cap > 0 && orderedQty >= cap;
+                                }
                               ).length;
                               const allItemsCompleted =
                                 items.length > 0 &&
@@ -790,6 +931,7 @@ export default function IndentsPage() {
                                 </DropdownMenuItem>
                               ) : null;
                             })()}
+
                             {(() => {
                               const actions = getAvailableActions(
                                 indent.approvalStatus,
@@ -798,11 +940,17 @@ export default function IndentsPage() {
                                 (indent as any).approved1ById === user?.id
                               );
                               const items = indent.indentItems ?? [];
-                              const completedCount = items.filter(
-                                (item) =>
-                                  item.purchaseOrderDetailId !== null &&
-                                  item.purchaseOrderDetailId !== undefined
-                              ).length;
+                              const completedCount = items.filter((item) => {
+                                const orderedQty = (item as any)?.indentItemPOs
+                                  ? (item as any).indentItemPOs.reduce(
+                                      (s: number, x: any) =>
+                                        s + Number(x?.orderedQty || 0),
+                                      0
+                                    )
+                                  : 0;
+                                const cap = Number((item as any)?.approved2Qty || 0);
+                                return cap > 0 && orderedQty >= cap;
+                              }).length;
                               const allItemsCompleted =
                                 items.length > 0 &&
                                 completedCount === items.length;
@@ -838,25 +986,7 @@ export default function IndentsPage() {
             </div>
           </div>
         </AppCard.Content>
-        <AppCard.Footer className="justify-end">
-          <Pagination
-            page={data?.meta?.page || page}
-            totalPages={data?.meta?.totalPages || 1}
-            perPage={data?.meta?.perPage || perPage}
-            onPerPageChange={(val) => {
-              console.log("Changing perPage from", perPage, "to", val);
-              setQp({ page: 1, perPage: val });
-            }}
-            onPageChange={(p) => {
-              console.log("Changing page from", page, "to", p);
-              setQp({ page: p });
-            }}
-            showPageNumbers
-            disabled={isLoading}
-          />
-        </AppCard.Footer>
       </AppCard>
-
       {/* Pre-approval Dialog */}
       <Dialog open={approvalOpen} onOpenChange={setApprovalOpen}>
         <DialogContent className="sm:max-w-5xl">

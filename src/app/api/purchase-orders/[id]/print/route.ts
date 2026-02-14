@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
 import { BadRequest, NotFound } from "@/lib/api-response";
@@ -200,9 +200,13 @@ export async function GET(
       gstReverseAmount: true,
       poStatus: true,
       approvalStatus: true,
-      indent: {
+      purchaseOrderIndent: {
         select: {
-          indentNo: true,
+          indent: {
+            select: {
+              indentNo: true,
+            },
+          },
         },
       },
       site: {
@@ -339,7 +343,18 @@ export async function GET(
     },
   });
 
-  if (!purchaseOrder) return NotFound("Purchase order not found");
+  if (!purchaseOrder) {
+    return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
+  }
+
+  const indentNos = Array.from(
+    new Set(
+      ((purchaseOrder as any).purchaseOrderIndent || [])
+        .map((x: any) => x?.indent?.indentNo)
+        .filter((v: any) => typeof v === "string" && v.trim() !== "")
+    )
+  );
+  const indentNoLabel = indentNos.length > 0 ? indentNos.join(", ") : "";
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
@@ -436,7 +451,7 @@ export async function GET(
     { text: `P O Number : ${safeText(purchaseOrder.purchaseOrderNo)}` },
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
     { text: `Delivery Date : ${formatDateSafe(purchaseOrder.deliveryDate)}` },
-    { text: `Indent No : ${safeText(purchaseOrder.indent?.indentNo)}` },
+    { text: `Indent No : ${safeText(indentNoLabel)}` },
   ];
 
   const deliver = purchaseOrder.siteDeliveryAddress;

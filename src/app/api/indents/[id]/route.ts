@@ -101,7 +101,6 @@ export async function GET(
           select: {
             id: true,
             itemId: true,
-            purchaseOrderDetailId: true,
             item: {
               select: {
                 id: true,
@@ -120,6 +119,13 @@ export async function GET(
             indentQty: true,
             approved1Qty: true,
             approved2Qty: true,
+            indentItemPOs: {
+              select: {
+                id: true,
+                orderedQty: true,
+                purchaseOrderDetailId: true,
+              },
+            },
           },
           orderBy: {
             id: "asc",
@@ -352,7 +358,7 @@ export async function PATCH(
         if (!statusAction) {
           const existing = await tx.indentItem.findMany({
             where: { indentId: id },
-            select: { id: true, purchaseOrderDetailId: true },
+            select: { id: true, indentItemPOs: { select: { id: true } } },
           });
 
           const existingById = new Map(existing.map((it) => [it.id, it]));
@@ -364,7 +370,7 @@ export async function PATCH(
 
           // Delete removed items (only if not already linked to a PO)
           const removed = existing.filter((it) => !payloadIds.has(it.id));
-          const blocked = removed.filter((it) => it.purchaseOrderDetailId != null);
+          const blocked = removed.filter((it) => (it.indentItemPOs || []).length > 0);
           if (blocked.length > 0) {
             throw new Error(
               "BAD_REQUEST: Cannot remove items already linked to a Purchase Order"
@@ -462,12 +468,18 @@ export async function PATCH(
             select: {
               id: true,
               itemId: true,
-              purchaseOrderDetailId: true,
               item: true,
               remark: true,
               indentQty: true,
               approved1Qty: true,
               approved2Qty: true,
+              indentItemPOs: {
+                select: {
+                  id: true,
+                  orderedQty: true,
+                  purchaseOrderDetailId: true,
+                },
+              },
             },
             orderBy: {
               id: "asc",

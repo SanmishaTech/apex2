@@ -15,7 +15,11 @@ export interface IndentItem {
   indentQty: number;
   approved1Qty?: number;
   approved2Qty?: number;
-  purchaseOrderDetailId?: number | null;
+  indentItemPOs?: Array<{
+    id: number;
+    orderedQty: number;
+    purchaseOrderDetailId: number;
+  }>;
 }
 
 export interface Indent {

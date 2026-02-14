@@ -144,6 +144,7 @@ export interface PurchaseOrderFormProps {
   redirectOnSuccess?: string; // default '/purchase-orders'
   mutate?: () => Promise<any>;
   indentId?: number;
+  indentIds?: number[];
   refreshKey?: string;
 }
 
@@ -309,6 +310,7 @@ export function PurchaseOrderForm({
   redirectOnSuccess = "/purchase-orders",
   mutate,
   indentId,
+  indentIds,
   refreshKey,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
@@ -351,13 +353,35 @@ export function PurchaseOrderForm({
     apiGet
   );
 
-  // If generating from an indent, fetch indent and prefill
+  const resolvedIndentIds = useMemo(() => {
+    const fromList = Array.isArray(indentIds) ? indentIds : [];
+    const cleaned = fromList
+      .map((n) => Number(n))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const unique = Array.from(new Set(cleaned));
+    if (unique.length > 0) return unique;
+    if (indentId && Number.isFinite(indentId) && indentId > 0) return [indentId];
+    return [] as number[];
+  }, [indentIds, indentId]);
+
+  // If generating from indent(s), fetch indent(s) and prefill
   const { data: indentData, mutate: revalidateIndent } = useSWR<any>(
-    mode === "create" && indentId
-      ? `/api/indents/${indentId}?r=${encodeURIComponent(String(refreshKey ?? ""))}`
+    mode === "create" && resolvedIndentIds.length === 1
+      ? `/api/indents/${resolvedIndentIds[0]}?r=${encodeURIComponent(String(refreshKey ?? ""))}`
       : null,
-    mode === "create" && indentId ? apiGet : null
+    mode === "create" && resolvedIndentIds.length === 1 ? apiGet : null
   );
+
+  const { data: indentsBulkData } = useSWR<any>(
+    mode === "create" && resolvedIndentIds.length > 1
+      ? `/api/indents/bulk?ids=${encodeURIComponent(resolvedIndentIds.join(","))}&r=${encodeURIComponent(String(refreshKey ?? ""))}`
+      : null,
+    mode === "create" && resolvedIndentIds.length > 1 ? apiGet : null
+  );
+
+  const [indentAllocationsByItemId, setIndentAllocationsByItemId] = useState<
+    Record<number, Array<{ indentItemId: number; qty: number }>>
+  >({});
   const [prefilledFromIndent, setPrefilledFromIndent] = useState(false);
 
   const formatDateField = (
@@ -477,12 +501,12 @@ export function PurchaseOrderForm({
   });
 
   useEffect(() => {
-    // When generating from indent, let the indent prefill effect control resets entirely
-    if (indentId) return;
+    // When generating from indent(s), let the indent prefill effect control resets entirely
+    if (resolvedIndentIds.length > 0) return;
     if (!prefilledFromIndent) {
       form.reset(defaultValues);
     }
-  }, [defaultValues, form, prefilledFromIndent, indentId]);
+  }, [defaultValues, form, prefilledFromIndent, resolvedIndentIds.length]);
 
   // Apply siteId coming from initial props (e.g., passed via query) immediately
   useEffect(() => {
@@ -501,46 +525,103 @@ export function PurchaseOrderForm({
     }
   }, [mode, initial?.siteId, form]);
 
-  // Prefill site and items from indent for new PO (single-shot, unconditional)
+  // Prefill site and items from indent(s) for new PO (single-shot, unconditional)
   useEffect(() => {
-    if (!indentId || mode !== "create" || !indentData || prefilledFromIndent)
-      return;
-    try {
-      const indent = (indentData as any).data ?? indentData; // apiGet returns { data }
-      if (!indent) return;
-      const computedSiteId = Number(
-        (indent as any).siteId ?? (indent as any).site?.id ?? 0
-      );
-      const computedDeliveryDate = formatDateField(
-        (indent as any).deliveryDate,
-        undefined
-      );
-      const itemsArr: any[] = Array.isArray(indent.indentItems)
-        ? indent.indentItems
-        : [];
-      const unprocessed = itemsArr.filter(
-        (it) =>
-          it.purchaseOrderDetailId === null ||
-          it.purchaseOrderDetailId === undefined
-      );
-      const mapped = unprocessed.map((it) => {
-        const toNum = (v: any) => {
-          if (v === null || v === undefined) return undefined;
-          const n = typeof v === "string" ? parseFloat(v) : Number(v);
-          return Number.isFinite(n) ? n : undefined;
-        };
-        const a2 = toNum((it as any)?.approved2Qty);
-        const a1 = toNum((it as any)?.approved1Qty);
-        const iq = toNum((it as any)?.indentQty);
-        const qty =
-          (a2 && a2 > 0 ? a2 : undefined) ??
-          (a1 && a1 > 0 ? a1 : undefined) ??
-          (iq && iq > 0 ? iq : undefined) ??
-          undefined;
+    if (mode !== "create" || prefilledFromIndent) return;
+    if (resolvedIndentIds.length === 0) return;
+    const singleReady = resolvedIndentIds.length === 1 && !!indentData;
+    const multiReady = resolvedIndentIds.length > 1 && !!indentsBulkData;
+    if (!singleReady && !multiReady) return;
 
+    try {
+      const indents: any[] = singleReady
+        ? [((indentData as any).data ?? indentData)]
+        : ((indentsBulkData as any)?.data?.data ?? (indentsBulkData as any)?.data ?? []);
+
+      const cleanIndents = (indents || []).filter(Boolean);
+      if (cleanIndents.length === 0) return;
+
+      const siteIds = Array.from(
+        new Set(
+          cleanIndents
+            .map((i: any) => Number(i?.siteId ?? i?.site?.id ?? 0))
+            .filter((n: number) => Number.isFinite(n) && n > 0)
+        )
+      );
+      const computedSiteId = siteIds.length === 1 ? siteIds[0] : 0;
+
+      // Collect indent items in FIFO: indentDate asc, then indentId asc, then indentItemId asc
+      const fifoIndentItems: any[] = [];
+      for (const ind of cleanIndents) {
+        const itemsArr: any[] = Array.isArray(ind.indentItems) ? ind.indentItems : [];
+        for (const it of itemsArr) {
+          fifoIndentItems.push({
+            indentId: Number(ind.id),
+            indentDate: ind.indentDate,
+            deliveryDate: ind.deliveryDate,
+            siteId: Number(ind.siteId ?? ind.site?.id ?? 0),
+            ...it,
+          });
+        }
+      }
+      fifoIndentItems.sort((a, b) => {
+        const da = new Date(a.indentDate).getTime();
+        const db = new Date(b.indentDate).getTime();
+        if (da !== db) return da - db;
+        const ia = Number(a.indentId || 0);
+        const ib = Number(b.indentId || 0);
+        if (ia !== ib) return ia - ib;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+
+      const toNum = (v: any) => {
+        if (v === null || v === undefined || v === "") return 0;
+        const n = typeof v === "string" ? parseFloat(v) : Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      // Compute remaining per indent item based on approved2Qty cap
+      const remainingByIndentItemId = new Map<number, number>();
+      for (const it of fifoIndentItems) {
+        const cap = toNum(it?.approved2Qty);
+        const already = Array.isArray(it?.indentItemPOs)
+          ? it.indentItemPOs.reduce((s: number, x: any) => s + toNum(x?.orderedQty), 0)
+          : 0;
+        const remaining = Math.max(0, cap - already);
+        remainingByIndentItemId.set(Number(it.id), remaining);
+      }
+
+      // Merge into PO rows by itemId, but keep allocations per itemId for FIFO split on submit
+      const allocationsByItemId: Record<number, Array<{ indentItemId: number; qty: number }>> = {};
+      const mergedQtyByItemId = new Map<number, number>();
+      const remarkByItemId = new Map<number, string>();
+      const sourcesCountByItemId = new Map<number, number>();
+
+      for (const it of fifoIndentItems) {
+        const itemId = Number(it?.itemId || 0);
+        const indentItemId = Number(it?.id || 0);
+        if (!itemId || !indentItemId) continue;
+
+        const remaining = Number(remainingByIndentItemId.get(indentItemId) || 0);
+        if (!(remaining > 0)) continue;
+
+        if (!allocationsByItemId[itemId]) allocationsByItemId[itemId] = [];
+        allocationsByItemId[itemId].push({ indentItemId, qty: remaining });
+
+        sourcesCountByItemId.set(itemId, (sourcesCountByItemId.get(itemId) || 0) + 1);
+
+        mergedQtyByItemId.set(itemId, (mergedQtyByItemId.get(itemId) || 0) + remaining);
+        if (!remarkByItemId.has(itemId)) {
+          remarkByItemId.set(itemId, String(it?.remark || ""));
+        }
+      }
+
+      const mapped = Array.from(mergedQtyByItemId.entries()).map(([itemId, qty]) => {
+        const sourcesCount = sourcesCountByItemId.get(itemId) || 0;
+        const mergedFromMultipleIndents = resolvedIndentIds.length > 1 && sourcesCount > 1;
         return {
-          itemId: Number((it as any).itemId || 0),
-          remark: (it as any).remark || "",
+          itemId,
+          remark: mergedFromMultipleIndents ? "" : remarkByItemId.get(itemId) || "",
           qty,
           rate: undefined,
           discountPercent: undefined,
@@ -548,10 +629,11 @@ export function PurchaseOrderForm({
           sgstPercent: undefined,
           igstPercent: undefined,
           amount: 0,
-          indentItemId: Number((it as any).id || 0) || undefined,
           fromIndent: true,
         } as any;
       });
+
+      setIndentAllocationsByItemId(allocationsByItemId);
 
       // Always ensure site is set if different/missing
       const currentSite = Number(form.getValues("siteId") || 0);
@@ -564,15 +646,18 @@ export function PurchaseOrderForm({
         void form.trigger("siteId");
       }
 
-      // Prefill delivery date from indent if missing
-      const currentDeliveryDate = String(form.getValues("deliveryDate") || "");
-      if (!currentDeliveryDate && computedDeliveryDate) {
-        form.setValue("deliveryDate", computedDeliveryDate as any, {
-          shouldDirty: true,
-          shouldTouch: true,
-          shouldValidate: true,
-        });
-        void form.trigger("deliveryDate");
+      // Prefill delivery date only for single-indent PO (multi-indent can have conflicting delivery dates)
+      if (resolvedIndentIds.length === 1) {
+        const computedDeliveryDate = formatDateField(cleanIndents?.[0]?.deliveryDate, undefined);
+        const currentDeliveryDate = String(form.getValues("deliveryDate") || "");
+        if (!currentDeliveryDate && computedDeliveryDate) {
+          form.setValue("deliveryDate", computedDeliveryDate as any, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+          });
+          void form.trigger("deliveryDate");
+        }
       }
 
       // Prefill items unconditionally once when indent data is ready
@@ -583,11 +668,12 @@ export function PurchaseOrderForm({
     } catch (e) {
       // ignore prefill errors
     }
-  }, [indentId, mode, indentData, prefilledFromIndent, form, replace]);
+  }, [mode, resolvedIndentIds, indentData, indentsBulkData, prefilledFromIndent, form, replace]);
 
   // Fallback: if site is still 0 after mount and indent is known, set it
   useEffect(() => {
-    if (!indentId || !indentData) return;
+    if (resolvedIndentIds.length !== 1) return;
+    if (!indentData) return;
     try {
       const raw = (indentData as any).data ?? indentData;
       if (!raw) return;
@@ -602,7 +688,7 @@ export function PurchaseOrderForm({
         void form.trigger("siteId");
       }
     } catch {}
-  }, [indentId, indentData, form]);
+  }, [resolvedIndentIds.length, indentData, form]);
 
   // useEffect(() => {
   //   if (isApprovalMode && typeof defaultValues.poStatus !== "undefined") {
@@ -657,6 +743,8 @@ export function PurchaseOrderForm({
   const siteDeliveryAddresses = siteDetailData?.siteDeliveryAddresses ?? [];
   const paymentTerms = paymentTermsData?.data ?? [];
   const itemOptions = itemsData?.data ?? [];
+
+  const isFromIndent = resolvedIndentIds.length > 0;
 
   // Closing stock for items at selected site
   const selectedItemIds: number[] = (
@@ -998,6 +1086,12 @@ export function PurchaseOrderForm({
         purchaseOrderItems: normalizedItems,
       };
 
+      // If this PO was generated from indents, attach the selected indentIds and per-item FIFO allocations
+      if (mode === "create" && resolvedIndentIds.length > 0) {
+        payload.indentIds = resolvedIndentIds;
+        payload.indentAllocationsByItemId = indentAllocationsByItemId;
+      }
+
       // Add statusAction for approval modes
       if (isApproval1) {
         payload.statusAction = "approve1";
@@ -1295,7 +1389,7 @@ export function PurchaseOrderForm({
                       form.setValue("siteDeliveryAddressId", 0);
                     }}
                     placeholder="Select Site"
-                    disabled={isApprovalMode || Boolean(indentId)}
+                    disabled={isApprovalMode || Boolean(resolvedIndentIds?.length)}
                   >
                     <AppSelect.Item key="site-none" value="__none">
                       Select Site
