@@ -151,7 +151,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             itemId: true,
-            purchaseOrderDetailId: true,
             item: {
               select: {
                 id: true,
@@ -163,6 +162,13 @@ export async function GET(req: NextRequest) {
             approved1Qty: true,
             approved2Qty: true,
             remark: true,
+            indentItemPOs: {
+              select: {
+                id: true,
+                orderedQty: true,
+                purchaseOrderDetailId: true,
+              },
+            },
           },
         },
       },

@@ -153,7 +153,6 @@ export async function GET(
       where: { id },
       select: {
         id: true,
-        indentId: true,
         purchaseOrderNo: true,
         purchaseOrderDate: true,
         deliveryDate: true,
@@ -258,6 +257,17 @@ export async function GET(
             email: true,
             gstNumber: true,
             state: true,
+          },
+        },
+        purchaseOrderIndent: {
+          select: {
+            indent: {
+              select: {
+                id: true,
+                indentNo: true,
+                indentDate: true,
+              },
+            },
           },
         },
         siteDeliveryAddress: {

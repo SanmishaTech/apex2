@@ -1258,107 +1258,6 @@ model CashbookBudgetItem {
   @@map("cashbook_budget_items")
 }
 
-enum IndentApprovalStatus {
-  DRAFT
-  APPROVED_LEVEL_1
-  APPROVED_LEVEL_2
-  COMPLETED
-  SUSPENDED
-}
-
-enum POApprovalStatus {
-  DRAFT
-  APPROVED_LEVEL_1
-  APPROVED_LEVEL_2
-  COMPLETED
-  SUSPENDED
-}
-
-enum POStatus {
-  ORDER_PLACED
-  IN_TRANSIT
-  RECEIVED
-  HOLD
-  OPEN
-}
-
-enum IndentPriority {
-  LOW
-  MEDIUM
-  HIGH
-}
-// Indent master data for material requisitions
-model Indent {
-  id             Int                  @id @default(autoincrement())
-  siteId         Int
-  site           Site                @relation(fields: [siteId], references: [id], onDelete:Restrict)
-  indentNo       String              @unique // auto-generated like IND-00001
-  indentDate     DateTime
-  deliveryDate   DateTime
-  remarks        String?              @db.Text
-  // Approval workflow
-  priority IndentPriority @default(LOW)
-  approvalStatus IndentApprovalStatus @default(DRAFT)
-  approved1ById  Int?
-  approved1By    User?                @relation("IndentApproved1By", fields: [approved1ById], references: [id])
-  approved1At    DateTime?
-  approved2ById  Int?
-  approved2By    User?                @relation("IndentApproved2By", fields: [approved2ById], references: [id])
-  approved2At    DateTime?
- 
-  completedById  Int?
-  completedBy    User?                @relation("IndentCompletedBy", fields: [completedById], references: [id])
-  completedAt    DateTime?
-  // Suspension (orthogonal to approval)
-  suspended      Boolean              @default(false)
-  suspendedById  Int?
-  suspendedBy    User?                @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
-  suspendedAt    DateTime?
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-
-  createdBy User @relation("IndentCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("IndentUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-
-  // Relations
-  indentItems IndentItem[]
-  purchaseOrders PurchaseOrder[]
-  workOrders WorkOrder[]
-  
-
-  @@index([indentNo])
-  @@index([siteId])
-  @@index([indentDate])
-  @@index([priority])
-  @@index([approvalStatus])
-  @@index([suspended])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("indents")
-}
-
-// Indent line items for detailed material requirements
-model IndentItem {
-  id           Int      @id @default(autoincrement())
-  indentId     Int
-  indent       Indent   @relation(fields: [indentId], references: [id], onDelete: Restrict)
-  itemId       Int
-  item         Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  purchaseOrderDetailId Int? @unique
-  purchaseOrderDetail PurchaseOrderDetail? @relation( fields: [purchaseOrderDetailId], references: [id],onDelete: Restrict)
-  remark       String?  @db.Text
-  indentQty    Decimal?  @db.Decimal(12, 4)
-  approved1Qty    Decimal?  @db.Decimal(12, 4)
-  approved2Qty    Decimal?  @db.Decimal(12, 4)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([indentId])
-  @@index([itemId])
-  @@map("indent_items")
-}
 
 
 
@@ -1852,10 +1751,110 @@ model SiteDeliveryAddress {
   @@map("site_delivery_addresses")
 }
 
+enum IndentApprovalStatus {
+  DRAFT
+  APPROVED_LEVEL_1
+  APPROVED_LEVEL_2
+  COMPLETED
+  SUSPENDED
+}
+
+enum POApprovalStatus {
+  DRAFT
+  APPROVED_LEVEL_1
+  APPROVED_LEVEL_2
+  COMPLETED
+  SUSPENDED
+}
+
+enum POStatus {
+  ORDER_PLACED
+  IN_TRANSIT
+  RECEIVED
+  HOLD
+  OPEN
+}
+
+enum IndentPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+// Indent master data for material requisitions
+model Indent {
+  id             Int                  @id @default(autoincrement())
+  siteId         Int
+  site           Site                @relation(fields: [siteId], references: [id], onDelete:Restrict)
+  indentNo       String              @unique // auto-generated like IND-00001
+  indentDate     DateTime
+  deliveryDate   DateTime
+  remarks        String?              @db.Text
+  // Approval workflow
+  priority IndentPriority @default(LOW)
+  approvalStatus IndentApprovalStatus @default(DRAFT)
+  approved1ById  Int?
+  approved1By    User?                @relation("IndentApproved1By", fields: [approved1ById], references: [id])
+  approved1At    DateTime?
+  approved2ById  Int?
+  approved2By    User?                @relation("IndentApproved2By", fields: [approved2ById], references: [id])
+  approved2At    DateTime?
+ 
+  completedById  Int?
+  completedBy    User?                @relation("IndentCompletedBy", fields: [completedById], references: [id])
+  completedAt    DateTime?
+  // Suspension (orthogonal to approval)
+  suspended      Boolean              @default(false)
+  suspendedById  Int?
+  suspendedBy    User?                @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
+  suspendedAt    DateTime?
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedById  Int
+  updatedAt    DateTime @updatedAt
+
+  createdBy User @relation("IndentCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("IndentUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  // Relations
+  indentItems IndentItem[]
+  workOrders WorkOrder[]
+  purchaseOrderIndent PurchaseOrderIndent[]
+
+  
+  @@index([indentNo])
+  @@index([siteId])
+  @@index([indentDate])
+  @@index([priority])
+  @@index([approvalStatus])
+  @@index([suspended])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("indents")
+}
+
+// Indent line items for detailed material requirements
+model IndentItem {
+  id           Int      @id @default(autoincrement())
+  indentId     Int
+  indent       Indent   @relation(fields: [indentId], references: [id], onDelete: Restrict)
+  itemId       Int
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  remark       String?  @db.Text
+  indentQty    Decimal?  @db.Decimal(12, 4)
+  approved1Qty    Decimal?  @db.Decimal(12, 4)
+  approved2Qty    Decimal?  @db.Decimal(12, 4)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+indentItemPOs IndentItemPO[]
+
+  @@index([indentId])
+  @@index([itemId])
+  @@map("indent_items")
+}
+
+
 model PurchaseOrder {
   id                      Int       @id @default(autoincrement())
-  indentId                Int?
-  indent    Indent?                @relation( fields: [indentId], references: [id], onDelete:Restrict)
   siteId                  Int
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
   siteDeliveryAddressId                  Int
@@ -1867,10 +1866,10 @@ model PurchaseOrder {
   vendorId                Int
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
   purchaseOrderNo         String   @db.VarChar(30)  @unique
-  purchaseOrderDate       DateTime 
+  purchaseOrderDate       DateTime    @db.Date() 
   quotationNo             String?   @db.VarChar(100)
   quotationDate           DateTime?   @db.Date() 
-  deliveryDate            DateTime 
+  deliveryDate            DateTime    @db.Date() 
   transport               String?   @db.VarChar(100)
   note                    String?   @db.Text
   terms                   String?   @db.Text
@@ -1922,9 +1921,9 @@ model PurchaseOrder {
   purchaseOrderDetails PurchaseOrderDetail[] 
   inwardDeliveryChallan InwardDeliveryChallan?
   poPaymentTerms POPaymentTerm[]
+  purchaseOrderIndent PurchaseOrderIndent[]
 
 @@index([siteId])
-@@index([indentId])
 @@index([vendorId])
 @@index([billingAddressId])
 @@index([paymentTermId])
@@ -1969,8 +1968,8 @@ model PurchaseOrderDetail {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  indentItems IndentItem?
   InwardDeliveryChallanDetail InwardDeliveryChallanDetail?
+indentItemPOs IndentItemPO[]
 
 @@index([purchaseOrderId])
 @@index([itemId])
@@ -1978,6 +1977,36 @@ model PurchaseOrderDetail {
   @@map("purchase_order_details")
 }
 
+model PurchaseOrderIndent {
+  id             Int @id @default(autoincrement())
+  purchaseOrderId Int
+  indentId        Int
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  indent          Indent        @relation(fields: [indentId], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([purchaseOrderId, indentId])
+  @@index([indentId])
+  @@index([purchaseOrderId])
+  @@map("purchase_order_indents")
+}
+
+model IndentItemPO {
+  id                    Int      @id @default(autoincrement())
+  indentItemId          Int
+  purchaseOrderDetailId Int
+  orderedQty            Decimal  @db.Decimal(12, 4)
+
+  indentItem            IndentItem          @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
+  purchaseOrderDetail   PurchaseOrderDetail @relation(fields: [purchaseOrderDetailId], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([indentItemId, purchaseOrderDetailId])
+  @@index([indentItemId])
+  @@index([purchaseOrderDetailId])
+  @@map("indent_item_pos")
+}
 
 model RentDocument {
   id           Int      @id @default(autoincrement())

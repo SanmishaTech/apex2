@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
 import { BadRequest, NotFound } from "@/lib/api-response";
@@ -90,9 +90,13 @@ export async function GET(
       gstReverseAmount: true,
       poStatus: true,
       approvalStatus: true,
-      indent: {
+      purchaseOrderIndent: {
         select: {
-          indentNo: true,
+          indent: {
+            select: {
+              indentNo: true,
+            },
+          },
         },
       },
       site: {
@@ -219,7 +223,21 @@ export async function GET(
     },
   });
 
-  if (!purchaseOrder) return NotFound("Purchase order not found");
+  if (!purchaseOrder) {
+    return NextResponse.json(
+      { error: "Purchase order not found" },
+      { status: 404 }
+    );
+  }
+
+  const indentNos = Array.from(
+    new Set(
+      ((purchaseOrder as any).purchaseOrderIndent || [])
+        .map((x: any) => x?.indent?.indentNo)
+        .filter((v: any) => typeof v === "string" && v.trim() !== "")
+    )
+  );
+  const indentNoLabel = indentNos.length > 0 ? indentNos.join(", ") : "";
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -328,11 +346,11 @@ export async function GET(
 
   const poHeaderLines = [
     { text: "INLAND PURCHASE ORDER", bold: true },
-    { text: `P O Number : ${safeText(purchaseOrder.purchaseOrderNo)}` },
+    { text: `Purchase Order No : ${safeText(purchaseOrder.purchaseOrderNo)}` },
     { text: `Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
     { text: `Quotation No : ${safeText(purchaseOrder.quotationNo)}` },
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
-    { text: `Indent No : ${safeText(purchaseOrder.indent?.indentNo)}` },
+    { text: `Indent No : ${safeText(indentNoLabel)}` },
   ];
   drawLines(doc, poHeaderLines, topBoxX + halfWidth + 2, topBoxY + 6);
 

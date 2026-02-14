@@ -49,6 +49,7 @@ const purchaseOrderItemSchema = z.object({
 
 const createSchema = z.object({
   indentId: z.coerce.number().optional(),
+  indentIds: z.array(z.coerce.number()).optional().default([]),
   siteId: z.coerce.number().min(1, "Site is required"),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
@@ -111,6 +112,8 @@ const createSchema = z.object({
   purchaseOrderItems: z
     .array(purchaseOrderItemSchema)
     .min(1, "At least one item is required"),
+  // optional client hint used by UI; server does not trust it for allocation
+  indentAllocationsByItemId: z.any().optional(),
 });
 
 const COMPANY_CODE = "DCTPL";
@@ -448,7 +451,6 @@ export async function POST(req: NextRequest) {
         approvalStatus: "DRAFT",
         createdById: auth.user.id,
         updatedById: auth.user.id,
-        indentId: parsedData.indentId || null,
       };
 
       const purchaseOrder = await tx.purchaseOrder.create({
@@ -569,51 +571,132 @@ export async function POST(req: NextRequest) {
         })
       );
 
-      // If this PO is created from an indent, update the indent items with purchase order detail IDs
-      if (parsedData.indentId) {
-        const linkedDetailIds = new Set<number>();
-        const itemsWithIndentReference = parsedData.purchaseOrderItems
-          .map((item, index) => ({
-            indentItemId: item.indentItemId,
-            detail: createdPODetails[index],
-          }))
-          .filter(
-            ({ indentItemId }) =>
-              typeof indentItemId === "number" && Number.isFinite(indentItemId)
-          ) as {
-          indentItemId: number;
-          detail: (typeof createdPODetails)[number];
-        }[];
+      // Handle indent links + FIFO allocation into IndentItemPO
+      const inputIndentIds = Array.from(
+        new Set(
+          [parsedData.indentId, ...(parsedData.indentIds || [])]
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      );
 
-        if (itemsWithIndentReference.length > 0) {
-          const indentItemIds = itemsWithIndentReference.map(
-            ({ indentItemId }) => indentItemId
-          );
+      if (inputIndentIds.length > 0) {
+        // Validate indents belong to the same site as PO and are eligible
+        const indents = await tx.indent.findMany({
+          where: { id: { in: inputIndentIds } },
+          select: {
+            id: true,
+            siteId: true,
+            approvalStatus: true,
+            suspended: true,
+          },
+        });
 
-          const availableIndentItems = await tx.indentItem.findMany({
-            where: {
-              id: { in: indentItemIds },
-              indentId: parsedData.indentId,
-            },
-            select: { id: true },
-          });
-
-          const validIndentItemIds = new Set(
-            availableIndentItems.map((item) => item.id)
-          );
-
-          for (const { indentItemId, detail } of itemsWithIndentReference) {
-            if (validIndentItemIds.has(indentItemId)) {
-              await tx.indentItem.update({
-                where: { id: indentItemId },
-                data: { purchaseOrderDetailId: detail.id },
-              });
-              linkedDetailIds.add(detail.id);
-            }
-          }
+        const foundIds = new Set(indents.map((i) => i.id));
+        const missingIds = inputIndentIds.filter((id) => !foundIds.has(id));
+        if (missingIds.length > 0) {
+          throw new Error(`BAD_REQUEST: Invalid indents: ${missingIds.join(", ")}`);
         }
 
-        
+        const bad = indents.filter(
+          (i) =>
+            i.siteId !== parsedData.siteId ||
+            i.suspended ||
+            !(
+              i.approvalStatus === "APPROVED_LEVEL_2" ||
+              i.approvalStatus === "COMPLETED"
+            )
+        );
+        if (bad.length > 0) {
+          throw new Error(
+            "BAD_REQUEST: Selected indents must be from same site and approved (level 2) and not suspended"
+          );
+        }
+
+        // Link PO <-> indents
+        await tx.purchaseOrderIndent.createMany({
+          data: inputIndentIds.map((indentId) => ({
+            purchaseOrderId: poId,
+            indentId,
+          })),
+          skipDuplicates: true,
+        });
+
+        // Allocate each PO line qty across indent items FIFO, and persist allocations
+        const toNum = (v: any) => {
+          const n = typeof v === "string" ? parseFloat(v) : Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        for (let i = 0; i < parsedData.purchaseOrderItems.length; i++) {
+          const poItem = parsedData.purchaseOrderItems[i];
+          const detail = createdPODetails[i];
+
+          const itemId = Number(poItem.itemId);
+          const requestedQty = toNum(poItem.qty);
+          let need = requestedQty;
+          if (!(need > 0)) continue;
+
+          const candidates = await tx.indentItem.findMany({
+            where: {
+              indentId: { in: inputIndentIds },
+              itemId,
+            },
+            select: {
+              id: true,
+              approved2Qty: true,
+              item: { select: { itemCode: true, item: true } },
+              indent: { select: { indentDate: true, id: true } },
+              indentItemPOs: { select: { orderedQty: true } },
+            },
+            orderBy: [
+              { indent: { indentDate: "asc" } },
+              { indentId: "asc" },
+              { id: "asc" },
+            ],
+          });
+
+          // If the item is not present in any selected indent(s), simply do not allocate.
+          // The PO can still contain extra/non-indent items.
+          if (!candidates || candidates.length === 0) {
+            continue;
+          }
+
+          // Compute total remaining across selected indents (for better error messages)
+          let totalRemaining = 0;
+          for (const c of candidates) {
+            const cap = toNum(c.approved2Qty);
+            const already = (c.indentItemPOs || []).reduce(
+              (s, x) => s + toNum(x.orderedQty),
+              0
+            );
+            totalRemaining += Math.max(0, cap - already);
+          }
+
+          for (const c of candidates) {
+            if (!(need > 0)) break;
+            const cap = toNum(c.approved2Qty);
+            const already = (c.indentItemPOs || []).reduce(
+              (s, x) => s + toNum(x.orderedQty),
+              0
+            );
+            const remaining = Math.max(0, cap - already);
+            if (!(remaining > 0)) continue;
+
+            const take = Math.min(remaining, need);
+            await tx.indentItemPO.create({
+              data: {
+                indentItemId: c.id,
+                purchaseOrderDetailId: detail.id,
+                orderedQty: take as any,
+              },
+            });
+            need -= take;
+          }
+
+          // If requestedQty exceeds remaining approved2Qty across selected indents, allocate only
+          // up to remaining (FIFO). Any leftover qty stays unallocated and does not error.
+        }
       }
 
       // Fetch the created PO with items
