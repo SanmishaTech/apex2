@@ -56,7 +56,7 @@ export default function WageSheetPage() {
     }
   }, [search]);
 
-  const sitesQuery = "/api/sites";
+  const sitesQuery = "/api/sites/options";
   const sites = useSWR(sitesQuery, fetcher);
 
   const query = useMemo(() => {

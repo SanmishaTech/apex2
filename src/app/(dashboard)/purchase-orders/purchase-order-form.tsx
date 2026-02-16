@@ -185,6 +185,7 @@ const purchaseOrderItemSchema = z.object({
     )
     .transform((val) => parseInt(val)),
   remark: z.string().optional(),
+  fromIndent: z.coerce.boolean().optional().default(false),
   qty: twoDpNumber("Quantity", true, 0.01),
   approved1Qty: z
     .preprocess(
@@ -458,12 +459,19 @@ export function PurchaseOrderForm({
       pfCharges: initial?.pfCharges ?? null,
       gstReverseStatus: initial?.gstReverseStatus ?? null,
       gstReverseAmount: initial?.gstReverseAmount ?? null,
-      purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => ({
-        id: (item as any).id,
-        itemId: item.itemId ?? 0,
-        remark: item.remark ?? "",
-        qty: toNum((item as any).qty),
-        lockItem: indentLinkedEdit,
+      purchaseOrderItems: initial?.purchaseOrderItems?.map((item) => {
+        const fromIndent = Array.isArray((item as any)?.indentItemPOs)
+          ? ((item as any).indentItemPOs?.length || 0) > 0
+          : false;
+        return {
+          id: (item as any).id,
+          itemId: item.itemId ?? 0,
+          remark: item.remark ?? "",
+          qty: toNum((item as any).qty),
+          // Lock (disable item selection) only for rows that are actually linked to indent.
+          // This keeps manually removed+readded rows editable.
+          lockItem: indentLinkedEdit ? fromIndent : false,
+          fromIndent,
         // normalize approved quantities: keep as numbers or undefined
         approved1Qty: isApprovalMode
           ? (toNum((item as any).approved1Qty) ?? toNum((item as any).qty) ?? undefined)
@@ -479,8 +487,9 @@ export function PurchaseOrderForm({
         cgstPercent: toNum((item as any).cgstPercent),
         sgstPercent: toNum((item as any).sgstPercent),
         igstPercent: toNum((item as any).igstPercent),
-        amount: 0,
-      })) || [
+          amount: 0,
+        };
+      }) || [
         {
           itemId: 0,
           qty: undefined,
@@ -491,6 +500,7 @@ export function PurchaseOrderForm({
           igstPercent: undefined,
           amount: 0,
           lockItem: false,
+          fromIndent: false,
         },
       ],
     };
@@ -975,6 +985,9 @@ export function PurchaseOrderForm({
         const approvedQty = metrics.qty;
 
         const baseItem = {
+          ...(isEdit
+            ? { id: (originalItem as any)?.id }
+            : {}),
           itemId: Number(item.itemId),
           remark: item.remark?.trim() ? item.remark.trim() : null,
           qty: isApprovalMode ? approvedQty : metrics.qty,
@@ -988,6 +1001,7 @@ export function PurchaseOrderForm({
           sgstAmt: metrics.sgstAmt,
           igstAmt: metrics.igstAmt,
           amount: metrics.amount,
+          fromIndent: Boolean((item as any)?.fromIndent),
           indentItemId:
             (item as any)?.indentItemId &&
             Number((item as any).indentItemId) > 0

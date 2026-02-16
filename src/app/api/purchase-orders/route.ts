@@ -11,6 +11,7 @@ import { ROLES } from "@/config/roles";
 const purchaseOrderItemSchema = z.object({
   itemId: z.coerce.number().min(1, "Item is required"),
   remark: z.string().nullable().optional(),
+  fromIndent: z.coerce.boolean().optional().default(false),
   qty: z.coerce
     .number()
     .min(0.0001, "Quantity must be greater than 0")
@@ -613,24 +614,36 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Link PO <-> indents
-        await tx.purchaseOrderIndent.createMany({
-          data: inputIndentIds.map((indentId) => ({
-            purchaseOrderId: poId,
-            indentId,
-          })),
-          skipDuplicates: true,
-        });
-
         // Allocate each PO line qty across indent items FIFO, and persist allocations
         const toNum = (v: any) => {
           const n = typeof v === "string" ? parseFloat(v) : Number(v);
           return Number.isFinite(n) ? n : 0;
         };
 
+        const hasFromIndentLine = (parsedData.purchaseOrderItems || []).some(
+          (x: any) => x?.fromIndent === true
+        );
+
+        // If at least one line is genuinely retained from indent, keep the PO linked to *all*
+        // selected indents so later edits can allocate from them (even if not used initially).
+        if (hasFromIndentLine) {
+          await tx.purchaseOrderIndent.createMany({
+            data: inputIndentIds.map((indentId) => ({
+              purchaseOrderId: poId,
+              indentId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
         for (let i = 0; i < parsedData.purchaseOrderItems.length; i++) {
           const poItem = parsedData.purchaseOrderItems[i];
           const detail = createdPODetails[i];
+
+          // Only allocate against indents for rows explicitly retained from indent prefill.
+          if (!poItem?.fromIndent) {
+            continue;
+          }
 
           const itemId = Number(poItem.itemId);
           const requestedQty = toNum(poItem.qty);
@@ -697,6 +710,7 @@ export async function POST(req: NextRequest) {
           // If requestedQty exceeds remaining approved2Qty across selected indents, allocate only
           // up to remaining (FIFO). Any leftover qty stays unallocated and does not error.
         }
+
       }
 
       // Fetch the created PO with items
