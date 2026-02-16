@@ -15,6 +15,7 @@ const purchaseOrderItemSchema = z.object({
   id: z.number().optional(), // For existing items
   itemId: z.coerce.number().min(1, "Item is required"),
   remark: z.string().nullable().optional(),
+  fromIndent: z.coerce.boolean().optional().default(false),
   qty: z.coerce
     .number()
     .min(0.0001, "Quantity must be greater than 0")
@@ -327,6 +328,12 @@ export async function GET(
                     unitName: true,
                   },
                 },
+              },
+            },
+            indentItemPOs: {
+              select: {
+                indentItemId: true,
+                orderedQty: true,
               },
             },
             remark: true,
@@ -764,6 +771,17 @@ export async function PATCH(
             orderBy: { serialNo: "asc" },
           });
 
+          // Determine which PO detail rows should allocate against indents based on the incoming payload.
+          // If a row is not explicitly marked fromIndent, it will NOT be allocated, even if itemId matches.
+          const fromIndentByDetailId = new Map<number, boolean>();
+          if (Array.isArray(purchaseOrderItems)) {
+            for (const it of purchaseOrderItems as any[]) {
+              const detailId = Number((it as any)?.id);
+              if (!Number.isFinite(detailId) || detailId <= 0) continue;
+              fromIndentByDetailId.set(detailId, Boolean((it as any)?.fromIndent));
+            }
+          }
+
           const detailIds = currentDetails.map((d) => d.id);
           if (detailIds.length > 0) {
             await tx.indentItemPO.deleteMany({
@@ -777,6 +795,8 @@ export async function PATCH(
           };
 
           for (const detail of currentDetails) {
+            const shouldAllocate = fromIndentByDetailId.get(detail.id) === true;
+            if (!shouldAllocate) continue;
             const itemId = Number(detail.itemId);
             let need = toNum(detail.qty);
             if (!(need > 0)) continue;
@@ -847,18 +867,24 @@ export async function PATCH(
             )
           );
 
-          // Replace links to match used indents; if none, PO becomes a normal PO
-          await tx.purchaseOrderIndent.deleteMany({
-            where: { purchaseOrderId: id },
-          });
-          if (usedIndentIds.length > 0) {
-            await tx.purchaseOrderIndent.createMany({
-              data: usedIndentIds.map((indentId) => ({
-                purchaseOrderId: id,
-                indentId,
-              })),
-              skipDuplicates: true,
+          // IMPORTANT:
+          // If the user is still keeping at least one indent-sourced line (fromIndent=true),
+          // do NOT shrink the PO->indent links down to only "currently used" indents.
+          // Otherwise, a later edit that increases qty cannot allocate from the other originally
+          // selected indents because the link would have been deleted.
+          const hasAnyFromIndentLine = Array.from(fromIndentByDetailId.values()).some(
+            (v) => v === true
+          );
+
+          if (!hasAnyFromIndentLine) {
+            // No indent rows retained anymore => PO becomes a normal PO.
+            await tx.purchaseOrderIndent.deleteMany({
+              where: { purchaseOrderId: id },
             });
+          } else {
+            // Keep existing links as-is.
+            // (We still compute usedIndentIds above for potential future reporting/debugging.)
+            void usedIndentIds;
           }
         }
       } else if (autoApproved2) {

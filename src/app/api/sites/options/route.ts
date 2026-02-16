@@ -12,7 +12,6 @@ export async function GET(req: NextRequest) {
   try {
     const where: any = {};
     if ((auth as any).user?.role !== ROLES.ADMIN) {
-      where.status = "ONGOING";
       const employee = await prisma.employee.findFirst({
         where: { userId: (auth as any).user?.id },
         select: { siteEmployees: { select: { siteId: true } } },

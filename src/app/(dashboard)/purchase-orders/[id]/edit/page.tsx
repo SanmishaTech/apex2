@@ -116,6 +116,7 @@ export default function EditPurchaseOrderPage() {
         igstAmt: detail.igstAmt,
         amount: detail.amount,
         indentItemId: detail.indentItemId,
+        indentItemPOs: detail.indentItemPOs,
       })),
     };
   }, [id, purchaseOrder]);
