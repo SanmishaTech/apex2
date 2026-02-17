@@ -1026,27 +1026,27 @@ export async function GET(
   doc.setFont("helvetica", "bold");
   doc.text("Authorised Signatory", padX, signatureBoxY + 8);
 
-  const totalPages = doc.getNumberOfPages();
-  doc.setFontSize(smallFontSize);
-  doc.setFont("helvetica", "bold");
-  const footerLeft = "DCTPL";
-  const footerCenter = `Generated on ${format(
-    new Date(),
-    "dd/MM/yyyy hh:mm a"
-  )}`;
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    // Draw a horizontal line below the outer border and place footer outside the box
-    const lineY = pageHeight - margin - 4; // lift footer for better bottom margin
-    doc.setDrawColor(0);
-    doc.line(margin, lineY, pageWidth - margin, lineY);
-    const y = lineY + 4; // footer below the line
-    doc.text(footerLeft, padX, y);
-    doc.text(footerCenter, pageWidth / 2, y, { align: "center" });
-    doc.text(`Page ${i}/${totalPages}`, pageWidth - padX, y, {
-      align: "right",
-    });
-  }
+  // const totalPages = doc.getNumberOfPages();
+  // doc.setFontSize(smallFontSize);
+  // doc.setFont("helvetica", "bold");
+  // const footerLeft = "DCTPL";
+  // const footerCenter = `Generated on ${format(
+  //   new Date(),
+  //   "dd/MM/yyyy hh:mm a"
+  // )}`;
+  // for (let i = 1; i <= totalPages; i++) {
+  //   doc.setPage(i);
+  //   // Draw a horizontal line below the outer border and place footer outside the box
+  //   const lineY = pageHeight - margin - 4; // lift footer for better bottom margin
+  //   doc.setDrawColor(0);
+  //   doc.line(margin, lineY, pageWidth - margin, lineY);
+  //   const y = lineY + 4; // footer below the line
+  //   doc.text(footerLeft, padX, y);
+  //   doc.text(footerCenter, pageWidth / 2, y, { align: "center" });
+  //   doc.text(`Page ${i}/${totalPages}`, pageWidth - padX, y, {
+  //     align: "right",
+  //   });
+  // }
 
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 
