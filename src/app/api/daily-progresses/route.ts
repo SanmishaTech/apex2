@@ -148,6 +148,16 @@ export async function GET(req: NextRequest) {
       amount: true,
       site: { select: { id: true, site: true } },
       boq: { select: { id: true, boqNo: true } },
+      dailyProgressDetails: {
+        select: {
+          doneQty: true,
+          boqItems: {
+            select: {
+              rate: true,
+            },
+          },
+        },
+      },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
       createdAt: true,
@@ -155,7 +165,31 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return Success(result);
+  const dataWithTotals = (result.data || []).map((dp: any) => {
+    const details = Array.isArray(dp.dailyProgressDetails)
+      ? dp.dailyProgressDetails
+      : [];
+    const totalQty = details.reduce(
+      (s: number, d: any) => s + Number(d?.doneQty || 0),
+      0
+    );
+    const totalAmount = details.reduce((s: number, d: any) => {
+      const qty = Number(d?.doneQty || 0);
+      const rate = Number(d?.boqItems?.rate || 0);
+      return s + qty * rate;
+    }, 0);
+    const { dailyProgressDetails, ...rest } = dp;
+    return {
+      ...rest,
+      totalQty,
+      totalAmount,
+    };
+  });
+
+  return Success({
+    ...result,
+    data: dataWithTotals,
+  });
 }
 
 // POST /api/daily-progresses

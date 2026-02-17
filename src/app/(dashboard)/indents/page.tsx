@@ -44,6 +44,95 @@ import { formatDateForInput } from "@/lib/locales";
 export default function IndentsPage() {
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("indents-list");
+
+  function ExpandedIndentDetails({ indentId }: { indentId: number }) {
+    const { data, error, isLoading } = useSWR<Indent>(
+      indentId ? `/api/indents/${indentId}` : null,
+      apiGet
+    );
+
+    if (isLoading) {
+      return <div className="text-sm text-muted-foreground">Loading details...</div>;
+    }
+
+    if (error || !data) {
+      return (
+        <div className="text-sm text-red-600">
+          {error instanceof Error ? error.message : "Failed to load details"}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-md border bg-background">
+          <div className="flex flex-col gap-2 border-b bg-muted/40 px-4 py-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+              <div className="font-semibold">
+                Indent No: <span className="font-mono">{data.indentNo || `#${data.id}`}</span>
+              </div>
+              <div className="text-muted-foreground">Indent Date: {formatDate(data.indentDate)}</div>
+              <div className="text-muted-foreground">Delivery Date: {formatDate(data.deliveryDate)}</div>
+              <div className="text-muted-foreground">Site: {data.site?.site || "—"}</div>
+            </div>
+          </div>
+
+          <div className="p-3">
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Item</th>
+                    <th className="px-3 py-2 text-left">Unit</th>
+                    <th className="px-3 py-2 text-right">Indent Qty</th>
+                    <th className="px-3 py-2 text-right">Approved 1</th>
+                    <th className="px-3 py-2 text-right">Approved 2</th>
+                    <th className="px-3 py-2 text-left">Remark</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.indentItems || []).length === 0 ? (
+                    <tr className="border-t dark:border-gray-700">
+                      <td
+                        colSpan={6}
+                        className="px-3 py-3 text-center text-muted-foreground"
+                      >
+                        No items
+                      </td>
+                    </tr>
+                  ) : (
+                    (data.indentItems || []).map((it, idx) => (
+                      <tr key={(it as any).id ?? idx} className="border-t dark:border-gray-700">
+                        <td className="px-3 py-2">
+                          <div className="whitespace-normal break-words">
+                            {it.item?.item || "—"}{" "}
+                            <span className="text-muted-foreground">({it.item?.itemCode || "—"})</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {it.item?.unit?.unitName || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {Number(it.indentQty || 0).toFixed(4)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {Number(it.approved1Qty || 0).toFixed(4)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {Number(it.approved2Qty || 0).toFixed(4)}
+                        </td>
+                        <td className="px-3 py-2">{it.remark || "—"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -282,10 +371,26 @@ export default function IndentsPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  const [expandedIndentIds, setExpandedIndentIds] = useState<Set<number>>(new Set());
+
   useEffect(() => {
     // When list changes (pagination/filter), drop selection
     setSelectedIds(new Set());
   }, [query]);
+
+  useEffect(() => {
+    // When list changes (pagination/filter), drop expanded rows
+    setExpandedIndentIds(new Set());
+  }, [query]);
+
+  function toggleExpandedIndent(id: number) {
+    setExpandedIndentIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
 
   const visibleRows = (data?.data || []) as Indent[];
 
@@ -366,6 +471,25 @@ export default function IndentsPage() {
   }
 
   const columns: Column<Indent>[] = [
+    {
+      key: "__expand",
+      header: "",
+      accessor: (indent) => (
+        <div className="flex items-center justify-center">
+          <AppButton
+            size="sm"
+            variant="secondary"
+            type="button"
+            onClick={() => toggleExpandedIndent(indent.id)}
+          >
+            {expandedIndentIds.has(indent.id) ? "Hide" : "Show"}
+          </AppButton>
+        </div>
+      ),
+      sortable: false,
+      className: "w-20",
+      cellClassName: "w-20",
+    },
     {
       key: "__select",
       header: (
@@ -838,7 +962,25 @@ export default function IndentsPage() {
                 loading={isLoading}
                 sort={sortState}
                 onSortChange={(s) => toggleSort(s.field)}
-                stickyColumns={1}
+                stickyColumns={2}
+                isRowExpanded={(row) =>
+                  expandedIndentIds.has((row as Indent).id)
+                }
+                renderExpandedRow={(row) => (
+                  <div className="rounded-md border bg-background p-4 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="text-sm font-medium text-muted-foreground">
+                        Details for Indent No:{" "}
+                        <span className="text-foreground font-mono">
+                          {(row as Indent).indentNo || `#${(row as Indent).id}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="border-l-4 border-primary/70 pl-4">
+                      <ExpandedIndentDetails indentId={(row as Indent).id} />
+                    </div>
+                  </div>
+                )}
                 renderRowActions={(indent) => {
                   const canAnyAction =
                     can(PERMISSIONS.EDIT_INDENTS) ||

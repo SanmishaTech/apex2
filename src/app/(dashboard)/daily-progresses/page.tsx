@@ -26,6 +26,8 @@ type DailyProgressListItem = {
   boqId: number;
   progressDate: string;
   amount: string | number | null;
+  totalQty?: number;
+  totalAmount?: number;
   createdBy: { id: number; name: string } | null;
   updatedBy: { id: number; name: string } | null;
   site: { id: number; site: string } | null;
@@ -129,10 +131,31 @@ export default function DailyProgressPage() {
       className: "whitespace-nowrap",
     },
     {
-      key: "amount",
-      header: "Amount",
-      sortable: true,
-      accessor: (r) => (r.amount != null ? String(r.amount) : "—"),
+      key: "totalQty",
+      header: "Total Qty",
+      sortable: false,
+      accessor: (r) => {
+        const qty =
+          typeof r.totalQty === "number" && Number.isFinite(r.totalQty)
+            ? r.totalQty
+            : r.amount != null
+              ? Number(r.amount)
+              : 0;
+        return <div className="font-mono text-right">{Number(qty || 0).toFixed(4)}</div>;
+      },
+      className: "text-right tabular-nums whitespace-nowrap",
+    },
+    {
+      key: "totalAmount",
+      header: "Total Amount",
+      sortable: false,
+      accessor: (r) => {
+        const amt =
+          typeof r.totalAmount === "number" && Number.isFinite(r.totalAmount)
+            ? r.totalAmount
+            : 0;
+        return <div className="font-mono text-right">{Number(amt || 0).toFixed(2)}</div>;
+      },
       className: "text-right tabular-nums whitespace-nowrap",
     },
     {
