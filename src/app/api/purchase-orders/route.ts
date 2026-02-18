@@ -105,6 +105,18 @@ const createSchema = z.object({
     .nullable()
     .optional(),
   gstReverseAmount: z.string().nullable().optional(),
+  poAdditionalCharges: z
+    .array(
+      z.object({
+        id: z.coerce.number().optional(),
+        head: z.string().optional().default(""),
+        gstCharge: z.string().optional().default("N/A"),
+        amount: z.coerce.number().optional().nullable(),
+        amountWithGst: z.coerce.number().optional().nullable(),
+      })
+    )
+    .optional()
+    .default([]),
   deliverySchedule: z.string().optional(),
   amount: z.coerce.number(),
   totalCgstAmount: z.coerce.number(),
@@ -530,6 +542,16 @@ export async function POST(req: NextRequest) {
               },
             },
           },
+          poAdditionalCharge: {
+            select: {
+              id: true,
+              head: true,
+              gstCharge: true,
+              amount: true,
+              amountWithGst: true,
+            },
+            orderBy: { id: "asc" },
+          },
         },
       });
 
@@ -540,6 +562,36 @@ export async function POST(req: NextRequest) {
             paymentTermId,
           })),
           skipDuplicates: true,
+        });
+      }
+
+      const charges = Array.isArray((parsedData as any).poAdditionalCharges)
+        ? ((parsedData as any).poAdditionalCharges as any[])
+            .map((c) => ({
+              head: typeof c?.head === "string" ? c.head.trim() : "",
+              gstCharge: typeof c?.gstCharge === "string" ? c.gstCharge : "N/A",
+              amount:
+                typeof c?.amount === "number" && Number.isFinite(c.amount)
+                  ? c.amount
+                  : null,
+              amountWithGst:
+                typeof c?.amountWithGst === "number" &&
+                Number.isFinite(c.amountWithGst)
+                  ? c.amountWithGst
+                  : null,
+            }))
+            .filter((c) => c.head || (typeof c.amount === "number" && c.amount > 0))
+        : [];
+
+      if (charges.length > 0) {
+        await tx.poAdditionalCharge.createMany({
+          data: charges.map((c) => ({
+            purchaseOrderId: purchaseOrder.id,
+            head: c.head,
+            gstCharge: c.gstCharge,
+            amount: c.amount as any,
+            amountWithGst: c.amountWithGst as any,
+          })),
         });
       }
 

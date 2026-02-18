@@ -36,6 +36,7 @@ type ItemListItem = {
   } | null;
   gstRate: number | null;
   asset: boolean;
+  isExpiryDate: boolean;
   discontinue: boolean;
   description: string | null;
   createdAt: string;
@@ -158,6 +159,13 @@ export default function ItemsPage() {
       accessor: (r) => r.asset ? 'Yes' : 'No',
     },
     {
+      key: 'isExpiryDate',
+      header: 'Expiry Date',
+      sortable: false,
+      cellClassName: 'whitespace-nowrap',
+      accessor: (r) => r.isExpiryDate ? 'Yes' : 'No',
+    },
+    {
       key: 'discontinue',
       header: 'Discontinue',
       sortable: false,
@@ -212,6 +220,7 @@ export default function ItemsPage() {
         'Unit': item.unit?.unitName || '',
         'GST Rate (%)': item.gstRate || '',
         'Asset': item.asset ? 'Yes' : 'No',
+        'Expiry Date': item.isExpiryDate ? 'Yes' : 'No',
         'Discontinue': item.discontinue ? 'Yes' : 'No',
         'Description': item.description || '',
         'Created Date': formatDate(item.createdAt),
@@ -232,6 +241,7 @@ export default function ItemsPage() {
         { wch: 10 }, // Unit
         { wch: 12 }, // GST Rate
         { wch: 8 },  // Asset
+        { wch: 12 }, // Expiry Date
         { wch: 12 }, // Discontinue
         { wch: 40 }, // Description
         { wch: 15 }, // Created Date

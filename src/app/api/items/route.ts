@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
       },
       gstRate: true,
       asset: true,
+      isExpiryDate: true,
       discontinue: true,
       description: true,
       createdAt: true,
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
         unitId: typeof b.unitId === 'number' ? b.unitId : null,
         gstRate: typeof b.gstRate === 'number' ? b.gstRate : null,
         asset: typeof b.asset === 'boolean' ? b.asset : false,
+        isExpiryDate: typeof (b as any).isExpiryDate === 'boolean' ? (b as any).isExpiryDate : false,
         discontinue: typeof b.discontinue === 'boolean' ? b.discontinue : false,
         description: typeof b.description === 'string' ? b.description.trim() || null : null,
       },
@@ -129,6 +131,7 @@ export async function POST(req: NextRequest) {
         unitId: true,
         gstRate: true,
         asset: true,
+        isExpiryDate: true,
         discontinue: true,
         description: true,
         createdAt: true,
@@ -192,6 +195,10 @@ export async function PATCH(req: NextRequest) {
     updateData.asset = typeof b.asset === 'boolean' ? b.asset : false;
   }
 
+  if ((b as any).isExpiryDate !== undefined) {
+    updateData.isExpiryDate = typeof (b as any).isExpiryDate === 'boolean' ? (b as any).isExpiryDate : false;
+  }
+
   if (b.discontinue !== undefined) {
     updateData.discontinue = typeof b.discontinue === 'boolean' ? b.discontinue : false;
   }
@@ -213,6 +220,7 @@ export async function PATCH(req: NextRequest) {
         unitId: true,
         gstRate: true,
         asset: true,
+        isExpiryDate: true,
         discontinue: true,
         description: true,
         createdAt: true,

@@ -26,6 +26,7 @@ export interface ItemFormInitialData {
   unitId?: number | null;
   gstRate?: number | null;
   asset?: boolean;
+  isExpiryDate?: boolean;
   discontinue?: boolean;
   description?: string | null;
 }
@@ -45,6 +46,7 @@ const inputSchema = z.object({
   unitId: z.string().optional(),
   gstRate: z.string().optional(),
   asset: z.boolean().default(false),
+  isExpiryDate: z.boolean().default(false),
   discontinue: z.boolean().default(false),
   description: z.string().optional(),
 });
@@ -60,6 +62,7 @@ function toSubmitPayload(data: RawFormValues) {
     unitId: data.unitId ? parseInt(data.unitId) : null,
     gstRate: data.gstRate ? parseFloat(data.gstRate) : null,
     asset: data.asset || false,
+    isExpiryDate: data.isExpiryDate || false,
     discontinue: data.discontinue || false,
     description: data.description?.trim() || null,
   };
@@ -104,6 +107,7 @@ export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items
       unitId: initial?.unitId ? String(initial.unitId) : '',
       gstRate: initial?.gstRate ? String(initial.gstRate) : '',
       asset: initial?.asset || false,
+      isExpiryDate: initial?.isExpiryDate || false,
       discontinue: initial?.discontinue || false,
       description: initial?.description || '',
     },
@@ -230,13 +234,20 @@ export function ItemForm({ mode, initial, onSuccess, redirectOnSuccess = '/items
                 </FormRow>
 
                 {/* Row 4: Checkboxes */}
-                <FormRow cols={2} from='md'>
+                <FormRow cols={3} from='md'>
                   <CheckboxInput 
                     control={control} 
                     name='asset' 
                     label='Asset'
                     span={1} 
                     spanFrom='md' 
+                  />
+                  <CheckboxInput
+                    control={control}
+                    name='isExpiryDate'
+                    label='Expiry Date'
+                    span={1}
+                    spanFrom='md'
                   />
                   <CheckboxInput 
                     control={control} 
