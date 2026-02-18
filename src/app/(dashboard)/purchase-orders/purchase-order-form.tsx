@@ -1664,8 +1664,8 @@ export function PurchaseOrderForm({
 
             {/* Items Table */}
             <FormSection legend="Items">
-              <div className="w-full overflow-x-hidden rounded-md border border-black bg-card">
-                <table className="w-full table-fixed border-collapse bg-white dark:bg-slate-900 text-[11px]">
+              <div className="w-full overflow-x-hidden rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900">
+                <table className="w-full table-fixed border-collapse bg-transparent text-[11px]">
                   <tbody>
                     {fields.map((field, index) => {
                       const colCount =
@@ -1684,14 +1684,14 @@ export function PurchaseOrderForm({
                         Array.from({ length: count }).map((_, i) => (
                           <td
                             key={i}
-                            className="border border-black px-1 py-1 align-top bg-white dark:bg-slate-900"
+                            className="border border-slate-200 dark:border-slate-700 px-1 py-1 align-top"
                           />
                         ));
 
                       return (
                         <Fragment key={field.fieldId ?? index}>
-                        <tr>
-                          <td className="border border-black px-1 py-2 align-top bg-white dark:bg-slate-900">
+                        <tr className={index % 2 === 0 ? "bg-slate-50/60 dark:bg-slate-950/30 hover:bg-sky-50/60 dark:hover:bg-slate-800/40" : "bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/40"}>
+                          <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 align-top">
                             {isApprovalMode ? (
                               <>
                                 <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
@@ -1816,7 +1816,7 @@ export function PurchaseOrderForm({
                                 ? closingMap[rowItemId]
                                 : undefined;
                             return (
-                              <td className="border border-black px-1 py-2 text-right align-top bg-white dark:bg-slate-900">
+                              <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
                                 <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                   Closing Stock Qty
                                 </div>
@@ -1873,7 +1873,7 @@ export function PurchaseOrderForm({
                           })()}
 
                           {isApprovalMode && (
-                            <td className="border border-black px-1 py-2 text-right font-medium align-top bg-white dark:bg-slate-900">
+                            <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 text-right font-medium align-top">
                               <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                 Ordered Qty
                               </div>
@@ -1890,7 +1890,7 @@ export function PurchaseOrderForm({
                           )}
 
                           {isApproval2 && (
-                            <td className="border border-black px-1 py-2 text-right font-medium align-top bg-white dark:bg-slate-900">
+                            <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 text-right font-medium align-top">
                               <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                 Approved 1 Qty
                               </div>
@@ -1907,7 +1907,7 @@ export function PurchaseOrderForm({
                             </td>
                           )}
 
-                          <td className="border border-black px-1 py-2 align-top bg-white dark:bg-slate-900">
+                          <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 align-top">
                             <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                               {qtyLabel}
                             </div>
@@ -2036,7 +2036,7 @@ export function PurchaseOrderForm({
                             </div>
                           </td>
 
-                          <td className="border border-black px-1 py-2 align-top bg-white dark:bg-slate-900">
+                          <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 align-top">
                             <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                               Rate
                             </div>
@@ -2107,7 +2107,7 @@ export function PurchaseOrderForm({
                             </div>
                           </td>
 
-                          <td className="border border-black px-1 py-2 text-right text-[11px] font-medium align-top bg-white dark:bg-slate-900">
+                          <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-1 py-2 text-right text-[11px] font-medium align-top">
                             <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                               Amount
                             </div>
@@ -2125,7 +2125,7 @@ export function PurchaseOrderForm({
                             />
                           </td>
 
-                          <td className="border border-black px-0 py-2 text-right align-top bg-white dark:bg-slate-900 w-10">
+                          <td className="border border-slate-200 dark:border-slate-700 border-b-0 px-0 py-2 text-right align-top w-10">
                             <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                               #
                             </div>
@@ -2143,8 +2143,11 @@ export function PurchaseOrderForm({
                           </td>
                         </tr>
 
-                        <tr>
-                          <td className="border border-black px-1 py-2 align-top bg-white dark:bg-slate-900">
+                        <tr className={index % 2 === 0 ? "bg-slate-50/60 dark:bg-slate-950/30 hover:bg-sky-50/60 dark:hover:bg-slate-800/40" : "bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/40"}>
+                          <td
+                            colSpan={amountColIndex}
+                            className="border border-slate-200 dark:border-slate-700 border-t-0 px-1 py-2 align-top"
+                          >
                             <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                               Remarks
                             </div>
@@ -2166,7 +2169,8 @@ export function PurchaseOrderForm({
                               )}
                             />
                           </td>
-                          {emptyCells(colCount - 1)}
+                          <td className="border border-slate-200 dark:border-slate-700 border-t-0 px-1 py-2 align-top" />
+                          <td className="border border-slate-200 dark:border-slate-700 border-t-0 px-0 py-2 align-top w-10" />
                         </tr>
 
                         {index === fields.length - 1 && (
@@ -2177,7 +2181,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-2 align-top bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top bg-slate-50/60 dark:bg-slate-950/30"
                                     >
                                       {!isApprovalMode ? (
                                         <Button
@@ -2195,7 +2199,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-2 text-right font-medium bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right font-semibold bg-slate-50/60 dark:bg-slate-950/30"
                                     >
                                       Subtotal
                                     </td>
@@ -2205,7 +2209,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-2 text-right font-medium bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right font-semibold bg-slate-50/60 dark:bg-slate-950/30"
                                     >
                                       {formatAmount(totals.taxableAmount)}
                                     </td>
@@ -2214,7 +2218,7 @@ export function PurchaseOrderForm({
                                 return (
                                   <td
                                     key={i}
-                                    className="border border-black px-1 py-2 bg-white dark:bg-slate-900"
+                                    className="border border-slate-200 dark:border-slate-700 px-1 py-2 bg-slate-50/60 dark:bg-slate-950/30"
                                   />
                                 );
                               })}
@@ -2234,7 +2238,7 @@ export function PurchaseOrderForm({
                                     return (
                                       <td
                                         key={i}
-                                        className="border border-black px-1 py-1 text-right text-[11px] font-medium text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900"
+                                        className="border border-slate-200 dark:border-slate-700 px-1 py-1 text-right text-[11px] font-medium text-slate-700 dark:text-slate-200 bg-slate-50/60 dark:bg-slate-950/30"
                                       >
                                         {r.label}
                                       </td>
@@ -2244,7 +2248,7 @@ export function PurchaseOrderForm({
                                     return (
                                       <td
                                         key={i}
-                                        className="border border-black px-1 py-1 text-right text-[11px] font-medium text-gray-700 dark:text-slate-100 bg-white dark:bg-slate-900"
+                                        className="border border-slate-200 dark:border-slate-700 px-1 py-1 text-right text-[11px] font-medium text-slate-700 dark:text-slate-100 bg-slate-50/60 dark:bg-slate-950/30"
                                       >
                                         {r.value}
                                       </td>
@@ -2253,7 +2257,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-1 bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-1 bg-slate-50/60 dark:bg-slate-950/30"
                                     />
                                   );
                                 })}
@@ -2266,11 +2270,11 @@ export function PurchaseOrderForm({
                                 return (
                                   <tr key={(f as any).fieldId}>
                                     {Array.from({ length: colCount }).map((_, i) => {
-                                      if (i === 0) {
+                                      if (i === 1) {
                                         return (
                                           <td
                                             key={i}
-                                            className="border border-black px-1 py-1 align-top bg-white dark:bg-slate-900"
+                                            className="border border-slate-200 dark:border-slate-700 px-1 py-1 align-top bg-slate-50/60 dark:bg-slate-950/30"
                                           >
                                             <div className="mb-1 text-[10px] font-medium text-gray-900 dark:text-slate-100 leading-none">
                                               Head
@@ -2291,11 +2295,53 @@ export function PurchaseOrderForm({
                                           </td>
                                         );
                                       }
-                                      if (i === 1) {
+                                      if (i === 2) {
                                         return (
                                           <td
                                             key={i}
-                                            className="border border-black px-1 py-1 align-top bg-white dark:bg-slate-900"
+                                            className="border border-slate-200 dark:border-slate-700 px-1 py-1 align-top bg-slate-50/60 dark:bg-slate-950/30"
+                                          >
+                                            <div className="mb-1 text-[10px] font-medium text-gray-900 dark:text-slate-100 leading-none">
+                                              Amount
+                                            </div>
+                                            <Input
+                                              value={
+                                                (poAdditionalCharges?.[idx] as any)?.amount ===
+                                                  null ||
+                                                (poAdditionalCharges?.[idx] as any)?.amount ===
+                                                  undefined
+                                                  ? ""
+                                                  : String(
+                                                      (poAdditionalCharges?.[idx] as any)
+                                                        ?.amount
+                                                    )
+                                              }
+                                              inputMode="decimal"
+                                              onChange={(event) => {
+                                                const v = event.target.value;
+                                                if (
+                                                  v === "" ||
+                                                  v === "-" ||
+                                                  /^-?\d*(?:\.\d{0,2})?$/.test(v)
+                                                ) {
+                                                  form.setValue(
+                                                    `poAdditionalCharges.${idx}.amount` as any,
+                                                    v
+                                                  );
+                                                }
+                                              }}
+                                              type="text"
+                                              placeholder="Amount"
+                                              className="h-7 text-[11px] text-right w-full bg-white"
+                                            />
+                                          </td>
+                                        );
+                                      }
+                                      if (i === 3) {
+                                        return (
+                                          <td
+                                            key={i}
+                                            className="border border-slate-200 dark:border-slate-700 px-1 py-1 align-top bg-slate-50/60 dark:bg-slate-950/30"
                                           >
                                             <div className="mb-1 text-[10px] font-medium text-gray-900 dark:text-slate-100 leading-none">
                                               GST
@@ -2342,53 +2388,11 @@ export function PurchaseOrderForm({
                                           </td>
                                         );
                                       }
-                                      if (i === summaryLabelIndex) {
-                                        return (
-                                          <td
-                                            key={i}
-                                            className="border border-black px-1 py-1 align-top bg-white dark:bg-slate-900"
-                                          >
-                                            <div className="mb-1 text-[10px] font-medium text-gray-900 dark:text-slate-100 leading-none">
-                                              Amount
-                                            </div>
-                                            <Input
-                                              value={
-                                                (poAdditionalCharges?.[idx] as any)?.amount ===
-                                                  null ||
-                                                (poAdditionalCharges?.[idx] as any)?.amount ===
-                                                  undefined
-                                                  ? ""
-                                                  : String(
-                                                      (poAdditionalCharges?.[idx] as any)
-                                                        ?.amount
-                                                    )
-                                              }
-                                              inputMode="decimal"
-                                              onChange={(event) => {
-                                                const v = event.target.value;
-                                                if (
-                                                  v === "" ||
-                                                  v === "-" ||
-                                                  /^-?\d*(?:\.\d{0,2})?$/.test(v)
-                                                ) {
-                                                  form.setValue(
-                                                    `poAdditionalCharges.${idx}.amount` as any,
-                                                    v
-                                                  );
-                                                }
-                                              }}
-                                              type="text"
-                                              placeholder="Amount"
-                                              className="h-7 text-[11px] text-right w-full bg-white"
-                                            />
-                                          </td>
-                                        );
-                                      }
                                       if (i === amountColIndex) {
                                         return (
                                           <td
                                             key={i}
-                                            className="border border-black px-1 py-1 text-right font-medium bg-white dark:bg-slate-900"
+                                            className="border border-slate-200 dark:border-slate-700 px-1 py-1 text-right font-medium bg-slate-50/60 dark:bg-slate-950/30"
                                           >
                                             <div className="mb-1 text-[10px] font-medium text-gray-900 dark:text-slate-100 leading-none text-left">
                                               Total
@@ -2401,7 +2405,7 @@ export function PurchaseOrderForm({
                                         return (
                                           <td
                                             key={i}
-                                            className="border border-black px-0 py-1 align-top bg-white dark:bg-slate-900 w-10"
+                                            className="border border-slate-200 dark:border-slate-700 px-0 py-1 align-top bg-slate-50/60 dark:bg-slate-950/30 w-10"
                                           >
                                             <div className="flex justify-end">
                                               <Button
@@ -2421,7 +2425,7 @@ export function PurchaseOrderForm({
                                       return (
                                         <td
                                           key={i}
-                                          className="border border-black px-1 py-1 bg-white dark:bg-slate-900"
+                                          className="border border-slate-200 dark:border-slate-700 px-1 py-1 bg-slate-50/60 dark:bg-slate-950/30"
                                         />
                                       );
                                     })}
@@ -2431,11 +2435,11 @@ export function PurchaseOrderForm({
 
                               <tr>
                                 {Array.from({ length: colCount }).map((_, i) => {
-                                  if (i === 0) {
+                                  if (i === 1) {
                                     return (
                                       <td
                                         key={i}
-                                        className="border border-black px-1 py-1 align-top bg-white dark:bg-slate-900"
+                                        className="border border-slate-200 dark:border-slate-700 px-1 py-1 align-top bg-slate-50/60 dark:bg-slate-950/30"
                                       >
                                         <Button
                                           type="button"
@@ -2456,7 +2460,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-1 bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-1 bg-slate-50/60 dark:bg-slate-950/30"
                                     />
                                   );
                                 })}
@@ -2469,7 +2473,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-2 text-right text-[11px] font-bold text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right text-[11px] font-bold text-slate-900 dark:text-slate-100 bg-slate-50/60 dark:bg-slate-950/30"
                                     >
                                       Total Amount
                                     </td>
@@ -2479,7 +2483,7 @@ export function PurchaseOrderForm({
                                   return (
                                     <td
                                       key={i}
-                                      className="border border-black px-1 py-2 text-right text-[11px] font-bold text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900"
+                                      className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right text-[11px] font-bold text-slate-900 dark:text-slate-100 bg-slate-50/60 dark:bg-slate-950/30"
                                     >
                                       {formatAmount(totals.amount)}
                                     </td>
@@ -2488,7 +2492,7 @@ export function PurchaseOrderForm({
                                 return (
                                   <td
                                     key={i}
-                                    className="border border-black px-1 py-2 bg-white dark:bg-slate-900"
+                                    className="border border-slate-200 dark:border-slate-700 px-1 py-2 bg-slate-50/60 dark:bg-slate-950/30"
                                   />
                                 );
                               })}

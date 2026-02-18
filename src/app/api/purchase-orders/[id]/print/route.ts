@@ -720,12 +720,12 @@ export async function GET(
                 styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
               },
               {
-                content: gstLabel,
-                styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
-              },
-              {
                 content: formatCurrency(baseAmt),
                 styles: { fontStyle: "bold", halign: "right" },
+              },
+              {
+                content: gstLabel,
+                styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
               },
               {
                 content: formatCurrency(totalAmt),
@@ -753,12 +753,12 @@ export async function GET(
               styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
             },
             {
-              content: "GST",
-              styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
-            },
-            {
               content: "Amount",
               styles: { fontStyle: "bold", halign: "right" },
+            },
+            {
+              content: "GST",
+              styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
             },
             {
               content: "",
