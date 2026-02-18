@@ -50,6 +50,15 @@ export default function PurchaseOrderApprove1Page() {
       poStatus: (purchaseOrder.poStatus as any) ?? null,
       paymentTermsInDays: purchaseOrder.paymentTermsInDays,
       deliverySchedule: purchaseOrder.deliverySchedule,
+      poAdditionalCharges: Array.isArray((purchaseOrder as any).poAdditionalCharge)
+        ? ((purchaseOrder as any).poAdditionalCharge as any[]).map((c: any) => ({
+            id: c.id,
+            head: c.head,
+            gstCharge: c.gstCharge,
+            amount: c.amount,
+            amountWithGst: c.amountWithGst,
+          }))
+        : [],
       transitInsuranceStatus:
         purchaseOrder.transitInsuranceStatus === "EXCLUSIVE" ||
         purchaseOrder.transitInsuranceStatus === "INCLUSIVE" ||
@@ -104,6 +113,8 @@ export default function PurchaseOrderApprove1Page() {
           qty: detail.qty,
           orderedQty: detail.orderedQty,
           approved1Qty: detail.approved1Qty,
+          indentItemId: detail.indentItemId,
+          indentItemPOs: detail.indentItemPOs,
           rate: detail.rate,
           discountPercent: detail.discountPercent,
           disAmt: detail.disAmt,

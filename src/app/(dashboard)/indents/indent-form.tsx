@@ -69,7 +69,7 @@ const indentItemSchema = z.object({
     z
       .string()
       .min(1, "Indent quantity is required")
-      .regex(/^\d+(\.\d{1,4})?$/, "Only numbers up to 4 decimal places are allowed")
+      .regex(/^\d+(\.\d{1,2})?$/, "Only numbers up to 2 decimal places are allowed")
       .transform((val) => Number(val))
       .refine((n) => typeof n === "number" && !Number.isNaN(n) && n > 0, {
         message: "Indent quantity must be greater than 0",
@@ -363,11 +363,11 @@ export function IndentForm({
                           {...field}
                           type="text"
                           inputMode="decimal"
-                          placeholder="0.0000"
+                          placeholder="0.00"
                           onChange={(e) => {
                             const next = e.target.value;
                             // Allow intermediate typing states; final validation happens in Zod on submit
-                            if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                            if (/^\d*(\.\d{0,2})?$/.test(next)) {
                               field.onChange(next);
                             }
                           }}

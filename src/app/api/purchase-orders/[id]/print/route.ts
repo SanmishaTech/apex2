@@ -175,6 +175,16 @@ export async function GET(
           description: true,
         },
       },
+      poAdditionalCharge: {
+        select: {
+          id: true,
+          head: true,
+          gstCharge: true,
+          amount: true,
+          amountWithGst: true,
+        },
+        orderBy: { id: "asc" },
+      },
       poPaymentTerms: {
         select: {
           paymentTermId: true,
@@ -192,12 +202,6 @@ export async function GET(
       totalCgstAmount: true,
       totalSgstAmount: true,
       totalIgstAmount: true,
-      transitInsuranceStatus: true,
-      transitInsuranceAmount: true,
-      pfStatus: true,
-      pfCharges: true,
-      gstReverseStatus: true,
-      gstReverseAmount: true,
       poStatus: true,
       approvalStatus: true,
       purchaseOrderIndent: {
@@ -637,17 +641,7 @@ export async function GET(
     { basicAmount: 0, amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
   );
 
-  const transitAmountRaw = purchaseOrder.transitInsuranceAmount;
-  const pfAmountRaw = purchaseOrder.pfCharges;
-  const gstReverseAmountRaw = purchaseOrder.gstReverseAmount;
-
-  const transitAmountNum = toNumberOrZero(transitAmountRaw);
-  const pfAmountNum = toNumberOrZero(pfAmountRaw);
-  const gstReverseAmountNum = toNumberOrZero(gstReverseAmountRaw);
-
-  const grandTotal =
-    Number(purchaseOrder.amount ?? 0) ||
-    totals.amount + transitAmountNum + pfAmountNum + gstReverseAmountNum;
+  const grandTotal = Number(purchaseOrder.amount ?? 0) || totals.amount;
 
   const amountWords =
     safeText(purchaseOrder.amountInWords) || "Rupees Zero Only";
@@ -690,63 +684,6 @@ export async function GET(
     },
   ];
 
-  const transportRow: any[] = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    { content: "Transport\u00A0Charges", styles: { halign: "right" } },
-    { content: displayCharge(pfAmountRaw), styles: { halign: "right" } },
-  ];
-
-  const transitRow: any[] = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    { content: "Transit\u00A0Insurance", styles: { halign: "right" } },
-    { content: displayCharge(transitAmountRaw), styles: { halign: "right" } },
-  ];
-
-  const gstReverseRow: any[] = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    { content: "GST\u00A0Reverse\u00A0Charge", styles: { halign: "right" } },
-    { content: displayCharge(gstReverseAmountRaw), styles: { halign: "right" } },
-  ];
-
   const amountWordsRow: any[] = [
     {
       content: amountWordsDisplay,
@@ -759,12 +696,83 @@ export async function GET(
     },
   ];
 
+  const additionalChargeRows: any[] = Array.isArray(
+    (purchaseOrder as any).poAdditionalCharge
+  )
+    ? (((purchaseOrder as any).poAdditionalCharge as any[])
+        .filter(
+          (c) => safeText(c?.head) !== "-" || toNumberOrZero(c?.amountWithGst) > 0
+        )
+        .flatMap((c) => {
+          const baseAmt = toNumberOrZero(c?.amount);
+          const totalAmt =
+            toNumberOrZero(c?.amountWithGst) > 0
+              ? toNumberOrZero(c?.amountWithGst)
+              : baseAmt;
+          const gstLabel = safeText(c?.gstCharge);
+
+          // 16 columns total (0..15). Keep details in col 0 (wide), amounts in the rightmost columns.
+          return [
+            [
+              {
+                content: safeText(c?.head),
+                colSpan: 13,
+                styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
+              },
+              {
+                content: formatCurrency(baseAmt),
+                styles: { fontStyle: "bold", halign: "right" },
+              },
+              {
+                content: gstLabel,
+                styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
+              },
+              {
+                content: formatCurrency(totalAmt),
+                styles: { fontStyle: "bold", halign: "right" },
+              },
+            ],
+          ];
+        }) as any[])
+    : [];
+
+  const additionalChargesSectionRows: any[] =
+    additionalChargeRows.length > 0
+      ? [
+          [
+            {
+              content: "Additional Charges",
+              colSpan: 16,
+              styles: { fontStyle: "bold", halign: "left" },
+            },
+          ],
+          [
+            {
+              content: "Charge",
+              colSpan: 13,
+              styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
+            },
+            {
+              content: "Amount",
+              styles: { fontStyle: "bold", halign: "right" },
+            },
+            {
+              content: "GST",
+              styles: { fontStyle: "bold", halign: "right", overflow: "ellipsize" },
+            },
+            {
+              content: "",
+              styles: { fontStyle: "bold", halign: "right" },
+            },
+          ],
+          ...additionalChargeRows,
+        ]
+      : [];
+
   const itemRowsWithSummary: any[] = [
     ...(itemRows as any[]),
     totalsRow,
-    transportRow,
-    transitRow,
-    gstReverseRow,
+    ...additionalChargesSectionRows,
     amountWordsRow,
   ];
 
@@ -840,10 +848,10 @@ export async function GET(
       if (data.row.index < summaryStartIndex) return;
 
       const totalsRowIndex = summaryStartIndex;
-      const transportRowIndex = summaryStartIndex + 1;
-      const transitRowIndex = summaryStartIndex + 2;
-      const gstReverseRowIndex = summaryStartIndex + 3;
-      const amountWordsRowIndex = summaryStartIndex + 4;
+      const additionalStartIndex = summaryStartIndex + 1;
+      const additionalEndIndex =
+        additionalStartIndex + additionalChargesSectionRows.length;
+      const amountWordsRowIndex = additionalEndIndex;
 
       // Default for summary rows: no vertical lines (keep only horizontal)
       data.cell.styles.lineWidth = {
@@ -861,32 +869,13 @@ export async function GET(
         return;
       }
 
-      // Charge rows: show only a single vertical separator between label (IGST area)
-      // and Amount column.
+      // Additional charges section: keep full grid lines
       if (
-        data.row.index === transportRowIndex ||
-        data.row.index === transitRowIndex ||
-        data.row.index === gstReverseRowIndex
+        additionalChargesSectionRows.length > 0 &&
+        data.row.index >= additionalStartIndex &&
+        data.row.index < additionalEndIndex
       ) {
-        // Label is column 14 and amount is column 15
-        if (data.column.index === 14) {
-          data.cell.styles.lineWidth = {
-            top: 0.15,
-            bottom: 0.15,
-            left: 0.15,
-            right: 0.15,
-          };
-          return;
-        }
-        if (data.column.index === 15) {
-          data.cell.styles.lineWidth = {
-            top: 0.15,
-            bottom: 0.15,
-            left: 0.15,
-            right: 0,
-          };
-          return;
-        }
+        data.cell.styles.lineWidth = 0.15;
         return;
       }
 

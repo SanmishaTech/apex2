@@ -78,6 +78,15 @@ interface SiteDeliveryAddress {
   pinCode?: string | null;
 }
 
+export interface PoAdditionalCharge {
+  id: number;
+  purchaseOrderId: number;
+  head: string;
+  gstCharge: string;
+  amount?: number | null;
+  amountWithGst?: number | null;
+}
+
 // Main Purchase Order Types
 export interface PurchaseOrder {
   id: number;
@@ -153,6 +162,7 @@ export interface PurchaseOrder {
   suspendedBy?: User | null;
   completedBy?: User | null;
   purchaseOrderDetails: PurchaseOrderDetail[];
+  poAdditionalCharge?: PoAdditionalCharge[];
   purchaseOrderIndent?: Array<{
     indent: {
       id: number;
@@ -221,6 +231,13 @@ export interface CreatePurchaseOrderRequest {
   terms?: string;
   paymentTermsInDays?: number;
   deliverySchedule?: string;
+  poAdditionalCharges?: {
+    id?: number;
+    head: string;
+    gstCharge: string;
+    amount?: number;
+    amountWithGst?: number;
+  }[];
   purchaseOrderItems: {
     itemId: number;
     qty: number;

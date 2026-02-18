@@ -683,8 +683,8 @@ export default function IndentsPage() {
             : approved1Num;
         next[it.id] = {
           indentQty: indentQtyNum,
-          approved1Qty: approved1Num.toFixed(4),
-          approved2Qty: approved2Num.toFixed(4),
+          approved1Qty: approved1Num.toFixed(2),
+          approved2Qty: approved2Num.toFixed(2),
           remark: it.remark || "",
         };
       }
@@ -758,7 +758,7 @@ export default function IndentsPage() {
     },
     [pushWithScrollSave]
   );
-  const MAX_DEC = 99999999.9999; // MySQL DECIMAL(12,4)
+  const MAX_DEC = 99999999.99; // MySQL DECIMAL(12,2)
   const clampDec = (n: number) => Math.min(Math.max(0, n), MAX_DEC);
   const setEdit = useCallback(
     (id: number, field: keyof EditFields, value: string) => {
@@ -1171,7 +1171,7 @@ export default function IndentsPage() {
                           {it.item?.unit?.unitName}
                         </td>
                         <td className="p-3 whitespace-nowrap">
-                          {Number(it.indentQty || 0).toFixed(4)}
+                          {Number(it.indentQty || 0).toFixed(2)}
                         </td>
                         <td className="p-3 whitespace-nowrap w-[160px]">
                           {approvalAction === "approve1" ? (
@@ -1181,19 +1181,19 @@ export default function IndentsPage() {
                               required
                               value={
                                 itemEdits[it.id]?.approved1Qty ??
-                                Number(it.indentQty ?? 0).toFixed(4)
+                                Number(it.indentQty ?? 0).toFixed(2)
                               }
-                              placeholder={Number(it.indentQty ?? 0).toFixed(4)}
+                              placeholder={Number(it.indentQty ?? 0).toFixed(2)}
                               className="w-[140px]"
                               onChange={(e) => {
                                 const next = e.target.value;
-                                if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                                if (/^\d*(\.\d{0,2})?$/.test(next)) {
                                   setEdit(it.id, "approved1Qty", next);
                                 }
                               }}
                             />
                           ) : (
-                            Number(it.approved1Qty || 0).toFixed(4)
+                            Number(it.approved1Qty || 0).toFixed(2)
                           )}
                         </td>
                         {approvalAction === "approve2" && (
@@ -1204,15 +1204,15 @@ export default function IndentsPage() {
                               required
                               value={
                                 itemEdits[it.id]?.approved2Qty ??
-                                Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(4)
+                                Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(2)
                               }
                               placeholder={Number(
                                 it.approved1Qty ?? it.indentQty ?? 0
-                              ).toFixed(4)}
+                              ).toFixed(2)}
                               className="w-[140px]"
                               onChange={(e) => {
                                 const next = e.target.value;
-                                if (/^\d*(\.\d{0,4})?$/.test(next)) {
+                                if (/^\d*(\.\d{0,2})?$/.test(next)) {
                                   setEdit(it.id, "approved2Qty", next);
                                 }
                               }}

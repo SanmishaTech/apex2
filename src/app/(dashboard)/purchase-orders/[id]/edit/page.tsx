@@ -96,6 +96,15 @@ export default function EditPurchaseOrderPage() {
           : typeof purchaseOrder.gstReverseAmount === "string"
             ? purchaseOrder.gstReverseAmount
             : String(purchaseOrder.gstReverseAmount),
+      poAdditionalCharges: Array.isArray((purchaseOrder as any).poAdditionalCharge)
+        ? ((purchaseOrder as any).poAdditionalCharge as any[]).map((c: any) => ({
+            id: c.id,
+            head: c.head,
+            gstCharge: c.gstCharge,
+            amount: c.amount,
+            amountWithGst: c.amountWithGst,
+          }))
+        : [],
       purchaseOrderItems: purchaseOrder.purchaseOrderDetails?.map((detail: any) => ({
         id: detail.id,
         itemId: detail.itemId,

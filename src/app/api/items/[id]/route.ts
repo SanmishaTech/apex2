@@ -26,6 +26,7 @@ export async function GET(
         unitId: true,
         gstRate: true,
         asset: true,
+        isExpiryDate: true,
         discontinue: true,
         description: true,
         createdAt: true,
