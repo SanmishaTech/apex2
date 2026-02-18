@@ -191,13 +191,13 @@ const purchaseOrderItemSchema = z.object({
   approved1Qty: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : val),
-      twoDpNumber("Approved quantity", true, 0.01, undefined, 4)
+      twoDpNumber("Approved quantity", true, 0.01)
     )
     .optional(),
   approved2Qty: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : val),
-      twoDpNumber("Approved quantity", true, 0.01, undefined, 4)
+      twoDpNumber("Approved quantity", true, 0.01)
     )
     .optional(),
   rate: twoDpNumber("Rate", true, 0.01),
@@ -832,16 +832,9 @@ export function PurchaseOrderForm({
   };
 
   const decimalRegex2 = /^\d*(?:\.\d{0,2})?$/;
-  const decimalRegex4 = /^\d*(?:\.\d{0,4})?$/;
   const handleDecimalChange2 =
     (path: `purchaseOrderItems.${number}.${string}`) => (value: string) => {
       if (value === "" || decimalRegex2.test(value)) {
-        form.setValue(path as any, value as any, { shouldDirty: true });
-      }
-    };
-  const handleDecimalChange4 =
-    (path: `purchaseOrderItems.${number}.${string}`) => (value: string) => {
-      if (value === "" || decimalRegex4.test(value)) {
         form.setValue(path as any, value as any, { shouldDirty: true });
       }
     };
@@ -1891,7 +1884,7 @@ export function PurchaseOrderForm({
                                   0
                               ).toLocaleString("en-IN", {
                                 minimumFractionDigits: 2,
-                                maximumFractionDigits: 4,
+                                maximumFractionDigits: 2,
                               })}
                             </td>
                           )}
@@ -1909,7 +1902,7 @@ export function PurchaseOrderForm({
                                   0
                               ).toLocaleString("en-IN", {
                                 minimumFractionDigits: 2,
-                                maximumFractionDigits: 4,
+                                maximumFractionDigits: 2,
                               })}
                             </td>
                           )}
@@ -1935,7 +1928,7 @@ export function PurchaseOrderForm({
                                             : field.value?.toString() || ""
                                         }
                                         onChange={(e) =>
-                                          handleDecimalChange4(
+                                          handleDecimalChange2(
                                             `purchaseOrderItems.${index}.approved1Qty`
                                           )(e.target.value)
                                         }
@@ -1962,12 +1955,11 @@ export function PurchaseOrderForm({
                                             ? field.value
                                             : field.value?.toString() || ""
                                         }
-                                        onChange={(e) => {
-                                          const v = e.target.value;
-                                          if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) {
-                                            field.onChange(v);
-                                          }
-                                        }}
+                                        onChange={(e) =>
+                                          handleDecimalChange2(
+                                            `purchaseOrderItems.${index}.approved2Qty`
+                                          )(e.target.value)
+                                        }
                                         className="h-7 text-right w-full text-[11px]"
                                       />
                                     </FormControl>

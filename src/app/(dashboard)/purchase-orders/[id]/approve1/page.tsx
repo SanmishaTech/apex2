@@ -113,6 +113,8 @@ export default function PurchaseOrderApprove1Page() {
           qty: detail.qty,
           orderedQty: detail.orderedQty,
           approved1Qty: detail.approved1Qty,
+          indentItemId: detail.indentItemId,
+          indentItemPOs: detail.indentItemPOs,
           rate: detail.rate,
           discountPercent: detail.discountPercent,
           disAmt: detail.disAmt,

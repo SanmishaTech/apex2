@@ -445,26 +445,26 @@ export default function PurchaseOrderViewPage() {
                               {d.item?.unit?.unitName ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
-                              {typeof d.qty === "number" ? d.qty.toFixed(4) : d.qty ?? "—"}
+                              {typeof d.qty === "number" ? d.qty.toFixed(2) : d.qty ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
                               {typeof d.orderedQty === "number"
-                                ? d.orderedQty.toFixed(4)
+                                ? d.orderedQty.toFixed(2)
                                 : d.orderedQty ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
                               {typeof d.approved1Qty === "number"
-                                ? d.approved1Qty.toFixed(4)
+                                ? d.approved1Qty.toFixed(2)
                                 : d.approved1Qty ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
                               {typeof d.approved2Qty === "number"
-                                ? d.approved2Qty.toFixed(4)
+                                ? d.approved2Qty.toFixed(2)
                                 : d.approved2Qty ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
                               {typeof d.receivedQty === "number"
-                                ? d.receivedQty.toFixed(4)
+                                ? d.receivedQty.toFixed(2)
                                 : d.receivedQty ?? "—"}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
