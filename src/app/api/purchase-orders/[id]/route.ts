@@ -84,17 +84,17 @@ const updateSchema = z.object({
   siteDeliveryAddressId: z.number().optional(),
   paymentTermId: z.number().nullable().optional(),
   paymentTermIds: z
-    .array(z.coerce.number())
-    .optional()
-    .transform((arr) =>
-      Array.from(
-        new Set(
-          (arr || [])
-            .map((n) => Number(n))
-            .filter((n) => Number.isFinite(n) && n > 0)
-        )
-      )
-    ),
+    .preprocess(
+      (v) => (v === undefined || v === null ? undefined : v),
+      z.array(z.coerce.number()).optional()
+    )
+    .transform((arr) => {
+      if (!Array.isArray(arr)) return undefined;
+      const normalized = arr
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      return Array.from(new Set(normalized));
+    }),
   quotationNo: z.string().optional(),
   quotationDate: z
     .string()

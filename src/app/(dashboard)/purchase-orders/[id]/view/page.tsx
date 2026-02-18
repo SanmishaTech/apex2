@@ -158,6 +158,23 @@ export default function PurchaseOrderViewPage() {
     };
   }, [data]);
 
+  const paymentTermsDisplay = useMemo(() => {
+    if (!data) return "—";
+    const joined = Array.isArray((data as any).poPaymentTerms)
+      ? (((data as any).poPaymentTerms as any[])
+          .map((pt) =>
+            String(
+              pt?.paymentTerm?.description || pt?.paymentTerm?.paymentTerm || ""
+            ).trim()
+          )
+          .filter((t) => t))
+      : [];
+
+    const primary = String((data as any).paymentTerm?.paymentTerm || "").trim();
+    const combined = joined.length > 0 ? joined : primary ? [primary] : [];
+    return combined.length > 0 ? combined.join(", ") : "—";
+  }, [data]);
+
   return (
     <div className="print:p-8">
       <AppCard className="print:shadow-none print:border-0">
@@ -219,6 +236,17 @@ export default function PurchaseOrderViewPage() {
                 </div>
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Approval Status
+                  </div>
+                  <div className="font-medium dark:text-white">
+                    <StatusBadge
+                      status={header?.status}
+                      suspended={header?.suspended}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     Delivery Date
                   </div>
                   <div className="font-medium dark:text-white">
@@ -235,6 +263,14 @@ export default function PurchaseOrderViewPage() {
                 </div>
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
+                    PO Status
+                  </div>
+                  <div className="font-medium dark:text-white">
+                    <POStatusBadge status={header?.poStatus ?? null} />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     Vendor
                   </div>
                   <div className="font-medium dark:text-white">
@@ -246,7 +282,7 @@ export default function PurchaseOrderViewPage() {
                     Payment Terms
                   </div>
                   <div className="font-medium dark:text-white">
-                    {(data as any).paymentTerm?.paymentTerm ?? "—"}
+                    {paymentTermsDisplay}
                   </div>
                 </div>
               </div>
@@ -318,12 +354,21 @@ export default function PurchaseOrderViewPage() {
                   <Field
                     label="Transit Insurance"
                     value={
-                      (data as any).transitInsuranceStatus
-                        ? `${String((data as any).transitInsuranceStatus)}${
+                      (data as any).transitInsuranceStatus ||
+                      (data as any).transitInsuranceAmount
+                        ? `${String((data as any).transitInsuranceStatus || "").trim()}${
                             (data as any).transitInsuranceAmount
-                              ? ` (${String((data as any).transitInsuranceAmount)})`
+                              ? `${
+                                  String((data as any).transitInsuranceStatus || "")
+                                    .trim()
+                                    ? " "
+                                    : ""
+                                }(${String((data as any).transitInsuranceAmount)})`
                               : ""
-                          }`
+                          }`.trim() ||
+                          (data as any).transitInsuranceAmount
+                          ? `(${String((data as any).transitInsuranceAmount)})`
+                          : "—"
                         : "—"
                     }
                   />
