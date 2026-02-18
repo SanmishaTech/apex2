@@ -1,6 +1,11 @@
 // Misc utilities: password strength heuristic + Tailwind class merger (cn).
 // Keep small, pure helpers here; move larger domain logic into dedicated modules.
 // Password strength meter utility
+import { type ClassValue } from "clsx";
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+import { formatDate as formatDateLocale } from "./locales";
+
 export function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   // Simple scoring: length, variety, common patterns
   let score = 0;
@@ -16,19 +21,11 @@ export function getPasswordStrength(password: string): { score: number; label: s
   else if (score >= 3) { label = 'Medium'; color = 'bg-yellow-400'; }
   return { score, label, color };
 }
-import { type ClassValue } from "clsx";
-import clsx from "clsx";
-import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatDate(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatDateLocale(date);
 }

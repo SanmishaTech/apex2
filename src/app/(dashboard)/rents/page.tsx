@@ -14,7 +14,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatRelativeTime, formatDate } from '@/lib/locales';
+import { formatRelativeTime, formatDate, formatCurrency } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import { useSearchParams } from 'next/navigation';
 import { EditButton, ViewButton } from '@/components/common/icon-button';
@@ -252,7 +252,8 @@ export default function RentsPage() {
 			sortable: true,
 			className: 'text-right',
 			cellClassName: 'text-right',
-			accessor: (r) => r.depositAmount ? `₹${Number(r.depositAmount).toLocaleString()}` : '—',
+			accessor: (r) =>
+				r.depositAmount ? formatCurrency(Number(r.depositAmount)) : '—',
 		},
 		{
 			key: 'rentAmount',
@@ -260,7 +261,7 @@ export default function RentsPage() {
 			sortable: true,
 			className: 'text-right',
 			cellClassName: 'text-right',
-			accessor: (r) => r.rentAmount ? `₹${Number(r.rentAmount).toLocaleString()}` : '—',
+			accessor: (r) => r.rentAmount ? formatCurrency(Number(r.rentAmount)) : '—',
 		},
 		{
 			key: 'status',

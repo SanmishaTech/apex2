@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+import { formatCurrency } from '@/lib/locales';
 
 type CashbookBudgetData = {
   id: number;
@@ -215,10 +216,10 @@ export default function ApproveCashbookBudgetPage() {
                     <td className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">{item.cashbookHead.cashbookHeadName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.description || '-'}</td>
                     <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                      ₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatCurrency(Number(item.amount))}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                      ₹{Number(item.approved1Amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatCurrency(Number(item.approved1Amount || 0))}
                     </td>
                     <td className="px-4 py-3 bg-green-50 dark:bg-green-900/20">
                       <Input
@@ -239,13 +240,13 @@ export default function ApproveCashbookBudgetPage() {
                 <tr>
                   <td colSpan={2} className="px-4 py-3 text-right border-r dark:border-gray-700 dark:text-gray-200">Total Amount</td>
                   <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                    ₹{Number(data.totalBudget).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {formatCurrency(Number(data.totalBudget))}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                    ₹{Number(data.approved1BudgetAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {formatCurrency(Number(data.approved1BudgetAmount || 0))}
                   </td>
                   <td className="px-4 py-3 text-right font-mono bg-green-100 dark:bg-green-900/30 dark:text-green-400">
-                    ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {formatCurrency(Number(totalApprovedAmount))}
                   </td>
                 </tr>
               </tfoot>

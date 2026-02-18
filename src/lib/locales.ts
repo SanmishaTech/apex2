@@ -6,8 +6,8 @@ import { format as dfFormat } from 'date-fns';
 const ENV = {
   locale: process.env.NEXT_PUBLIC_LOCALE || 'en-IN',
   timezone: process.env.NEXT_PUBLIC_TIMEZONE || 'UTC',
-  dateFormat: process.env.NEXT_PUBLIC_DATE_FORMAT || 'yyyy-MM-dd',
-  dateTimeFormat: process.env.NEXT_PUBLIC_DATETIME_FORMAT || '', // if blank -> uses Intl fallback
+  dateFormat: process.env.NEXT_PUBLIC_DATE_FORMAT || 'dd/MM/yyyy',
+  dateTimeFormat: process.env.NEXT_PUBLIC_DATETIME_FORMAT || 'dd/MM/yyyy hh:mm a', // 12-hour with AM/PM
   currency: process.env.NEXT_PUBLIC_CURRENCY || 'INR'
 };
 
@@ -65,9 +65,14 @@ export function formatDateForInput(value: Date | string | null | undefined): str
   return dfFormat(d, 'yyyy-MM-dd');
 }
 
-export function formatCurrency(amount: number, currencyCode?: string, minimumFractionDigits = 0) {
+export function formatCurrency(amount: number, currencyCode?: string, fractionDigits = 2) {
   const { locale, currency } = ENV;
-  return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode || currency, minimumFractionDigits }).format(amount);
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currencyCode || currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(amount);
 }
 
  export function formatNumber(value: number, opts?: Intl.NumberFormatOptions) {

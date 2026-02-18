@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
+import { formatCurrency } from '@/lib/locales';
 
 type CashbookBudgetData = {
   id: number;
@@ -195,7 +196,7 @@ export default function Approve1CashbookBudgetPage() {
                     <td className="px-4 py-3 border-r dark:border-gray-700 dark:text-gray-200">{item.cashbookHead.cashbookHeadName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">{item.description || '-'}</td>
                     <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                      ₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatCurrency(Number(item.amount))}
                     </td>
                     <td className="px-4 py-3 border-r dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
                       <Input
@@ -216,10 +217,10 @@ export default function Approve1CashbookBudgetPage() {
                 <tr>
                   <td colSpan={2} className="px-4 py-3 text-right border-r dark:border-gray-700 dark:text-gray-200">Total Amount</td>
                   <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                    ₹{Number(data.totalBudget).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {formatCurrency(Number(data.totalBudget))}
                   </td>
                   <td className="px-4 py-3 text-right font-mono bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
-                    ₹{totalApproved1Amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {formatCurrency(Number(totalApproved1Amount))}
                   </td>
                 </tr>
               </tfoot>

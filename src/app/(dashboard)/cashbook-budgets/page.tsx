@@ -14,7 +14,7 @@ import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { DeleteButton } from '@/components/common/delete-button';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
-import { formatRelativeTime, formatDate } from '@/lib/locales';
+import { formatCurrency, formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
@@ -176,11 +176,7 @@ export default function CashbookBudgetsPage() {
 			sortable: true,
 			className: 'text-right whitespace-nowrap',
 			cellClassName: 'text-right font-mono whitespace-nowrap',
-			accessor: (r) => new Intl.NumberFormat('en-IN', {
-				style: 'currency',
-				currency: 'INR',
-				minimumFractionDigits: 2
-			}).format(Number(r.totalBudget)),
+			accessor: (r) => formatCurrency(Number(r.totalBudget)),
 		},
 		{
 			key: 'approved1BudgetAmount',
@@ -188,11 +184,10 @@ export default function CashbookBudgetsPage() {
 			sortable: false,
 			className: 'text-right whitespace-nowrap',
 			cellClassName: 'text-right font-mono whitespace-nowrap text-blue-600',
-			accessor: (r) => r.approved1BudgetAmount ? new Intl.NumberFormat('en-IN', {
-				style: 'currency',
-				currency: 'INR',
-				minimumFractionDigits: 2
-			}).format(Number(r.approved1BudgetAmount)) : 'Rs. 0.00',
+			accessor: (r) =>
+				r.approved1BudgetAmount
+					? formatCurrency(Number(r.approved1BudgetAmount))
+					: formatCurrency(0),
 		},
 		{
 			key: 'approvedBudgetAmount',
@@ -200,11 +195,10 @@ export default function CashbookBudgetsPage() {
 			sortable: false,
 			className: 'text-right whitespace-nowrap',
 			cellClassName: 'text-right font-mono whitespace-nowrap text-green-600',
-			accessor: (r) => r.approvedBudgetAmount ? new Intl.NumberFormat('en-IN', {
-				style: 'currency',
-				currency: 'INR',
-				minimumFractionDigits: 2
-			}).format(Number(r.approvedBudgetAmount)) : 'Rs. 0.00',
+			accessor: (r) =>
+				r.approvedBudgetAmount
+					? formatCurrency(Number(r.approvedBudgetAmount))
+					: formatCurrency(0),
 		},
 		{
 			key: 'createdBy',

@@ -12,7 +12,7 @@ import { FormSection, FormRow } from '@/components/common/app-form';
 import { DataTable } from '@/components/common/data-table';
 import { toast } from 'sonner';
 import { ArrowLeft, Check, X, FileText, Users, MapPin, Calendar, User, MessageSquare, Clock } from 'lucide-react';
-import { formatDate, formatDateForInput } from '@/lib/locales';
+import { formatCurrency, formatDate, formatDateForInput } from '@/lib/locales';
 import type { ManpowerTransfer, ManpowerTransferItem, UpdateManpowerTransferRequest } from '@/types/manpower-transfers';
 
 // API client functions
@@ -136,7 +136,7 @@ export default function ViewManpowerTransferPage() {
       key: 'wage',
       header: 'Wage (₹)',
       accessor: (row: ManpowerTransferItem) => (
-        <span>{row.wage ? `₹${parseFloat(row.wage).toFixed(2)}` : '-'}</span>
+        <span>{row.wage ? formatCurrency(Number(row.wage)) : '-'}</span>
       ),
       sortable: false,
     },
@@ -144,7 +144,7 @@ export default function ViewManpowerTransferPage() {
       key: 'minWage',
       header: 'Min Wage (₹)',
       accessor: (row: ManpowerTransferItem) => (
-        <span>{row.minWage ? `₹${parseFloat(row.minWage).toFixed(2)}` : '-'}</span>
+        <span>{row.minWage ? formatCurrency(Number(row.minWage)) : '-'}</span>
       ),
       sortable: false,
     },

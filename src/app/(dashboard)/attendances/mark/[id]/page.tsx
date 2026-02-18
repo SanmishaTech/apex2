@@ -12,7 +12,7 @@ import { apiGet, apiPost } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import type { ManpowerAttendanceItem } from '@/types/attendances';
-import { formatDateForInput } from '@/lib/locales';
+import { formatDate, formatDateForInput } from '@/lib/locales';
 
 interface SiteManpowerResponse {
   site: {
@@ -255,11 +255,11 @@ export default function MarkAttendancePage({
                     <div className="space-y-2 text-sm text-amber-800 dark:text-amber-200">
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span>Last recorded: <strong className="font-semibold">{lastAttendanceDate ? new Date(lastAttendanceDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}</strong></span>
+                        <span>Last recorded: <strong className="font-semibold">{lastAttendanceDate ? formatDate(lastAttendanceDate) : 'N/A'}</strong></span>
                       </p>
                       <p className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        <span>Next date: <strong className="font-semibold">{new Date(attendanceDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
+                        <span>Next date: <strong className="font-semibold">{formatDate(attendanceDate)}</strong></span>
                       </p>
                     </div>
                     <div className="mt-4 p-3 bg-white/60 dark:bg-black/20 rounded-lg border border-amber-200 dark:border-amber-700">
@@ -292,16 +292,11 @@ export default function MarkAttendancePage({
                   </h4>
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                      {new Date(attendanceDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {formatDate(attendanceDate)}
                     </span>
                     {lastAttendanceDate && (
                       <span className="text-sm text-blue-600 dark:text-blue-400 px-3 py-1 bg-white/60 dark:bg-black/20 rounded-full">
-                        Last: {new Date(lastAttendanceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        Last: {formatDate(lastAttendanceDate)}
                       </span>
                     )}
                   </div>
@@ -375,18 +370,18 @@ export default function MarkAttendancePage({
                             <div className="flex flex-col gap-1">
                               <span>
                                 {manpower.lastAttendance
-                                  ? new Date(manpower.lastAttendance).toLocaleDateString()
+                                  ? formatDate(manpower.lastAttendance)
                                   : 'Never'}
                               </span>
                               {manpower.assignedAt && (
                                 <span className="text-xs text-muted-foreground">
-                                  Assigned: {new Date(manpower.assignedAt).toLocaleDateString()}
+                                  Assigned: {formatDate(manpower.assignedAt)}
                                 </span>
                               )}
                               {manpower.isLocked && (
                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 w-fit">
                                   <Clock className="h-3 w-3" />
-                                  Scheduled from {new Date(manpower.assignedAt as string).toLocaleDateString()}
+                                  Scheduled from {formatDate(manpower.assignedAt as string)}
                                 </span>
                               )}
                             </div>

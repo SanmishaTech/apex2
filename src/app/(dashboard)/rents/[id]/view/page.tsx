@@ -8,7 +8,7 @@ import { toast } from '@/lib/toast';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { AppSelect } from '@/components/common/app-select';
-import { formatDate, formatDateForInput } from '@/lib/locales';
+import { formatCurrency, formatDate, formatDateForInput } from '@/lib/locales';
 import type { Rent } from '@/types/rents';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -219,11 +219,11 @@ export default function ViewRentPage() {
             <InfoField label="Pancard No" value={rent.pancardNo} />
             <InfoField 
               label="Deposit Amount" 
-              value={rent.depositAmount ? `₹${Number(rent.depositAmount).toLocaleString('en-IN')}.00` : undefined} 
+              value={rent.depositAmount ? formatCurrency(Number(rent.depositAmount)) : undefined} 
             />
             <InfoField 
               label="Rent Amount" 
-              value={rent.rentAmount ? `₹${Number(rent.rentAmount).toLocaleString('en-IN')}` : undefined} 
+              value={rent.rentAmount ? formatCurrency(Number(rent.rentAmount)) : undefined} 
             />
           </div>
 
