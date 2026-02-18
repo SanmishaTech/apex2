@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
-import { formatDate, formatDateTime } from "@/lib/locales";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/locales";
 
 type CashbookBudgetData = {
   id: number;
@@ -195,27 +195,16 @@ export default function ViewCashbookBudgetPage() {
                           : "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                        ₹
-                        {Number(item.amount).toLocaleString("en-IN", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {formatCurrency(Number(item.amount))}
                       </td>
                       {data.approved1By && (
                         <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                          ₹
-                          {Number(item.approved1Amount || 0).toLocaleString(
-                            "en-IN",
-                            { minimumFractionDigits: 2 }
-                          )}
+                          {formatCurrency(Number(item.approved1Amount || 0))}
                         </td>
                       )}
                       {data.approvedBy && (
                         <td className="px-4 py-3 text-right font-mono text-green-600 dark:text-green-400">
-                          ₹
-                          {Number(item.approvedAmount || 0).toLocaleString(
-                            "en-IN",
-                            { minimumFractionDigits: 2 }
-                          )}
+                          {formatCurrency(Number(item.approvedAmount || 0))}
                         </td>
                       )}
                     </tr>
@@ -230,27 +219,16 @@ export default function ViewCashbookBudgetPage() {
                       Total
                     </td>
                     <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                      ₹
-                      {Number(data.totalBudget).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formatCurrency(Number(data.totalBudget))}
                     </td>
                     {data.approved1By && (
                       <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400 border-r dark:border-gray-700">
-                        ₹
-                        {Number(data.approved1BudgetAmount || 0).toLocaleString(
-                          "en-IN",
-                          { minimumFractionDigits: 2 }
-                        )}
+                        {formatCurrency(Number(data.approved1BudgetAmount || 0))}
                       </td>
                     )}
                     {data.approvedBy && (
                       <td className="px-4 py-3 text-right font-mono text-green-600 dark:text-green-400">
-                        ₹
-                        {Number(data.approvedBudgetAmount || 0).toLocaleString(
-                          "en-IN",
-                          { minimumFractionDigits: 2 }
-                        )}
+                        {formatCurrency(Number(data.approvedBudgetAmount || 0))}
                       </td>
                     )}
                   </tr>

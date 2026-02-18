@@ -168,6 +168,7 @@ export default function IndentsPage() {
 
   function applyFilters() {
     setQp({
+      page: 1,
       search: searchDraft.trim(),
       site: siteDraft,
     });
@@ -1128,6 +1129,19 @@ export default function IndentsPage() {
             </div>
           </div>
         </AppCard.Content>
+        <AppCard.Footer className="justify-end">
+          <Pagination
+            page={data?.meta?.page || page}
+            totalPages={data?.meta?.totalPages || 1}
+            total={data?.meta?.total}
+            perPage={perPage}
+            onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
+            onPageChange={(p) => setQp({ page: p })}
+            showPageNumbers
+            maxButtons={5}
+            disabled={isLoading}
+          />
+        </AppCard.Footer>
       </AppCard>
       {/* Pre-approval Dialog */}
       <Dialog open={approvalOpen} onOpenChange={setApprovalOpen}>

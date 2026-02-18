@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatCurrency, formatDate, formatDateForInput } from '@/lib/locales';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
@@ -195,7 +196,7 @@ export default function NewManpowerTransferPage() {
       key: 'wage',
       header: 'Wage (₹)',
       accessor: (row: AssignedManpowerForTransfer) => (
-        <span>{row.wage ? `₹${parseFloat(row.wage).toFixed(2)}` : '-'}</span>
+        <span>{row.wage ? formatCurrency(Number(row.wage)) : '-'}</span>
       ),
       sortable: false,
     },
