@@ -56,6 +56,12 @@ function FieldAny({
   );
 }
 
+function formatMoney(v: unknown) {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return "—";
+  return n.toFixed(2);
+}
+
 function prettyPOStatus(s?: string | null) {
   switch ((s || "OPEN").toUpperCase()) {
     case "ORDER_PLACED":
@@ -197,6 +203,18 @@ export default function PurchaseOrderViewPage() {
     const combined = joined.length > 0 ? joined : primary ? [primary] : [];
     return combined.length > 0 ? combined.join(", ") : "—";
   }, [data]);
+
+  const additionalCharges = useMemo(() => {
+    const rows = (data as any)?.poAdditionalCharge;
+    return Array.isArray(rows) ? rows : [];
+  }, [data]);
+
+  const additionalChargesTotal = useMemo(() => {
+    return additionalCharges.reduce((s: number, r: any) => {
+      const v = typeof r?.amountWithGst === "number" ? r.amountWithGst : Number(r?.amountWithGst);
+      return s + (Number.isFinite(v) ? v : 0);
+    }, 0);
+  }, [additionalCharges]);
 
   return (
     <div className="print:p-8">
@@ -348,6 +366,64 @@ export default function PurchaseOrderViewPage() {
                   <Field label="Bill Status" value={(data as any).billStatus ?? "—"} />
                   <FieldAny label="Remarks" value={(data as any).remarks ?? "—"} />
                 </FormRow>
+              </FormSection>
+
+              <FormSection legend="Additional Charges">
+                {additionalCharges.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">—</div>
+                ) : (
+                  <div className="w-full overflow-x-hidden rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900">
+                    <table className="w-full table-fixed border-collapse bg-transparent text-[11px]">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left w-[56px]">
+                            S.No
+                          </th>
+                          <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left">
+                            Head
+                          </th>
+                          <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left w-[120px]">
+                            GST
+                          </th>
+                          <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-right w-[140px]">
+                            Amount
+                          </th>
+                          <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-right w-[160px]">
+                            Amount (With GST)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {additionalCharges.map((r: any, idx: number) => (
+                          <tr
+                            key={r?.id ?? idx}
+                            className={
+                              idx % 2 === 0
+                                ? "bg-slate-50/60 dark:bg-slate-950/30"
+                                : "bg-white dark:bg-slate-900"
+                            }
+                          >
+                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 align-top">
+                              {idx + 1}
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 align-top whitespace-normal break-words">
+                              {r?.head ? String(r.head) : "—"}
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 align-top">
+                              {r?.gstCharge ? String(r.gstCharge) : "—"}
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-right align-top">
+                              {formatMoney(r?.amount)}
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-right align-top">
+                              {formatMoney(r?.amountWithGst)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </FormSection>
 
               <FormSection legend="Notes">
@@ -575,7 +651,25 @@ export default function PurchaseOrderViewPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold">Grand Total</div>
                     <div className="text-lg font-bold whitespace-nowrap">
-                      {typeof data.amount === "number" ? data.amount.toFixed(2) : data.amount}
+                      {formatMoney(data.amount)}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-md border bg-muted/20 px-3 py-2">
+                      <div className="text-[11px] text-muted-foreground">Total CGST</div>
+                      <div className="text-sm font-semibold">{formatMoney((data as any).totalCgstAmount)}</div>
+                    </div>
+                    <div className="rounded-md border bg-muted/20 px-3 py-2">
+                      <div className="text-[11px] text-muted-foreground">Total SGST</div>
+                      <div className="text-sm font-semibold">{formatMoney((data as any).totalSgstAmount)}</div>
+                    </div>
+                    <div className="rounded-md border bg-muted/20 px-3 py-2">
+                      <div className="text-[11px] text-muted-foreground">Total IGST</div>
+                      <div className="text-sm font-semibold">{formatMoney((data as any).totalIgstAmount)}</div>
+                    </div>
+                    <div className="rounded-md border bg-muted/20 px-3 py-2 md:col-span-3">
+                      <div className="text-[11px] text-muted-foreground">Additional Charges Total (With GST)</div>
+                      <div className="text-sm font-semibold">{formatMoney(additionalChargesTotal)}</div>
                     </div>
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap break-words">
