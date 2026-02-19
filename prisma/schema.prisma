@@ -1921,7 +1921,7 @@ model PurchaseOrder {
   updatedBy User @relation("POUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   purchaseOrderDetails PurchaseOrderDetail[] 
-  inwardDeliveryChallan InwardDeliveryChallan?
+  inwardDeliveryChallan InwardDeliveryChallan[]
   poPaymentTerms POPaymentTerm[]
   purchaseOrderIndent PurchaseOrderIndent[]
     poAdditionalCharge  PoAdditionalCharge[]
@@ -1972,7 +1972,7 @@ model PurchaseOrderDetail {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  InwardDeliveryChallanDetail InwardDeliveryChallanDetail?
+  InwardDeliveryChallanDetail InwardDeliveryChallanDetail[]
   indentItemPOs IndentItemPO[]
 
 @@index([purchaseOrderId])
@@ -2262,7 +2262,7 @@ enum InwardDeliveryChallanStatus {
 
 model InwardDeliveryChallan {
   id               Int       @id @default(autoincrement())
-  purchaseOrderId Int    @unique
+  purchaseOrderId Int   
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
   vendorId         Int
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
@@ -2311,8 +2311,8 @@ model InwardDeliveryChallan {
 model InwardDeliveryChallanDetail {
   id                        Int      @id @default(autoincrement())
   inwardDeliveryChallanId   Int   
-  poDetailsId               Int   @unique
-  receivingQty              Decimal  @db.Decimal(12, 4) @default(0.00)
+  poDetailsId               Int   
+  receivingQty              Decimal  @db.Decimal(12, 2) @default(0.00)
   rate                      Decimal @db.Decimal(12, 2) @default(0.00)
   amount                    Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt         DateTime @default(now())

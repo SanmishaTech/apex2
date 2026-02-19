@@ -48,6 +48,37 @@ function toNumberOrZero(value: unknown) {
   return Number.isFinite(num) ? num : 0;
 }
 
+function getPoWatermarkText(approvalStatus?: string | null) {
+  const status = String(approvalStatus || "DRAFT").toUpperCase();
+  if (status === "SUSPENDED") return "SUSPENDED";
+  if (status === "APPROVED_LEVEL_2" || status === "COMPLETED") return null;
+  return "DRAFT";
+}
+
+function applyWatermark(doc: jsPDF, text: string) {
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
+    const centerX = w / 2;
+    const centerY = h / 2;
+    doc.saveGraphicsState();
+    doc.setTextColor(110);
+    if (typeof (doc as any).setGState === "function" && (doc as any).GState) {
+      (doc as any).setGState(new (doc as any).GState({ opacity: 0.22 }));
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(80);
+    doc.text(text, centerX, centerY, {
+      align: "center",
+      baseline: "middle",
+      angle: 45,
+    } as any);
+    doc.restoreGraphicsState();
+  }
+}
+
 function drawLines(
   doc: jsPDF,
   lines: { text: string; bold?: boolean }[],
@@ -1015,36 +1046,18 @@ export async function GET(
   doc.setFont("helvetica", "bold");
   doc.text("Authorised Signatory", padX, signatureBoxY + 8);
 
-  // const totalPages = doc.getNumberOfPages();
-  // doc.setFontSize(smallFontSize);
-  // doc.setFont("helvetica", "bold");
-  // const footerLeft = "DCTPL";
-  // const footerCenter = `Generated on ${format(
-  //   new Date(),
-  //   "dd/MM/yyyy hh:mm a"
-  // )}`;
-  // for (let i = 1; i <= totalPages; i++) {
-  //   doc.setPage(i);
-  //   // Draw a horizontal line below the outer border and place footer outside the box
-  //   const lineY = pageHeight - margin - 4; // lift footer for better bottom margin
-  //   doc.setDrawColor(0);
-  //   doc.line(margin, lineY, pageWidth - margin, lineY);
-  //   const y = lineY + 4; // footer below the line
-  //   doc.text(footerLeft, padX, y);
-  //   doc.text(footerCenter, pageWidth / 2, y, { align: "center" });
-  //   doc.text(`Page ${i}/${totalPages}`, pageWidth - padX, y, {
-  //     align: "right",
-  //   });
-  // }
+  const watermarkText = getPoWatermarkText(purchaseOrder.approvalStatus);
 
-  const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+  if (watermarkText) {
+    applyWatermark(doc, watermarkText);
+  }
 
-  return new Response(pdfBuffer, {
+  const pdfBytes = doc.output("arraybuffer");
+  return new NextResponse(pdfBytes, {
+    status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="purchase-order-${
-        purchaseOrder.purchaseOrderNo ?? id
-      }.pdf"`,
+      "Content-Disposition": `attachment; filename="purchase-order-${purchaseOrder.purchaseOrderNo}.pdf"`,
     },
   });
 }

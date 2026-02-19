@@ -726,9 +726,6 @@ export default function PurchaseOrdersPage() {
               stickyColumns={1}
               minTableWidth={1200}
               renderRowActions={(po) => {
-                const showPrint =
-                  po.approvalStatus === "APPROVED_LEVEL_2" ||
-                  po.approvalStatus === "COMPLETED";
                 const isSuspended = po.approvalStatus === "SUSPENDED";
                 return (
                   <DropdownMenu>
@@ -749,6 +746,10 @@ export default function PurchaseOrdersPage() {
                         View
                       </DropdownMenuItem>
 
+                      <DropdownMenuItem onClick={() => handlePrint(po)}>
+                        Print
+                      </DropdownMenuItem>
+
                       {isSuspended ? null : (
                         <>
                       {can(PERMISSIONS.EDIT_PURCHASE_ORDERS) &&
@@ -761,11 +762,6 @@ export default function PurchaseOrdersPage() {
                           Edit
                         </DropdownMenuItem>
                       ) : null}
-                      {showPrint && (
-                        <DropdownMenuItem onClick={() => handlePrint(po)}>
-                          Print
-                        </DropdownMenuItem>
-                      )}
                       {can(PERMISSIONS.UPDATE_PURCHASE_ORDER_REMARKS) ? (
                         <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
                           Add Remark

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
   Form,
@@ -126,7 +126,11 @@ function toSubmitPayload(
           it.receivingQty && it.receivingQty !== ""
             ? Number(it.receivingQty)
             : 0,
-      })),
+      }))
+      .filter(
+        (d: any) =>
+          Number.isFinite(Number(d.receivingQty)) && Number(d.receivingQty) > 0
+      ),
     inwardDeliveryChallanDocuments: docs.map((doc, index) => ({
       documentName: doc.documentName || "",
       documentUrl:
@@ -183,13 +187,16 @@ export default function InwardDeliveryChallanForm({
           receivingQty: it.receivingQty != null ? String(it.receivingQty) : "",
           rate: it.rate != null ? String(it.rate) : "",
           amount: it.amount != null ? String(it.amount) : "",
-        })) || [],
+        })) || [{ poDetailsId: "", receivingQty: "", rate: "", amount: "" }],
     },
   });
 
   const { control, handleSubmit } = form;
   const isCreate = !initial?.id;
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, replace } = useFieldArray({
+    control,
+    name: "items",
+  });
 
   useEffect(() => {
     if ((initial as any)?.inwardDeliveryChallanDocuments) {
@@ -210,7 +217,7 @@ export default function InwardDeliveryChallanForm({
   const purchaseOrderIdVal = form.watch("purchaseOrderId");
   const { data: posData } = useSWR<any>(
     siteIdVal
-      ? `/api/purchase-orders?perPage=1000&site=${siteIdVal}&excludeLinked=true&approved2=true`
+      ? `/api/purchase-orders?perPage=1000&site=${siteIdVal}&approved2=true`
       : null,
     apiGet
   );
@@ -255,22 +262,63 @@ export default function InwardDeliveryChallanForm({
     }
   }, [purchaseOrderIdVal, posData?.data]);
 
-  // Also replace challan detail items from PO details
+  const poDetailsRows: any[] = Array.isArray(poDetail?.purchaseOrderDetails)
+    ? (poDetail.purchaseOrderDetails as any[])
+    : [];
+
+  // When PO changes (create mode), prefill item rows with PO details
   useEffect(() => {
-    const poItems = poDetail?.purchaseOrderDetails || [];
-    if (Array.isArray(poItems)) {
-      const mapped = poItems.map((d: any) => ({
-        poDetailsId: String(d.id ?? ""),
+    if (!isCreate) return;
+    if (!purchaseOrderIdVal || String(purchaseOrderIdVal).trim() === "") {
+      replace([{ poDetailsId: "", receivingQty: "", rate: "", amount: "" }]);
+      return;
+    }
+    if (!Array.isArray(poDetailsRows) || poDetailsRows.length === 0) return;
+
+    replace(
+      poDetailsRows.map((d: any) => ({
+        poDetailsId: d?.id != null ? String(d.id) : "",
         receivingQty: "",
         rate: "",
         amount: "",
-      }));
-      form.setValue("items", mapped, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
+      }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreate, purchaseOrderIdVal, poDetailsRows.length]);
+
+  const poDetailById = useMemo(() => {
+    const map = new Map<number, any>();
+    for (const d of poDetailsRows) {
+      if (typeof d?.id === "number") map.set(d.id, d);
     }
-  }, [poDetail?.purchaseOrderDetails]);
+    return map;
+  }, [poDetailsRows]);
+
+  const remainingByPoDetailsId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const d of poDetailsRows) {
+      const id = Number(d?.id);
+      if (!Number.isFinite(id)) continue;
+      const poQty = Number(d?.qty ?? 0);
+      const received = Number(d?.receivedQty ?? 0);
+      const remaining = Number((poQty - received).toFixed(2));
+      map.set(id, remaining);
+    }
+    return map;
+  }, [poDetailsRows]);
+
+  const watchedItems = form.watch("items");
+  const selectedTotalsByPoDetailsId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const it of watchedItems || []) {
+      const id = Number((it as any)?.poDetailsId);
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const qty = Number((it as any)?.receivingQty || 0);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      map.set(id, Number(((map.get(id) || 0) + qty).toFixed(2)));
+    }
+    return map;
+  }, [watchedItems]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -480,19 +528,50 @@ export default function InwardDeliveryChallanForm({
             >
               <div className="flex flex-col gap-2 rounded-xl border bg-background p-4 shadow-sm">
                 <div className="grid grid-cols-12 gap-3 text-sm font-medium text-muted-foreground">
-                  <div className="col-span-1">Sr No</div>
-                  <div className="col-span-4">Item</div>
+                  <div className="col-span-1">Sr</div>
+                  <div className="col-span-4">PO Item</div>
                   <div className="col-span-2">PO Qty</div>
-                  <div className="col-span-3">Receiving Qty</div>
-                  <div className="col-span-2">Closing Stock</div>
+                  <div className="col-span-2">Remaining</div>
+                  <div className="col-span-2">Receiving</div>
+                  <div className="col-span-1">Stock</div>
                 </div>
                 {fields.map((field, index) => {
-                  const d = (poDetail?.purchaseOrderDetails || [])[index];
-                  const sr = d?.serialNo ?? index + 1;
-                  const itemName = d?.item?.item ?? d?.itemName ?? "-";
-                  const qty = d?.qty ?? d?.approved2Qty ?? d?.orderedQty ?? "-";
+                  const selectedPoDetailsId = Number(
+                    (watchedItems?.[index] as any)?.poDetailsId || 0
+                  );
+                  const selectedDetail = Number.isFinite(selectedPoDetailsId)
+                    ? poDetailById.get(selectedPoDetailsId)
+                    : undefined;
+                  const sr = index + 1;
+                  const itemName = selectedDetail?.item?.item ?? "-";
+                  const poQty =
+                    selectedDetail?.qty ??
+                    selectedDetail?.approved2Qty ??
+                    selectedDetail?.orderedQty ??
+                    "-";
+                  const alreadyRemaining = Number.isFinite(selectedPoDetailsId)
+                    ? remainingByPoDetailsId.get(selectedPoDetailsId) ?? 0
+                    : 0;
+                  const currentRowQty = Number(
+                    (watchedItems?.[index] as any)?.receivingQty || 0
+                  );
+                  const selectedTotal = Number.isFinite(selectedPoDetailsId)
+                    ? selectedTotalsByPoDetailsId.get(selectedPoDetailsId) ?? 0
+                    : 0;
+                  const otherRowsQty = Number(
+                    (selectedTotal - (Number.isFinite(currentRowQty) ? currentRowQty : 0)).toFixed(2)
+                  );
+                  const remainingAfterAllRows = Number(
+                    (alreadyRemaining - (Number.isFinite(selectedTotal) ? selectedTotal : 0)).toFixed(2)
+                  );
+                  const maxForRow = Number(
+                    (alreadyRemaining - (Number.isFinite(otherRowsQty) ? otherRowsQty : 0)).toFixed(2)
+                  );
+
                   const itemId =
-                    (typeof d?.itemId === "number" ? d.itemId : d?.item?.id) ??
+                    (typeof selectedDetail?.itemId === "number"
+                      ? selectedDetail.itemId
+                      : selectedDetail?.item?.id) ??
                     undefined;
                   const closingMap =
                     (closingStockData && closingStockData.closingStockByItemId) ||
@@ -505,19 +584,93 @@ export default function InwardDeliveryChallanForm({
                       className="grid grid-cols-12 gap-3 items-center py-2 border-b"
                     >
                       <div className="col-span-1">{sr}</div>
-                      <div className="col-span-4 truncate">{itemName}</div>
-                      <div className="col-span-2">{String(qty)}</div>
-                      <div className="col-span-3">
+
+                      <div className="col-span-4 min-w-0">
+                        {isCreate ? (
+                          <>
+                            <input
+                              type="hidden"
+                              {...form.register(`items.${index}.poDetailsId` as const)}
+                            />
+                            <div className="text-sm font-medium truncate">
+                              {selectedDetail?.item?.itemCode
+                                ? `${selectedDetail.item.itemCode} - ${selectedDetail.item.item}`
+                                : selectedDetail?.item?.item ?? "—"}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground truncate">
+                              {itemName}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <AppSelect
+                              control={control}
+                              name={`items.${index}.poDetailsId`}
+                              label=""
+                              placeholder="Select PO Item"
+                              triggerClassName="h-9 w-full"
+                              onValueChange={() => {
+                                form.setValue(`items.${index}.receivingQty`, "", {
+                                  shouldValidate: true,
+                                  shouldDirty: true,
+                                });
+                              }}
+                            >
+                              {poDetailsRows.map((d: any) => {
+                                const label = d?.item?.itemCode
+                                  ? `${d.item.itemCode} - ${d.item.item}`
+                                  : d?.item?.item ?? "—";
+                                const rem =
+                                  remainingByPoDetailsId.get(Number(d?.id)) ?? 0;
+                                return (
+                                  <AppSelect.Item key={d.id} value={String(d.id)}>
+                                    {label} (Rem: {rem})
+                                  </AppSelect.Item>
+                                );
+                              })}
+                            </AppSelect>
+                            <div className="mt-1 text-xs text-muted-foreground truncate">
+                              {itemName}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="col-span-2">{String(poQty)}</div>
+                      <div className="col-span-2">
+                        {Number.isFinite(remainingAfterAllRows)
+                          ? Math.max(0, remainingAfterAllRows)
+                          : "-"}
+                      </div>
+
+                      <div className="col-span-2">
                         <TextInput
                           control={control}
                           name={`items.${index}.receivingQty`}
                           label=""
-                          type="number"
+                          type="text"
                           placeholder="0"
                           span={12}
+                          disabled={!selectedPoDetailsId}
+                          onValueChange={(raw) => {
+                            const cleaned = raw.replace(/[^0-9.]/g, "");
+                            if (cleaned.trim() === "") return "";
+
+                            // allow only one '.' and up to 2 decimals
+                            const parts = cleaned.split(".");
+                            const normalized =
+                              parts.length <= 1
+                                ? parts[0]
+                                : `${parts[0]}.${(parts[1] || "").slice(0, 2)}`;
+
+                            const n = Number(normalized);
+                            if (!Number.isFinite(n)) return "";
+                            return normalized;
+                          }}
                         />
                       </div>
-                      <div className="col-span-2">{closingVal ?? "-"}</div>
+
+                      <div className="col-span-1 text-right">{closingVal ?? "-"}</div>
                     </div>
                   );
                 })}
