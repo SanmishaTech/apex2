@@ -2400,6 +2400,34 @@ model SiteItem {
   @@map("site_items")
 }
 
+model SiteItemBatch {
+  id           Int       @id @default(autoincrement())
+  siteItemId   Int
+  siteId        Int
+  itemId        Int
+
+  batchNumber      String    
+  expiryDate   String  
+
+  openingQty   Decimal   @default(0.00) @db.Decimal(12, 2)
+  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
+  openingValue Decimal   @default(0.00)   @db.Decimal(12, 2)
+  closingQty   Decimal   @default(0.00) @db.Decimal(12, 2)
+  closingValue Decimal   @default(0.00)   @db.Decimal(12, 2)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // fix this
+  siteItem     SiteItem  @relation(fields: [siteItemId], references: [id], onDelete: Restrict)
+  site     Site  @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  item     Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([siteItemId, batchNumber], name: "uq_siteitem_batch")
+  @@map("site_item_batches")
+}
+
+
 
 model OutwardDeliveryChallan {
   id                 Int       @id @default(autoincrement())
