@@ -535,25 +535,62 @@ export async function POST(req: NextRequest) {
         Array.isArray(inwardDeliveryChallanDetails) &&
         inwardDeliveryChallanDetails.length > 0
       ) {
-        const ids = inwardDeliveryChallanDetails.map((d: any) => d.poDetailsId);
-        const poDetails = await tx.purchaseOrderDetail.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, amount: true, qty: true, itemId: true },
-        });
-        const rateMap = new Map<number, number>(
-          poDetails.map((d: any) => {
-            const poQty = Number(d.qty ?? 0);
-            const poAmt = Number(d.amount ?? 0);
-            const computedRate = poQty > 0 ? poAmt / poQty : 0;
-            return [d.id, Number(computedRate.toFixed(4))];
-          })
-        );
-        itemIdMap = new Map<number, number>(
-          poDetails.map((d: any) => [d.id, Number(d.itemId)])
+        const filteredDetails = (inwardDeliveryChallanDetails as any[]).filter(
+          (d: any) => Number(d?.receivingQty ?? 0) > 0
         );
 
-        detailsCreateDataBase = inwardDeliveryChallanDetails.map(
-          (detail: any) => {
+        if (filteredDetails.length > 0) {
+          const ids = filteredDetails.map((d: any) => d.poDetailsId);
+          const poDetails = await tx.purchaseOrderDetail.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, amount: true, qty: true, itemId: true, receivedQty: true },
+          });
+
+          const poQtyById = new Map<number, number>(
+            poDetails.map((d: any) => [Number(d.id), Number(d.qty ?? 0)])
+          );
+          const alreadyReceivedById = new Map<number, number>(
+            poDetails.map((d: any) => [Number(d.id), Number(d.receivedQty ?? 0)])
+          );
+
+          // Validate that total receivingQty per PO detail does not exceed remaining qty
+          const incomingByPoDetailsId = new Map<number, number>();
+          for (const detail of filteredDetails as any[]) {
+            const poDetailsId = Number(detail?.poDetailsId);
+            if (!Number.isFinite(poDetailsId) || poDetailsId <= 0) continue;
+            const qty = Number(detail?.receivingQty ?? 0);
+            if (!Number.isFinite(qty) || qty < 0) continue;
+            if (qty <= 0) continue;
+            incomingByPoDetailsId.set(
+              poDetailsId,
+              Number(((incomingByPoDetailsId.get(poDetailsId) || 0) + qty).toFixed(4))
+            );
+          }
+
+          for (const [poDetailsId, incomingQty] of incomingByPoDetailsId.entries()) {
+            const poQty = poQtyById.get(poDetailsId) ?? 0;
+            const alreadyReceived = alreadyReceivedById.get(poDetailsId) ?? 0;
+            const remaining = Number((poQty - alreadyReceived).toFixed(4));
+            if (incomingQty > remaining + 1e-9) {
+              throw new Error(
+                `Receiving qty exceeds remaining qty for PO item (PO Detail ID: ${poDetailsId}). Remaining: ${Number(remaining.toFixed(2))}`
+              );
+            }
+          }
+
+          const rateMap = new Map<number, number>(
+            poDetails.map((d: any) => {
+              const poQty = Number(d.qty ?? 0);
+              const poAmt = Number(d.amount ?? 0);
+              const computedRate = poQty > 0 ? poAmt / poQty : 0;
+              return [d.id, Number(computedRate.toFixed(4))];
+            })
+          );
+          itemIdMap = new Map<number, number>(
+            poDetails.map((d: any) => [d.id, Number(d.itemId)])
+          );
+
+          detailsCreateDataBase = filteredDetails.map((detail: any) => {
             const rate = rateMap.get(detail.poDetailsId) ?? 0;
             const receivingQty = Number(detail.receivingQty ?? 0);
             const amount = Number((rate * receivingQty).toFixed(2));
@@ -563,13 +600,13 @@ export async function POST(req: NextRequest) {
               rate,
               amount,
             };
-          }
-        );
+          });
 
-        totalBillAmount = detailsCreateDataBase.reduce(
-          (acc, d) => acc + (Number.isFinite(d.amount) ? d.amount : 0),
-          0
-        );
+          totalBillAmount = detailsCreateDataBase.reduce(
+            (acc, d) => acc + (Number.isFinite(d.amount) ? d.amount : 0),
+            0
+          );
+        }
       }
 
       const createData: Prisma.InwardDeliveryChallanCreateInput = {
@@ -785,6 +822,9 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
+    }
+    if (error instanceof Error) {
+      return ApiError(error.message || "Bad Request", 400);
     }
     if (
       error &&

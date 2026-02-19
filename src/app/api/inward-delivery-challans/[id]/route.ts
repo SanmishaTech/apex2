@@ -460,14 +460,84 @@ export async function PATCH(
         inwardDeliveryChallanDetails &&
         Array.isArray(inwardDeliveryChallanDetails)
       ) {
+        const filteredDetails = (inwardDeliveryChallanDetails as any[]).filter(
+          (d: any) => Number(d?.receivingQty ?? 0) > 0
+        );
+
+        // Fetch existing details to rollback PO receivedQty before applying new ones
+        const existingDetails = await tx.inwardDeliveryChallanDetail.findMany({
+          where: { inwardDeliveryChallanId: id },
+          select: { poDetailsId: true, receivingQty: true },
+        });
+
+        const existingByPoDetailsId = new Map<number, number>();
+        for (const d of existingDetails) {
+          const poDetailsId = Number(d.poDetailsId);
+          const qty = Number(d.receivingQty ?? 0);
+          if (!Number.isFinite(poDetailsId) || poDetailsId <= 0) continue;
+          if (!Number.isFinite(qty) || qty <= 0) continue;
+          existingByPoDetailsId.set(
+            poDetailsId,
+            Number(((existingByPoDetailsId.get(poDetailsId) || 0) + qty).toFixed(4))
+          );
+        }
+
+        // Rollback existing receivedQty on PO details
+        for (const [poDetailsId, qty] of existingByPoDetailsId.entries()) {
+          await tx.purchaseOrderDetail.update({
+            where: { id: poDetailsId },
+            data: { receivedQty: { decrement: qty } },
+          });
+        }
+
+        // Validate new totals against remaining after rollback
+        const incomingByPoDetailsId = new Map<number, number>();
+        for (const detail of filteredDetails as any[]) {
+          const poDetailsId = Number(detail?.poDetailsId);
+          if (!Number.isFinite(poDetailsId) || poDetailsId <= 0) continue;
+          const qty = Number(detail?.receivingQty ?? 0);
+          if (!Number.isFinite(qty) || qty < 0) continue;
+          if (qty <= 0) continue;
+          incomingByPoDetailsId.set(
+            poDetailsId,
+            Number(((incomingByPoDetailsId.get(poDetailsId) || 0) + qty).toFixed(4))
+          );
+        }
+
+        const validateIds = Array.from(incomingByPoDetailsId.keys());
+        if (validateIds.length > 0) {
+          const poDetails = await tx.purchaseOrderDetail.findMany({
+            where: { id: { in: validateIds } },
+            select: { id: true, qty: true, receivedQty: true },
+          });
+
+          const poQtyById = new Map<number, number>(
+            poDetails.map((d: any) => [Number(d.id), Number(d.qty ?? 0)])
+          );
+          const alreadyReceivedById = new Map<number, number>(
+            poDetails.map((d: any) => [Number(d.id), Number(d.receivedQty ?? 0)])
+          );
+
+          for (const [poDetailsId, incomingQty] of incomingByPoDetailsId.entries()) {
+            const poQty = poQtyById.get(poDetailsId) ?? 0;
+            const alreadyReceived = alreadyReceivedById.get(poDetailsId) ?? 0;
+            const remaining = Number((poQty - alreadyReceived).toFixed(4));
+            if (incomingQty > remaining + 1e-9) {
+              throw new Error(
+                `Receiving qty exceeds remaining qty for PO item (PO Detail ID: ${poDetailsId}). Remaining: ${Number(remaining.toFixed(2))}`
+              );
+            }
+          }
+        }
+
         // Delete existing details
         await tx.inwardDeliveryChallanDetail.deleteMany({
           where: { inwardDeliveryChallanId: id },
         });
 
         // Create new details
-        if (inwardDeliveryChallanDetails.length > 0) {
-          const detailsCreateData = inwardDeliveryChallanDetails.map(
+        if (filteredDetails.length > 0) {
+          const detailsCreateData = filteredDetails.map(
             (detail: any) => ({
               inwardDeliveryChallanId: id,
               poDetailsId: detail.poDetailsId,
@@ -480,6 +550,15 @@ export async function PATCH(
           await tx.inwardDeliveryChallanDetail.createMany({
             data: detailsCreateData,
           });
+
+          // Apply new receivedQty on PO details
+          for (const [poDetailsId, qty] of incomingByPoDetailsId.entries()) {
+            if (!Number.isFinite(qty) || qty <= 0) continue;
+            await tx.purchaseOrderDetail.update({
+              where: { id: poDetailsId },
+              data: { receivedQty: { increment: qty } },
+            });
+          }
         }
       }
 

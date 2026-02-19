@@ -307,7 +307,7 @@ export async function GET(req: NextRequest) {
 
     if (excludeLinked) {
       // Only include POs that are not already linked in inward delivery challans
-      where.inwardDeliveryChallan = { is: null };
+      where.inwardDeliveryChallan = { none: {} };
     }
 
     const sortableFields = new Set([
