@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
         id: true,
         itemCode: true,
         item: true,
+        isExpiryDate: true,
         unit: { select: { unitName: true } },
       },
       orderBy: [{ itemCode: "asc" }, { item: "asc" }],
