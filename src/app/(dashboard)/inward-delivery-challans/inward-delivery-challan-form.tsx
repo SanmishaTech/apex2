@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import {
   Form,
   FormField,
@@ -17,6 +17,7 @@ import { AppCard } from "@/components/common/app-card";
 import { TextInput } from "@/components/common/text-input";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import { AppSelect } from "@/components/common/app-select";
+import { BatchNumberTypeaheadInput } from "@/components/common/batch-number-typeahead-input";
 import { apiPost, apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
@@ -75,6 +76,15 @@ const baseSchema = z
         z.object({
           poDetailsId: z.string().optional(),
           receivingQty: z.string().optional(),
+          batches: z
+            .array(
+              z.object({
+                batchNumber: z.string().optional(),
+                expiryDate: z.string().optional(),
+                receivingQty: z.string().optional(),
+              })
+            )
+            .optional(),
           rate: z.string().optional(),
           amount: z.string().optional(),
         })
@@ -99,6 +109,170 @@ const inputSchema = baseSchema;
 
 type RawFormValues = z.infer<typeof inputSchema>;
 
+type SiteItemBatchOption = {
+  id: number;
+  batchNumber: string;
+  expiryDate: string;
+};
+
+function sanitizeDecimal2(raw: string): string {
+  const s = String(raw ?? "");
+  if (s === "") return "";
+  const cleaned = s.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length <= 1) return parts[0] || "";
+  return `${parts[0] || ""}.${(parts[1] || "").slice(0, 2)}`;
+}
+
+function ExpiryReceivingBatchesEditor({
+  form,
+  index,
+  siteId,
+  itemId,
+}: {
+  form: any;
+  index: number;
+  siteId: string;
+  itemId: number | undefined;
+}) {
+  const siteIdNum = Number(siteId);
+  const itemIdNum = typeof itemId === "number" ? itemId : NaN;
+  const canFetch =
+    Number.isFinite(siteIdNum) && siteIdNum > 0 && Number.isFinite(itemIdNum) && itemIdNum > 0;
+
+  const { data: batchesData } = useSWR<{ data: SiteItemBatchOption[] }>(
+    canFetch ? `/api/site-item-batches?siteId=${siteIdNum}&itemId=${itemIdNum}` : null,
+    apiGet
+  );
+
+  const byBatchNo = useMemo(() => {
+    const m = new Map<string, SiteItemBatchOption>();
+    (batchesData?.data || []).forEach((b) => {
+      if (b?.batchNumber) m.set(String(b.batchNumber), b);
+    });
+    return m;
+  }, [batchesData?.data]);
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: `items.${index}.batches` as any,
+  });
+
+  const watchedBatches = useWatch({
+    control: form.control,
+    name: `items.${index}.batches` as any,
+  }) as any[] | undefined;
+
+  useEffect(() => {
+    const rows = watchedBatches || [];
+    const total = rows.reduce((acc, r) => {
+      const q = Number(String(r?.receivingQty || "").trim() || 0);
+      return acc + (Number.isFinite(q) ? q : 0);
+    }, 0);
+    form.setValue(`items.${index}.receivingQty`, total > 0 ? total.toFixed(2) : "", {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [watchedBatches, index]);
+
+  function addRow() {
+    append({ batchNumber: "", expiryDate: "", receivingQty: "" } as any);
+  }
+
+  const batchOptions = useMemo(
+    () => Array.from(new Set((batchesData?.data || []).map((b) => String(b.batchNumber))))
+      .filter(Boolean)
+      .sort(),
+    [batchesData?.data]
+  );
+
+  return (
+    <div className="mt-2 rounded-md border bg-muted/10 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium">Batch-wise Receiving</div>
+        <AppButton type="button" size="sm" variant="secondary" onClick={addRow}>
+          Add Batch
+        </AppButton>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 text-xs text-muted-foreground mb-2">
+        <div className="col-span-5">Batch Number</div>
+        <div className="col-span-4">Expiry Date</div>
+        <div className="col-span-2">Qty</div>
+        <div className="col-span-1" />
+      </div>
+
+      {fields.map((f, bIndex) => {
+        const batchNumber = String(
+          form.getValues(`items.${index}.batches.${bIndex}.batchNumber`) || ""
+        ).trim();
+        const existing = byBatchNo.get(batchNumber);
+        return (
+          <div key={f.id} className="grid grid-cols-12 gap-3 items-start mb-2">
+            <div className="col-span-5">
+              <BatchNumberTypeaheadInput
+                control={form.control}
+                name={`items.${index}.batches.${bIndex}.batchNumber` as any}
+                label=""
+                placeholder="Type or select"
+                options={batchOptions}
+                inputClassName="h-9"
+                onSelectOption={(val) => {
+                  const ex = byBatchNo.get(String(val));
+                  if (ex?.expiryDate) {
+                    form.setValue(`items.${index}.batches.${bIndex}.expiryDate`, ex.expiryDate, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+              />
+            </div>
+
+            <div className="col-span-4">
+              <TextInput
+                control={form.control}
+                name={`items.${index}.batches.${bIndex}.expiryDate` as any}
+                label=""
+                type="month"
+                span={12}
+                disabled={!!existing}
+              />
+            </div>
+
+            <div className="col-span-2">
+              <TextInput
+                control={form.control}
+                name={`items.${index}.batches.${bIndex}.receivingQty` as any}
+                label=""
+                type="text"
+                placeholder="0"
+                span={12}
+                onValueChange={(raw) => sanitizeDecimal2(raw)}
+              />
+            </div>
+
+            <div className="col-span-1 pt-1">
+              <AppButton
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => remove(bIndex)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </AppButton>
+            </div>
+          </div>
+        );
+      })}
+
+      {fields.length === 0 && (
+        <div className="text-sm text-muted-foreground">Add batches to receive stock.</div>
+      )}
+    </div>
+  );
+}
+
 function toSubmitPayload(
   data: RawFormValues,
   docs: Array<{ documentName: string; documentUrl: string | File | null }>
@@ -120,17 +294,43 @@ function toSubmitPayload(
     remarks: data.remarks?.trim() || null,
     inwardDeliveryChallanDetails: (data.items || [])
       .filter((it) => it.poDetailsId && it.poDetailsId !== "")
-      .map((it) => ({
-        poDetailsId: parseInt(it.poDetailsId as string),
-        receivingQty:
-          it.receivingQty && it.receivingQty !== ""
-            ? Number(it.receivingQty)
-            : 0,
-      }))
-      .filter(
-        (d: any) =>
-          Number.isFinite(Number(d.receivingQty)) && Number(d.receivingQty) > 0
-      ),
+      .map((it) => {
+        const parsedBatches = Array.isArray((it as any).batches)
+          ? ((it as any).batches as any[])
+              .map((b) => ({
+                batchNumber: String(b?.batchNumber || "").trim(),
+                expiryDate: String(b?.expiryDate || "").trim(),
+                receivingQty:
+                  b?.receivingQty && String(b.receivingQty).trim() !== ""
+                    ? Number(b.receivingQty)
+                    : 0,
+              }))
+              .filter(
+                (b) =>
+                  !!b.batchNumber &&
+                  Number.isFinite(Number(b.receivingQty)) &&
+                  Number(b.receivingQty) > 0
+              )
+          : [];
+
+        const qtyFromBatches = parsedBatches.reduce(
+          (acc, b) => acc + Number(b.receivingQty || 0),
+          0
+        );
+
+        const receivingQtyRaw =
+          it.receivingQty && it.receivingQty !== "" ? Number(it.receivingQty) : 0;
+
+        return {
+          poDetailsId: parseInt(it.poDetailsId as string),
+          receivingQty:
+            parsedBatches.length > 0
+              ? Number(qtyFromBatches.toFixed(2))
+              : receivingQtyRaw,
+          idcDetailBatches: parsedBatches.length > 0 ? parsedBatches : undefined,
+        };
+      })
+      .filter((d: any) => Number.isFinite(Number(d.receivingQty)) && Number(d.receivingQty) > 0),
     inwardDeliveryChallanDocuments: docs.map((doc, index) => ({
       documentName: doc.documentName || "",
       documentUrl:
@@ -185,9 +385,11 @@ export default function InwardDeliveryChallanForm({
         (initial?.items || [])?.map((it) => ({
           poDetailsId: it.poDetailsId ? String(it.poDetailsId) : "",
           receivingQty: it.receivingQty != null ? String(it.receivingQty) : "",
+          batches: (it as any)?.batches || [],
           rate: it.rate != null ? String(it.rate) : "",
           amount: it.amount != null ? String(it.amount) : "",
-        })) || [{ poDetailsId: "", receivingQty: "", rate: "", amount: "" }],
+        })) ||
+        [{ poDetailsId: "", receivingQty: "", batches: [], rate: "", amount: "" } as any],
     },
   });
 
@@ -270,7 +472,9 @@ export default function InwardDeliveryChallanForm({
   useEffect(() => {
     if (!isCreate) return;
     if (!purchaseOrderIdVal || String(purchaseOrderIdVal).trim() === "") {
-      replace([{ poDetailsId: "", receivingQty: "", rate: "", amount: "" }]);
+      replace([
+        { poDetailsId: "", receivingQty: "", batches: [], rate: "", amount: "" } as any,
+      ]);
       return;
     }
     if (!Array.isArray(poDetailsRows) || poDetailsRows.length === 0) return;
@@ -279,6 +483,7 @@ export default function InwardDeliveryChallanForm({
       poDetailsRows.map((d: any) => ({
         poDetailsId: d?.id != null ? String(d.id) : "",
         receivingQty: "",
+        batches: [],
         rate: "",
         amount: "",
       }))
@@ -573,6 +778,7 @@ export default function InwardDeliveryChallanForm({
                       ? selectedDetail.itemId
                       : selectedDetail?.item?.id) ??
                     undefined;
+                  const isExpiryItem = Boolean(selectedDetail?.item?.isExpiryDate);
                   const closingMap =
                     (closingStockData && closingStockData.closingStockByItemId) ||
                     {};
@@ -651,7 +857,7 @@ export default function InwardDeliveryChallanForm({
                           type="text"
                           placeholder="0"
                           span={12}
-                          disabled={!selectedPoDetailsId}
+                          disabled={!selectedPoDetailsId || isExpiryItem}
                           onValueChange={(raw) => {
                             const cleaned = raw.replace(/[^0-9.]/g, "");
                             if (cleaned.trim() === "") return "";
@@ -668,9 +874,25 @@ export default function InwardDeliveryChallanForm({
                             return normalized;
                           }}
                         />
+                        {isExpiryItem && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Receiving qty is derived from batch rows.
+                          </div>
+                        )}
                       </div>
 
                       <div className="col-span-1 text-right">{closingVal ?? "-"}</div>
+
+                      <div className="col-span-12">
+                        {isExpiryItem && selectedPoDetailsId && itemId && (
+                          <ExpiryReceivingBatchesEditor
+                            form={form}
+                            index={index}
+                            siteId={String(siteIdVal || "")}
+                            itemId={itemId}
+                          />
+                        )}
+                      </div>
                     </div>
                   );
                 })}

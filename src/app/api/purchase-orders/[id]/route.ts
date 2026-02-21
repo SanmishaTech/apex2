@@ -332,6 +332,7 @@ export async function GET(
                 id: true,
                 itemCode: true,
                 item: true,
+                isExpiryDate: true,
                 unitId: true,
                 unit: {
                   select: {
