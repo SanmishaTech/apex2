@@ -67,6 +67,18 @@ const createSchema = z.object({
       z.object({
         itemId: z.number().int().positive("Item ID is required"),
         challanQty: z.number().min(0).default(0),
+        odcDetailBatches: z
+          .array(
+            z.object({
+              batchNumber: z.string().min(1, "Batch number is required"),
+              expiryDate: z
+                .string()
+                .min(1, "Expiry date is required")
+                .regex(/^\d{4}-\d{2}$/, "Expiry date must be in YYYY-MM format"),
+              challanQty: z.number().min(0).default(0),
+            })
+          )
+          .optional(),
       })
     )
     .min(1, "At least one item is required"),
@@ -419,15 +431,118 @@ export async function POST(req: NextRequest) {
         Array.isArray(outwardDeliveryChallanDetails) &&
         outwardDeliveryChallanDetails.length > 0
       ) {
-        const detailsData = outwardDeliveryChallanDetails.map((d: any) => ({
-          outwardDeliveryChallanId: createdMain.id,
-          itemId: Number(d.itemId),
-          qty: Number(d.challanQty ?? 0),
-          challanQty: Number(d.challanQty ?? 0),
-          approved1Qty: 0,
-          receivedQty: 0,
-        }));
-        await tx.outwardDeliveryChallanDetail.createMany({ data: detailsData });
+        // For expiry items, we accept batch-wise challanQty and store batches.
+        // We still persist outwardDeliveryChallanDetail.qty/challanQty as the total.
+        const itemIds = outwardDeliveryChallanDetails.map((d: any) => Number(d.itemId));
+        const items = await tx.item.findMany({
+          where: { id: { in: itemIds } },
+          select: { id: true, isExpiryDate: true },
+        });
+        const isExpiryByItemId = new Map<number, boolean>(
+          items.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
+        );
+
+        for (const d of outwardDeliveryChallanDetails as any[]) {
+          const itemId = Number(d.itemId);
+          const isExpiry = isExpiryByItemId.get(itemId) ?? false;
+
+          const batches = Array.isArray(d?.odcDetailBatches)
+            ? (d.odcDetailBatches as any[])
+            : [];
+          const cleanedBatches = isExpiry
+            ? batches
+                .map((b) => ({
+                  batchNumber: String(b?.batchNumber || "").trim(),
+                  expiryDate: String(b?.expiryDate || "").trim(),
+                  challanQty: Number(b?.challanQty ?? 0),
+                }))
+                .filter(
+                  (b) =>
+                    !!b.batchNumber &&
+                    /^\d{4}-\d{2}$/.test(b.expiryDate) &&
+                    Number.isFinite(b.challanQty) &&
+                    b.challanQty > 0
+                )
+            : [];
+
+          const totalQty = cleanedBatches.length
+            ? Number(
+                cleanedBatches
+                  .reduce((acc, b) => acc + Number(b.challanQty || 0), 0)
+                  .toFixed(2)
+              )
+            : Number(d.challanQty ?? 0);
+
+          const createdDetail = await tx.outwardDeliveryChallanDetail.create({
+            data: {
+              outwardDeliveryChallanId: createdMain.id,
+              itemId,
+              qty: totalQty,
+              challanQty: totalQty,
+              approved1Qty: 0,
+              receivedQty: 0,
+            },
+            select: { id: true },
+          });
+
+          if (cleanedBatches.length > 0) {
+            // Load from-site batch unit rates / closing qty to validate expiry and compute amount
+            const siteItem = await tx.siteItem.findFirst({
+              where: { siteId: Number(fromSiteId), itemId },
+              select: { id: true },
+            });
+            if (!siteItem?.id) {
+              throw new Error("Stock record not found for selected site and item");
+            }
+
+            const existingBatches = await tx.siteItemBatch.findMany({
+              where: {
+                siteItemId: siteItem.id,
+                batchNumber: { in: cleanedBatches.map((b) => b.batchNumber) },
+              },
+              select: {
+                batchNumber: true,
+                expiryDate: true,
+                unitRate: true,
+                closingQty: true,
+              },
+            });
+            const byBatch = new Map<string, (typeof existingBatches)[number]>(
+              existingBatches.map((b) => [String(b.batchNumber), b])
+            );
+
+            for (const b of cleanedBatches) {
+              const foundBatch = byBatch.get(b.batchNumber);
+              if (!foundBatch) {
+                throw new Error(`Batch not found: ${b.batchNumber}`);
+              }
+              if (String(foundBatch.expiryDate || "") !== b.expiryDate) {
+                throw new Error(
+                  `Expiry date mismatch for batch ${b.batchNumber}. Expected ${foundBatch.expiryDate}`
+                );
+              }
+              const closingQty = Number(foundBatch.closingQty || 0);
+              if (Number(b.challanQty) > closingQty) {
+                throw new Error(
+                  `Batch qty cannot exceed batch closing qty (${closingQty}) for batch ${b.batchNumber}`
+                );
+              }
+              const unitRate = Number(foundBatch.unitRate || 0);
+              const amount = Number((unitRate * Number(b.challanQty || 0)).toFixed(2));
+
+              await tx.outwardDeliveryChallanDetailBatch.create({
+                data: {
+                  outwardDeliveryChallanDetailId: createdDetail.id,
+                  batchNumber: b.batchNumber,
+                  expiryDate: b.expiryDate,
+                  qty: b.challanQty as any,
+                  unitRate: unitRate as any,
+                  amount: amount as any,
+                } as any,
+              });
+            }
+          }
+        }
       }
 
       return createdMain;

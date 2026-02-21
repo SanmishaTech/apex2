@@ -2336,7 +2336,7 @@ model InwardDeliveryChallanDetailBatch {
   
   inwardDeliveryChallanDetail  InwardDeliveryChallanDetail  @relation(fields: [inwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
   
-
+ @@index([inwardDeliveryChallanDetailId])
   @@map("inward_delivery_challan_detail_batches")
 }
 
@@ -2509,7 +2509,7 @@ model OutwardDeliveryChallanDetail {
   // relation (many details belong to one challan)
   outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id],onDelete: Restrict)
   item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-
+  outwardDeliveryChallanDetailBatch OutwardDeliveryChallanDetailBatch[]
   @@index([outwardDeliveryChallanId])
   @@index([itemId])
 
@@ -2530,6 +2530,25 @@ model OutwardDeliveryChallanDocuments {
   @@index([outwardDeliveryChallanId])
   @@map("outward_delivery_challan_documents")
 }
+
+model OutwardDeliveryChallanDetailBatch {
+  id           Int       @id @default(autoincrement())
+  outwardDeliveryChallanDetailId   Int
+  batchNumber      String    
+  expiryDate   String 
+  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
+  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
+  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  outwardDeliveryChallanDetail  OutwardDeliveryChallanDetail  @relation(fields: [outwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
+  
+  @@index([outwardDeliveryChallanDetailId])
+  @@map("outward_delivery_challan_detail_batches")
+}
+
 
 
 model InwardBillDetail {
@@ -2591,11 +2610,29 @@ model DailyConsumptionDetail {
   // Relations
   dailyConsumption   DailyConsumption @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
   item          Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
-
+  dailyConsumptionDetailBatch DailyConsumptionDetailBatch[]
 
   @@index([dailyConsumptionId])
   @@index([itemId])
   @@map("daily_consumption_details")
+}
+
+model DailyConsumptionDetailBatch {
+  id           Int       @id @default(autoincrement())
+  dailyConsumptionDetailId   Int
+  batchNumber      String    
+  expiryDate   String 
+  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
+  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
+  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  dailyConsumptionDetail  DailyConsumptionDetail  @relation(fields: [dailyConsumptionDetailId], references: [id], onDelete: Restrict)
+  
+  @@index([dailyConsumptionDetailId])
+  @@map("daily_consumption_detail_batches")
 }
 
 

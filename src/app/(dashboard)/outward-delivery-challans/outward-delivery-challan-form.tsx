@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
@@ -10,11 +10,12 @@ import { AppButton } from "@/components/common/app-button";
 import { TextInput } from "@/components/common/text-input";
 import { FormSection, FormRow } from "@/components/common/app-form";
 import { ComboboxInput } from "@/components/common/combobox-input";
+import { AppSelect } from "@/components/common/app-select";
 import useSWR from "swr";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, Trash2 } from "lucide-react";
+import { Upload, FileText, Trash2, Plus } from "lucide-react";
 
 export interface OutwardDeliveryChallanFormProps {
   onSuccess?: (result?: unknown) => void;
@@ -32,7 +33,16 @@ const inputSchema = z
       .array(
         z.object({
           itemId: z.string().min(1, "Item is required"),
-          challanQty: z.string().min(1, "Qty is required"),
+          challanQty: z.string().optional().default(""),
+          batches: z
+            .array(
+              z.object({
+                batchNumber: z.string().optional().default(""),
+                challanQty: z.string().optional().default(""),
+              })
+            )
+            .optional()
+            .default([]),
         })
       )
       .min(1, "At least one item is required"),
@@ -62,10 +72,144 @@ const inputSchema = z
 
 type RawFormValues = z.infer<typeof inputSchema>;
 
+function ExpiryChallanQtyDisplay({
+  control,
+  index,
+}: {
+  control: any;
+  index: number;
+}) {
+  const batchesVal = useWatch({
+    control,
+    name: `items.${index}.batches` as any,
+  }) as any[];
+
+  const total = useMemo(() => {
+    const sum = (batchesVal || []).reduce((acc, b) => {
+      const q = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+      return acc + (Number.isFinite(q) ? q : 0);
+    }, 0);
+    return sum > 0 ? String(Number(sum.toFixed(2))) : "";
+  }, [batchesVal]);
+
+  return (
+    <input
+      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+      type="number"
+      placeholder="0"
+      disabled
+      value={total}
+      readOnly
+    />
+  );
+}
+
+function BatchRows({
+  control,
+  index,
+  itemId,
+  batchOptions,
+  batchInfo,
+}: {
+  control: any;
+  index: number;
+  itemId: number;
+  batchOptions: string[];
+  batchInfo: Map<string, any>;
+}) {
+  const { fields: batchFields, append: appendBatch, remove: removeBatch } = useFieldArray({
+    control,
+    name: `items.${index}.batches` as any,
+  });
+
+  const batchesVal = useWatch({
+    control,
+    name: `items.${index}.batches` as any,
+  }) as any[];
+
+  return (
+    <div className="mt-2 rounded-xl border bg-muted/20 p-3">
+      <div className="grid grid-cols-12 gap-3 text-xs font-medium text-muted-foreground mb-2">
+        <div className="col-span-4">Batch</div>
+        <div className="col-span-2">Expiry</div>
+        <div className="col-span-2">Batch Closing</div>
+        <div className="col-span-3">Qty</div>
+        <div className="col-span-1"></div>
+      </div>
+
+      {batchFields.map((f, bIndex) => {
+        const batchNumber = String((batchesVal?.[bIndex] as any)?.batchNumber || "").trim();
+        const info = batchNumber ? batchInfo.get(batchNumber) : null;
+        const expiry = info?.expiryDate || "—";
+        const closing = info ? Number(info.closingQty || 0) : 0;
+
+        return (
+          <div key={f.id} className="grid grid-cols-12 gap-3 items-start mb-2">
+            <div className="col-span-4">
+              <AppSelect
+                control={control}
+                name={`items.${index}.batches.${bIndex}.batchNumber` as any}
+                placeholder="Select batch"
+              >
+                {batchOptions.map((o) => (
+                  <AppSelect.Item key={o} value={o}>
+                    {o}
+                  </AppSelect.Item>
+                ))}
+              </AppSelect>
+            </div>
+            <div className="col-span-2 pt-2 text-sm">{expiry}</div>
+            <div className="col-span-2 pt-2 text-sm">{closing}</div>
+            <div className="col-span-3">
+              <TextInput
+                control={control}
+                name={`items.${index}.batches.${bIndex}.challanQty` as any}
+                label=""
+                type="number"
+                placeholder="0"
+                span={12}
+              />
+            </div>
+            <div className="col-span-1 pt-2">
+              <button
+                type="button"
+                className="text-destructive inline-flex items-center text-sm"
+                onClick={() => removeBatch(bIndex)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        className="inline-flex items-center text-sm border rounded-md px-3 py-2"
+        onClick={() => appendBatch({ batchNumber: "", challanQty: "" } as any)}
+      >
+        <Plus className="h-4 w-4 mr-2" /> Add Batch
+      </button>
+    </div>
+  );
+}
+
 function toSubmitPayload(
   data: RawFormValues,
   docs: Array<{ documentName: string; documentUrl: string | File | null }>
 ) {
+  const sumBatches = (batches: Array<{ challanQty?: string }> | undefined) => {
+    return Number(
+      ((batches || []) as any[])
+        .reduce((acc, b) => {
+          const q = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+          return acc + (Number.isFinite(q) ? q : 0);
+        }, 0)
+        .toFixed(2)
+    );
+  };
+
+  // batches will be enriched with expiryDate using siteItems data at callsite
   const payload: any = {
     outwardChallanDate: data.outwardChallanDate || null,
     challanNo: data.challanNo?.trim() || null,
@@ -74,8 +218,14 @@ function toSubmitPayload(
     toSiteId: data.toSiteId ? parseInt(data.toSiteId) : undefined,
     outwardDeliveryChallanDetails: (data.items || []).map((it) => ({
       itemId: parseInt(it.itemId),
-      challanQty:
-        it.challanQty && it.challanQty !== "" ? Number(it.challanQty) : 0,
+      challanQty: (it.batches || []).length > 0 ? sumBatches(it.batches) : it.challanQty && it.challanQty !== "" ? Number(it.challanQty) : 0,
+      odcDetailBatches: (it.batches || [])
+        .map((b) => ({
+          batchNumber: String(b.batchNumber || "").trim(),
+          challanQty:
+            b.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0,
+        }))
+        .filter((b) => !!b.batchNumber && Number(b.challanQty) > 0),
     })),
     outwardDeliveryChallanDocuments: docs.map((doc, index) => ({
       documentName: doc.documentName || "",
@@ -117,10 +267,12 @@ export default function OutwardDeliveryChallanForm({
   });
 
   const { control, handleSubmit } = form;
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const {
+    fields,
+    replace,
+  } = useFieldArray({ control, name: "items" });
 
   const { data: sitesResp } = useSWR<any>("/api/sites/options", apiGet);
-  const { data: itemsResp } = useSWR<any>("/api/items/options", apiGet);
   const siteOptions = useMemo(
     () =>
       ((sitesResp?.data as any[]) || []).map((s: any) => ({
@@ -129,29 +281,53 @@ export default function OutwardDeliveryChallanForm({
       })),
     [sitesResp?.data]
   );
-  const itemOptions = useMemo(
-    () =>
-      ((itemsResp?.data as any[]) || []).map((it: any) => ({
-        value: String(it.id),
-        label: it.itemCode ? `${it.itemCode} - ${it.item}` : it.item,
-      })),
-    [itemsResp?.data]
-  );
-  const itemsById = useMemo(() => {
-    const map = new Map<number, any>();
-    ((itemsResp?.data as any[]) || []).forEach((it: any) => map.set(it.id, it));
-    return map;
-  }, [itemsResp?.data]);
-  const itemsVal = form.watch("items");
+  const itemsVal = useWatch({ control, name: "items" }) as any[];
   const fromSiteIdVal = form.watch("fromSiteId");
   const fromSiteIdNum = useMemo(() => {
     const n = parseInt(String(fromSiteIdVal || ""), 10);
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }, [fromSiteIdVal]);
   const { data: siteItemsResp } = useSWR<any>(
-    fromSiteIdNum ? `/api/site-items?siteId=${fromSiteIdNum}` : null,
+    fromSiteIdNum ? `/api/site-items?siteId=${fromSiteIdNum}&includeBatches=1` : null,
     apiGet
   );
+
+  const siteItemRows = useMemo(() => {
+    return ((siteItemsResp?.data as any[]) || []) as any[];
+  }, [siteItemsResp?.data]);
+
+  const siteItemByItemId = useMemo(() => {
+    const map = new Map<number, any>();
+    siteItemRows.forEach((r: any) => {
+      map.set(Number(r.itemId), r);
+    });
+    return map;
+  }, [siteItemRows]);
+
+  const batchInfoByItemId = useMemo(() => {
+    const map = new Map<number, Map<string, any>>();
+    siteItemRows.forEach((r: any) => {
+      const itemId = Number(r.itemId);
+      const inner = new Map<string, any>();
+      ((r.siteItemBatches as any[]) || []).forEach((b: any) => {
+        inner.set(String(b.batchNumber), b);
+      });
+      map.set(itemId, inner);
+    });
+    return map;
+  }, [siteItemRows]);
+
+  const batchOptionsByItemId = useMemo(() => {
+    const map = new Map<number, string[]>();
+    siteItemRows.forEach((r: any) => {
+      const itemId = Number(r.itemId);
+      const opts = ((r.siteItemBatches as any[]) || [])
+        .map((b: any) => String(b.batchNumber || "").trim())
+        .filter((v: string) => !!v);
+      map.set(itemId, Array.from(new Set(opts)).sort());
+    });
+    return map;
+  }, [siteItemRows]);
   const closingByItem = useMemo(() => {
     const map = new Map<number, number>();
     ((siteItemsResp?.data as any[]) || []).forEach((si: any) => {
@@ -160,6 +336,42 @@ export default function OutwardDeliveryChallanForm({
     return map;
   }, [siteItemsResp?.data]);
 
+  const siteItemIdsKey = useMemo(() => {
+    const ids = siteItemRows
+      .map((r: any) => Number(r?.itemId))
+      .filter((v: any) => Number.isFinite(v) && v > 0)
+      .sort((a: number, b: number) => a - b);
+    return ids.join(",");
+  }, [siteItemRows]);
+
+  // When fromSite is selected, auto-build rows from siteItems
+  useEffect(() => {
+    if (!fromSiteIdNum) {
+      const current = (form.getValues("items") || []) as any[];
+      if (current.length) replace([]);
+      return;
+    }
+
+    const current = (form.getValues("items") || []) as any[];
+    const currentKey = current
+      .map((it: any) => Number(it?.itemId))
+      .filter((v: any) => Number.isFinite(v) && v > 0)
+      .sort((a: number, b: number) => a - b)
+      .join(",");
+
+    // Avoid re-replacing on every SWR revalidate / rerender if item list didn't change
+    if (currentKey === siteItemIdsKey) return;
+
+    const next = siteItemRows
+      .map((si: any) => ({
+        itemId: String(si.itemId),
+        challanQty: "",
+        batches: [],
+      }))
+      .sort((a: any, b: any) => Number(a.itemId) - Number(b.itemId));
+    replace(next as any);
+  }, [fromSiteIdNum, replace, siteItemRows, siteItemIdsKey, form]);
+
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
     try {
@@ -167,9 +379,19 @@ export default function OutwardDeliveryChallanForm({
       const errs: Array<string> = [];
       (data.items || []).forEach((it, index) => {
         const itemId = parseInt(String(it.itemId || 0), 10);
-        const qty =
-          it.challanQty && it.challanQty !== "" ? Number(it.challanQty) : 0;
         const closing = closingByItem.get(itemId) ?? 0;
+
+        const siteRow = siteItemByItemId.get(itemId);
+        const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
+        const qty = isExpiry
+          ? (it.batches || []).reduce((acc, b) => {
+              const q = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+              return acc + (Number.isFinite(q) ? q : 0);
+            }, 0)
+          : it.challanQty && it.challanQty !== ""
+            ? Number(it.challanQty)
+            : 0;
+
         if (!(qty > 0)) {
           errs.push(`Row ${index + 1}: Qty must be greater than 0`);
           form.setError(`items.${index}.challanQty` as any, {
@@ -185,6 +407,40 @@ export default function OutwardDeliveryChallanForm({
             message: `Cannot exceed closing (${closing})`,
           });
         }
+        if (isExpiry) {
+          const batchInfo = batchInfoByItemId.get(itemId) || new Map<string, any>();
+          const used = new Set<string>();
+          (it.batches || []).forEach((b, bIndex) => {
+            const bn = String(b?.batchNumber || "").trim();
+            const bq = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+            if (!bn && bq > 0) {
+              errs.push(`Row ${index + 1}: Batch is required`);
+              form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
+                type: "manual",
+                message: "Batch is required",
+              });
+            }
+            if (bn) {
+              if (used.has(bn)) {
+                errs.push(`Row ${index + 1}: Duplicate batch not allowed`);
+                form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
+                  type: "manual",
+                  message: "Duplicate batch",
+                });
+              }
+              used.add(bn);
+              const info = batchInfo.get(bn);
+              const bClosing = info ? Number(info.closingQty || 0) : 0;
+              if (bq > bClosing) {
+                errs.push(`Row ${index + 1}: Batch qty cannot exceed batch closing (${bClosing})`);
+                form.setError(`items.${index}.batches.${bIndex}.challanQty` as any, {
+                  type: "manual",
+                  message: `Cannot exceed batch closing (${bClosing})`,
+                });
+              }
+            }
+          });
+        }
       });
       if (errs.length > 0) {
         toast.error("Please fix quantity errors before submitting");
@@ -195,6 +451,17 @@ export default function OutwardDeliveryChallanForm({
       if (hasDocFiles) {
         const formDataPayload = new FormData();
         const payload = toSubmitPayload(data, documents);
+
+        // Enrich batches with expiryDate before sending
+        (payload.outwardDeliveryChallanDetails || []).forEach((d: any) => {
+          const info = batchInfoByItemId.get(Number(d.itemId)) || new Map<string, any>();
+          if (Array.isArray(d.odcDetailBatches)) {
+            d.odcDetailBatches = d.odcDetailBatches.map((b: any) => ({
+              ...b,
+              expiryDate: info.get(String(b.batchNumber))?.expiryDate || "",
+            }));
+          }
+        });
         Object.entries(payload).forEach(([key, val]) => {
           if (
             key === "outwardDeliveryChallanDetails" ||
@@ -244,6 +511,16 @@ export default function OutwardDeliveryChallanForm({
         await response.json();
       } else {
         const payload = toSubmitPayload(data, documents);
+
+        (payload.outwardDeliveryChallanDetails || []).forEach((d: any) => {
+          const info = batchInfoByItemId.get(Number(d.itemId)) || new Map<string, any>();
+          if (Array.isArray(d.odcDetailBatches)) {
+            d.odcDetailBatches = d.odcDetailBatches.map((b: any) => ({
+              ...b,
+              expiryDate: info.get(String(b.batchNumber))?.expiryDate || "",
+            }));
+          }
+        });
         await apiPost("/api/outward-delivery-challans", payload);
       }
       toast.success("Outward Delivery Challan created");
@@ -330,81 +607,65 @@ export default function OutwardDeliveryChallanForm({
                   <div className="col-span-2">Unit</div>
                   <div className="col-span-2">Closing Qty</div>
                   <div className="col-span-2">Challan Qty</div>
-                  <div className="col-span-1"></div>
+                  <div className="col-span-0"></div>
                 </div>
                 {fields.map((field, index) => {
-                  const currentItemId = form.watch(
-                    `items.${index}.itemId` as const
-                  );
-                  const selectedItem = currentItemId
-                    ? itemsById.get(parseInt(currentItemId))
+                  const currentItemId = String((itemsVal?.[index] as any)?.itemId || "");
+                  const itemIdNum = currentItemId ? parseInt(currentItemId, 10) : NaN;
+                  const siteRow = Number.isFinite(itemIdNum)
+                    ? siteItemByItemId.get(itemIdNum)
                     : null;
-                  const unitName = selectedItem?.unit?.unitName;
-                  const closing = selectedItem
-                    ? closingByItem.get(Number(selectedItem.id)) ?? 0
+                  const itemLabel = siteRow?.item?.itemCode
+                    ? `${siteRow.item.itemCode} - ${siteRow.item.item}`
+                    : siteRow?.item?.item || "—";
+                  const unitName = siteRow?.item?.unit?.unitName;
+                  const closing = Number.isFinite(itemIdNum)
+                    ? closingByItem.get(itemIdNum) ?? 0
                     : 0;
-                  const usedIds = new Set<string>(
-                    (itemsVal || [])
-                      .map((v: any, i: number) =>
-                        i !== index ? v?.itemId || "" : ""
-                      )
-                      .filter((v: string) => !!v)
-                  );
-                  const rowItemOptions = itemOptions.filter(
-                    (opt) => !usedIds.has(opt.value)
-                  );
+                  const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
                   return (
                     <div
                       key={field.id}
-                      className="grid grid-cols-12 gap-3 items-center py-2 border-b"
+                      className="py-2 border-b"
                     >
-                      <div className="col-span-1">{index + 1}</div>
-                      <div className="col-span-5">
-                        <ComboboxInput
+                      <div className="grid grid-cols-12 gap-3 items-center">
+                        <div className="col-span-1">{index + 1}</div>
+                        <div className="col-span-5 text-sm">{itemLabel}</div>
+                        <div className="col-span-2 text-sm">{unitName || "—"}</div>
+                        <div className="col-span-2 text-sm">{closing}</div>
+                        <div className="col-span-2">
+                          {isExpiry ? (
+                            <ExpiryChallanQtyDisplay control={control} index={index} />
+                          ) : (
+                            <TextInput
+                              control={control}
+                              name={`items.${index}.challanQty`}
+                              label=""
+                              type="number"
+                              placeholder="0"
+                              span={12}
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpiry && Number.isFinite(itemIdNum) ? (
+                        <BatchRows
                           control={control}
-                          name={`items.${index}.itemId`}
-                          options={rowItemOptions}
-                          placeholder="Select item"
+                          index={index}
+                          itemId={itemIdNum}
+                          batchOptions={batchOptionsByItemId.get(itemIdNum) || []}
+                          batchInfo={batchInfoByItemId.get(itemIdNum) || new Map<string, any>()}
                         />
-                      </div>
-                      <div className="col-span-2">{unitName || "—"}</div>
-                      <div className="col-span-2">{closing}</div>
-                      <div className="col-span-2">
-                        <TextInput
-                          control={control}
-                          name={`items.${index}.challanQty`}
-                          label=""
-                          type="number"
-                          placeholder="0"
-                          span={12}
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <button
-                          type="button"
-                          className="text-destructive inline-flex items-center text-sm"
-                          onClick={() => remove(index)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                        </button>
-                      </div>
+                      ) : null}
                     </div>
                   );
                 })}
                 {fields.length === 0 && (
                   <div className="text-sm text-muted-foreground py-3">
-                    Add items to this challan.
+                    Select From Site to load items.
                   </div>
                 )}
-                <div>
-                  <button
-                    type="button"
-                    className="inline-flex items-center text-sm border rounded-md px-3 py-2"
-                    onClick={() => append({ itemId: "", challanQty: "" })}
-                  >
-                    <Upload className="h-4 w-4 mr-2" /> Add Item
-                  </button>
-                </div>
               </div>
             </FormSection>
 

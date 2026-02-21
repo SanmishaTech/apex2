@@ -286,10 +286,45 @@ export async function PATCH(
           });
         }
 
-        // Prepare maps for site items (from and to sites)
+        // Load expiry flags for all items
         const detailItemIds = (current.outwardDeliveryChallanDetails || []).map(
           (d) => d.itemId
         );
+        const items = await tx.item.findMany({
+          where: { id: { in: detailItemIds } },
+          select: { id: true, isExpiryDate: true },
+        });
+        const isExpiryByItemId = new Map<number, boolean>(
+          items.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
+        );
+
+        // Load all batch rows for this challan (for expiry items)
+        const detailIds = (current.outwardDeliveryChallanDetails || [])
+          .map((d) => d.id)
+          .filter((v): v is number => typeof v === "number");
+        const odcDetailBatches = detailIds.length
+          ? await tx.outwardDeliveryChallanDetailBatch.findMany({
+              where: { outwardDeliveryChallanDetailId: { in: detailIds } },
+              select: {
+                outwardDeliveryChallanDetailId: true,
+                batchNumber: true,
+                expiryDate: true,
+                qty: true,
+                unitRate: true,
+                amount: true,
+              },
+              orderBy: [{ id: "asc" }],
+            })
+          : [];
+        const batchesByDetailId = new Map<number, typeof odcDetailBatches>();
+        for (const b of odcDetailBatches) {
+          const k = Number(b.outwardDeliveryChallanDetailId);
+          const prev = batchesByDetailId.get(k) || [];
+          prev.push(b);
+          batchesByDetailId.set(k, prev);
+        }
+
+        // Prepare maps for site items (from and to sites)
         const fromItems = await tx.siteItem.findMany({
           where: { siteId: current.fromSiteId, itemId: { in: detailItemIds } },
           select: {
@@ -323,6 +358,22 @@ export async function PATCH(
           if (!found) continue;
           const itemId = found.itemId;
           const qty = Number(row.receivedQty ?? 0);
+
+          const isExpiry = isExpiryByItemId.get(itemId) ?? false;
+          const detailBatches = batchesByDetailId.get(found.id) || [];
+          if (isExpiry && detailBatches.length > 0) {
+            const sum = detailBatches.reduce(
+              (acc, b) => acc + Number(b.qty || 0),
+              0
+            );
+            if (Number(sum.toFixed(2)) !== Number(qty.toFixed(2))) {
+              throw new Error(
+                `Received qty must match batch qty total (${Number(sum.toFixed(
+                  2
+                ))}) for item ${itemId}`
+              );
+            }
+          }
 
           const fromInfo = fromMap.get(itemId);
           const issueRate = fromInfo ? Number(fromInfo.unitRate) : 0;
@@ -415,6 +466,117 @@ export async function PATCH(
                 log: "ACCEPT ODC NEW",
               },
             });
+          }
+
+          // Batch-wise stock movement for expiry items
+          if (isExpiry && detailBatches.length > 0) {
+            const fromSiteItem = await tx.siteItem.findFirst({
+              where: { siteId: current.fromSiteId, itemId },
+              select: { id: true },
+            });
+            if (!fromSiteItem?.id) {
+              throw new Error("From-site stock record not found for batch movement");
+            }
+            const toSiteItem = await tx.siteItem.findFirst({
+              where: { siteId: current.toSiteId!, itemId },
+              select: { id: true },
+            });
+            const toSiteItemId = toSiteItem?.id
+              ? toSiteItem.id
+              : (
+                  await tx.siteItem.create({
+                    data: {
+                      siteId: current.toSiteId!,
+                      itemId,
+                      openingStock: 0,
+                      openingRate: 0,
+                      openingValue: 0,
+                      closingStock: 0,
+                      closingValue: 0,
+                      unitRate: issueRate,
+                      log: "ACCEPT ODC BATCH NEW",
+                    } as any,
+                    select: { id: true },
+                  })
+                ).id;
+
+            for (const b of detailBatches) {
+              const bn = String(b.batchNumber || "").trim();
+              const exp = String(b.expiryDate || "").trim();
+              const bQty = Number(b.qty || 0);
+              const unitRate = Number(b.unitRate || issueRate || 0);
+              const bAmount = Number((unitRate * bQty).toFixed(2));
+
+              const fromBatch = await tx.siteItemBatch.findFirst({
+                where: { siteItemId: fromSiteItem.id, batchNumber: bn },
+                select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
+              });
+              if (!fromBatch) {
+                throw new Error(`From-site batch not found: ${bn}`);
+              }
+              if (String(fromBatch.expiryDate || "") !== exp) {
+                throw new Error(
+                  `Expiry date mismatch for batch ${bn}. Expected ${fromBatch.expiryDate}`
+                );
+              }
+              const prevFromQty = Number(fromBatch.closingQty || 0);
+              const prevFromVal = Number(fromBatch.closingValue || 0);
+              if (bQty > prevFromQty) {
+                throw new Error(
+                  `Batch qty cannot exceed from-site batch closing qty (${prevFromQty}) for batch ${bn}`
+                );
+              }
+              const nextFromQty = Math.max(0, Number((prevFromQty - bQty).toFixed(2)));
+              const nextFromVal = Math.max(0, Number((prevFromVal - bAmount).toFixed(2)));
+              const nextFromRate = nextFromQty > 0 ? Number((nextFromVal / nextFromQty).toFixed(2)) : 0;
+              await tx.siteItemBatch.update({
+                where: { id: fromBatch.id },
+                data: {
+                  closingQty: nextFromQty as any,
+                  closingValue: nextFromVal as any,
+                  unitRate: nextFromRate as any,
+                } as any,
+              });
+
+              const toBatch = await tx.siteItemBatch.findFirst({
+                where: { siteItemId: toSiteItemId, batchNumber: bn },
+                select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
+              });
+              if (toBatch && String(toBatch.expiryDate || "") !== exp) {
+                throw new Error(
+                  `Expiry date mismatch for batch ${bn} at To Site. Expected ${toBatch.expiryDate}`
+                );
+              }
+
+              if (!toBatch) {
+                await tx.siteItemBatch.create({
+                  data: {
+                    siteItemId: toSiteItemId,
+                    siteId: current.toSiteId!,
+                    itemId,
+                    batchNumber: bn,
+                    expiryDate: exp,
+                    closingQty: bQty as any,
+                    closingValue: bAmount as any,
+                    unitRate: unitRate as any,
+                  } as any,
+                });
+              } else {
+                const prevToQty = Number(toBatch.closingQty || 0);
+                const prevToVal = Number(toBatch.closingValue || 0);
+                const nextToQty = Number((prevToQty + bQty).toFixed(2));
+                const nextToVal = Number((prevToVal + bAmount).toFixed(2));
+                const nextToRate = nextToQty > 0 ? Number((nextToVal / nextToQty).toFixed(2)) : 0;
+                await tx.siteItemBatch.update({
+                  where: { id: toBatch.id },
+                  data: {
+                    closingQty: nextToQty as any,
+                    closingValue: nextToVal as any,
+                    unitRate: nextToRate as any,
+                  } as any,
+                });
+              }
+            }
           }
         }
       });
