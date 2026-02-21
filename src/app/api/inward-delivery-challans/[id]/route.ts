@@ -56,6 +56,18 @@ const updateSchema = z.object({
         id: z.number().int().positive().optional(),
         poDetailsId: z.number().int().positive("PO Details ID is required"),
         receivingQty: z.number().min(0).default(0),
+        idcDetailBatches: z
+          .array(
+            z.object({
+              batchNumber: z.string().min(1, "Batch number is required"),
+              expiryDate: z
+                .string()
+                .min(1, "Expiry date is required")
+                .regex(/^\d{4}-\d{2}$/, "Expiry date must be in YYYY-MM format"),
+              receivingQty: z.number().min(0).default(0),
+            })
+          )
+          .optional(),
         rate: z.number().min(0).default(0),
         amount: z.number().min(0).default(0),
       })
@@ -467,8 +479,87 @@ export async function PATCH(
         // Fetch existing details to rollback PO receivedQty before applying new ones
         const existingDetails = await tx.inwardDeliveryChallanDetail.findMany({
           where: { inwardDeliveryChallanId: id },
-          select: { poDetailsId: true, receivingQty: true },
+          select: { id: true, poDetailsId: true, receivingQty: true },
         });
+
+        // Rollback existing batch impacts (if any)
+        const existingDetailIds = existingDetails
+          .map((d) => d.id)
+          .filter((v): v is number => typeof v === "number");
+        if (existingDetailIds.length > 0) {
+          const oldBatches = await tx.inwardDeliveryChallanDetailBatch.findMany({
+            where: { inwardDeliveryChallanDetailId: { in: existingDetailIds } },
+            select: {
+              inwardDeliveryChallanDetailId: true,
+              batchNumber: true,
+              expiryDate: true,
+              qty: true,
+              amount: true,
+            },
+          });
+
+          // Map detailId -> poDetailsId -> itemId
+          const poDetailsIds = existingDetails
+            .map((d) => Number(d.poDetailsId))
+            .filter((v) => Number.isFinite(v));
+          const poDetails = poDetailsIds.length
+            ? await tx.purchaseOrderDetail.findMany({
+                where: { id: { in: poDetailsIds } },
+                select: { id: true, itemId: true },
+              })
+            : [];
+          const itemIdByPoDetailsId = new Map<number, number>(
+            poDetails.map((d) => [Number(d.id), Number(d.itemId)])
+          );
+          const poDetailsIdByDetailId = new Map<number, number>(
+            existingDetails.map((d) => [Number(d.id), Number(d.poDetailsId)])
+          );
+
+          for (const ob of oldBatches) {
+            const poDetailsId = poDetailsIdByDetailId.get(
+              Number(ob.inwardDeliveryChallanDetailId)
+            );
+            const itemId = poDetailsId ? itemIdByPoDetailsId.get(poDetailsId) : undefined;
+            if (!itemId) continue;
+
+            const siteItem = await tx.siteItem.findFirst({
+              where: { siteId: updated.siteId, itemId },
+              select: { id: true },
+            });
+            if (!siteItem?.id) continue;
+
+            const sib = await tx.siteItemBatch.findFirst({
+              where: {
+                siteItemId: siteItem.id,
+                batchNumber: String(ob.batchNumber),
+              },
+              select: { id: true, closingQty: true, closingValue: true },
+            });
+            if (!sib) continue;
+
+            const prevQty = Number(sib.closingQty || 0);
+            const prevVal = Number(sib.closingValue || 0);
+            const decQty = Number(ob.qty || 0);
+            const decVal = Number(ob.amount || 0);
+            const nextQty = Math.max(0, Number((prevQty - decQty).toFixed(2)));
+            const nextVal = Math.max(0, Number((prevVal - decVal).toFixed(2)));
+            const nextRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+
+            await tx.siteItemBatch.update({
+              where: { id: sib.id },
+              data: {
+                closingQty: nextQty as any,
+                closingValue: nextVal as any,
+                unitRate: nextRate as any,
+              } as any,
+            });
+          }
+
+          // Delete old batches (details will be deleted below)
+          await tx.inwardDeliveryChallanDetailBatch.deleteMany({
+            where: { inwardDeliveryChallanDetailId: { in: existingDetailIds } },
+          });
+        }
 
         const existingByPoDetailsId = new Map<number, number>();
         for (const d of existingDetails) {
@@ -537,19 +628,136 @@ export async function PATCH(
 
         // Create new details
         if (filteredDetails.length > 0) {
-          const detailsCreateData = filteredDetails.map(
-            (detail: any) => ({
-              inwardDeliveryChallanId: id,
-              poDetailsId: detail.poDetailsId,
-              receivingQty: detail.receivingQty,
-              rate: detail.rate,
-              amount: detail.amount,
-            })
-          );
+          const createdDetails: Array<{ id: number; poDetailsId: number; rate: number }> = [];
+          for (const detail of filteredDetails as any[]) {
+            const row = await tx.inwardDeliveryChallanDetail.create({
+              data: {
+                inwardDeliveryChallanId: id,
+                poDetailsId: detail.poDetailsId,
+                receivingQty: detail.receivingQty,
+                rate: detail.rate,
+                amount: detail.amount,
+              },
+              select: { id: true, poDetailsId: true, rate: true },
+            });
+            createdDetails.push({
+              id: row.id,
+              poDetailsId: Number(row.poDetailsId),
+              rate: Number(row.rate || 0),
+            });
+          }
 
-          await tx.inwardDeliveryChallanDetail.createMany({
-            data: detailsCreateData,
-          });
+          // Apply new batch impacts
+          if (createdDetails.length > 0) {
+            const poDetailsIds = createdDetails.map((d) => d.poDetailsId);
+            const poDetails = await tx.purchaseOrderDetail.findMany({
+              where: { id: { in: poDetailsIds } },
+              select: { id: true, itemId: true, item: { select: { isExpiryDate: true } } },
+            });
+            const itemIdByPoDetailsId = new Map<number, number>(
+              poDetails.map((d) => [Number(d.id), Number(d.itemId)])
+            );
+            const isExpiryByPoDetailsId = new Map<number, boolean>(
+              poDetails.map((d) => [Number(d.id), Boolean(d.item?.isExpiryDate)])
+            );
+
+            for (const det of createdDetails) {
+              const isExpiry = isExpiryByPoDetailsId.get(det.poDetailsId);
+              if (!isExpiry) continue;
+              const itemId = itemIdByPoDetailsId.get(det.poDetailsId);
+              if (!itemId) continue;
+
+              const batches = Array.isArray(
+                (filteredDetails as any[]).find((x) => Number(x?.poDetailsId) === det.poDetailsId)
+                  ?.idcDetailBatches
+              )
+                ? ((filteredDetails as any[]).find(
+                    (x) => Number(x?.poDetailsId) === det.poDetailsId
+                  )?.idcDetailBatches as any[])
+                : [];
+
+              const cleaned = batches
+                .map((b) => ({
+                  batchNumber: String(b?.batchNumber || "").trim(),
+                  expiryDate: String(b?.expiryDate || "").trim(),
+                  receivingQty: Number(b?.receivingQty ?? 0),
+                }))
+                .filter(
+                  (b) =>
+                    !!b.batchNumber &&
+                    /^\d{4}-\d{2}$/.test(b.expiryDate) &&
+                    Number.isFinite(b.receivingQty) &&
+                    b.receivingQty > 0
+                );
+              if (cleaned.length === 0) continue;
+
+              const siteItem = await tx.siteItem.findFirst({
+                where: { siteId: updated.siteId, itemId },
+                select: { id: true },
+              });
+              const siteItemId = siteItem?.id
+                ? siteItem.id
+                : (
+                    await tx.siteItem.create({
+                      data: { siteId: updated.siteId, itemId, log: "IDC Batch" } as any,
+                      select: { id: true },
+                    })
+                  ).id;
+
+              for (const b of cleaned) {
+                const existingBatch = await tx.siteItemBatch.findFirst({
+                  where: { siteItemId, batchNumber: b.batchNumber },
+                  select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
+                });
+                if (existingBatch && String(existingBatch.expiryDate || "") !== b.expiryDate) {
+                  throw new Error(
+                    `Expiry date mismatch for batch ${b.batchNumber}. Expected ${existingBatch.expiryDate}`
+                  );
+                }
+
+                const amount = Number((det.rate * Number(b.receivingQty || 0)).toFixed(2));
+                await tx.inwardDeliveryChallanDetailBatch.create({
+                  data: {
+                    inwardDeliveryChallanDetailId: det.id,
+                    batchNumber: b.batchNumber,
+                    expiryDate: b.expiryDate,
+                    qty: b.receivingQty as any,
+                    unitRate: det.rate as any,
+                    amount: amount as any,
+                  } as any,
+                });
+
+                if (!existingBatch) {
+                  await tx.siteItemBatch.create({
+                    data: {
+                      siteItemId,
+                      siteId: updated.siteId,
+                      itemId,
+                      batchNumber: b.batchNumber,
+                      expiryDate: b.expiryDate,
+                      closingQty: b.receivingQty as any,
+                      closingValue: amount as any,
+                      unitRate: det.rate as any,
+                    } as any,
+                  });
+                } else {
+                  const prevQty = Number(existingBatch.closingQty || 0);
+                  const prevVal = Number(existingBatch.closingValue || 0);
+                  const nextQty = Number((prevQty + Number(b.receivingQty || 0)).toFixed(2));
+                  const nextVal = Number((prevVal + amount).toFixed(2));
+                  const nextRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+                  await tx.siteItemBatch.update({
+                    where: { id: existingBatch.id },
+                    data: {
+                      closingQty: nextQty as any,
+                      closingValue: nextVal as any,
+                      unitRate: nextRate as any,
+                    } as any,
+                  });
+                }
+              }
+            }
+          }
 
           // Apply new receivedQty on PO details
           for (const [poDetailsId, qty] of incomingByPoDetailsId.entries()) {

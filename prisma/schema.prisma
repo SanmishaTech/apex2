@@ -2195,12 +2195,12 @@ model WorkOrderDetail {
   item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
   sac_code        String  
   remark          String?   @db.VarChar(500)
-  qty             Decimal?  @db.Decimal(12, 4)
-  orderedQty      Decimal?  @db.Decimal(12, 4)
-  approved1Qty    Decimal?  @db.Decimal(12, 4)
-  approved2Qty    Decimal?  @db.Decimal(12, 4)
-  receivedQty     Decimal?  @default("0.0000") @db.Decimal(12, 4)
-  rate            Decimal?  @db.Decimal(12, 4)
+  qty             Decimal?  @db.Decimal(12, 2)
+  orderedQty      Decimal?  @db.Decimal(12, 2)
+  approved1Qty    Decimal?  @db.Decimal(12, 2)
+  approved2Qty    Decimal?  @db.Decimal(12, 2)
+  receivedQty     Decimal?  @default("0.00") @db.Decimal(12, 2)
+  rate            Decimal?  @db.Decimal(12, 2)
   cgstPercent            Decimal?  @db.Decimal(10, 2)
   cgstAmt         Decimal?  @db.Decimal(10, 2)
   sgstPercent            Decimal?  @db.Decimal(10, 2)
@@ -2314,13 +2314,30 @@ model InwardDeliveryChallanDetail {
   amount                    Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  idcDetailBatches   InwardDeliveryChallanDetailBatch[]
   inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
-  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)
-
-
+  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)  
   @@index([inwardDeliveryChallanId])
   @@index([poDetailsId])
   @@map("inward_delivery_challan_details")
+}
+
+model InwardDeliveryChallanDetailBatch {
+  id           Int       @id @default(autoincrement())
+  inwardDeliveryChallanDetailId   Int
+  batchNumber      String    
+  expiryDate   String 
+  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
+  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
+  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  inwardDeliveryChallanDetail  InwardDeliveryChallanDetail  @relation(fields: [inwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
+  
+
+  @@map("inward_delivery_challan_detail_batches")
 }
 
 
@@ -2350,8 +2367,8 @@ model StockLedger {
   dailyConsumptionId   Int?   
   stockAdjustmentId      Int?
 
-  receivedQty     Decimal  @db.Decimal(12,4) @default(0.00)
-  issuedQty     Decimal  @db.Decimal(12, 4) @default(0.00)
+  receivedQty     Decimal  @db.Decimal(12,2) @default(0.00)
+  issuedQty     Decimal  @db.Decimal(12, 2) @default(0.00)
   unitRate     Decimal  @db.Decimal(12, 2) @default(0.00)
   documentType   String
   createdAt         DateTime @default(now())
@@ -2483,10 +2500,10 @@ model OutwardDeliveryChallanDetail {
   id                         Int      @id @default(autoincrement())
   outwardDeliveryChallanId   Int
   itemId                     Int
-  qty                        Decimal  @default(0.00)   @db.Decimal(12,4) 
-  challanQty                 Decimal @default(0.00)   @db.Decimal(12,4) 
-  approved1Qty               Decimal @default(0.00)   @db.Decimal(12,4) 
-  receivedQty                Decimal @default(0.00)   @db.Decimal(12,4) 
+  qty                        Decimal  @default(0.00)   @db.Decimal(12,2) 
+  challanQty                 Decimal @default(0.00)   @db.Decimal(12,2) 
+  approved1Qty               Decimal @default(0.00)   @db.Decimal(12,2) 
+  receivedQty                Decimal @default(0.00)   @db.Decimal(12,2) 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   // relation (many details belong to one challan)
@@ -2566,7 +2583,7 @@ model DailyConsumptionDetail {
   id            Int      @id @default(autoincrement())
   dailyConsumptionId Int   
   itemId        Int   
-  qty           Decimal? @db.Decimal(12, 4)
+  qty           Decimal? @db.Decimal(12, 2)
   rate          Decimal? @db.Decimal(12, 2)
   amount        Decimal? @db.Decimal(12, 2)
   createdAt         DateTime @default(now())
@@ -2609,8 +2626,8 @@ model StockAdjustmentDetail {
   id                Int       @id @default(autoincrement())
   stockAdjustmentId Int  
   itemId            Int  
-  issuedQty         Decimal  @default(0.0000) @db.Decimal(12, 4)
-  receivedQty       Decimal  @default(0.0000) @db.Decimal(12, 4) 
+  issuedQty         Decimal  @default(0.0000) @db.Decimal(12, 2)
+  receivedQty       Decimal  @default(0.0000) @db.Decimal(12, 2) 
   rate              Decimal  @default(0.00) @db.Decimal(12, 2)
   amount            Decimal  @default(0.00) @db.Decimal(12, 2)
   remarks           String?

@@ -88,6 +88,18 @@ const createSchema = z.object({
       z.object({
         poDetailsId: z.number().int().positive("PO Details ID is required"),
         receivingQty: z.number().min(0).default(0),
+        idcDetailBatches: z
+          .array(
+            z.object({
+              batchNumber: z.string().min(1, "Batch number is required"),
+              expiryDate: z
+                .string()
+                .min(1, "Expiry date is required")
+                .regex(/^\d{4}-\d{2}$/, "Expiry date must be in YYYY-MM format"),
+              receivingQty: z.number().min(0).default(0),
+            })
+          )
+          .optional(),
       })
     )
     .optional(),
@@ -529,6 +541,12 @@ export async function POST(req: NextRequest) {
       }> = [];
       let totalBillAmount = 0;
       let itemIdMap: Map<number, number> = new Map();
+      let rateByPoDetailsId: Map<number, number> = new Map();
+      let isExpiryMap: Map<number, boolean> = new Map();
+      let incomingBatchesByPoDetailsId: Map<
+        number,
+        Array<{ batchNumber: string; expiryDate: string; receivingQty: number }>
+      > = new Map();
 
       if (
         inwardDeliveryChallanDetails &&
@@ -543,7 +561,14 @@ export async function POST(req: NextRequest) {
           const ids = filteredDetails.map((d: any) => d.poDetailsId);
           const poDetails = await tx.purchaseOrderDetail.findMany({
             where: { id: { in: ids } },
-            select: { id: true, amount: true, qty: true, itemId: true, receivedQty: true },
+            select: {
+              id: true,
+              amount: true,
+              qty: true,
+              itemId: true,
+              receivedQty: true,
+              item: { select: { isExpiryDate: true } },
+            },
           });
 
           const poQtyById = new Map<number, number>(
@@ -586,9 +611,38 @@ export async function POST(req: NextRequest) {
               return [d.id, Number(computedRate.toFixed(4))];
             })
           );
+          rateByPoDetailsId = rateMap;
           itemIdMap = new Map<number, number>(
             poDetails.map((d: any) => [d.id, Number(d.itemId)])
           );
+          isExpiryMap = new Map<number, boolean>(
+            poDetails.map((d: any) => [d.id, Boolean(d?.item?.isExpiryDate)])
+          );
+
+          // Collect incoming batch details (only for expiry items)
+          for (const detail of filteredDetails as any[]) {
+            const poDetailsId = Number(detail?.poDetailsId);
+            if (!Number.isFinite(poDetailsId) || poDetailsId <= 0) continue;
+            if (!isExpiryMap.get(poDetailsId)) continue;
+            const batches = Array.isArray(detail?.idcDetailBatches)
+              ? (detail.idcDetailBatches as any[])
+              : [];
+            const cleaned = batches
+              .map((b) => ({
+                batchNumber: String(b?.batchNumber || "").trim(),
+                expiryDate: String(b?.expiryDate || "").trim(),
+                receivingQty: Number(b?.receivingQty ?? 0),
+              }))
+              .filter(
+                (b) =>
+                  !!b.batchNumber &&
+                  /^\d{4}-\d{2}$/.test(b.expiryDate) &&
+                  Number.isFinite(b.receivingQty) &&
+                  b.receivingQty > 0
+              );
+            if (cleaned.length > 0)
+              incomingBatchesByPoDetailsId.set(poDetailsId, cleaned);
+          }
 
           detailsCreateDataBase = filteredDetails.map((detail: any) => {
             const rate = rateMap.get(detail.poDetailsId) ?? 0;
@@ -660,17 +714,111 @@ export async function POST(req: NextRequest) {
       });
 
       if (detailsCreateDataBase.length > 0) {
-        // Create details with computed rate/amount
-        const detailsCreateData = detailsCreateDataBase.map((d) => ({
-          inwardDeliveryChallanId: createdMain.id,
-          poDetailsId: d.poDetailsId,
-          receivingQty: d.receivingQty,
-          rate: d.rate,
-          amount: d.amount,
-        }));
-        await tx.inwardDeliveryChallanDetail.createMany({
-          data: detailsCreateData,
-        });
+        // Create details with computed rate/amount (need IDs for batches)
+        const createdDetails = [] as Array<{ id: number; poDetailsId: number }>;
+        for (const d of detailsCreateDataBase) {
+          const row = await tx.inwardDeliveryChallanDetail.create({
+            data: {
+              inwardDeliveryChallanId: createdMain.id,
+              poDetailsId: d.poDetailsId,
+              receivingQty: d.receivingQty,
+              rate: d.rate,
+              amount: d.amount,
+            },
+            select: { id: true, poDetailsId: true },
+          });
+          createdDetails.push(row);
+        }
+
+        // Create batch rows + upsert SiteItemBatch for expiry items
+        for (const det of createdDetails) {
+          const batches = incomingBatchesByPoDetailsId.get(Number(det.poDetailsId)) || [];
+          if (batches.length === 0) continue;
+
+          const itemId = itemIdMap.get(Number(det.poDetailsId));
+          if (!itemId) continue;
+
+          const unitRate = Number(rateByPoDetailsId.get(Number(det.poDetailsId)) ?? 0);
+
+          // Find/create SiteItem to get siteItemId
+          const siteItem = await tx.siteItem.findFirst({
+            where: { siteId: Number(siteId), itemId: Number(itemId) },
+            select: { id: true },
+          });
+          const siteItemId = siteItem?.id
+            ? siteItem.id
+            : (
+                await tx.siteItem.create({
+                  data: {
+                    siteId: Number(siteId),
+                    itemId: Number(itemId),
+                    log: "IDC Batch", 
+                  } as any,
+                  select: { id: true },
+                })
+              ).id;
+
+          for (const b of batches) {
+            const existingBatch = await tx.siteItemBatch.findFirst({
+              where: { siteItemId, batchNumber: b.batchNumber },
+              select: {
+                id: true,
+                expiryDate: true,
+                closingQty: true,
+                closingValue: true,
+              },
+            });
+
+            // Validate expiry date when selecting existing batch
+            if (existingBatch && String(existingBatch.expiryDate || "") !== String(b.expiryDate || "")) {
+              throw new Error(
+                `Expiry date mismatch for batch ${b.batchNumber}. Expected ${existingBatch.expiryDate}`
+              );
+            }
+
+            const amount = Number((unitRate * Number(b.receivingQty || 0)).toFixed(2));
+
+            await tx.inwardDeliveryChallanDetailBatch.create({
+              data: {
+                inwardDeliveryChallanDetailId: det.id,
+                batchNumber: b.batchNumber,
+                expiryDate: b.expiryDate,
+                qty: b.receivingQty as any,
+                unitRate: unitRate as any,
+                amount: amount as any,
+              } as any,
+            });
+
+            if (!existingBatch) {
+              await tx.siteItemBatch.create({
+                data: {
+                  siteItemId,
+                  siteId: Number(siteId),
+                  itemId: Number(itemId),
+                  batchNumber: b.batchNumber,
+                  expiryDate: b.expiryDate,
+                  closingQty: b.receivingQty as any,
+                  closingValue: amount as any,
+                  unitRate: unitRate as any,
+                } as any,
+              });
+            } else {
+              const prevQty = Number(existingBatch.closingQty || 0);
+              const prevVal = Number(existingBatch.closingValue || 0);
+              const nextQty = Number((prevQty + Number(b.receivingQty || 0)).toFixed(2));
+              const nextVal = Number((prevVal + amount).toFixed(2));
+              const nextUnitRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+              await tx.siteItemBatch.update({
+                where: { id: existingBatch.id },
+                data: {
+                  closingQty: nextQty as any,
+                  closingValue: nextVal as any,
+                  unitRate: nextUnitRate as any,
+                } as any,
+              });
+            }
+          }
+        }
 
         // Increment PO Detail receivedQty by receivingQty
         for (const d of detailsCreateDataBase) {
