@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createSchema.parse(body);
 
+    const createdById = (auth as any).user?.id as number;
+
     // Validate that all detail itemIds are present after transform (only if details provided)
     if (Array.isArray(parsed.details) && parsed.details.length > 0) {
       const missingItemIndex = parsed.details.findIndex(
@@ -116,12 +118,31 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          const prevOpeningStock = Number(existing?.openingStock || 0);
+          const nextOpeningStock = Number(d.openingStock || 0);
+          const deltaOpeningStock = Number(
+            (nextOpeningStock - prevOpeningStock).toFixed(2)
+          );
+          const newRate = Number(Number(d.openingRate || 0).toFixed(2));
+          const logAmount = Number((deltaOpeningStock * newRate).toFixed(2));
+          if (Number.isFinite(deltaOpeningStock) && deltaOpeningStock !== 0) {
+            await tx.openingStockLog.create({
+              data: {
+                siteItemId: existing?.id ?? 0,
+                deltaQty: deltaOpeningStock,
+                rate: newRate,
+                amount: logAmount,
+                reason: existing?.id ? "UPDATE" : "INITIAL",
+                createdById,
+              } as any,
+            });
+          }
+
           const siteItemId = existing?.id
             ? (
                 await tx.siteItem.update({
                   where: { id: existing.id },
                   data: (() => {
-                    const prevOpeningStock = Number(existing.openingStock || 0);
                     const prevOpeningValue = Number(existing.openingValue || 0);
                     const prevClosingStock = Number(existing.closingStock || 0);
                     const prevClosingValue = Number(existing.closingValue || 0);
@@ -174,6 +195,18 @@ export async function POST(req: NextRequest) {
                 })
               ).id;
 
+          // Fix log siteItemId for INITIAL case (created above before create)
+          if (!existing?.id && Number.isFinite(deltaOpeningStock) && deltaOpeningStock !== 0) {
+            await tx.openingStockLog.updateMany({
+              where: {
+                siteItemId: 0,
+                createdById,
+                reason: "INITIAL",
+              } as any,
+              data: { siteItemId } as any,
+            });
+          }
+
           // Optional: upsert batches (for expiry-tracked items)
           const submittedBatchNumbers = new Set<string>();
           if (Array.isArray((d as any).batches) && (d as any).batches.length > 0) {
@@ -190,8 +223,29 @@ export async function POST(req: NextRequest) {
                   openingValue: true,
                   closingQty: true,
                   closingValue: true,
+                  expiryDate: true,
                 },
               });
+
+              const prevOpeningQty = Number(existingBatch?.openingQty || 0);
+              const nextOpeningQty = Number(b.openingQty || 0);
+              const deltaQty = Number((nextOpeningQty - prevOpeningQty).toFixed(2));
+              const batchRate = Number(Number(b.batchOpeningRate || 0).toFixed(2));
+              const batchAmount = Number((deltaQty * batchRate).toFixed(2));
+              if (Number.isFinite(deltaQty) && deltaQty !== 0) {
+                await tx.openingStockLog.create({
+                  data: {
+                    siteItemId,
+                    batchNo: batchNumber,
+                    expiryDate: String(b.expiryDate || existingBatch?.expiryDate || "") || null,
+                    deltaQty,
+                    rate: batchRate,
+                    amount: batchAmount,
+                    reason: existingBatch?.id ? "UPDATE" : "INITIAL",
+                    createdById,
+                  } as any,
+                });
+              }
 
               if (!existingBatch) {
                 const closingQty = Number(b.openingQty || 0);
@@ -217,7 +271,6 @@ export async function POST(req: NextRequest) {
                   },
                 });
               } else {
-                const prevOpeningQty = Number(existingBatch.openingQty || 0);
                 const prevOpeningValue = Number(existingBatch.openingValue || 0);
                 const prevClosingQty = Number(existingBatch.closingQty || 0);
                 const prevClosingValue = Number(existingBatch.closingValue || 0);
@@ -271,6 +324,21 @@ export async function POST(req: NextRequest) {
             const prevClosingQty = Number(eb.closingQty || 0);
             const prevClosingValue = Number(eb.closingValue || 0);
 
+            if (prevOpeningQty !== 0) {
+              await tx.openingStockLog.create({
+                data: {
+                  siteItemId,
+                  batchNo: String(eb.batchNumber),
+                  expiryDate: (eb as any).expiryDate ? String((eb as any).expiryDate) : null,
+                  deltaQty: Number((-prevOpeningQty).toFixed(2)),
+                  rate: 0,
+                  amount: 0,
+                  reason: "DELETE",
+                  createdById,
+                } as any,
+              });
+            }
+
             const nextClosingQty = Math.max(0, prevClosingQty - prevOpeningQty);
             const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);
             const nextUnitRate =
@@ -321,6 +389,19 @@ export async function POST(req: NextRequest) {
           const prevClosingStock = Number(si.closingStock || 0);
           const prevClosingValue = Number(si.closingValue || 0);
 
+          if (prevOpeningStock !== 0) {
+            await tx.openingStockLog.create({
+              data: {
+                siteItemId: si.id,
+                deltaQty: Number((-prevOpeningStock).toFixed(2)),
+                rate: 0,
+                amount: 0,
+                reason: "DELETE",
+                createdById,
+              } as any,
+            });
+          }
+
           const nextClosingStock = Math.max(0, prevClosingStock - prevOpeningStock);
           const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);
           const nextUnitRate =
@@ -349,6 +430,9 @@ export async function POST(req: NextRequest) {
           },
           select: {
             id: true,
+            siteItemId: true,
+            batchNumber: true,
+            expiryDate: true,
             openingQty: true,
             openingValue: true,
             closingQty: true,
@@ -361,6 +445,21 @@ export async function POST(req: NextRequest) {
           const prevOpeningValue = Number(b.openingValue || 0);
           const prevClosingQty = Number(b.closingQty || 0);
           const prevClosingValue = Number(b.closingValue || 0);
+
+          if (prevOpeningQty !== 0) {
+            await tx.openingStockLog.create({
+              data: {
+                siteItemId: (b as any).siteItemId,
+                batchNo: String((b as any).batchNumber || ""),
+                expiryDate: (b as any).expiryDate ? String((b as any).expiryDate) : null,
+                deltaQty: Number((-prevOpeningQty).toFixed(2)),
+                rate: 0,
+                amount: 0,
+                reason: "DELETE",
+                createdById,
+              } as any,
+            });
+          }
 
           const nextClosingQty = Math.max(0, prevClosingQty - prevOpeningQty);
           const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);

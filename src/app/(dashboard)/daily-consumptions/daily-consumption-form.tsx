@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
@@ -16,6 +16,8 @@ import { toast } from "@/lib/toast";
 import { Form } from "@/components/ui/form";
 import { ComboboxInput } from "@/components/common/combobox-input";
 import { formatDateForInput } from "@/lib/locales";
+import { AppSelect } from "@/components/common/app-select";
+import { Plus, Trash2 } from "lucide-react";
 
 const inputSchema = z.object({
   siteId: z.string().min(1, "Site is required"),
@@ -24,13 +26,136 @@ const inputSchema = z.object({
     .array(
       z.object({
         itemId: z.string().min(1, "Item is required"),
-        qty: z.string().min(1, "Qty is required"),
+        qty: z.string().optional().default(""),
+        batches: z
+          .array(
+            z.object({
+              batchNumber: z.string().optional().default(""),
+              qty: z.string().optional().default(""),
+            })
+          )
+          .optional()
+          .default([]),
       })
     )
     .min(1, "At least one item is required"),
 });
 
 type RawFormValues = z.infer<typeof inputSchema>;
+
+function ExpiryQtyDisplay({ control, index }: { control: any; index: number }) {
+  const batchesVal = useWatch({
+    control,
+    name: `items.${index}.batches` as any,
+  }) as any[];
+
+  const total = useMemo(() => {
+    const sum = (batchesVal || []).reduce((acc, b) => {
+      const q = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
+      return acc + (Number.isFinite(q) ? q : 0);
+    }, 0);
+    return sum > 0 ? String(Number(sum.toFixed(4))) : "";
+  }, [batchesVal]);
+
+  return (
+    <input
+      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+      type="number"
+      placeholder="0"
+      disabled
+      value={total}
+      readOnly
+    />
+  );
+}
+
+function BatchRows({
+  control,
+  index,
+  batchOptions,
+  batchInfo,
+}: {
+  control: any;
+  index: number;
+  batchOptions: string[];
+  batchInfo: Map<string, any>;
+}) {
+  const { fields: batchFields, append: appendBatch, remove: removeBatch } = useFieldArray({
+    control,
+    name: `items.${index}.batches` as any,
+  });
+
+  const batchesVal = useWatch({
+    control,
+    name: `items.${index}.batches` as any,
+  }) as any[];
+
+  return (
+    <div className="mt-2 rounded-xl border bg-muted/20 p-3">
+      <div className="grid grid-cols-12 gap-3 text-xs font-medium text-muted-foreground mb-2">
+        <div className="col-span-5">Batch</div>
+        <div className="col-span-3">Expiry</div>
+        <div className="col-span-2">Batch Closing</div>
+        <div className="col-span-1">Qty</div>
+        <div className="col-span-1"></div>
+      </div>
+
+      {batchFields.map((f, bIndex) => {
+        const batchNumber = String((batchesVal?.[bIndex] as any)?.batchNumber || "").trim();
+        const info = batchNumber ? batchInfo.get(batchNumber) : null;
+        const expiry = info?.expiryDate || "—";
+        const closing = info ? Number(info.closingQty || 0) : 0;
+
+        return (
+          <div key={f.id} className="grid grid-cols-12 gap-3 items-start mb-2">
+            <div className="col-span-5">
+              <AppSelect
+                control={control}
+                name={`items.${index}.batches.${bIndex}.batchNumber` as any}
+                placeholder="Select batch"
+              >
+                {batchOptions.map((o) => (
+                  <AppSelect.Item key={o} value={o}>
+                    {o}
+                  </AppSelect.Item>
+                ))}
+              </AppSelect>
+            </div>
+            <div className="col-span-3 pt-2 text-sm">{expiry}</div>
+            <div className="col-span-2 pt-2 text-sm">{closing}</div>
+            <div className="col-span-1">
+              <TextInput
+                control={control}
+                name={`items.${index}.batches.${bIndex}.qty` as any}
+                label=""
+                type="number"
+                placeholder="0"
+                span={12}
+              />
+            </div>
+            <div className="col-span-1 pt-2">
+              <button
+                type="button"
+                className="text-destructive inline-flex items-center text-sm"
+                onClick={() => removeBatch(bIndex)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        className="inline-flex items-center text-sm border rounded-md px-3 py-2"
+        onClick={() => appendBatch({ batchNumber: "", qty: "" } as any)}
+      >
+        <Plus className="h-4 w-4 mr-2" /> Add Batch
+      </button>
+    </div>
+  );
+}
 
 export default function DailyConsumptionForm() {
   const router = useRouter();
@@ -40,40 +165,95 @@ export default function DailyConsumptionForm() {
     defaultValues: {
       siteId: "",
       dailyConsumptionDate: formatDateForInput(new Date()),
-      items: [{ itemId: "", qty: "" }],
+      items: [],
     },
   });
-  const { control, handleSubmit, watch } = form;
-  const { fields, append, remove, update } = useFieldArray({ control, name: "items" });
+  const { control, handleSubmit } = form;
+  const { fields, replace } = useFieldArray({ control, name: "items" });
 
-  const siteIdVal = watch("siteId");
-  const selectedItemIds = useMemo(
-    () => (watch("items") || []).map((r) => r.itemId).filter((v) => (v || "").trim() !== ""),
-    [watch("items")]
-  );
+  const siteIdVal = form.watch("siteId");
+  const itemsVal = useWatch({ control, name: "items" }) as any[];
 
   const { data: sitesData } = useSWR<any>("/api/sites?perPage=1000", apiGet);
-  const { data: itemsData } = useSWR<any>(
-    siteIdVal ? `/api/items/options?asset=false&siteId=${siteIdVal}` : null,
+  const { data: siteItemsResp } = useSWR<any>(
+    siteIdVal ? `/api/site-items?siteId=${siteIdVal}&includeBatches=1` : null,
     apiGet
   );
-  // Fetch closing stock for all items at the selected site (SiteItem table)
-  const { data: siteItemsData } = useSWR<any>(
-    siteIdVal ? `/api/site-items?siteId=${siteIdVal}` : null,
-    apiGet
-  );
-  const closingStockMap: Record<number, number> = useMemo(() => {
-    const map: Record<number, number> = {};
-    ((siteItemsData?.data as any[]) || []).forEach((r: any) => {
-      map[Number(r.itemId)] = Number(r.closingStock ?? 0);
+
+  const siteItemRows = useMemo(() => {
+    return ((siteItemsResp?.data as any[]) || []) as any[];
+  }, [siteItemsResp?.data]);
+
+  const siteItemByItemId = useMemo(() => {
+    const map = new Map<number, any>();
+    siteItemRows.forEach((r: any) => map.set(Number(r.itemId), r));
+    return map;
+  }, [siteItemRows]);
+
+  const closingByItem = useMemo(() => {
+    const map = new Map<number, number>();
+    siteItemRows.forEach((r: any) => map.set(Number(r.itemId), Number(r.closingStock ?? 0)));
+    return map;
+  }, [siteItemRows]);
+
+  const batchInfoByItemId = useMemo(() => {
+    const map = new Map<number, Map<string, any>>();
+    siteItemRows.forEach((r: any) => {
+      const itemId = Number(r.itemId);
+      const inner = new Map<string, any>();
+      ((r.siteItemBatches as any[]) || []).forEach((b: any) => {
+        inner.set(String(b.batchNumber), b);
+      });
+      map.set(itemId, inner);
     });
     return map;
-  }, [siteItemsData]);
+  }, [siteItemRows]);
+
+  const batchOptionsByItemId = useMemo(() => {
+    const map = new Map<number, string[]>();
+    siteItemRows.forEach((r: any) => {
+      const itemId = Number(r.itemId);
+      const opts = ((r.siteItemBatches as any[]) || [])
+        .map((b: any) => String(b.batchNumber || "").trim())
+        .filter((v: string) => !!v);
+      map.set(itemId, Array.from(new Set(opts)).sort());
+    });
+    return map;
+  }, [siteItemRows]);
+
+  const siteItemIdsKey = useMemo(() => {
+    const ids = siteItemRows
+      .map((r: any) => Number(r?.itemId))
+      .filter((v: any) => Number.isFinite(v) && v > 0)
+      .sort((a: number, b: number) => a - b);
+    return ids.join(",");
+  }, [siteItemRows]);
 
   useEffect(() => {
-    // When site changes, clear selected items and quantities
-    form.setValue("items", [{ itemId: "", qty: "" }], { shouldDirty: true, shouldValidate: false });
-  }, [siteIdVal]);
+    if (!siteIdVal) {
+      const current = (form.getValues("items") || []) as any[];
+      if (current.length) replace([]);
+      return;
+    }
+
+    const current = (form.getValues("items") || []) as any[];
+    const currentKey = current
+      .map((it: any) => Number(it?.itemId))
+      .filter((v: any) => Number.isFinite(v) && v > 0)
+      .sort((a: number, b: number) => a - b)
+      .join(",");
+
+    if (currentKey === siteItemIdsKey) return;
+
+    const next = siteItemRows
+      .map((si: any) => ({
+        itemId: String(si.itemId),
+        qty: "",
+        batches: [],
+      }))
+      .sort((a: any, b: any) => Number(a.itemId) - Number(b.itemId));
+    replace(next as any);
+  }, [siteIdVal, replace, siteItemRows, siteItemIdsKey, form]);
 
   // Build options per-row to avoid duplicates, like outward challan form
 
@@ -83,24 +263,66 @@ export default function DailyConsumptionForm() {
     setSubmitting(true);
     try {
       // Frontend validations for quantities
-      const closingMap = closingStockMap || {};
       let hasError = false;
       (data.items || []).forEach((r, index) => {
         const itemIdNum = parseInt(String(r.itemId || 0), 10);
-        const qtyNum = r.qty && r.qty !== "" ? Number(r.qty) : 0;
-        const hasClosing = Object.prototype.hasOwnProperty.call(closingMap, itemIdNum);
-        const closing = hasClosing ? Number(closingMap[itemIdNum] ?? 0) : undefined;
+        const closing = closingByItem.get(itemIdNum);
+        const siteRow = siteItemByItemId.get(itemIdNum);
+        const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
+        const qtyNum = isExpiry
+          ? (r.batches || []).reduce((acc, b) => {
+              const q = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
+              return acc + (Number.isFinite(q) ? q : 0);
+            }, 0)
+          : r.qty && r.qty !== ""
+            ? Number(r.qty)
+            : 0;
         if (!(qtyNum > 0)) {
           hasError = true;
           form.setError(`items.${index}.qty` as any, {
             type: "manual",
             message: "Qty must be greater than 0",
           });
-        } else if (hasClosing && closing !== undefined && qtyNum > Number(closing)) {
+        } else if (typeof closing === "number" && qtyNum > Number(closing)) {
           hasError = true;
           form.setError(`items.${index}.qty` as any, {
             type: "manual",
             message: `Cannot exceed closing (${closing})`,
+          });
+        }
+
+        if (isExpiry) {
+          const batchInfo = batchInfoByItemId.get(itemIdNum) || new Map<string, any>();
+          const used = new Set<string>();
+          (r.batches || []).forEach((b, bIndex) => {
+            const bn = String(b?.batchNumber || "").trim();
+            const bq = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
+            if (!bn && bq > 0) {
+              hasError = true;
+              form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
+                type: "manual",
+                message: "Batch is required",
+              });
+            }
+            if (bn) {
+              if (used.has(bn)) {
+                hasError = true;
+                form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
+                  type: "manual",
+                  message: "Duplicate batch",
+                });
+              }
+              used.add(bn);
+              const info = batchInfo.get(bn);
+              const bClosing = info ? Number(info.closingQty || 0) : 0;
+              if (bq > bClosing) {
+                hasError = true;
+                form.setError(`items.${index}.batches.${bIndex}.qty` as any, {
+                  type: "manual",
+                  message: `Cannot exceed batch closing (${bClosing})`,
+                });
+              }
+            }
           });
         }
       });
@@ -114,8 +336,26 @@ export default function DailyConsumptionForm() {
         siteId: parseInt(data.siteId),
         dailyConsumptionDetails: (data.items || []).map((r) => ({
           itemId: parseInt(r.itemId),
-          qty: Number(r.qty),
+          qty:
+            (r.batches || []).length > 0
+              ? Number(
+                  (r.batches || [])
+                    .reduce((acc, b) => {
+                      const q = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
+                      return acc + (Number.isFinite(q) ? q : 0);
+                    }, 0)
+                    .toFixed(4)
+                )
+              : r.qty && r.qty !== ""
+                ? Number(r.qty)
+                : 0,
           rate: 0,
+          dcDetailBatches: (r.batches || [])
+            .map((b) => ({
+              batchNumber: String(b.batchNumber || "").trim(),
+              qty: b.qty && b.qty !== "" ? Number(b.qty) : 0,
+            }))
+            .filter((b) => !!b.batchNumber && Number(b.qty) > 0),
         })),
       };
       await apiPost("/api/daily-consumptions", payload);
@@ -185,83 +425,58 @@ export default function DailyConsumptionForm() {
               <div className="flex flex-col gap-2 rounded-xl border bg-background p-4 shadow-sm">
                 <div className="grid grid-cols-12 gap-3 text-sm font-medium text-muted-foreground">
                   <div className="col-span-1">Sr No</div>
-                  <div className="col-span-4">Item</div>
+                  <div className="col-span-5">Item</div>
                   <div className="col-span-2">Closing Stock</div>
                   <div className="col-span-2">Unit</div>
                   <div className="col-span-2">Quantity</div>
-                  <div className="col-span-1 text-right">Actions</div>
+                  <div className="col-span-0"></div>
                 </div>
                 {fields.map((field, index) => {
-                  const itemsVal = watch("items") || [];
-                  const row = itemsVal[index];
-                  const selectedId = row?.itemId || "";
-                  const closingMap = closingStockMap || {};
-                  const closingVal = selectedId ? closingMap[Number(selectedId)] : undefined;
-
-                  const unitName = (() => {
-                    if (!selectedId) return "-";
-                    const found = (itemsData?.data || []).find((it: any) => String(it.id) === String(selectedId));
-                    return found?.unit?.unitName || "-";
-                  })();
-
-                  const usedIds = new Set<string>(
-                    itemsVal
-                      .map((v: any, i: number) => (i !== index ? v?.itemId || "" : ""))
-                      .filter((v: string) => !!v)
-                  );
-                  const itemOptions = ((itemsData?.data as any[]) || [])
-                    .filter((it: any) => !usedIds.has(String(it.id)))
-                    .map((it: any) => ({ value: String(it.id), label: it.item }));
+                  const currentItemId = String((itemsVal?.[index] as any)?.itemId || "");
+                  const itemIdNum = currentItemId ? parseInt(currentItemId, 10) : NaN;
+                  const siteRow = Number.isFinite(itemIdNum) ? siteItemByItemId.get(itemIdNum) : null;
+                  const itemLabel = siteRow?.item?.itemCode
+                    ? `${siteRow.item.itemCode} - ${siteRow.item.item}`
+                    : siteRow?.item?.item || "—";
+                  const unitName = siteRow?.item?.unit?.unitName || "—";
+                  const closingVal = Number.isFinite(itemIdNum) ? closingByItem.get(itemIdNum) ?? 0 : 0;
+                  const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
 
                   return (
-                    <div key={field.id} className="grid grid-cols-12 gap-3 items-center py-2 border-b">
+                    <div key={field.id} className="py-2 border-b">
+                      <div className="grid grid-cols-12 gap-3 items-center">
                       <div className="col-span-1">{index + 1}</div>
-                      <div className="col-span-4">
-                        <ComboboxInput
-                          control={control}
-                          name={`items.${index}.itemId`}
-                          options={siteIdVal ? itemOptions : []}
-                          placeholder="Select item"
-                        />
-                      </div>
-                      <div className="col-span-2">{selectedId ? (closingVal ?? "-") : '-'}</div>
-                      <div className="col-span-2">{unitName}</div>
+                      <div className="col-span-5 text-sm">{itemLabel}</div>
+                      <div className="col-span-2 text-sm">{closingVal}</div>
+                      <div className="col-span-2 text-sm">{unitName}</div>
                       <div className="col-span-2">
-                        <TextInput
+                        {isExpiry ? (
+                          <ExpiryQtyDisplay control={control} index={index} />
+                        ) : (
+                          <TextInput
+                            control={control}
+                            name={`items.${index}.qty`}
+                            label=""
+                            type="number"
+                            step="0.0001"
+                            placeholder="0"
+                            span={12}
+                          />
+                        )}
+                      </div>
+                      </div>
+
+                      {isExpiry && Number.isFinite(itemIdNum) ? (
+                        <BatchRows
                           control={control}
-                          name={`items.${index}.qty`}
-                          label=""
-                          type="number"
-                          step="0.0001"
-                          placeholder="0"
-                          span={12}
+                          index={index}
+                          batchOptions={batchOptionsByItemId.get(itemIdNum) || []}
+                          batchInfo={batchInfoByItemId.get(itemIdNum) || new Map<string, any>()}
                         />
-                      </div>
-                      <div className="col-span-1 flex justify-end">
-                        <AppButton
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          iconName="Trash2"
-                          onClick={() => remove(index)}
-                          disabled={fields.length === 1}
-                          aria-label="Remove row"
-                        />
-                      </div>
+                      ) : null}
                     </div>
                   );
                 })}
-
-                <div className="flex gap-2 pt-2">
-                  <AppButton
-                    type="button"
-                    variant="secondary"
-                    iconName="Plus"
-                    onClick={() => append({ itemId: "", qty: "" })}
-                  >
-                    Add Row
-                  </AppButton>
-                </div>
               </div>
             </FormSection>
           </AppCard.Content>
