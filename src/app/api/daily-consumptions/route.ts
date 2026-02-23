@@ -60,6 +60,15 @@ const createSchema = z.object({
         itemId: z.number().int().positive("Item ID is required"),
         qty: z.number().nonnegative().default(0),
         rate: z.number().nonnegative().default(0),
+        dcDetailBatches: z
+          .array(
+            z.object({
+              batchNumber: z.string().optional().default(""),
+              qty: z.number().nonnegative().default(0),
+            })
+          )
+          .optional()
+          .default([]),
       })
     )
     .min(1, "At least one item is required"),
@@ -197,12 +206,11 @@ export async function POST(req: NextRequest) {
 
     const { dailyConsumptionDetails, ...restForValidation } = validated as any;
     // Build details for validation
-    const detailsForValidation = (dailyConsumptionDetails || []).map(
-      (d: any) => ({
-        itemId: Number(d.itemId),
-        qty: Number(d.qty ?? 0),
-      })
-    );
+    const detailsForValidation = (dailyConsumptionDetails || []).map((d: any) => ({
+      itemId: Number(d.itemId),
+      qty: Number(d.qty ?? 0),
+      dcDetailBatches: Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [],
+    }));
     const siteIdForValidation = Number((restForValidation as any).siteId);
     if (
       detailsForValidation.length > 0 &&
@@ -245,6 +253,68 @@ export async function POST(req: NextRequest) {
         }
         idx++;
       }
+
+      // Validate batch-wise requests (if provided)
+      const batchesForValidation = detailsForValidation
+        .filter((d: any) => Array.isArray(d.dcDetailBatches) && d.dcDetailBatches.length > 0)
+        .flatMap((d: any) =>
+          (d.dcDetailBatches || []).map((b: any) => ({
+            itemId: Number(d.itemId),
+            batchNumber: String(b?.batchNumber || "").trim(),
+            qty: Number(b?.qty ?? 0),
+          }))
+        )
+        .filter((b: any) => !!b.batchNumber && b.qty > 0);
+
+      if (batchesForValidation.length > 0) {
+        const batchKeys = batchesForValidation.map(
+          (b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`
+        );
+        const distinctKeys = Array.from(new Set(batchKeys));
+
+        const siteItemBatches = await prisma.siteItemBatch.findMany({
+          where: {
+            siteId: siteIdForValidation,
+            OR: distinctKeys.map((k) => {
+              const [itemIdStr, batchNumber] = String(k).split("::");
+              return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+            }),
+          },
+          select: {
+            id: true,
+            itemId: true,
+            batchNumber: true,
+            closingQty: true,
+          },
+        });
+
+        const closingByItemBatch = new Map<string, number>();
+        for (const b of siteItemBatches) {
+          const key = `${Number(b.itemId)}::${String(b.batchNumber)}`;
+          closingByItemBatch.set(key, Number(b.closingQty ?? 0));
+        }
+
+        const requestedByItemBatch = new Map<string, number>();
+        for (const b of batchesForValidation) {
+          const key = `${Number(b.itemId)}::${String(b.batchNumber)}`;
+          const prev = requestedByItemBatch.get(key) || 0;
+          requestedByItemBatch.set(key, Number((prev + Number(b.qty || 0)).toFixed(4)));
+        }
+
+        for (const [key, req] of requestedByItemBatch.entries()) {
+          const closing = closingByItemBatch.get(key);
+          if (closing == null) {
+            errors.push(`Batch not found: ${key.replace("::", " / ")}`);
+            continue;
+          }
+          if (req > Number(closing)) {
+            errors.push(
+              `Batch ${key.replace("::", " / ")}: Qty cannot exceed batch closing (${Number(closing)})`
+            );
+          }
+        }
+      }
+
       if (errors.length > 0) {
         return BadRequest({
           message: "Validation failed",
@@ -323,7 +393,13 @@ export async function POST(req: NextRequest) {
         const rateNum = Number(si?.unitRate ?? 0);
         const rate = Number(rateNum.toFixed(2));
         const amount = Number((qty * rate).toFixed(2));
-        return { itemId: Number(d.itemId), qty, rate, amount };
+        return {
+          itemId: Number(d.itemId),
+          qty,
+          rate,
+          amount,
+          dcDetailBatches: Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [],
+        };
       });
 
       // (Validation already done above, skip here.)
@@ -355,15 +431,96 @@ export async function POST(req: NextRequest) {
       });
 
       if (details.length > 0) {
-        await tx.dailyConsumptionDetail.createMany({
-          data: details.map((d) => ({
-            dailyConsumptionId: createdMain.id,
-            itemId: d.itemId,
-            qty: d.qty,
-            rate: d.rate,
-            amount: d.amount,
-          })),
-        });
+        const createdDetails: Array<{
+          id: number;
+          itemId: number;
+          qty: number;
+          rate: number;
+          amount: number;
+          dcDetailBatches: any[];
+        }> = [];
+
+        for (const d of details) {
+          const createdDetail = await tx.dailyConsumptionDetail.create({
+            data: {
+              dailyConsumptionId: createdMain.id,
+              itemId: d.itemId,
+              qty: d.qty,
+              rate: d.rate,
+              amount: d.amount,
+            },
+            select: { id: true, itemId: true, qty: true, rate: true, amount: true },
+          });
+          createdDetails.push({
+            id: createdDetail.id,
+            itemId: Number(createdDetail.itemId),
+            qty: Number(createdDetail.qty ?? 0),
+            rate: Number(createdDetail.rate ?? 0),
+            amount: Number(createdDetail.amount ?? 0),
+            dcDetailBatches: d.dcDetailBatches || [],
+          });
+        }
+
+        // Persist batch rows + decrement SiteItemBatch for expiry items
+        for (const d of createdDetails) {
+          const batches = (d.dcDetailBatches || [])
+            .map((b: any) => ({
+              batchNumber: String(b?.batchNumber || "").trim(),
+              qty: Number(b?.qty ?? 0),
+            }))
+            .filter((b: any) => !!b.batchNumber && Number(b.qty) > 0);
+
+          if (batches.length === 0) continue;
+
+          const siteItemBatches = await tx.siteItemBatch.findMany({
+            where: {
+              siteId: Number(siteId),
+              itemId: Number(d.itemId),
+              batchNumber: { in: batches.map((b: any) => String(b.batchNumber)) },
+            },
+            select: {
+              id: true,
+              batchNumber: true,
+              expiryDate: true,
+              closingQty: true,
+              unitRate: true,
+              closingValue: true,
+            },
+          });
+
+          const byBatch = new Map<string, any>();
+          siteItemBatches.forEach((b: any) => byBatch.set(String(b.batchNumber), b));
+
+          for (const b of batches) {
+            const existingBatch = byBatch.get(String(b.batchNumber));
+            if (!existingBatch) continue;
+            const unitRate = Number(existingBatch.unitRate ?? 0);
+            const qty = Number(Number(b.qty || 0).toFixed(4));
+            const amount = Number((qty * unitRate).toFixed(2));
+
+            await tx.dailyConsumptionDetailBatch.create({
+              data: {
+                dailyConsumptionDetailId: d.id,
+                batchNumber: String(b.batchNumber),
+                expiryDate: String(existingBatch.expiryDate || ""),
+                qty,
+                unitRate: Number(unitRate.toFixed(2)),
+                amount,
+              },
+            });
+
+            const prevQty = Number(existingBatch.closingQty ?? 0);
+            const nextQty = Math.max(0, Number((prevQty - qty).toFixed(4)));
+            const nextValue = Number((nextQty * unitRate).toFixed(2));
+            await tx.siteItemBatch.update({
+              where: { id: existingBatch.id },
+              data: {
+                closingQty: nextQty,
+                closingValue: nextValue,
+              },
+            });
+          }
+        }
 
         // Stock updates: create issue ledger rows and update SiteItem closing stock/value
         for (const d of details) {

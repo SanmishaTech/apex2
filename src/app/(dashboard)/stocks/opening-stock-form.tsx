@@ -223,7 +223,14 @@ function ExpiryBatchesEditor({
     ).trim();
     const qty = qtyRaw === "" ? NaN : parseFloat(qtyRaw);
     const rate = rateRaw === "" ? NaN : parseFloat(rateRaw);
-    if (Number.isFinite(qty) && qty > 0 && Number.isFinite(rate) && rate > 0) {
+    if (qtyRaw === "" || rateRaw === "") {
+      form.setValue(`details.${detailIndex}.batches.${batchIndex}.openingValue`, "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      return;
+    }
+    if (Number.isFinite(qty) && qty >= 0 && Number.isFinite(rate) && rate >= 0) {
       const val = (qty * rate).toFixed(2);
       form.setValue(`details.${detailIndex}.batches.${batchIndex}.openingValue`, val, {
         shouldDirty: true,
@@ -241,27 +248,40 @@ function ExpiryBatchesEditor({
     const rows = Array.isArray(watchedBatches) ? watchedBatches : [];
     let totalQty = 0;
     let totalValue = 0;
+    const hasAnyInput = rows.some((r: any) => {
+      const qtyRaw = String(r?.openingQty ?? "").trim();
+      const rateRaw = String(r?.batchOpeningRate ?? "").trim();
+      const valRaw = String(r?.openingValue ?? "").trim();
+      return qtyRaw !== "" || rateRaw !== "" || valRaw !== "";
+    });
     for (const r of rows) {
       const qty = Number(String(r?.openingQty ?? "").trim());
       const rate = Number(String(r?.batchOpeningRate ?? "").trim());
-      if (Number.isFinite(qty) && qty > 0) {
-        totalQty += qty;
-        if (Number.isFinite(rate) && rate > 0) totalValue += qty * rate;
-      }
+      if (Number.isFinite(qty) && qty >= 0) totalQty += qty;
+      if (Number.isFinite(qty) && qty >= 0 && Number.isFinite(rate) && rate >= 0)
+        totalValue += qty * rate;
     }
     const avgRate = totalQty > 0 ? totalValue / totalQty : 0;
 
-    form.setValue(`details.${detailIndex}.openingStock`, totalQty > 0 ? String(totalQty) : "", {
-      shouldDirty: true,
-      shouldValidate: false,
-    });
-    form.setValue(`details.${detailIndex}.openingRate`, avgRate > 0 ? avgRate.toFixed(2) : "", {
-      shouldDirty: true,
-      shouldValidate: false,
-    });
+    form.setValue(
+      `details.${detailIndex}.openingStock`,
+      hasAnyInput ? String(totalQty) : "",
+      {
+        shouldDirty: true,
+        shouldValidate: false,
+      }
+    );
+    form.setValue(
+      `details.${detailIndex}.openingRate`,
+      hasAnyInput ? avgRate.toFixed(2) : "",
+      {
+        shouldDirty: true,
+        shouldValidate: false,
+      }
+    );
     form.setValue(
       `details.${detailIndex}.openingValue`,
-      totalValue > 0 ? totalValue.toFixed(2) : "",
+      hasAnyInput ? totalValue.toFixed(2) : "",
       {
         shouldDirty: true,
         shouldValidate: false,
@@ -585,7 +605,14 @@ export function OpeningStockForm() {
     ).trim();
     const qty = qtyRaw === "" ? NaN : parseFloat(qtyRaw);
     const rate = rateRaw === "" ? NaN : parseFloat(rateRaw);
-    if (Number.isFinite(qty) && qty > 0 && Number.isFinite(rate) && rate > 0) {
+    if (qtyRaw === "" || rateRaw === "") {
+      form.setValue(`details.${index}.openingValue`, "", {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      return;
+    }
+    if (Number.isFinite(qty) && qty >= 0 && Number.isFinite(rate) && rate >= 0) {
       const val = (qty * rate).toFixed(2);
       form.setValue(`details.${index}.openingValue`, val, {
         shouldDirty: true,

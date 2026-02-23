@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
         openingQty: true,
         batchOpeningRate: true,
         openingValue: true,
+        closingQty: true,
+        unitRate: true,
+        closingValue: true,
       },
       orderBy: [{ itemId: "asc" }, { batchNumber: "asc" }, { id: "asc" }],
     });

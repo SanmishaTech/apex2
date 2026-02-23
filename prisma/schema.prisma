@@ -100,7 +100,7 @@ model User {
 
 siteManpowerAssignedLogs          SiteManpowerLog[]  @relation("siteManpowerAssignedByLogs")
 siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedByLogs")
-  
+  openingStockLogs OpeningStockLog[] @relation("OpeningStockLogCreated")
 
   @@map("users")
 }
@@ -2672,13 +2672,61 @@ createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   stockAdjustment StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
   item Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
-
+  stockAdjustmentDetailBatch StockAdjustmentDetailBatch[] 
    @@index([itemId])
    @@index([stockAdjustmentId])
   @@map("stock_adjustment_details")
 }
 
+model StockAdjustmentDetailBatch {
+  id           Int       @id @default(autoincrement())
+  stockAdjustmentDetailId   Int
+  batchNumber      String    
+  expiryDate   String 
+  batchIssuedQty         Decimal  @default(0.00) @db.Decimal(12, 2)
+  batchReceivedQty       Decimal  @default(0.00) @db.Decimal(12, 2) 
+  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
+  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  stockAdjustmentDetail  StockAdjustmentDetail  @relation(fields: [stockAdjustmentDetailId], references: [id], onDelete: Restrict)
+  
+  @@index([stockAdjustmentDetailId])
+  @@map("stock_adjustment_detail_batches")
+}
 
+enum OpeningStockReason {
+  INITIAL
+  UPDATE
+  DELETE
+}
+
+model OpeningStockLog {
+  id           Int      @id @default(autoincrement())
+
+  siteItemId   Int
+
+  // Optional — only used when applicable
+  batchNo      String?  
+  expiryDate  String? // YYYY-MM
+
+  deltaQty     Decimal  @db.Decimal(12, 2)
+  rate         Decimal  @db.Decimal(12, 2)
+  amount       Decimal  @db.Decimal(12, 2)
+  reason       OpeningStockReason
+
+  createdById    Int
+  createdAt    DateTime @default(now())
+
+  createdBy User @relation("OpeningStockLogCreated", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([siteItemId])
+  @@index([createdById])
+  @@map("opening_stock_logs")
+
+}
 
 
 model BOQBill {
