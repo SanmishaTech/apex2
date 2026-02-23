@@ -103,15 +103,35 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const itemIds = Array.isArray(parsed.details)
+        ? (parsed.details
+            .map((d: any) => Number(d?.itemId))
+            .filter((v: any) => Number.isFinite(v)) as number[])
+        : [];
+      const itemsMeta = itemIds.length
+        ? await tx.item.findMany({
+            where: { id: { in: itemIds } },
+            select: { id: true, isExpiryDate: true },
+          })
+        : [];
+      const isExpiryByItemId = new Map<number, boolean>();
+      for (const it of itemsMeta) {
+        isExpiryByItemId.set(Number(it.id), Boolean((it as any).isExpiryDate));
+      }
+
       // Update details sequentially to preserve serial order if needed in future
       if (Array.isArray(parsed.details) && parsed.details.length > 0) {
         for (const d of parsed.details) {
+          const itemIdNum = Number(d.itemId);
+          const isExpiryItem = Boolean(isExpiryByItemId.get(itemIdNum));
+
           // Upsert SiteItem (update if exists for site+item, else create)
           const existing = await tx.siteItem.findFirst({
             where: { siteId: parsed.siteId, itemId: d.itemId as number },
             select: {
               id: true,
               openingStock: true,
+              openingRate: true,
               openingValue: true,
               closingStock: true,
               closingValue: true,
@@ -124,18 +144,25 @@ export async function POST(req: NextRequest) {
             (nextOpeningStock - prevOpeningStock).toFixed(2)
           );
           const newRate = Number(Number(d.openingRate || 0).toFixed(2));
+          const prevRate = Number(Number(existing?.openingRate || 0).toFixed(2));
+          const rateChanged = Number.isFinite(prevRate) && Number.isFinite(newRate) && prevRate !== newRate;
           const logAmount = Number((deltaOpeningStock * newRate).toFixed(2));
-          if (Number.isFinite(deltaOpeningStock) && deltaOpeningStock !== 0) {
-            await tx.openingStockLog.create({
-              data: {
-                siteItemId: existing?.id ?? 0,
-                deltaQty: deltaOpeningStock,
-                rate: newRate,
-                amount: logAmount,
-                reason: existing?.id ? "UPDATE" : "INITIAL",
-                createdById,
-              } as any,
-            });
+          if (!isExpiryItem) {
+            const shouldLog =
+              (Number.isFinite(deltaOpeningStock) && deltaOpeningStock !== 0) ||
+              (existing?.id && rateChanged);
+            if (shouldLog) {
+              await tx.openingStockLog.create({
+                data: {
+                  siteItemId: existing?.id ?? 0,
+                  deltaQty: Number.isFinite(deltaOpeningStock) ? deltaOpeningStock : 0,
+                  rate: newRate,
+                  amount: Number.isFinite(logAmount) ? logAmount : 0,
+                  reason: existing?.id ? "UPDATE" : "INITIAL",
+                  createdById,
+                } as any,
+              });
+            }
           }
 
           const siteItemId = existing?.id
@@ -196,7 +223,12 @@ export async function POST(req: NextRequest) {
               ).id;
 
           // Fix log siteItemId for INITIAL case (created above before create)
-          if (!existing?.id && Number.isFinite(deltaOpeningStock) && deltaOpeningStock !== 0) {
+          if (
+            !isExpiryItem &&
+            !existing?.id &&
+            Number.isFinite(deltaOpeningStock) &&
+            deltaOpeningStock !== 0
+          ) {
             await tx.openingStockLog.updateMany({
               where: {
                 siteItemId: 0,
@@ -220,6 +252,7 @@ export async function POST(req: NextRequest) {
                 select: {
                   id: true,
                   openingQty: true,
+                  batchOpeningRate: true,
                   openingValue: true,
                   closingQty: true,
                   closingValue: true,
@@ -231,16 +264,26 @@ export async function POST(req: NextRequest) {
               const nextOpeningQty = Number(b.openingQty || 0);
               const deltaQty = Number((nextOpeningQty - prevOpeningQty).toFixed(2));
               const batchRate = Number(Number(b.batchOpeningRate || 0).toFixed(2));
+              const prevBatchRate = Number(
+                Number(existingBatch?.batchOpeningRate || 0).toFixed(2)
+              );
+              const batchRateChanged =
+                Number.isFinite(prevBatchRate) &&
+                Number.isFinite(batchRate) &&
+                prevBatchRate !== batchRate;
               const batchAmount = Number((deltaQty * batchRate).toFixed(2));
-              if (Number.isFinite(deltaQty) && deltaQty !== 0) {
+              if (
+                (Number.isFinite(deltaQty) && deltaQty !== 0) ||
+                (existingBatch?.id && batchRateChanged)
+              ) {
                 await tx.openingStockLog.create({
                   data: {
                     siteItemId,
                     batchNo: batchNumber,
                     expiryDate: String(b.expiryDate || existingBatch?.expiryDate || "") || null,
-                    deltaQty,
+                    deltaQty: Number.isFinite(deltaQty) ? deltaQty : 0,
                     rate: batchRate,
-                    amount: batchAmount,
+                    amount: Number.isFinite(batchAmount) ? batchAmount : 0,
                     reason: existingBatch?.id ? "UPDATE" : "INITIAL",
                     createdById,
                   } as any,
@@ -376,6 +419,7 @@ export async function POST(req: NextRequest) {
           },
           select: {
             id: true,
+            itemId: true,
             openingStock: true,
             openingValue: true,
             closingStock: true,
@@ -384,12 +428,13 @@ export async function POST(req: NextRequest) {
         });
 
         for (const si of excludedSiteItems) {
+          const isExpiryItem = Boolean(isExpiryByItemId.get(Number((si as any).itemId)));
           const prevOpeningStock = Number(si.openingStock || 0);
           const prevOpeningValue = Number(si.openingValue || 0);
           const prevClosingStock = Number(si.closingStock || 0);
           const prevClosingValue = Number(si.closingValue || 0);
 
-          if (prevOpeningStock !== 0) {
+          if (!isExpiryItem && prevOpeningStock !== 0) {
             await tx.openingStockLog.create({
               data: {
                 siteItemId: si.id,

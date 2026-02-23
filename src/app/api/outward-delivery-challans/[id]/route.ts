@@ -60,8 +60,22 @@ export async function GET(
                 id: true,
                 item: true,
                 itemCode: true,
+                isExpiryDate: true,
                 unit: { select: { unitName: true } },
               },
+            },
+            outwardDeliveryChallanDetailBatch: {
+              select: {
+                id: true,
+                batchNumber: true,
+                expiryDate: true,
+                qty: true,
+                batchApprovedQty: true,
+                batchReceivedQty: true,
+                unitRate: true,
+                amount: true,
+              },
+              orderBy: { id: "asc" },
             },
           },
           orderBy: { id: "asc" },
@@ -102,6 +116,15 @@ export async function PATCH(
             id: z.number().int().positive(),
             approved1Qty: z.number().nonnegative().optional(),
             receivedQty: z.number().nonnegative().optional(),
+            outwardDeliveryChallanDetailBatch: z
+              .array(
+                z.object({
+                  id: z.number().int().positive(),
+                  batchApprovedQty: z.number().nonnegative().optional(),
+                  batchReceivedQty: z.number().nonnegative().optional(),
+                })
+              )
+              .optional(),
           })
         )
         .default([])
@@ -162,21 +185,114 @@ export async function PATCH(
       for (const si of siteItems)
         stockByItem.set(si.itemId, Number(si.closingStock || 0));
 
+      // Load expiry flags
+      const itemFlags = await prisma.item.findMany({
+        where: { id: { in: (current.outwardDeliveryChallanDetails || []).map((d) => d.itemId) } },
+        select: { id: true, isExpiryDate: true },
+      });
+      const isExpiryByItemId = new Map<number, boolean>(
+        itemFlags.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
+      );
+
+      // Load challan batches for validation (stock + qty caps)
+      const odcBatches = await prisma.outwardDeliveryChallanDetailBatch.findMany({
+        where: {
+          outwardDeliveryChallanDetailId: {
+            in: (current.outwardDeliveryChallanDetails || []).map((d) => d.id),
+          },
+        },
+        select: {
+          id: true,
+          outwardDeliveryChallanDetailId: true,
+          batchNumber: true,
+          expiryDate: true,
+          qty: true,
+        },
+      });
+      const batchById = new Map<number, (typeof odcBatches)[number]>();
+      odcBatches.forEach((b) => batchById.set(b.id, b));
+
+      // Load from-site batch closing qty for validation
+      const fromSiteItems = await prisma.siteItem.findMany({
+        where: {
+          siteId: current.fromSiteId,
+          itemId: { in: (current.outwardDeliveryChallanDetails || []).map((d) => d.itemId) },
+        },
+        select: { id: true, itemId: true },
+      });
+      const fromSiteItemIdByItemId = new Map<number, number>();
+      fromSiteItems.forEach((si) => fromSiteItemIdByItemId.set(si.itemId, si.id));
+
+      const fromSiteBatches = await prisma.siteItemBatch.findMany({
+        where: {
+          siteItemId: { in: fromSiteItems.map((si) => si.id) },
+        },
+        select: { siteItemId: true, batchNumber: true, expiryDate: true, closingQty: true },
+      });
+      const fromBatchClosingBySiteItemAndBatch = new Map<string, number>();
+      for (const b of fromSiteBatches) {
+        fromBatchClosingBySiteItemAndBatch.set(
+          `${b.siteItemId}::${b.batchNumber}::${b.expiryDate}`,
+          Number(b.closingQty || 0)
+        );
+      }
+
       for (const row of parsed.outwardDeliveryChallanDetails || []) {
         const found = byId.get(row.id);
         if (!found) return BadRequest("Invalid detail id: " + row.id);
-        const qty = Number(row.approved1Qty ?? 0);
-        if (qty <= 0) {
+
+        const isExpiry = isExpiryByItemId.get(found.itemId) ?? false;
+        const batchPayload = row.outwardDeliveryChallanDetailBatch || [];
+        const approvedQty = isExpiry && batchPayload.length > 0
+          ? Number(
+              batchPayload
+                .reduce((acc, b) => acc + Number(b.batchApprovedQty ?? 0), 0)
+                .toFixed(2)
+            )
+          : Number(row.approved1Qty ?? 0);
+
+        if (approvedQty <= 0) {
           return BadRequest(
             `Approved qty must be greater than 0 for detail ${row.id}`
           );
         }
 
         const closing = stockByItem.get(found.itemId) ?? 0;
-        if (qty > closing) {
+        if (approvedQty > closing) {
           return BadRequest(
             `Approved qty cannot exceed closing stock (${closing}) for detail ${row.id}`
           );
+        }
+
+        if (isExpiry && batchPayload.length > 0) {
+          const siteItemId = fromSiteItemIdByItemId.get(found.itemId);
+          if (!siteItemId) return BadRequest("From-site stock record not found");
+
+          for (const bp of batchPayload) {
+            const dbBatch = batchById.get(bp.id);
+            if (!dbBatch) return BadRequest("Invalid batch id: " + bp.id);
+            if (Number(dbBatch.outwardDeliveryChallanDetailId) !== found.id) {
+              return BadRequest("Batch does not belong to this detail: " + bp.id);
+            }
+            const apQty = Number(bp.batchApprovedQty ?? 0);
+            if (apQty < 0) return BadRequest("Invalid approved qty for batch: " + bp.id);
+            if (apQty > Number(dbBatch.qty || 0)) {
+              return BadRequest(
+                `Batch approved qty cannot exceed challan batch qty (${Number(
+                  dbBatch.qty || 0
+                )}) for batch ${dbBatch.batchNumber}`
+              );
+            }
+            const closingBatch =
+              fromBatchClosingBySiteItemAndBatch.get(
+                `${siteItemId}::${dbBatch.batchNumber}::${dbBatch.expiryDate}`
+              ) ?? 0;
+            if (apQty > closingBatch) {
+              return BadRequest(
+                `Batch approved qty cannot exceed closing batch qty (${closingBatch}) for batch ${dbBatch.batchNumber}`
+              );
+            }
+          }
         }
       }
 
@@ -192,13 +308,35 @@ export async function PATCH(
             updatedAt: now,
           },
         });
-        // Details
+        // Details + batches (for expiry)
         for (const row of parsed.outwardDeliveryChallanDetails || []) {
-          const val = Number(row.approved1Qty ?? 0);
+          const found = byId.get(row.id);
+          if (!found) continue;
+          const isExpiry = isExpiryByItemId.get(found.itemId) ?? false;
+          const batchPayload = row.outwardDeliveryChallanDetailBatch || [];
+
+          const val =
+            isExpiry && batchPayload.length > 0
+              ? Number(
+                  batchPayload
+                    .reduce((acc, b) => acc + Number(b.batchApprovedQty ?? 0), 0)
+                    .toFixed(2)
+                )
+              : Number(row.approved1Qty ?? 0);
+
           await tx.outwardDeliveryChallanDetail.update({
             where: { id: row.id },
             data: { approved1Qty: val, qty: val },
           });
+
+          if (isExpiry && batchPayload.length > 0) {
+            for (const b of batchPayload) {
+              await tx.outwardDeliveryChallanDetailBatch.update({
+                where: { id: b.id },
+                data: { batchApprovedQty: Number(b.batchApprovedQty ?? 0) },
+              });
+            }
+          }
         }
         // Update SiteItem logs at fromSite for existing records
         const approveItemIds = (
@@ -243,26 +381,122 @@ export async function PATCH(
       for (const si of siteItems)
         stockByItem.set(si.itemId, Number(si.closingStock || 0));
 
+      const acceptItemFlags = await prisma.item.findMany({
+        where: { id: { in: detailIds } },
+        select: { id: true, isExpiryDate: true },
+      });
+      const isExpiryByItemIdAccept = new Map<number, boolean>(
+        acceptItemFlags.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
+      );
+
+      const acceptOdcBatches = await prisma.outwardDeliveryChallanDetailBatch.findMany({
+        where: {
+          outwardDeliveryChallanDetailId: {
+            in: (current.outwardDeliveryChallanDetails || []).map((d) => d.id),
+          },
+        },
+        select: {
+          id: true,
+          outwardDeliveryChallanDetailId: true,
+          batchNumber: true,
+          expiryDate: true,
+          qty: true,
+          batchApprovedQty: true,
+        },
+      });
+      const acceptBatchById = new Map<number, (typeof acceptOdcBatches)[number]>();
+      acceptOdcBatches.forEach((b) => acceptBatchById.set(b.id, b));
+
+      const fromSiteItemsAccept = await prisma.siteItem.findMany({
+        where: { siteId: current.fromSiteId, itemId: { in: detailIds } },
+        select: { id: true, itemId: true },
+      });
+      const fromSiteItemIdByItemIdAccept = new Map<number, number>();
+      fromSiteItemsAccept.forEach((si) =>
+        fromSiteItemIdByItemIdAccept.set(si.itemId, si.id)
+      );
+      const fromSiteBatchesAccept = await prisma.siteItemBatch.findMany({
+        where: { siteItemId: { in: fromSiteItemsAccept.map((si) => si.id) } },
+        select: {
+          siteItemId: true,
+          batchNumber: true,
+          expiryDate: true,
+          closingQty: true,
+        },
+      });
+      const fromBatchClosingBySiteItemAndBatchAccept = new Map<string, number>();
+      for (const b of fromSiteBatchesAccept) {
+        fromBatchClosingBySiteItemAndBatchAccept.set(
+          `${b.siteItemId}::${b.batchNumber}::${b.expiryDate}`,
+          Number(b.closingQty || 0)
+        );
+      }
+
       for (const row of parsed.outwardDeliveryChallanDetails || []) {
         const found = byId.get(row.id);
         if (!found) return BadRequest("Invalid detail id: " + row.id);
-        const qty = Number(row.receivedQty ?? 0);
+        const isExpiry = isExpiryByItemIdAccept.get(found.itemId) ?? false;
+        const batchPayload = row.outwardDeliveryChallanDetailBatch || [];
+        const qty =
+          isExpiry && batchPayload.length > 0
+            ? Number(
+                batchPayload
+                  .reduce((acc, b) => acc + Number(b.batchReceivedQty ?? 0), 0)
+                  .toFixed(2)
+              )
+            : Number(row.receivedQty ?? 0);
         if (qty <= 0) {
           return BadRequest(
             `Received qty must be greater than 0 for detail ${row.id}`
           );
         }
-        const max = Number(
-          (found.approved1Qty != null
-            ? found.approved1Qty
-            : found.challanQty) || 0
-        );
-
         const closing = stockByItem.get(found.itemId) ?? 0;
         if (qty > closing) {
           return BadRequest(
             `Received qty cannot exceed closing stock (${closing}) for detail ${row.id}`
           );
+        }
+
+        const approvedMax = Number(found.approved1Qty ?? found.challanQty ?? 0);
+        if (qty > approvedMax) {
+          return BadRequest(
+            `Received qty cannot exceed approved qty (${approvedMax}) for detail ${row.id}`
+          );
+        }
+
+        if (isExpiry && batchPayload.length > 0) {
+          const siteItemId = fromSiteItemIdByItemIdAccept.get(found.itemId);
+          if (!siteItemId) return BadRequest("From-site stock record not found");
+          for (const bp of batchPayload) {
+            const dbBatch = acceptBatchById.get(bp.id);
+            if (!dbBatch) return BadRequest("Invalid batch id: " + bp.id);
+            if (Number(dbBatch.outwardDeliveryChallanDetailId) !== found.id) {
+              return BadRequest("Batch does not belong to this detail: " + bp.id);
+            }
+            const recQty = Number(bp.batchReceivedQty ?? 0);
+            if (recQty < 0) return BadRequest("Invalid received qty for batch: " + bp.id);
+            const challanBatchQty = Number(dbBatch.qty || 0);
+            const approvedBatchQty = Number(dbBatch.batchApprovedQty || 0);
+            if (recQty > challanBatchQty) {
+              return BadRequest(
+                `Batch received qty cannot exceed challan batch qty (${challanBatchQty}) for batch ${dbBatch.batchNumber}`
+              );
+            }
+            if (recQty > approvedBatchQty) {
+              return BadRequest(
+                `Batch received qty cannot exceed batch approved qty (${approvedBatchQty}) for batch ${dbBatch.batchNumber}`
+              );
+            }
+            const closingBatch =
+              fromBatchClosingBySiteItemAndBatchAccept.get(
+                `${siteItemId}::${dbBatch.batchNumber}::${dbBatch.expiryDate}`
+              ) ?? 0;
+            if (recQty > closingBatch) {
+              return BadRequest(
+                `Batch received qty cannot exceed closing batch qty (${closingBatch}) for batch ${dbBatch.batchNumber}`
+              );
+            }
+          }
         }
       }
 
@@ -277,15 +511,10 @@ export async function PATCH(
             updatedAt: now,
           },
         });
-        // Update details received qty and qty
-        for (const row of parsed.outwardDeliveryChallanDetails || []) {
-          const val = Number(row.receivedQty ?? 0);
-          await tx.outwardDeliveryChallanDetail.update({
-            where: { id: row.id },
-            data: { receivedQty: val, qty: val },
-          });
-        }
-
+        // Update details received qty and qty + persist batchReceivedQty
+        const byIdTx = new Map(
+          (current.outwardDeliveryChallanDetails || []).map((d) => [d.id, d])
+        );
         // Load expiry flags for all items
         const detailItemIds = (current.outwardDeliveryChallanDetails || []).map(
           (d) => d.itemId
@@ -297,6 +526,35 @@ export async function PATCH(
         const isExpiryByItemId = new Map<number, boolean>(
           items.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
         );
+        for (const row of parsed.outwardDeliveryChallanDetails || []) {
+          const found = byIdTx.get(row.id);
+          if (!found) continue;
+          const itemId = found.itemId;
+          const isExpiry = isExpiryByItemId.get(itemId) ?? false;
+          const batchPayload = row.outwardDeliveryChallanDetailBatch || [];
+          const val =
+            isExpiry && batchPayload.length > 0
+              ? Number(
+                  batchPayload
+                    .reduce((acc, b) => acc + Number(b.batchReceivedQty ?? 0), 0)
+                    .toFixed(2)
+                )
+              : Number(row.receivedQty ?? 0);
+
+          await tx.outwardDeliveryChallanDetail.update({
+            where: { id: row.id },
+            data: { receivedQty: val, qty: val },
+          });
+
+          if (isExpiry && batchPayload.length > 0) {
+            for (const b of batchPayload) {
+              await tx.outwardDeliveryChallanDetailBatch.update({
+                where: { id: b.id },
+                data: { batchReceivedQty: Number(b.batchReceivedQty ?? 0) },
+              });
+            }
+          }
+        }
 
         // Load all batch rows for this challan (for expiry items)
         const detailIds = (current.outwardDeliveryChallanDetails || [])
@@ -310,6 +568,8 @@ export async function PATCH(
                 batchNumber: true,
                 expiryDate: true,
                 qty: true,
+                batchApprovedQty: true,
+                batchReceivedQty: true,
                 unitRate: true,
                 amount: true,
               },
@@ -363,12 +623,12 @@ export async function PATCH(
           const detailBatches = batchesByDetailId.get(found.id) || [];
           if (isExpiry && detailBatches.length > 0) {
             const sum = detailBatches.reduce(
-              (acc, b) => acc + Number(b.qty || 0),
+              (acc, b) => acc + Number(b.batchReceivedQty ?? 0),
               0
             );
             if (Number(sum.toFixed(2)) !== Number(qty.toFixed(2))) {
               throw new Error(
-                `Received qty must match batch qty total (${Number(sum.toFixed(
+                `Received qty must match batch received qty total (${Number(sum.toFixed(
                   2
                 ))}) for item ${itemId}`
               );
@@ -376,7 +636,24 @@ export async function PATCH(
           }
 
           const fromInfo = fromMap.get(itemId);
-          const issueRate = fromInfo ? Number(fromInfo.unitRate) : 0;
+          const issueRate = (() => {
+            if (isExpiry && detailBatches.length > 0) {
+              const agg = detailBatches.reduce(
+                (acc: { qty: number; amount: number }, b: any) => {
+                  const q = Number(Number(b?.batchReceivedQty ?? 0).toFixed(4));
+                  const r = Number(Number(b?.unitRate ?? 0).toFixed(2));
+                  const amt = Number((q * r).toFixed(2));
+                  return {
+                    qty: Number((acc.qty + (Number.isFinite(q) ? q : 0)).toFixed(4)),
+                    amount: Number((acc.amount + (Number.isFinite(amt) ? amt : 0)).toFixed(2)),
+                  };
+                },
+                { qty: 0, amount: 0 }
+              );
+              return agg.qty > 0 ? Number((agg.amount / agg.qty).toFixed(2)) : 0;
+            }
+            return fromInfo ? Number(fromInfo.unitRate) : 0;
+          })();
 
           // Ledger: Issue from fromSite
           await tx.stockLedger.create({
@@ -407,65 +684,69 @@ export async function PATCH(
           });
 
           // Update fromSite SiteItem (decrement stock)
-          if (fromInfo) {
-            const prev = Number(fromInfo.closingStock || 0);
-            const newStock = Math.max(prev - qty, 0);
-            const newValue = Number(issueRate) * newStock;
-            await tx.siteItem.update({
-              where: { id: fromInfo.id },
-              data: { closingStock: newStock, closingValue: newValue },
-            });
-          } else {
-            // No from-site record exists: create with zero then deduct (results in zero)
-            await tx.siteItem.create({
-              data: {
-                siteId: current.fromSiteId,
-                itemId,
-                openingStock: 0,
-                openingRate: 0,
-                openingValue: 0,
-                closingStock: 0,
-                closingValue: 0,
-                unitRate: issueRate,
-              },
-            });
+          if (!isExpiry) {
+            if (fromInfo) {
+              const prev = Number(fromInfo.closingStock || 0);
+              const newStock = Math.max(prev - qty, 0);
+              const newValue = Number(issueRate) * newStock;
+              await tx.siteItem.update({
+                where: { id: fromInfo.id },
+                data: { closingStock: newStock, closingValue: newValue },
+              });
+            } else {
+              // No from-site record exists: create with zero then deduct (results in zero)
+              await tx.siteItem.create({
+                data: {
+                  siteId: current.fromSiteId,
+                  itemId,
+                  openingStock: 0,
+                  openingRate: 0,
+                  openingValue: 0,
+                  closingStock: 0,
+                  closingValue: 0,
+                  unitRate: issueRate,
+                },
+              });
+            }
           }
 
           // Update toSite SiteItem (increment stock)
           const toInfo = toMap.get(itemId);
-          if (toInfo) {
-            const prevStock = Number(toInfo.closingStock || 0);
-            const prevValue = Number(toInfo.closingValue || 0);
-            const newStock = prevStock + qty;
-            const incValue = issueRate * qty;
-            const newValue = prevValue + incValue;
-            const newRate = newStock !== 0 ? newValue / newStock : 0;
-            await tx.siteItem.update({
-              where: { id: toInfo.id },
-              data: {
-                closingStock: newStock,
-                unitRate: newRate,
-                closingValue: newValue,
-                log: "ACCEPT ODC OLD",
-              },
-            });
-          } else {
-            const newStock = qty;
-            const newValue = issueRate * qty;
-            const newRate = newStock !== 0 ? newValue / newStock : 0;
-            await tx.siteItem.create({
-              data: {
-                siteId: current.toSiteId!,
-                itemId,
-                openingStock: 0,
-                openingRate: 0,
-                openingValue: 0,
-                closingStock: newStock,
-                closingValue: newValue,
-                unitRate: newRate,
-                log: "ACCEPT ODC NEW",
-              },
-            });
+          if (!isExpiry) {
+            if (toInfo) {
+              const prevStock = Number(toInfo.closingStock || 0);
+              const prevValue = Number(toInfo.closingValue || 0);
+              const newStock = prevStock + qty;
+              const incValue = issueRate * qty;
+              const newValue = prevValue + incValue;
+              const newRate = newStock !== 0 ? newValue / newStock : 0;
+              await tx.siteItem.update({
+                where: { id: toInfo.id },
+                data: {
+                  closingStock: newStock,
+                  unitRate: newRate,
+                  closingValue: newValue,
+                  log: "ACCEPT ODC OLD",
+                },
+              });
+            } else {
+              const newStock = qty;
+              const newValue = issueRate * qty;
+              const newRate = newStock !== 0 ? newValue / newStock : 0;
+              await tx.siteItem.create({
+                data: {
+                  siteId: current.toSiteId!,
+                  itemId,
+                  openingStock: 0,
+                  openingRate: 0,
+                  openingValue: 0,
+                  closingStock: newStock,
+                  closingValue: newValue,
+                  unitRate: newRate,
+                  log: "ACCEPT ODC NEW",
+                },
+              });
+            }
           }
 
           // Batch-wise stock movement for expiry items
@@ -503,7 +784,7 @@ export async function PATCH(
             for (const b of detailBatches) {
               const bn = String(b.batchNumber || "").trim();
               const exp = String(b.expiryDate || "").trim();
-              const bQty = Number(b.qty || 0);
+              const bQty = Number(b.batchReceivedQty ?? 0);
               const unitRate = Number(b.unitRate || issueRate || 0);
               const bAmount = Number((unitRate * bQty).toFixed(2));
 
@@ -577,6 +858,37 @@ export async function PATCH(
                 });
               }
             }
+
+            // Derive SiteItem values from batch totals to avoid value drift
+            const deriveSiteItemFromBatches = async (siteId: number, siteItemId: number) => {
+              const batchTotals = await tx.siteItemBatch.findMany({
+                where: { siteItemId },
+                select: { closingQty: true, closingValue: true },
+              });
+              const closingStock = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingQty ?? 0), 0)
+                  .toFixed(4)
+              );
+              const closingValue = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingValue ?? 0), 0)
+                  .toFixed(2)
+              );
+              const unitRate = closingStock > 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
+              await tx.siteItem.update({
+                where: { id: siteItemId },
+                data: {
+                  closingStock,
+                  closingValue,
+                  unitRate,
+                  log: siteId === current.fromSiteId ? "ACCEPT ODC FROM BATCH" : "ACCEPT ODC TO BATCH",
+                } as any,
+              });
+            };
+
+            await deriveSiteItemFromBatches(current.fromSiteId, fromSiteItem.id);
+            await deriveSiteItemFromBatches(current.toSiteId!, toSiteItemId);
           }
         }
       });

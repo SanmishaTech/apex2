@@ -2537,6 +2537,8 @@ model OutwardDeliveryChallanDetailBatch {
   batchNumber      String    
   expiryDate   String 
   qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
+  batchApprovedQty               Decimal @default(0.00)   @db.Decimal(12,2) 
+  batchReceivedQty                Decimal @default(0.00)   @db.Decimal(12,2) 
   unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
   amount Decimal   @default(0.00)   @db.Decimal(12, 2)
   

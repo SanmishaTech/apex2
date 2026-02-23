@@ -25,6 +25,7 @@ export interface TextInputProps {
 	prefixIcon?: React.ReactNode;
 	pattern?: string;
 	onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
+	onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
 	inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 	onValueChange?: (value: string) => string;
 	onValueBlur?: (value: string) => string;
@@ -54,6 +55,7 @@ export function TextInput({
 	prefixIcon,
 	pattern,
 	onInput,
+	onFocus,
 	inputMode,
 	onValueChange,
 	onValueBlur,
@@ -104,6 +106,7 @@ export function TextInput({
 								maxLength={maxLength}
 								pattern={pattern}
 								onInput={onInput}
+								onFocus={onFocus}
 								step={step as any}
 								className={cn(prefixIcon && 'pl-9', className)}
 								required={required}
