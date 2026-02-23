@@ -362,6 +362,18 @@ export async function POST(req: NextRequest) {
           (dailyConsumptionDetails || []).map((d: any) => Number(d.itemId))
         )
       );
+
+      const itemsMeta = distinctItemIds.length
+        ? await tx.item.findMany({
+            where: { id: { in: distinctItemIds } },
+            select: { id: true, isExpiryDate: true },
+          })
+        : [];
+      const isExpiryByItemId = new Map<number, boolean>();
+      for (const it of itemsMeta) {
+        isExpiryByItemId.set(Number(it.id), Boolean((it as any).isExpiryDate));
+      }
+
       const siteItems = distinctItemIds.length
         ? await tx.siteItem.findMany({
             where: { siteId: Number(siteId), itemId: { in: distinctItemIds } },
@@ -386,15 +398,86 @@ export async function POST(req: NextRequest) {
       >();
       siteItems.forEach((si) => siteItemById.set(Number(si.itemId), si));
 
+      // Preload batch unit rates for expiry items so we can compute weighted average rate/amount
+      const batchReq = (dailyConsumptionDetails || [])
+        .flatMap((d: any) => {
+          const itemId = Number(d.itemId);
+          const isExpiry = Boolean(isExpiryByItemId.get(itemId));
+          const dcBatches = Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [];
+          if (!isExpiry || dcBatches.length === 0) return [];
+          return dcBatches
+            .map((b: any) => ({
+              itemId,
+              batchNumber: String(b?.batchNumber || "").trim(),
+            }))
+            .filter((b: any) => !!b.batchNumber);
+        })
+        .filter(Boolean);
+
+      const distinctBatchKeys = Array.from(
+        new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`))
+      );
+      const batchMeta = distinctBatchKeys.length
+        ? await tx.siteItemBatch.findMany({
+            where: {
+              siteId: Number(siteId),
+              OR: distinctBatchKeys.map((k) => {
+                const [itemIdStr, batchNumber] = String(k).split("::");
+                return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+              }),
+            },
+            select: { itemId: true, batchNumber: true, unitRate: true },
+          })
+        : [];
+      const batchUnitRateByKey = new Map<string, number>();
+      for (const b of batchMeta) {
+        batchUnitRateByKey.set(
+          `${Number((b as any).itemId)}::${String((b as any).batchNumber)}`,
+          Number((b as any).unitRate ?? 0)
+        );
+      }
+
       const details = (dailyConsumptionDetails || []).map((d: any) => {
+        const itemId = Number(d.itemId);
+        const isExpiry = Boolean(isExpiryByItemId.get(itemId));
+        const dcBatches = Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [];
+        const hasBatches = isExpiry && dcBatches.length > 0;
+
+        if (hasBatches) {
+          const agg = dcBatches.reduce(
+            (acc: { qty: number; amount: number }, r: any) => {
+              const bn = String(r?.batchNumber || "").trim();
+              const q = Number(Number(r?.qty ?? 0).toFixed(4));
+              if (!bn || !(q > 0)) return acc;
+              const unitRate = Number(
+                Number(batchUnitRateByKey.get(`${itemId}::${bn}`) ?? 0).toFixed(2)
+              );
+              const amt = Number((q * unitRate).toFixed(2));
+              return {
+                qty: Number((acc.qty + q).toFixed(4)),
+                amount: Number((acc.amount + amt).toFixed(2)),
+              };
+            },
+            { qty: 0, amount: 0 }
+          );
+          const rate = agg.qty > 0 ? Number((agg.amount / agg.qty).toFixed(2)) : 0;
+          return {
+            itemId,
+            qty: agg.qty,
+            rate,
+            amount: agg.amount,
+            dcDetailBatches: dcBatches,
+          };
+        }
+
         const qtyRaw = Number(d.qty ?? 0);
         const qty = Number(qtyRaw.toFixed(4));
-        const si = siteItemById.get(Number(d.itemId));
+        const si = siteItemById.get(itemId);
         const rateNum = Number(si?.unitRate ?? 0);
         const rate = Number(rateNum.toFixed(2));
         const amount = Number((qty * rate).toFixed(2));
         return {
-          itemId: Number(d.itemId),
+          itemId,
           qty,
           rate,
           amount,
@@ -524,12 +607,17 @@ export async function POST(req: NextRequest) {
 
         // Stock updates: create issue ledger rows and update SiteItem closing stock/value
         for (const d of details) {
+          const itemId = Number(d.itemId);
+          const isExpiry = Boolean(isExpiryByItemId.get(itemId));
+          const hasBatches =
+            isExpiry && Array.isArray((d as any).dcDetailBatches) && (d as any).dcDetailBatches.length > 0;
+
           // Stock Ledger: issue entry for consumption
           await tx.stockLedger.create({
             data: {
               siteId: Number(siteId),
-              transactionDate: new Date(),
-              itemId: d.itemId,
+              transactionDate: dateVal,
+              itemId,
               dailyConsumptionId: createdMain.id,
               receivedQty: 0,
               issuedQty: d.qty,
@@ -540,9 +628,9 @@ export async function POST(req: NextRequest) {
 
           // SiteItem update
           const existing =
-            siteItemById.get(d.itemId) ||
+            siteItemById.get(itemId) ||
             (await tx.siteItem.findFirst({
-              where: { siteId: Number(siteId), itemId: d.itemId },
+              where: { siteId: Number(siteId), itemId },
               select: {
                 id: true,
                 closingStock: true,
@@ -552,11 +640,39 @@ export async function POST(req: NextRequest) {
             }));
 
           if (existing && "id" in existing && existing.id) {
+            if (hasBatches) {
+              const batchTotals = await tx.siteItemBatch.findMany({
+                where: { siteId: Number(siteId), itemId },
+                select: { closingQty: true, closingValue: true },
+              });
+              const closingStock = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingQty ?? 0), 0)
+                  .toFixed(4)
+              );
+              const closingValue = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingValue ?? 0), 0)
+                  .toFixed(2)
+              );
+              const unitRate =
+                closingStock > 0
+                  ? Number((closingValue / closingStock).toFixed(4))
+                  : 0;
+              await tx.siteItem.update({
+                where: { id: (existing as any).id },
+                data: {
+                  closingStock,
+                  closingValue,
+                  unitRate,
+                  log: "DAILY CONSUMPTION",
+                },
+              });
+              continue;
+            }
+
             const prevStock = Number(existing.closingStock || 0);
-            const newStock = Math.max(
-              0,
-              Number((prevStock - d.qty).toFixed(4))
-            );
+            const newStock = Math.max(0, Number((prevStock - d.qty).toFixed(4)));
             const newValue = Number((newStock * d.rate).toFixed(2));
             await tx.siteItem.update({
               where: { id: (existing as any).id },
@@ -568,20 +684,54 @@ export async function POST(req: NextRequest) {
               },
             });
           } else {
-            // Create a record if none exists; result will have zero stock post-issue
-            await tx.siteItem.create({
-              data: {
-                siteId: Number(siteId),
-                itemId: d.itemId,
-                openingStock: 0,
-                openingRate: 0,
-                openingValue: 0,
-                closingStock: 0,
-                closingValue: 0,
-                unitRate: d.rate,
-                log: "DAILY CONSUMPTION NEW",
-              } as any,
-            });
+            if (hasBatches) {
+              const batchTotals = await tx.siteItemBatch.findMany({
+                where: { siteId: Number(siteId), itemId },
+                select: { closingQty: true, closingValue: true },
+              });
+              const closingStock = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingQty ?? 0), 0)
+                  .toFixed(4)
+              );
+              const closingValue = Number(
+                batchTotals
+                  .reduce((acc: number, r: any) => acc + Number(r?.closingValue ?? 0), 0)
+                  .toFixed(2)
+              );
+              const unitRate =
+                closingStock > 0
+                  ? Number((closingValue / closingStock).toFixed(4))
+                  : 0;
+              await tx.siteItem.create({
+                data: {
+                  siteId: Number(siteId),
+                  itemId,
+                  openingStock: 0,
+                  openingRate: 0,
+                  openingValue: 0,
+                  closingStock,
+                  closingValue,
+                  unitRate,
+                  log: "DAILY CONSUMPTION NEW",
+                } as any,
+              });
+            } else {
+              // Create a record if none exists; result will have zero stock post-issue
+              await tx.siteItem.create({
+                data: {
+                  siteId: Number(siteId),
+                  itemId,
+                  openingStock: 0,
+                  openingRate: 0,
+                  openingValue: 0,
+                  closingStock: 0,
+                  closingValue: 0,
+                  unitRate: d.rate,
+                  log: "DAILY CONSUMPTION NEW",
+                } as any,
+              });
+            }
           }
         }
       }

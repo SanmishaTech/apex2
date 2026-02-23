@@ -7,7 +7,7 @@ import { apiGet, apiPatch } from "@/lib/api-client";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { formatDate } from "@/lib/locales";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TextInput } from "@/components/common/text-input";
@@ -22,9 +22,24 @@ const rowSchema = z.object({
   receivedQty: z
     .string()
     .trim()
-    .refine((v) => v !== "", { message: "Qty is required" })
-    .refine((v) => !Number.isNaN(Number(v)), { message: "Invalid number" })
-    .refine((v) => Number(v) > 0, { message: "Qty must be greater than 0" }),
+    .optional()
+    .refine((v) => v == null || v === "" || !Number.isNaN(Number(v)), {
+      message: "Invalid number",
+    }),
+  batches: z
+    .array(
+      z.object({
+        id: z.number(),
+        batchReceivedQty: z
+          .string()
+          .trim()
+          .optional()
+          .refine((v) => v == null || v === "" || !Number.isNaN(Number(v)), {
+            message: "Invalid number",
+          }),
+      })
+    )
+    .optional(),
 });
 const formSchema = z.object({ details: z.array(rowSchema).min(1) });
 
@@ -70,12 +85,24 @@ export default function AcceptOutwardDeliveryChallanPage() {
   });
 
   const { control, handleSubmit, reset } = form;
+  const watchedDetails = useWatch({ control, name: "details" });
   useEffect(() => {
     if (!challan) return;
     reset({
       details: (challan.outwardDeliveryChallanDetails || []).map((d: any) => ({
         id: d.id,
         receivedQty: d.receivedQty != null ? String(d.receivedQty) : "",
+        batches: Array.isArray(d.outwardDeliveryChallanDetailBatch)
+          ? d.outwardDeliveryChallanDetailBatch.map((b: any) => ({
+              id: b.id,
+              batchReceivedQty:
+                b.batchReceivedQty != null && Number(b.batchReceivedQty) > 0
+                  ? String(b.batchReceivedQty)
+                  : b.batchApprovedQty != null && Number(b.batchApprovedQty) > 0
+                    ? String(b.batchApprovedQty)
+                    : String(b.qty ?? 0),
+            }))
+          : [],
       })),
     });
   }, [challan, reset]);
@@ -93,7 +120,27 @@ export default function AcceptOutwardDeliveryChallanPage() {
         const detail = detailsById.get(d.id);
         const itemId = Number(detail?.itemId || 0);
         const closing = closingByItem.get(itemId) ?? 0;
-        if (Number(d.receivedQty) > closing) {
+        const isExpiry = Boolean(detail?.item?.isExpiryDate);
+        const uiBatchTotal = Number(
+          (d.batches || [])
+            .reduce(
+              (acc: number, b: any) => acc + Number(b?.batchReceivedQty || 0),
+              0
+            )
+            .toFixed(2)
+        );
+        const receivedQty =
+          isExpiry && (d.batches || []).length > 0
+            ? uiBatchTotal
+            : Number(d.receivedQty || 0);
+        if (receivedQty <= 0) {
+          hadErr = true;
+          form.setError(`details.${idx}.receivedQty` as any, {
+            type: "manual",
+            message: "Qty must be greater than 0",
+          });
+        }
+        if (receivedQty > closing) {
           hadErr = true;
           form.setError(`details.${idx}.receivedQty` as any, { type: "manual", message: `Cannot exceed closing (${closing})` });
         }
@@ -107,7 +154,25 @@ export default function AcceptOutwardDeliveryChallanPage() {
         statusAction: "accept" as const,
         outwardDeliveryChallanDetails: values.details.map((d) => ({
           id: d.id,
-          receivedQty: Number(d.receivedQty),
+          receivedQty: (() => {
+            const detail = detailsById.get(d.id);
+            const isExpiry = Boolean(detail?.item?.isExpiryDate);
+            if (isExpiry && (d.batches || []).length > 0) {
+              return Number(
+                (d.batches || [])
+                  .reduce(
+                    (acc: number, b: any) => acc + Number(b?.batchReceivedQty || 0),
+                    0
+                  )
+                  .toFixed(2)
+              );
+            }
+            return Number(d.receivedQty || 0);
+          })(),
+          outwardDeliveryChallanDetailBatch: (d.batches || []).map((b: any) => ({
+            id: b.id,
+            batchReceivedQty: Number(b.batchReceivedQty || 0),
+          })),
         })),
       };
       await apiPatch(`/api/outward-delivery-challans/${id}`, payload);
@@ -189,6 +254,19 @@ export default function AcceptOutwardDeliveryChallanPage() {
                     {(challan.outwardDeliveryChallanDetails || []).map((d: any, idx: number) => {
                       const inputName = `details.${idx}.receivedQty` as const;
                       const closing = closingByItem.get(Number(d.itemId)) ?? 0;
+                      const isExpiry = Boolean(d?.item?.isExpiryDate);
+                      const batches = Array.isArray(d?.outwardDeliveryChallanDetailBatch)
+                        ? d.outwardDeliveryChallanDetailBatch
+                        : [];
+                      const batchTotal = Number(
+                        ((watchedDetails?.[idx]?.batches as any[]) || [])
+                          .reduce(
+                            (acc: number, b: any) =>
+                              acc + Number(b?.batchReceivedQty || 0),
+                            0
+                          )
+                          .toFixed(2)
+                      );
                       return (
                         <div key={d.id} className="grid grid-cols-12 gap-3 p-3 border-t text-sm items-center">
                           <div className="col-span-3">{d.item?.itemCode ? `${d.item.itemCode} - ${d.item.item}` : d.item?.item ?? "—"}</div>
@@ -197,8 +275,45 @@ export default function AcceptOutwardDeliveryChallanPage() {
                           <div className="col-span-2">{d.approved1Qty ?? "—"}</div>
                           <div className="col-span-1">{closing}</div>
                           <div className="col-span-2">
-                            <TextInput control={control} name={inputName} label="" type="number" placeholder="0" span={12} />
+                            <TextInput control={control} name={inputName} label="" type="number" placeholder="0" span={12} disabled={isExpiry && batches.length > 0} />
                           </div>
+
+                          {isExpiry && batches.length > 0 ? (
+                            <div className="col-span-12 mt-2 rounded-md border bg-muted/20 p-3">
+                              <div className="grid grid-cols-12 gap-3 text-xs font-medium text-muted-foreground mb-2">
+                                <div className="col-span-4">Batch</div>
+                                <div className="col-span-3">Expiry</div>
+                                <div className="col-span-1">Qty</div>
+                                <div className="col-span-2">Approved</div>
+                                <div className="col-span-2">Received</div>
+                              </div>
+                              {(batches || []).map((b: any, bIdx: number) => (
+                                <div
+                                  key={String(b?.id || b?.batchNumber)}
+                                  className="grid grid-cols-12 gap-3 text-sm py-1"
+                                >
+                                  <div className="col-span-4">{String(b?.batchNumber || "—")}</div>
+                                  <div className="col-span-3">{String(b?.expiryDate || "—")}</div>
+                                  <div className="col-span-1">{Number(b?.qty || 0)}</div>
+                                  <div className="col-span-2">{Number(b?.batchApprovedQty || 0)}</div>
+                                  <div className="col-span-2">
+                                    <TextInput
+                                      control={control}
+                                      name={`details.${idx}.batches.${bIdx}.batchReceivedQty` as any}
+                                      label=""
+                                      type="number"
+                                      placeholder="0"
+                                      span={12}
+										onFocus={(e) => e.currentTarget.select()}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="mt-2 text-sm">
+                                <span className="text-muted-foreground">Total:</span> {batchTotal}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}
