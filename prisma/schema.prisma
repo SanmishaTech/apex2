@@ -2504,6 +2504,8 @@ model OutwardDeliveryChallanDetail {
   challanQty                 Decimal @default(0.00)   @db.Decimal(12,2) 
   approved1Qty               Decimal @default(0.00)   @db.Decimal(12,2) 
   receivedQty                Decimal @default(0.00)   @db.Decimal(12,2) 
+  rate                      Decimal @db.Decimal(12, 2) @default(0.00)
+  amount                    Decimal @db.Decimal(12, 2) @default(0.00)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   // relation (many details belong to one challan)

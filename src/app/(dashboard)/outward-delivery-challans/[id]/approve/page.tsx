@@ -89,14 +89,19 @@ export default function ApproveOutwardDeliveryChallanPage() {
     defaultValues: { details: [] },
   });
 
-  const { control, handleSubmit, reset } = form;
+  const { control, handleSubmit, reset, setValue } = form;
   const watchedDetails = useWatch({ control, name: "details" });
   useEffect(() => {
     if (!challan) return;
     reset({
       details: (challan.outwardDeliveryChallanDetails || []).map((d: any) => ({
         id: d.id,
-        approved1Qty: d.approved1Qty != null ? String(d.approved1Qty) : "",
+        approved1Qty:
+          d.approved1Qty != null && Number(d.approved1Qty) > 0
+            ? String(d.approved1Qty)
+            : d.item?.isExpiryDate
+              ? ""
+              : String(d.challanQty ?? 0),
         batches: Array.isArray(d.outwardDeliveryChallanDetailBatch)
           ? d.outwardDeliveryChallanDetailBatch.map((b: any) => ({
               id: b.id,
@@ -109,6 +114,24 @@ export default function ApproveOutwardDeliveryChallanPage() {
       })),
     });
   }, [challan, reset]);
+
+  useEffect(() => {
+    if (!challan) return;
+    (challan.outwardDeliveryChallanDetails || []).forEach((d: any, idx: number) => {
+      const isExpiry = Boolean(d?.item?.isExpiryDate);
+      const watchedBatches = (watchedDetails?.[idx]?.batches as any[]) || [];
+      if (!isExpiry || watchedBatches.length === 0) return;
+      const total = Number(
+        watchedBatches
+          .reduce((acc: number, b: any) => acc + Number(b?.batchApprovedQty || 0), 0)
+          .toFixed(2)
+      );
+      setValue(`details.${idx}.approved1Qty` as any, String(total), {
+        shouldValidate: false,
+        shouldDirty: true,
+      });
+    });
+  }, [challan, watchedDetails, setValue]);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -185,8 +208,9 @@ export default function ApproveOutwardDeliveryChallanPage() {
       };
       await apiPatch(`/api/outward-delivery-challans/${id}`, payload);
       toast.success("Challan approved");
-      await mutate();
-      router.push(`/outward-delivery-challans`);
+      setSubmitting(false);
+      window.location.assign("/outward-delivery-challans");
+      return;
     } catch (e: any) {
       toast.error(e?.message || "Failed to approve");
     } finally {

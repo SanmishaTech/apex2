@@ -55,6 +55,8 @@ export async function GET(
             challanQty: true,
             approved1Qty: true,
             receivedQty: true,
+            rate: true,
+            amount: true,
             item: {
               select: {
                 id: true,
@@ -179,11 +181,14 @@ export async function PATCH(
       );
       const siteItems = await prisma.siteItem.findMany({
         where: { siteId: current.fromSiteId, itemId: { in: detailIds } },
-        select: { itemId: true, closingStock: true },
+        select: { itemId: true, closingStock: true, unitRate: true },
       });
       const stockByItem = new Map<number, number>();
+      const rateByItem = new Map<number, number>();
       for (const si of siteItems)
         stockByItem.set(si.itemId, Number(si.closingStock || 0));
+      for (const si of siteItems)
+        rateByItem.set(si.itemId, Number((si as any).unitRate || 0));
 
       // Load expiry flags
       const itemFlags = await prisma.item.findMany({
@@ -324,19 +329,42 @@ export async function PATCH(
                 )
               : Number(row.approved1Qty ?? 0);
 
-          await tx.outwardDeliveryChallanDetail.update({
-            where: { id: row.id },
-            data: { approved1Qty: val, qty: val },
-          });
+          let nextRate = Number((found as any)?.rate || 0);
+          if (!Number.isFinite(nextRate) || nextRate <= 0) {
+            nextRate = Number(rateByItem.get(found.itemId) ?? 0);
+          }
+          let nextAmount = Number((val * nextRate).toFixed(2));
 
           if (isExpiry && batchPayload.length > 0) {
+            let amountSum = 0;
+            let qtySum = 0;
             for (const b of batchPayload) {
+              const existing = await tx.outwardDeliveryChallanDetailBatch.findUnique({
+                where: { id: b.id },
+                select: { unitRate: true },
+              });
+              const unitRate = Number(existing?.unitRate || 0);
+              const qty = Number(b.batchApprovedQty ?? 0);
+              const amount = Number((qty * unitRate).toFixed(2));
+              qtySum = Number((qtySum + qty).toFixed(4));
+              amountSum = Number((amountSum + amount).toFixed(2));
               await tx.outwardDeliveryChallanDetailBatch.update({
                 where: { id: b.id },
-                data: { batchApprovedQty: Number(b.batchApprovedQty ?? 0) },
+                data: {
+                  batchApprovedQty: qty,
+                  amount,
+                },
               });
             }
+
+            nextAmount = Number(amountSum.toFixed(2));
+            nextRate = qtySum > 0 ? Number((nextAmount / qtySum).toFixed(2)) : 0;
           }
+
+          await tx.outwardDeliveryChallanDetail.update({
+            where: { id: row.id },
+            data: { approved1Qty: val, qty: val, rate: nextRate as any, amount: nextAmount as any },
+          });
         }
         // Update SiteItem logs at fromSite for existing records
         const approveItemIds = (
@@ -375,11 +403,14 @@ export async function PATCH(
       );
       const siteItems = await prisma.siteItem.findMany({
         where: { siteId: current.fromSiteId, itemId: { in: detailIds } },
-        select: { itemId: true, closingStock: true },
+        select: { itemId: true, closingStock: true, unitRate: true },
       });
       const stockByItem = new Map<number, number>();
-      for (const si of siteItems)
+      const rateByItem = new Map<number, number>();
+      for (const si of siteItems) {
         stockByItem.set(si.itemId, Number(si.closingStock || 0));
+        rateByItem.set(si.itemId, Number((si as any).unitRate || 0));
+      }
 
       const acceptItemFlags = await prisma.item.findMany({
         where: { id: { in: detailIds } },
@@ -541,19 +572,42 @@ export async function PATCH(
                 )
               : Number(row.receivedQty ?? 0);
 
-          await tx.outwardDeliveryChallanDetail.update({
-            where: { id: row.id },
-            data: { receivedQty: val, qty: val },
-          });
+          let nextRate = Number((found as any)?.rate || 0);
+          if (!Number.isFinite(nextRate) || nextRate <= 0) {
+            nextRate = Number(rateByItem.get(itemId) ?? 0);
+          }
+          let nextAmount = Number((val * nextRate).toFixed(2));
 
           if (isExpiry && batchPayload.length > 0) {
+            let amountSum = 0;
+            let qtySum = 0;
             for (const b of batchPayload) {
+              const existing = await tx.outwardDeliveryChallanDetailBatch.findUnique({
+                where: { id: b.id },
+                select: { unitRate: true },
+              });
+              const unitRate = Number(existing?.unitRate || 0);
+              const qty = Number(b.batchReceivedQty ?? 0);
+              const amount = Number((qty * unitRate).toFixed(2));
+              qtySum = Number((qtySum + qty).toFixed(4));
+              amountSum = Number((amountSum + amount).toFixed(2));
               await tx.outwardDeliveryChallanDetailBatch.update({
                 where: { id: b.id },
-                data: { batchReceivedQty: Number(b.batchReceivedQty ?? 0) },
+                data: {
+                  batchReceivedQty: qty,
+                  amount,
+                },
               });
             }
+
+            nextAmount = Number(amountSum.toFixed(2));
+            nextRate = qtySum > 0 ? Number((nextAmount / qtySum).toFixed(2)) : 0;
           }
+
+          await tx.outwardDeliveryChallanDetail.update({
+            where: { id: row.id },
+            data: { receivedQty: val, qty: val, rate: nextRate as any, amount: nextAmount as any },
+          });
         }
 
         // Load all batch rows for this challan (for expiry items)

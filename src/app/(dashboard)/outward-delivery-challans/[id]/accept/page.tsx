@@ -84,14 +84,21 @@ export default function AcceptOutwardDeliveryChallanPage() {
     defaultValues: { details: [] },
   });
 
-  const { control, handleSubmit, reset } = form;
+  const { control, handleSubmit, reset, setValue } = form;
   const watchedDetails = useWatch({ control, name: "details" });
   useEffect(() => {
     if (!challan) return;
     reset({
       details: (challan.outwardDeliveryChallanDetails || []).map((d: any) => ({
         id: d.id,
-        receivedQty: d.receivedQty != null ? String(d.receivedQty) : "",
+        receivedQty:
+          d.receivedQty != null && Number(d.receivedQty) > 0
+            ? String(d.receivedQty)
+            : d.item?.isExpiryDate
+              ? ""
+              : d.approved1Qty != null && Number(d.approved1Qty) > 0
+                ? String(d.approved1Qty)
+                : String(d.challanQty ?? 0),
         batches: Array.isArray(d.outwardDeliveryChallanDetailBatch)
           ? d.outwardDeliveryChallanDetailBatch.map((b: any) => ({
               id: b.id,
@@ -106,6 +113,24 @@ export default function AcceptOutwardDeliveryChallanPage() {
       })),
     });
   }, [challan, reset]);
+
+  useEffect(() => {
+    if (!challan) return;
+    (challan.outwardDeliveryChallanDetails || []).forEach((d: any, idx: number) => {
+      const isExpiry = Boolean(d?.item?.isExpiryDate);
+      const watchedBatches = (watchedDetails?.[idx]?.batches as any[]) || [];
+      if (!isExpiry || watchedBatches.length === 0) return;
+      const total = Number(
+        watchedBatches
+          .reduce((acc: number, b: any) => acc + Number(b?.batchReceivedQty || 0), 0)
+          .toFixed(2)
+      );
+      setValue(`details.${idx}.receivedQty` as any, String(total), {
+        shouldValidate: false,
+        shouldDirty: true,
+      });
+    });
+  }, [challan, watchedDetails, setValue]);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -177,8 +202,9 @@ export default function AcceptOutwardDeliveryChallanPage() {
       };
       await apiPatch(`/api/outward-delivery-challans/${id}`, payload);
       toast.success("Challan accepted");
-      await mutate();
-      router.push(`/outward-delivery-challans`);
+      setSubmitting(false);
+      window.location.assign("/outward-delivery-challans");
+      return;
     } catch (e: any) {
       toast.error(e?.message || "Failed to accept");
     } finally {

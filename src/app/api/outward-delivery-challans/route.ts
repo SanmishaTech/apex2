@@ -442,6 +442,15 @@ export async function POST(req: NextRequest) {
           items.map((it) => [Number(it.id), Boolean((it as any).isExpiryDate)])
         );
 
+        const fromSiteItems = await tx.siteItem.findMany({
+          where: { siteId: Number(fromSiteId), itemId: { in: itemIds } },
+          select: { itemId: true, unitRate: true },
+        });
+        const unitRateByItemId = new Map<number, number>();
+        fromSiteItems.forEach((si) =>
+          unitRateByItemId.set(Number(si.itemId), Number((si as any).unitRate || 0))
+        );
+
         for (const d of outwardDeliveryChallanDetails as any[]) {
           const itemId = Number(d.itemId);
           const isExpiry = isExpiryByItemId.get(itemId) ?? false;
@@ -473,6 +482,14 @@ export async function POST(req: NextRequest) {
               )
             : Number(d.challanQty ?? 0);
 
+          let detailRate = Number(unitRateByItemId.get(itemId) ?? 0);
+          let detailAmount = Number((detailRate * Number(totalQty || 0)).toFixed(2));
+
+          if (cleanedBatches.length > 0) {
+            detailRate = 0;
+            detailAmount = 0;
+          }
+
           const createdDetail = await tx.outwardDeliveryChallanDetail.create({
             data: {
               outwardDeliveryChallanId: createdMain.id,
@@ -481,6 +498,8 @@ export async function POST(req: NextRequest) {
               challanQty: totalQty,
               approved1Qty: 0,
               receivedQty: 0,
+              rate: detailRate as any,
+              amount: detailAmount as any,
             },
             select: { id: true },
           });
@@ -530,6 +549,8 @@ export async function POST(req: NextRequest) {
               const unitRate = Number(foundBatch.unitRate || 0);
               const amount = Number((unitRate * Number(b.challanQty || 0)).toFixed(2));
 
+              detailAmount = Number((detailAmount + amount).toFixed(2));
+
               await tx.outwardDeliveryChallanDetailBatch.create({
                 data: {
                   outwardDeliveryChallanDetailId: createdDetail.id,
@@ -541,6 +562,12 @@ export async function POST(req: NextRequest) {
                 } as any,
               });
             }
+
+            detailRate = totalQty > 0 ? Number((detailAmount / totalQty).toFixed(2)) : 0;
+            await tx.outwardDeliveryChallanDetail.update({
+              where: { id: createdDetail.id },
+              data: { rate: detailRate as any, amount: detailAmount as any },
+            });
           }
         }
       }
