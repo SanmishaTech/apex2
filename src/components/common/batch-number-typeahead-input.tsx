@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Control, FieldValues, Path } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Command as CommandPrimitive } from "cmdk";
@@ -44,11 +45,18 @@ function BatchNumberTypeaheadInputInner({
   onSelectOption?: (value: string) => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(false);
   const [takeInput, setTakeInput] = React.useState<string>(String(value || ""));
   const [selected, setSelected] = React.useState<{ value: string; label: string } | null>(
     value ? { value, label: value } : null
   );
+  const [menuPos, setMenuPos] = React.useState<{
+    top: number;
+    left: number;
+    width: number;
+    openUp: boolean;
+  } | null>(null);
 
   React.useEffect(() => {
     const next = String(value || "");
@@ -69,6 +77,33 @@ function BatchNumberTypeaheadInputInner({
     setOpen(false);
     setTakeInput(selected?.label || String(value || "") || "");
   };
+
+  React.useEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const maxMenuHeight = 224; // matches max-h-56
+      const spaceBelow = window.innerHeight - r.bottom;
+      const openUp = spaceBelow < maxMenuHeight && r.top > spaceBelow;
+      setMenuPos({
+        top: openUp ? r.top - 4 : r.bottom + 4,
+        left: r.left,
+        width: r.width,
+        openUp,
+      });
+    };
+    update();
+
+    // Capture scroll events from any scroll container
+    document.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      document.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
 
   return (
     <CommandPrimitive
@@ -96,7 +131,7 @@ function BatchNumberTypeaheadInputInner({
         }
       }}
     >
-      <div className="relative">
+      <div ref={anchorRef} className="relative">
         <FormControl>
           <CommandInput
             ref={inputRef}
@@ -120,54 +155,63 @@ function BatchNumberTypeaheadInputInner({
           />
         </FormControl>
 
-        <div className="relative mt-1">
-          <div
-            className={cn(
-              "animate-in fade-in-0 zoom-in-95 absolute top-0 z-10 w-full rounded-xl bg-background outline-none",
-              open ? "block" : "hidden"
-            )}
-          >
-            <CommandList className="rounded-lg ring-1 ring-border max-h-56 overflow-auto">
-              {filtered.length > 0 ? (
-                <CommandGroup>
-                  {filtered.map((o) => {
-                    const isSelected = selected?.value === o;
-                    return (
-                      <CommandItem
-                        key={o}
-                        value={o}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }}
-                        onSelect={() => {
-                          const next = String(o);
-                          setTakeInput(next);
-                          onChange(next);
-                          setSelected({ value: next, label: next });
-                          onSelectOption?.(next);
-                          setOpen(false);
-                          setTimeout(() => inputRef.current?.blur(), 0);
-                        }}
-                        className={cn(
-                          "flex w-full items-center gap-2",
-                          !isSelected ? "pl-8" : null
-                        )}
-                      >
-                        {isSelected ? <Check className="w-4" /> : null}
-                        {o}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ) : (
-                <div className="select-none rounded-sm px-2 py-3 text-center text-sm text-muted-foreground">
-                  No batch found
-                </div>
-              )}
-            </CommandList>
-          </div>
-        </div>
+        {open && menuPos
+          ? createPortal(
+              <div
+                className={cn(
+                  "animate-in fade-in-0 zoom-in-95 fixed z-9999 rounded-xl bg-background outline-none",
+                  menuPos.openUp ? "origin-bottom" : "origin-top"
+                )}
+                style={{
+                  top: menuPos.top,
+                  left: menuPos.left,
+                  width: menuPos.width,
+                  transform: menuPos.openUp ? "translateY(-100%)" : undefined,
+                }}
+              >
+                <CommandList className="rounded-lg ring-1 ring-border max-h-56 overflow-auto">
+                  {filtered.length > 0 ? (
+                    <CommandGroup>
+                      {filtered.map((o) => {
+                        const isSelected = selected?.value === o;
+                        return (
+                          <CommandItem
+                            key={o}
+                            value={o}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                            }}
+                            onSelect={() => {
+                              const next = String(o);
+                              setTakeInput(next);
+                              onChange(next);
+                              setSelected({ value: next, label: next });
+                              onSelectOption?.(next);
+                              setOpen(false);
+                              setTimeout(() => inputRef.current?.blur(), 0);
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-2",
+                              !isSelected ? "pl-8" : null
+                            )}
+                          >
+                            {isSelected ? <Check className="w-4" /> : null}
+                            {o}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ) : (
+                    <div className="select-none rounded-sm px-2 py-3 text-center text-sm text-muted-foreground">
+                      No batch found
+                    </div>
+                  )}
+                </CommandList>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </CommandPrimitive>
   );

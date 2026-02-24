@@ -196,7 +196,23 @@ export async function PATCH(req: NextRequest) {
   }
 
   if ((b as any).isExpiryDate !== undefined) {
-    updateData.isExpiryDate = typeof (b as any).isExpiryDate === 'boolean' ? (b as any).isExpiryDate : false;
+    const nextIsExpiryDate =
+      typeof (b as any).isExpiryDate === 'boolean' ? (b as any).isExpiryDate : false;
+
+    if (Boolean(existing.isExpiryDate) !== Boolean(nextIsExpiryDate)) {
+      const existsInStock = await prisma.siteItem.findFirst({
+        where: { itemId: b.id },
+        select: { id: true },
+      });
+      if (existsInStock) {
+        return Error(
+          "You cannot change the Expiry Date tracking setting because this item has already been added in stock.",
+          400
+        );
+      }
+    }
+
+    updateData.isExpiryDate = nextIsExpiryDate;
   }
 
   if (b.discontinue !== undefined) {

@@ -129,6 +129,17 @@ function BatchRows({
           shouldValidate: false,
         });
       }
+
+      const currRateRaw = String(r?.unitRate ?? "").trim();
+      const currRateNum = currRateRaw === "" ? 0 : Number(currRateRaw);
+      const metaRate = Number(meta?.unitRate ?? 0);
+      if (!(currRateNum > 0) && Number.isFinite(metaRate) && metaRate > 0) {
+        form.setValue(
+          `details.${index}.batches.${bIndex}.unitRate` as any,
+          sanitizeDecimal2(String(metaRate)),
+          { shouldDirty: true, shouldValidate: false }
+        );
+      }
     });
   }, [watchedBatches, byBatchNo, form, index]);
 
@@ -154,148 +165,201 @@ function BatchRows({
         </AppButton>
       </div>
 
-      <div className="grid grid-cols-12 gap-3 text-xs text-muted-foreground mb-2">
-        <div className="col-span-3">Batch Number</div>
-        <div className="col-span-2">Expiry (YYYY-MM)</div>
-        <div className="col-span-2">Issued</div>
-        <div className="col-span-2">Received</div>
-        <div className="col-span-2">Unit Rate</div>
-        <div className="col-span-1">Closing</div>
-        <div className="col-span-1" />
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/30">
+            <tr>
+              <th className="text-left p-2 text-xs">Batch Number</th>
+              <th className="text-left p-2 text-xs">Expiry</th>
+              <th className="text-right p-2 text-xs">Issued</th>
+              <th className="text-right p-2 text-xs">Received</th>
+              <th className="text-right p-2 text-xs">Unit Rate</th>
+              <th className="text-right p-2 text-xs">Closing</th>
+              <th className="text-right p-2 text-xs">Amount</th>
+              <th className="text-center p-2 text-xs">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((f, bIndex) => {
+              const bn = String((watchedBatches?.[bIndex] as any)?.batchNumber || "").trim();
+              const existing = bn ? byBatchNo.get(bn) : null;
+              const closing = existing ? Number(existing.closingQty ?? 0) : 0;
+              const existingExpiry = existing?.expiryDate
+                ? String(existing.expiryDate).slice(0, 7)
+                : "";
+              const existingRate = existing ? Number(existing.unitRate ?? 0) : 0;
+              const issuedQty = Number((watchedBatches?.[bIndex] as any)?.issuedQty || 0);
+              const receivedQty = Number((watchedBatches?.[bIndex] as any)?.receivedQty || 0);
+              const unitRate = Number((watchedBatches?.[bIndex] as any)?.unitRate || 0);
+              const qtyForAmount = receivedQty > 0 ? receivedQty : issuedQty;
+              const batchAmount = Number((qtyForAmount * unitRate).toFixed(2));
+
+              return (
+                <tr key={f.id} className="border-t align-top">
+                  <td className="p-2 min-w-[220px]">
+                    <BatchNumberTypeaheadInput
+                      control={form.control}
+                      name={`details.${index}.batches.${bIndex}.batchNumber` as any}
+                      label=""
+                      placeholder="Type or select"
+                      options={batchOptions}
+                      inputClassName="h-8 text-sm"
+                      onSelectOption={(value) => {
+                        const meta = byBatchNo.get(String(value || "").trim());
+                        if (meta?.expiryDate) {
+                          const yyyyMm = String(meta.expiryDate).slice(0, 7);
+                          form.setValue(
+                            `details.${index}.batches.${bIndex}.expiryDate` as any,
+                            yyyyMm,
+                            { shouldDirty: true, shouldValidate: false }
+                          );
+                        }
+                        if (meta?.unitRate != null) {
+                          const r = Number(meta.unitRate ?? 0);
+                          const curr = String(
+                            form.getValues(
+                              `details.${index}.batches.${bIndex}.unitRate` as any
+                            ) ?? ""
+                          ).trim();
+                          const currNum = curr === "" ? 0 : Number(curr);
+                          if (!(currNum > 0) && Number.isFinite(r) && r > 0) {
+                            form.setValue(
+                              `details.${index}.batches.${bIndex}.unitRate` as any,
+                              sanitizeDecimal2(String(r)),
+                              { shouldDirty: true, shouldValidate: false }
+                            );
+                          }
+                        }
+                      }}
+                    />
+                  </td>
+
+                  <td className="p-2 min-w-[150px]">
+                    <TextInput
+                      control={form.control}
+                      name={`details.${index}.batches.${bIndex}.expiryDate` as any}
+                      label=""
+                      type="month"
+                      span={12}
+                      className="h-8 text-sm"
+                      disabled={!!existing}
+                      onValueChange={(raw) => {
+                        if (existing) return existingExpiry;
+                        return String(raw ?? "").slice(0, 7);
+                      }}
+                    />
+                  </td>
+
+                  <td className="p-2 min-w-[120px]">
+                    <TextInput
+                      control={form.control}
+                      name={`details.${index}.batches.${bIndex}.issuedQty` as any}
+                      label=""
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      span={12}
+                      className="h-8 text-sm text-right"
+                      disabled={batchMode === "RECEIVED"}
+                      onValueChange={(raw) => sanitizeDecimal2(raw)}
+                      onInput={(e) => {
+                        if (batchMode === "RECEIVED") return;
+                        const raw = (e.currentTarget as HTMLInputElement).value;
+                        const next = sanitizeDecimal2(raw);
+                        form.setValue(
+                          `details.${index}.batches.${bIndex}.issuedQty` as any,
+                          next,
+                          { shouldDirty: true, shouldValidate: false }
+                        );
+                        const q = Number(next || 0);
+                        if (Number.isFinite(q) && q > 0) {
+                          form.setValue(
+                            `details.${index}.batches.${bIndex}.receivedQty` as any,
+                            "0",
+                            { shouldDirty: true, shouldValidate: false }
+                          );
+                        }
+                      }}
+                    />
+                  </td>
+
+                  <td className="p-2 min-w-[120px]">
+                    <TextInput
+                      control={form.control}
+                      name={`details.${index}.batches.${bIndex}.receivedQty` as any}
+                      label=""
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      span={12}
+                      className="h-8 text-sm text-right"
+                      disabled={batchMode === "ISSUED"}
+                      onValueChange={(raw) => sanitizeDecimal2(raw)}
+                      onInput={(e) => {
+                        if (batchMode === "ISSUED") return;
+                        const raw = (e.currentTarget as HTMLInputElement).value;
+                        const next = sanitizeDecimal2(raw);
+                        form.setValue(
+                          `details.${index}.batches.${bIndex}.receivedQty` as any,
+                          next,
+                          { shouldDirty: true, shouldValidate: false }
+                        );
+                        const q = Number(next || 0);
+                        if (Number.isFinite(q) && q > 0) {
+                          form.setValue(
+                            `details.${index}.batches.${bIndex}.issuedQty` as any,
+                            "0",
+                            { shouldDirty: true, shouldValidate: false }
+                          );
+                        }
+                      }}
+                    />
+                  </td>
+
+                  <td className="p-2 min-w-[120px]">
+                    <TextInput
+                      control={form.control}
+                      name={`details.${index}.batches.${bIndex}.unitRate` as any}
+                      label=""
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      span={12}
+                      className="h-8 text-sm text-right"
+                      disabled={batchMode === "ISSUED" && !!existing}
+                      onValueChange={(raw) => {
+                        if (batchMode === "ISSUED" && existing) {
+                          return sanitizeDecimal2(String(existingRate || 0));
+                        }
+                        return sanitizeDecimal2(String(raw ?? ""));
+                      }}
+                    />
+                  </td>
+
+                  <td className="p-2 text-right min-w-[100px] text-sm tabular-nums">
+                    {existing ? String(closing) : "-"}
+                  </td>
+
+                  <td className="p-2 text-right min-w-[110px] text-sm tabular-nums">
+                    {qtyForAmount > 0 && unitRate > 0 ? String(batchAmount) : "-"}
+                  </td>
+
+                  <td className="p-2 text-center min-w-[70px]">
+                    <AppButton
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => remove(bIndex)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </AppButton>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-
-      {fields.map((f, bIndex) => {
-        const bn = String((watchedBatches?.[bIndex] as any)?.batchNumber || "").trim();
-        const existing = bn ? byBatchNo.get(bn) : null;
-        const closing = existing ? Number(existing.closingQty ?? 0) : 0;
-        const existingExpiry = existing?.expiryDate ? String(existing.expiryDate).slice(0, 7) : "";
-        return (
-          <div key={f.id} className="grid grid-cols-12 gap-3 items-start mb-2">
-            <div className="col-span-3">
-              <BatchNumberTypeaheadInput
-                control={form.control}
-                name={`details.${index}.batches.${bIndex}.batchNumber` as any}
-                label=""
-                placeholder="Type or select"
-                options={batchOptions}
-                inputClassName="h-9"
-                onSelectOption={(value) => {
-                  const meta = byBatchNo.get(String(value || "").trim());
-                  if (meta?.expiryDate) {
-                    const yyyyMm = String(meta.expiryDate).slice(0, 7);
-                    form.setValue(
-                      `details.${index}.batches.${bIndex}.expiryDate` as any,
-                      yyyyMm,
-                      { shouldDirty: true, shouldValidate: false }
-                    );
-                  }
-                }}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <TextInput
-                control={form.control}
-                name={`details.${index}.batches.${bIndex}.expiryDate` as any}
-                label=""
-                type="month"
-                span={12}
-                disabled={!!existing}
-                onValueChange={(raw) => {
-                  if (existing) return existingExpiry;
-                  return String(raw ?? "").slice(0, 7);
-                }}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <TextInput
-                control={form.control}
-                name={`details.${index}.batches.${bIndex}.issuedQty` as any}
-                label=""
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                span={12}
-                disabled={batchMode === "RECEIVED"}
-                onValueChange={(raw) => sanitizeDecimal2(raw)}
-                onInput={(e) => {
-                  if (batchMode === "RECEIVED") return;
-                  const raw = (e.currentTarget as HTMLInputElement).value;
-                  const next = sanitizeDecimal2(raw);
-                  form.setValue(`details.${index}.batches.${bIndex}.issuedQty` as any, next, {
-                    shouldDirty: true,
-                    shouldValidate: false,
-                  });
-                  const q = Number(next || 0);
-                  if (Number.isFinite(q) && q > 0) {
-                    form.setValue(`details.${index}.batches.${bIndex}.receivedQty` as any, "0", {
-                      shouldDirty: true,
-                      shouldValidate: false,
-                    });
-                  }
-                }}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <TextInput
-                control={form.control}
-                name={`details.${index}.batches.${bIndex}.receivedQty` as any}
-                label=""
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                span={12}
-                disabled={batchMode === "ISSUED"}
-                onValueChange={(raw) => sanitizeDecimal2(raw)}
-                onInput={(e) => {
-                  if (batchMode === "ISSUED") return;
-                  const raw = (e.currentTarget as HTMLInputElement).value;
-                  const next = sanitizeDecimal2(raw);
-                  form.setValue(`details.${index}.batches.${bIndex}.receivedQty` as any, next, {
-                    shouldDirty: true,
-                    shouldValidate: false,
-                  });
-                  const q = Number(next || 0);
-                  if (Number.isFinite(q) && q > 0) {
-                    form.setValue(`details.${index}.batches.${bIndex}.issuedQty` as any, "0", {
-                      shouldDirty: true,
-                      shouldValidate: false,
-                    });
-                  }
-                }}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <TextInput
-                control={form.control}
-                name={`details.${index}.batches.${bIndex}.unitRate` as any}
-                label=""
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                span={12}
-                onValueChange={(raw) => sanitizeDecimal2(raw)}
-              />
-            </div>
-
-            <div className="col-span-1 pt-2 text-sm">{existing ? Number(existing.closingQty ?? 0) : "—"}</div>
-
-            <div className="col-span-1 pt-1">
-              <AppButton
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => remove(bIndex)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </AppButton>
-            </div>
-          </div>
-        );
-      })}
 
       {fields.length === 0 && (
         <div className="text-sm text-muted-foreground">Add batches to adjust stock.</div>
@@ -352,6 +416,14 @@ export default function StockAdjustmentForm() {
     return map;
   }, [siteItemsData]);
 
+  const unitRateMap: Record<number, number> = useMemo(() => {
+    const map: Record<number, number> = {};
+    ((siteItemsData?.data as any[]) || []).forEach((r: any) => {
+      map[Number(r.itemId)] = Number(r.unitRate ?? 0);
+    });
+    return map;
+  }, [siteItemsData]);
+
   useEffect(() => {
     // When site changes, clear selected items and quantities
     form.setValue(
@@ -396,6 +468,38 @@ export default function StockAdjustmentForm() {
       shouldValidate: false,
     });
   }
+
+  useEffect(() => {
+    // Auto-fill rate from stock for ISSUE rows (Option A)
+    (detailsVal || []).forEach((row: any, index: number) => {
+      const itemIdNum = Number(row?.itemId || 0);
+      if (!(itemIdNum > 0)) return;
+
+      const itemRow = (itemsData?.data || []).find(
+        (it: any) => String(it.id) === String(itemIdNum)
+      );
+      const isExpiry = Boolean(itemRow?.isExpiryDate);
+      if (isExpiry) return;
+
+      const issued = row?.issuedQty && row.issuedQty !== "" ? Number(row.issuedQty) : 0;
+      const received = row?.receivedQty && row.receivedQty !== "" ? Number(row.receivedQty) : 0;
+      const isIssueMode = issued > 0 && !(received > 0);
+      if (!isIssueMode) return;
+
+      const stockRate = Number(unitRateMap[itemIdNum] ?? 0);
+      if (!(stockRate > 0)) return;
+
+      const nextRate = sanitizeDecimal2(String(stockRate));
+      const currRate = String(row?.rate ?? "");
+      if (currRate !== nextRate) {
+        form.setValue(`details.${index}.rate` as any, nextRate, {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+      recomputeAmount(index, { issuedQty: issued, receivedQty: received, rate: stockRate });
+    });
+  }, [detailsVal, itemsData?.data, unitRateMap, form]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -661,7 +765,12 @@ export default function StockAdjustmentForm() {
 
       await apiPost("/api/stock-adjustments", payload);
       toast.success("Stock Adjustment created");
-      router.push("/stock-adjustments");
+      try {
+        router.replace("/stock-adjustments");
+      } catch {}
+      setTimeout(() => {
+        window.location.assign("/stock-adjustments");
+      }, 50);
     } catch (err) {
       toast.error((err as Error).message || "Failed to save");
     } finally {
@@ -717,15 +826,20 @@ export default function StockAdjustmentForm() {
                 }
               >
                 <div className="flex flex-col gap-2 rounded-xl border bg-background p-4 shadow-sm">
-                  <div className="grid grid-cols-12 gap-2 md:gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted rounded-md px-3 py-2">
-                    <div className="col-span-2">Item</div>
-                    <div className="col-span-1 text-right">Closing Stock</div>
-                    <div className="col-span-2 text-right">Issued</div>
-                    <div className="col-span-2 text-right">Received</div>
-                    <div className="col-span-2 text-right">Rate</div>
-                    <div className="col-span-2 text-right">Amount</div>
-                    <div className="col-span-1 text-right">Actions</div>
-                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left p-2 text-sm">Item</th>
+                          <th className="text-right p-2 text-sm">Closing Stock</th>
+                          <th className="text-right p-2 text-sm">Issued</th>
+                          <th className="text-right p-2 text-sm">Received</th>
+                          <th className="text-right p-2 text-sm">Rate</th>
+                          <th className="text-right p-2 text-sm">Amount</th>
+                          <th className="text-center p-2 text-sm">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                   {fields.map((field, index) => {
                     const row = detailsVal?.[index] as any;
                     const selectedId = row?.itemId || "";
@@ -810,212 +924,237 @@ export default function StockAdjustmentForm() {
                       }));
 
                     return (
-                      <div
-                        key={field.id}
-                        className="grid grid-cols-12 gap-2 md:gap-2 items-center py-0.5 border-b"
-                      >
-                        <div className="col-span-2 min-w-0">
-                          <ComboboxInput
-                            control={control}
-                            name={`details.${index}.itemId`}
-                            inputClassName="w-full h-8 px-2 truncate"
-                            options={itemOptions}
-                            placeholder="Select item"
-                          />
-                        </div>
-                        <div className="col-span-1 text-right whitespace-nowrap">
-                          <div>{selectedId ? closingVal ?? "-" : "-"}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {unitName}
-                          </div>
-                        </div>
-                        <div className="col-span-2 ">
-                          {isExpiry ? (
-                            <input
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
-                              type="text"
-                              placeholder="0"
-                              disabled
-                              value={String(issuedTotal || 0)}
-                              readOnly
+                      <>
+                        <tr key={field.id} className="border-t">
+                          <td className="p-2 min-w-[260px]">
+                            <ComboboxInput
+                              control={control}
+                              name={`details.${index}.itemId`}
+                              inputClassName="w-full h-8 px-2 truncate"
+                              options={itemOptions}
+                              placeholder="Select item"
                             />
-                          ) : (
+                            <div className="text-xs text-muted-foreground mt-1">{unitName}</div>
+                          </td>
+                          <td className="p-2 text-right align-top min-w-[120px]">
+                            <div className="text-sm tabular-nums">{selectedId ? closingVal ?? "-" : "-"}</div>
+                          </td>
+                          <td className="p-2 min-w-[140px]">
+                            {isExpiry ? (
+                              <input
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
+                                type="text"
+                                placeholder="0"
+                                disabled
+                                value={String(issuedTotal || 0)}
+                                readOnly
+                              />
+                            ) : (
+                              <TextInput
+                                control={control}
+                                name={`details.${index}.issuedQty`}
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0"
+                                className="h-8 text-right"
+                                onValueChange={(raw) => sanitizeDecimal2(raw)}
+                                onInput={(e) => {
+                                  const raw = (e.currentTarget as HTMLInputElement).value;
+                                  const val = sanitizeDecimal2(raw);
+                                  form.setValue(
+                                    `details.${index}.issuedQty` as any,
+                                    val,
+                                    { shouldDirty: true, shouldValidate: false }
+                                  );
+                                  form.setValue(
+                                    `details.${index}.receivedQty` as any,
+                                    "0",
+                                    { shouldDirty: true, shouldValidate: false }
+                                  );
+                                  recomputeAmount(index, {
+                                    issuedQty: val,
+                                    receivedQty: 0,
+                                  });
+                                }}
+                              />
+                            )}
+                          </td>
+                          <td className="p-2 min-w-[140px]">
+                            {isExpiry ? (
+                              <input
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
+                                type="text"
+                                placeholder="0"
+                                disabled
+                                value={String(receivedTotal || 0)}
+                                readOnly
+                              />
+                            ) : (
+                              <TextInput
+                                control={control}
+                                name={`details.${index}.receivedQty`}
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0"
+                                className="h-8 text-right"
+                                onValueChange={(raw) => sanitizeDecimal2(raw)}
+                                onInput={(e) => {
+                                  const raw = (e.currentTarget as HTMLInputElement).value;
+                                  const val = sanitizeDecimal2(raw);
+                                  form.setValue(
+                                    `details.${index}.receivedQty` as any,
+                                    val,
+                                    { shouldDirty: true, shouldValidate: false }
+                                  );
+                                  form.setValue(
+                                    `details.${index}.issuedQty` as any,
+                                    "0",
+                                    { shouldDirty: true, shouldValidate: false }
+                                  );
+                                  recomputeAmount(index, {
+                                    receivedQty: val,
+                                    issuedQty: 0,
+                                  });
+                                }}
+                              />
+                            )}
+                          </td>
+                          <td className="p-2 min-w-[120px]">
+                            {isExpiry ? (
+                              <input
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
+                                type="text"
+                                placeholder="0.00"
+                                disabled
+                                value={String(derivedRate || 0)}
+                                readOnly
+                              />
+                            ) : (
+                              (() => {
+                                const issuedNum =
+                                  row?.issuedQty && row.issuedQty !== "" ? Number(row.issuedQty) : 0;
+                                const receivedNum =
+                                  row?.receivedQty && row.receivedQty !== "" ? Number(row.receivedQty) : 0;
+                                const isIssueMode = issuedNum > 0 && !(receivedNum > 0);
+                                const stockRate = Number(unitRateMap[Number(selectedId)] ?? 0);
+                                return (
+                                  <TextInput
+                                    control={control}
+                                    name={`details.${index}.rate`}
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0.00"
+                                    className="h-8 text-right"
+                                    disabled={isIssueMode}
+                                    onValueChange={(raw) => {
+                                      if (isIssueMode) {
+                                        return sanitizeDecimal2(String(stockRate || 0));
+                                      }
+                                      return sanitizeDecimal2(raw);
+                                    }}
+                                    onInput={(e) => {
+                                      if (isIssueMode) return;
+                                      const raw = (e.currentTarget as HTMLInputElement).value;
+                                      const val = sanitizeDecimal2(raw);
+                                      form.setValue(
+                                        `details.${index}.rate` as any,
+                                        val,
+                                        { shouldDirty: true, shouldValidate: false }
+                                      );
+                                      recomputeAmount(index, { rate: val });
+                                    }}
+                                  />
+                                );
+                              })()
+                            )}
+                          </td>
+                          <td className="p-2 min-w-[120px]">
+                            {isExpiry ? (
+                              <input
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
+                                type="text"
+                                placeholder="0.00"
+                                disabled
+                                value={String(derivedAmount || 0)}
+                                readOnly
+                              />
+                            ) : (
+                              <TextInput
+                                control={control}
+                                name={`details.${index}.amount`}
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                className="h-8 text-right"
+                                disabled
+                              />
+                            )}
+                          </td>
+                          <td className="p-2 text-center min-w-[80px]">
+                            <AppButton
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              iconName="Trash2"
+                              onClick={() => remove(index)}
+                              disabled={fields.length === 1}
+                              aria-label="Remove row"
+                            />
+                          </td>
+                        </tr>
+
+                        <tr className="border-t">
+                          <td colSpan={7} className="p-2 bg-muted/25">
                             <TextInput
                               control={control}
-                              name={`details.${index}.issuedQty`}
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0"
-                              className="h-8 text-right"
-                              onValueChange={(raw) => sanitizeDecimal2(raw)}
-                              onInput={(e) => {
-                                const raw = (e.currentTarget as HTMLInputElement).value;
-                                const val = sanitizeDecimal2(raw);
-                                form.setValue(
-                                  `details.${index}.issuedQty` as any,
-                                  val,
-                                  { shouldDirty: true, shouldValidate: false }
-                                );
-                                form.setValue(
-                                  `details.${index}.receivedQty` as any,
-                                  "0",
-                                  { shouldDirty: true, shouldValidate: false }
-                                );
-                                recomputeAmount(index, {
-                                  issuedQty: val,
-                                  receivedQty: 0,
-                                });
-                              }}
+                              name={`details.${index}.remarks`}
+                              label="Description"
+                              placeholder="Enter description"
                             />
-                          )}
-                        </div>
-                        <div className="col-span-2">
-                          {isExpiry ? (
-                            <input
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
-                              type="text"
-                              placeholder="0"
-                              disabled
-                              value={String(receivedTotal || 0)}
-                              readOnly
-                            />
-                          ) : (
-                            <TextInput
-                              control={control}
-                              name={`details.${index}.receivedQty`}
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0"
-                              className="h-8 text-right"
-                              onValueChange={(raw) => sanitizeDecimal2(raw)}
-                              onInput={(e) => {
-                                const raw = (e.currentTarget as HTMLInputElement).value;
-                                const val = sanitizeDecimal2(raw);
-                                form.setValue(
-                                  `details.${index}.receivedQty` as any,
-                                  val,
-                                  { shouldDirty: true, shouldValidate: false }
-                                );
-                                form.setValue(
-                                  `details.${index}.issuedQty` as any,
-                                  "0",
-                                  { shouldDirty: true, shouldValidate: false }
-                                );
-                                recomputeAmount(index, {
-                                  receivedQty: val,
-                                  issuedQty: 0,
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="col-span-2">
-                          {isExpiry ? (
-                            <input
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
-                              type="text"
-                              placeholder="0.00"
-                              disabled
-                              value={String(derivedRate || 0)}
-                              readOnly
-                            />
-                          ) : (
-                            <TextInput
-                              control={control}
-                              name={`details.${index}.rate`}
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              className="h-8 text-right"
-                              onValueChange={(raw) => sanitizeDecimal2(raw)}
-                              onInput={(e) => {
-                                const raw = (e.currentTarget as HTMLInputElement).value;
-                                const val = sanitizeDecimal2(raw);
-                                form.setValue(
-                                  `details.${index}.rate` as any,
-                                  val,
-                                  { shouldDirty: true, shouldValidate: false }
-                                );
-                                recomputeAmount(index, { rate: val });
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="col-span-2">
-                          {isExpiry ? (
-                            <input
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-right text-sm ring-offset-background"
-                              type="text"
-                              placeholder="0.00"
-                              disabled
-                              value={String(derivedAmount || 0)}
-                              readOnly
-                            />
-                          ) : (
-                            <TextInput
-                              control={control}
-                              name={`details.${index}.amount`}
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              className="h-8 text-right"
-                              disabled
-                            />
-                          )}
-                        </div>
-                        <div className="col-span-1 row-span-2 flex items-center justify-center">
-                          <AppButton
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            iconName="Trash2"
-                            onClick={() => remove(index)}
-                            disabled={fields.length === 1}
-                            aria-label="Remove row"
-                          />
-                        </div>
-                        <div className="col-span-11 bg-muted/40 rounded-md p-2 mt-2">
-                          <TextInput
-                            control={control}
-                            name={`details.${index}.remarks`}
-                            label="Description"
-                            placeholder="Enter description"
-                          />
-                        </div>
+                          </td>
+                        </tr>
 
                         {isExpiry ? (
-                          <div className="col-span-11">
-                            <BatchRows
-                              form={form}
-                              index={index}
-                              siteId={String(siteIdVal || "")}
-                              itemId={Number.isFinite(itemIdNum) ? itemIdNum : undefined}
-                            />
-                          </div>
+                          <tr className="border-t">
+                            <td colSpan={7} className="p-2">
+                              <BatchRows
+                                form={form}
+                                index={index}
+                                siteId={String(siteIdVal || "")}
+                                itemId={Number.isFinite(itemIdNum) ? itemIdNum : undefined}
+                              />
+                            </td>
+                          </tr>
                         ) : null}
-                      </div>
+                      </>
                     );
                   })}
-
-                  <div className="flex gap-2 pt-2">
-                    <AppButton
-                      type="button"
-                      variant="secondary"
-                      iconName="Plus"
-                      onClick={() =>
-                        append({
-                          itemId: "",
-                          issuedQty: "0",
-                          receivedQty: "0",
-                          rate: "0",
-                          amount: "0",
-                          remarks: "",
-                          batches: [],
-                        })
-                      }
-                    >
-                      Add Row
-                    </AppButton>
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={7} className="p-3 border-t bg-muted/25">
+                            <AppButton
+                              type="button"
+                              variant="secondary"
+                              iconName="Plus"
+                              onClick={() =>
+                                append({
+                                  itemId: "",
+                                  issuedQty: "0",
+                                  receivedQty: "0",
+                                  rate: "0",
+                                  amount: "0",
+                                  remarks: "",
+                                  batches: [],
+                                })
+                              }
+                            >
+                              Add Row
+                            </AppButton>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
                 </div>
               </FormSection>

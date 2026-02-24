@@ -180,6 +180,18 @@ export async function POST(req: NextRequest) {
         Array.isArray(stockAdjustmentDetails) &&
         stockAdjustmentDetails.length > 0
       ) {
+        const itemIds = stockAdjustmentDetails.map((d: any) => Number(d.itemId));
+        const itemsMeta = itemIds.length
+          ? await tx.item.findMany({
+              where: { id: { in: itemIds } },
+              select: { id: true, isExpiryDate: true },
+            })
+          : [];
+        const isExpiryByItemId = new Map<number, boolean>();
+        itemsMeta.forEach((it) =>
+          isExpiryByItemId.set(Number(it.id), Boolean((it as any).isExpiryDate))
+        );
+
         const detailsCreate = stockAdjustmentDetails.map((d: any) => ({
           stockAdjustmentId: main.id,
           itemId: Number(d.itemId),
@@ -190,6 +202,18 @@ export async function POST(req: NextRequest) {
           remarks: (d.remarks ?? null) as string | null,
           saDetailBatches: Array.isArray(d?.saDetailBatches) ? d.saDetailBatches : [],
         }));
+
+        for (const d of detailsCreate) {
+          if (Number(d.issuedQty || 0) > 0 && Number(d.receivedQty || 0) > 0) {
+            return BadRequest(
+              "Please enter either Issued Qty or Received Qty for an item, not both."
+            ) as any;
+          }
+          const isExpiry = Boolean(isExpiryByItemId.get(Number(d.itemId)));
+          if (!isExpiry && Array.isArray(d.saDetailBatches) && d.saDetailBatches.length > 0) {
+            return BadRequest("Batch rows are allowed only for expiry items.") as any;
+          }
+        }
 
         // Validate batches against SiteItemBatch closing (server-side source of truth)
         const errors: string[] = [];
@@ -303,15 +327,171 @@ export async function POST(req: NextRequest) {
           saDetailBatches: any[];
         }> = [];
 
+        const computedByItemId = new Map<
+          number,
+          {
+            mode: "ISSUE" | "RECEIVE";
+            rate: number;
+            amount: number;
+            isExpiry: boolean;
+            batches: Array<{
+              batchNumber: string;
+              expiryDate: string;
+              issuedQty: number;
+              receivedQty: number;
+              unitRate: number;
+              amount: number;
+            }>;
+          }
+        >();
+
+        const existingSiteItems = itemIds.length
+          ? await tx.siteItem.findMany({
+              where: { siteId: Number(siteId), itemId: { in: itemIds } },
+              select: { id: true, itemId: true, closingStock: true, closingValue: true, unitRate: true },
+            })
+          : [];
+        const siteItemByItemId = new Map<number, (typeof existingSiteItems)[number]>();
+        existingSiteItems.forEach((si) => siteItemByItemId.set(Number(si.itemId), si));
+
+        const batchReq = detailsCreate
+          .flatMap((d: any) => {
+            const isExpiry = Boolean(isExpiryByItemId.get(Number(d.itemId)));
+            const rows = Array.isArray(d?.saDetailBatches) ? d.saDetailBatches : [];
+            if (!isExpiry || rows.length === 0) return [];
+            return rows
+              .map((b: any) => ({
+                itemId: Number(d.itemId),
+                batchNumber: String(b?.batchNumber || "").trim(),
+              }))
+              .filter((x: any) => !!x.batchNumber);
+          })
+          .filter(Boolean);
+        const distinctBatchKeys = Array.from(
+          new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`))
+        );
+        const existingBatchesForRates = distinctBatchKeys.length
+          ? await tx.siteItemBatch.findMany({
+              where: {
+                siteId: Number(siteId),
+                OR: distinctBatchKeys.map((k) => {
+                  const [itemIdStr, batchNumber] = String(k).split("::");
+                  return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+                }),
+              },
+              select: {
+                id: true,
+                itemId: true,
+                siteItemId: true,
+                batchNumber: true,
+                expiryDate: true,
+                closingQty: true,
+                unitRate: true,
+                closingValue: true,
+              },
+            })
+          : [];
+        const existingBatchByItemAndNo = new Map<string, (typeof existingBatchesForRates)[number]>();
+        existingBatchesForRates.forEach((b) =>
+          existingBatchByItemAndNo.set(`${Number(b.itemId)}::${String(b.batchNumber)}`, b)
+        );
+
         for (const d of detailsCreate) {
+          const isExpiry = Boolean(isExpiryByItemId.get(Number(d.itemId)));
+          const issuedQty = Number(d.issuedQty || 0);
+          const receivedQty = Number(d.receivedQty || 0);
+
+          const mode: "ISSUE" | "RECEIVE" = issuedQty > 0 ? "ISSUE" : "RECEIVE";
+
+          const rows = isExpiry && Array.isArray(d?.saDetailBatches) ? d.saDetailBatches : [];
+          const cleanedBatches = isExpiry
+            ? rows
+                .map((b: any) => ({
+                  batchNumber: String(b?.batchNumber || "").trim(),
+                  batchExpiryDate: String(b?.batchExpiryDate || "").trim(),
+                  batchIssuedQty: Number(b?.batchIssuedQty ?? 0),
+                  batchReceivedQty: Number(b?.batchReceivedQty ?? 0),
+                  batchUnitRate: Number(b?.batchUnitRate ?? 0),
+                }))
+                .filter(
+                  (b: any) =>
+                    !!b.batchNumber &&
+                    (Number(b.batchIssuedQty) > 0 || Number(b.batchReceivedQty) > 0)
+                )
+            : [];
+
+          const computed = {
+            mode,
+            isExpiry,
+            rate: 0,
+            amount: 0,
+            batches: [] as Array<{
+              batchNumber: string;
+              expiryDate: string;
+              issuedQty: number;
+              receivedQty: number;
+              unitRate: number;
+              amount: number;
+            }>,
+          };
+
+          if (!isExpiry) {
+            if (mode === "ISSUE") {
+              const si = siteItemByItemId.get(Number(d.itemId));
+              if (!si) {
+                return BadRequest("Stock record not found for the selected site and item.") as any;
+              }
+              const rate = Number(Number(si.unitRate || 0).toFixed(2));
+              const amount = Number((Number(issuedQty.toFixed(4)) * rate).toFixed(2));
+              computed.rate = rate;
+              computed.amount = amount;
+            } else {
+              const rate = Number(Number(d.rate || 0).toFixed(2));
+              const amount = Number((Number(receivedQty.toFixed(4)) * rate).toFixed(2));
+              computed.rate = rate;
+              computed.amount = amount;
+            }
+          } else {
+            let qtySum = 0;
+            let amountSum = 0;
+            for (const b of cleanedBatches) {
+              const issuedB = Number(Number(b.batchIssuedQty || 0).toFixed(4));
+              const receivedB = Number(Number(b.batchReceivedQty || 0).toFixed(4));
+              const bn = String(b.batchNumber);
+              const existing = existingBatchByItemAndNo.get(`${Number(d.itemId)}::${bn}`);
+              const unitRate =
+                mode === "ISSUE"
+                  ? Number(Number(existing?.unitRate ?? 0).toFixed(2))
+                  : Number(Number(b.batchUnitRate ?? 0).toFixed(2));
+              const qty = mode === "ISSUE" ? issuedB : receivedB;
+              const amount = Number((qty * unitRate).toFixed(2));
+              qtySum = Number((qtySum + (Number.isFinite(qty) ? qty : 0)).toFixed(4));
+              amountSum = Number((amountSum + (Number.isFinite(amount) ? amount : 0)).toFixed(2));
+              computed.batches.push({
+                batchNumber: bn,
+                expiryDate: existing
+                  ? String(existing.expiryDate || "")
+                  : String(b.batchExpiryDate || ""),
+                issuedQty: issuedB,
+                receivedQty: receivedB,
+                unitRate,
+                amount,
+              });
+            }
+            computed.amount = Number(amountSum.toFixed(2));
+            computed.rate = qtySum > 0 ? Number((computed.amount / qtySum).toFixed(2)) : 0;
+          }
+
+          computedByItemId.set(Number(d.itemId), computed);
+
           const createdDetail = await tx.stockAdjustmentDetail.create({
             data: {
               stockAdjustmentId: d.stockAdjustmentId,
               itemId: Number(d.itemId),
               issuedQty: Number(d.issuedQty || 0),
               receivedQty: Number(d.receivedQty || 0),
-              rate: Number(d.rate || 0),
-              amount: Number(d.amount || 0),
+              rate: Number(computed.rate || 0),
+              amount: Number(computed.amount || 0),
               remarks: (d.remarks ?? null) as string | null,
             },
             select: {
@@ -336,19 +516,10 @@ export async function POST(req: NextRequest) {
 
         // Persist batch rows + update SiteItemBatch closingQty/value
         for (const d of createdDetails) {
-          const batches = (d.saDetailBatches || [])
-            .map((b: any) => ({
-              batchNumber: String(b?.batchNumber || "").trim(),
-              batchExpiryDate: String(b?.batchExpiryDate || "").trim(),
-              batchIssuedQty: Number(b?.batchIssuedQty ?? 0),
-              batchReceivedQty: Number(b?.batchReceivedQty ?? 0),
-              batchUnitRate: Number(b?.batchUnitRate ?? 0),
-            }))
-            .filter(
-              (b: any) =>
-                !!b.batchNumber &&
-                (Number(b.batchIssuedQty) > 0 || Number(b.batchReceivedQty) > 0)
-            );
+          const computed = computedByItemId.get(Number(d.itemId));
+          const batches = (computed?.batches || []).filter(
+            (b: any) => Number(b.issuedQty || 0) > 0 || Number(b.receivedQty || 0) > 0
+          );
 
           if (batches.length === 0) continue;
 
@@ -380,21 +551,16 @@ export async function POST(req: NextRequest) {
 
           for (const b of batches) {
             const bn = String(b.batchNumber);
-            const issuedQty = Number(Number(b.batchIssuedQty || 0).toFixed(4));
-            const receivedQty = Number(Number(b.batchReceivedQty || 0).toFixed(4));
+            const issuedQty = Number(Number(b.issuedQty || 0).toFixed(4));
+            const receivedQty = Number(Number(b.receivedQty || 0).toFixed(4));
 
             const existing = existingByNo.get(bn);
-            const inputRate = Number(b.batchUnitRate ?? 0);
-            const unitRate = Number(
-              (inputRate > 0 ? inputRate : Number(existing?.unitRate ?? d.rate ?? 0)) || 0
-            );
-            const amount = Number(
-              (((receivedQty > 0 ? receivedQty : issuedQty) * unitRate) || 0).toFixed(2)
-            );
+            const unitRate = Number(Number(b.unitRate || 0).toFixed(2));
+            const amount = Number(Number(b.amount || 0).toFixed(2));
 
             const expiryDate = existing
               ? String(existing.expiryDate || "")
-              : String(b.batchExpiryDate || "");
+              : String(b.expiryDate || "");
 
             await tx.stockAdjustmentDetailBatch.create({
               data: {
@@ -410,16 +576,26 @@ export async function POST(req: NextRequest) {
 
             if (existing) {
               const prevQty = Number(existing.closingQty ?? 0);
+              const prevValue = Number(existing.closingValue ?? 0);
               const nextQty = Math.max(
                 0,
                 Number((prevQty - issuedQty + receivedQty).toFixed(4))
               );
-              const nextValue = Number((nextQty * unitRate).toFixed(2));
+              const deltaValue =
+                issuedQty > 0
+                  ? -Number((issuedQty * unitRate).toFixed(2))
+                  : Number((receivedQty * unitRate).toFixed(2));
+              const nextValue = Math.max(
+                0,
+                Number((prevValue + deltaValue).toFixed(2))
+              );
+              const nextRate = nextQty > 0 ? Number((nextValue / nextQty).toFixed(4)) : 0;
               await tx.siteItemBatch.update({
                 where: { id: existing.id },
                 data: {
                   closingQty: nextQty,
                   closingValue: nextValue,
+                  unitRate: nextRate,
                 },
               });
             } else if (receivedQty > 0 && siteItem?.id) {
@@ -431,7 +607,7 @@ export async function POST(req: NextRequest) {
                   siteId: Number(siteId),
                   itemId: Number(d.itemId),
                   batchNumber: bn,
-                  expiryDate: String(b.batchExpiryDate || ""),
+                  expiryDate: String(b.expiryDate || ""),
                   openingQty: 0,
                   openingValue: 0,
                   batchOpeningRate: 0,
@@ -454,8 +630,10 @@ export async function POST(req: NextRequest) {
         for (const d of detailsCreate) {
           const receivedQty = Number(d.receivedQty || 0);
           const issuedQty = Number(d.issuedQty || 0);
-          const payloadRate = Number(d.rate || 0);
-          const payloadAmount = Number(d.amount || 0);
+          const computed = computedByItemId.get(Number(d.itemId));
+          const computedRate = Number(computed?.rate || 0);
+          const computedAmount = Number(computed?.amount || 0);
+          const isExpiry = Boolean(computed?.isExpiry);
 
           // Fetch current site item to get existing unitRate for issue and current closing
           const existing = await tx.siteItem.findFirst({
@@ -478,7 +656,7 @@ export async function POST(req: NextRequest) {
                 stockAdjustmentId: main.id,
                 receivedQty: receivedQty,
                 issuedQty: 0,
-                unitRate: payloadRate,
+                unitRate: computedRate,
                 documentType: "STOCK ADJUSTMENT",
               } as any,
             });
@@ -494,7 +672,7 @@ export async function POST(req: NextRequest) {
                 stockAdjustmentId: main.id,
                 receivedQty: 0,
                 issuedQty: issuedQty,
-                unitRate: payloadRate,
+                unitRate: computedRate,
                 documentType: "STOCK ADJUSTMENT",
               } as any,
             });
@@ -508,11 +686,11 @@ export async function POST(req: NextRequest) {
           if (receivedQty > 0) {
             if (siteLedgerCount === 0) {
               baseStock = Number(receivedQty.toFixed(4));
-              baseValue = Number(payloadAmount.toFixed(2));
-              baseUnitRate = Number(payloadRate.toFixed(4));
+              baseValue = Number(computedAmount.toFixed(2));
+              baseUnitRate = Number(computedRate.toFixed(4));
             } else {
               baseStock = Number((baseStock + receivedQty).toFixed(4));
-              baseValue = Number((baseValue + payloadAmount).toFixed(2));
+              baseValue = Number((baseValue + computedAmount).toFixed(2));
               baseUnitRate =
                 baseStock !== 0
                   ? Number((baseValue / baseStock).toFixed(4))
@@ -524,9 +702,29 @@ export async function POST(req: NextRequest) {
           if (issuedQty > 0) {
             const prevValue = baseValue;
             baseStock = Number((baseStock - issuedQty).toFixed(4));
-            baseValue = Number((prevValue - payloadAmount).toFixed(2));
+            baseValue = Number((prevValue - computedAmount).toFixed(2));
             baseUnitRate =
               baseStock !== 0 ? Number((baseValue / baseStock).toFixed(4)) : 0;
+          }
+
+          if (isExpiry && (computed?.batches || []).length > 0 && existing?.id) {
+            const batchTotals = await tx.siteItemBatch.findMany({
+              where: { siteItemId: existing.id },
+              select: { closingQty: true, closingValue: true },
+            });
+            const closingStock = Number(
+              batchTotals
+                .reduce((acc: number, r: any) => acc + Number(r?.closingQty ?? 0), 0)
+                .toFixed(4)
+            );
+            const closingValue = Number(
+              batchTotals
+                .reduce((acc: number, r: any) => acc + Number(r?.closingValue ?? 0), 0)
+                .toFixed(2)
+            );
+            baseStock = closingStock;
+            baseValue = closingValue;
+            baseUnitRate = closingStock > 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
           }
 
           // Persist SiteItem
