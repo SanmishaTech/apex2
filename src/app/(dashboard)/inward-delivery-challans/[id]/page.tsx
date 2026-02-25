@@ -113,6 +113,13 @@ export default function ViewInwardDeliveryChallanPage() {
                     {challan.createdBy?.name || "—"}
                   </div>
                 </div>
+
+                <div className="md:col-span-3">
+                  <div className="text-muted-foreground">Remarks</div>
+                  <div className="font-medium whitespace-pre-wrap">
+                    {challan.remarks || "—"}
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -122,38 +129,69 @@ export default function ViewInwardDeliveryChallanPage() {
               </h3>
               <div className="rounded-md border">
                 <div className="grid grid-cols-12 gap-3 p-3 text-xs font-medium bg-muted/50">
-                  <div className="col-span-4">Item</div>
+                  <div className="col-span-5">Item</div>
                   <div className="col-span-2">Unit</div>
-                  <div className="col-span-2">Qty</div>
                   <div className="col-span-2">Received Qty</div>
-                  <div className="col-span-2 text-right">Closing Stock</div>
+                  <div className="col-span-3 text-right">Closing Stock</div>
                 </div>
                 {(challan.inwardDeliveryChallanDetails || []).map((d: any) => {
                   const item = d.poDetails?.item;
                   const unit = item?.unit?.unitName;
-                  const qty = d.poDetails?.qty;
                   const receivedQty = d.receivingQty;
                   const itemId: number | undefined = d.poDetails?.itemId;
                   const closingStockMap = challan.closingStockByItemId || {};
                   const closingStock = itemId
                     ? closingStockMap[itemId]
                     : undefined;
+                  const batches: any[] = Array.isArray(d.idcDetailBatches)
+                    ? d.idcDetailBatches
+                    : [];
                   return (
-                    <div
-                      key={d.id}
-                      className="grid grid-cols-12 gap-3 p-3 border-t text-sm"
-                    >
-                      <div className="col-span-4">
-                        {item?.itemCode
-                          ? `${item.itemCode} - ${item.item}`
-                          : item?.item ?? "—"}
+                    <div key={d.id} className="border-t">
+                      <div className="grid grid-cols-12 gap-3 p-3 text-sm">
+                        <div className="col-span-5">
+                          {item?.itemCode
+                            ? `${item.itemCode} - ${item.item}`
+                            : item?.item ?? "—"}
+                        </div>
+                        <div className="col-span-2">{unit || "—"}</div>
+                        <div className="col-span-2">{receivedQty ?? "—"}</div>
+                        <div className="col-span-3 text-right">
+                          {closingStock ?? "—"}
+                        </div>
                       </div>
-                      <div className="col-span-2">{unit || "—"}</div>
-                      <div className="col-span-2">{qty ?? "—"}</div>
-                      <div className="col-span-2">{receivedQty ?? "—"}</div>
-                      <div className="col-span-2 text-right">
-                        {closingStock ?? "—"}
-                      </div>
+
+                      {batches.length > 0 ? (
+                        <div className="px-3 pb-3">
+                          <div className="rounded-md border bg-muted/20">
+                            <div className="grid grid-cols-12 gap-3 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                              <div className="col-span-4">Batch No.</div>
+                              <div className="col-span-3">Expiry</div>
+                              <div className="col-span-2">Qty</div>
+                              <div className="col-span-1 text-right">Rate</div>
+                              <div className="col-span-2 text-right">Amount</div>
+                            </div>
+                            {batches.map((b: any) => (
+                              <div
+                                key={b.id}
+                                className="grid grid-cols-12 gap-3 px-3 py-2 border-t text-xs"
+                              >
+                                <div className="col-span-4 font-medium">
+                                  {b.batchNumber || "—"}
+                                </div>
+                                <div className="col-span-3">{b.expiryDate || "—"}</div>
+                                <div className="col-span-2">{b.qty ?? "—"}</div>
+                                <div className="col-span-1 text-right">
+                                  {b.unitRate ?? "—"}
+                                </div>
+                                <div className="col-span-2 text-right">
+                                  {b.amount ?? "—"}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

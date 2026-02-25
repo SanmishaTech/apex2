@@ -139,21 +139,59 @@ export default function ViewOutwardDeliveryChallanPage() {
                   const showOrDash = (n: number) => (n && n !== 0 ? n : "-");
                   const rowItemId = Number(d.itemId ?? d.item?.id ?? 0);
                   const closing = closingByItem.get(rowItemId) ?? 0;
+                  const batches: any[] = Array.isArray(d.outwardDeliveryChallanDetailBatch)
+                    ? d.outwardDeliveryChallanDetailBatch
+                    : [];
                   return (
-                    <div
-                      key={d.id}
-                      className="grid grid-cols-12 gap-3 p-3 border-t text-sm"
-                    >
-                      <div className="col-span-4">
-                        {item?.itemCode
-                          ? `${item.itemCode} - ${item.item}`
-                          : item?.item ?? "—"}
+                    <div key={d.id} className="border-t">
+                      <div className="grid grid-cols-12 gap-3 p-3 text-sm">
+                        <div className="col-span-4">
+                          {item?.itemCode
+                            ? `${item.itemCode} - ${item.item}`
+                            : item?.item ?? "—"}
+                        </div>
+                        <div className="col-span-2">{unit || "—"}</div>
+                        <div className="col-span-2">{showOrDash(challanQty)}</div>
+                        <div className="col-span-1">{showOrDash(Number(closing))}</div>
+                        <div className="col-span-1">{showOrDash(approved)}</div>
+                        <div className="col-span-2">{showOrDash(accepted)}</div>
                       </div>
-                      <div className="col-span-2">{unit || "—"}</div>
-                      <div className="col-span-2">{showOrDash(challanQty)}</div>
-                      <div className="col-span-1">{showOrDash(Number(closing))}</div>
-                      <div className="col-span-1">{showOrDash(approved)}</div>
-                      <div className="col-span-2">{showOrDash(accepted)}</div>
+
+                      {batches.length > 0 ? (
+                        <div className="px-3 pb-3">
+                          <div className="rounded-md border bg-muted/20">
+                            <div className="grid grid-cols-12 gap-3 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                              <div className="col-span-3">Batch No.</div>
+                              <div className="col-span-2">Expiry</div>
+                              <div className="col-span-2">Qty</div>
+                              <div className="col-span-2">Approved</div>
+                              <div className="col-span-1">Accepted</div>
+                              <div className="col-span-1 text-right">Rate</div>
+                              <div className="col-span-1 text-right">Amount</div>
+                            </div>
+                            {batches.map((b: any) => (
+                              <div
+                                key={b.id}
+                                className="grid grid-cols-12 gap-3 px-3 py-2 border-t text-xs"
+                              >
+                                <div className="col-span-3 font-medium">
+                                  {b.batchNumber || "—"}
+                                </div>
+                                <div className="col-span-2">{b.expiryDate || "—"}</div>
+                                <div className="col-span-2">{b.qty ?? "—"}</div>
+                                <div className="col-span-2">{b.batchApprovedQty ?? "—"}</div>
+                                <div className="col-span-1">{b.batchReceivedQty ?? "—"}</div>
+                                <div className="col-span-1 text-right">
+                                  {b.unitRate ?? "—"}
+                                </div>
+                                <div className="col-span-1 text-right">
+                                  {b.amount ?? "—"}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

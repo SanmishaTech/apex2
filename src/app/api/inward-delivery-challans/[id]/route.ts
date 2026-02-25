@@ -149,6 +149,17 @@ export async function GET(
             receivingQty: true,
             rate: true,
             amount: true,
+            idcDetailBatches: {
+              select: {
+                id: true,
+                batchNumber: true,
+                expiryDate: true,
+                qty: true,
+                unitRate: true,
+                amount: true,
+              },
+              orderBy: { id: "asc" },
+            },
             poDetails: {
               select: {
                 id: true,
