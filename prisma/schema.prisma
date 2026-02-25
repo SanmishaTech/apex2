@@ -105,6 +105,10 @@ siteManpowerAssignedLogs          SiteManpowerLog[]  @relation("siteManpowerAssi
 siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedByLogs")
   openingStockLogs OpeningStockLog[] @relation("OpeningStockLogCreated")
 
+  overallSiteBudgetTechApprovals OverallSiteBudget[] @relation("OverallSiteBudgetTechApprovalBy")
+  overallSiteBudgetCommercialApprovals OverallSiteBudget[] @relation("OverallSiteBudgetCommercialApprovalBy")
+  overallSiteBudgetProjectApprovals OverallSiteBudget[] @relation("OverallSiteBudgetProjectApprovalBy")
+
   @@map("users")
 }
 
@@ -2803,6 +2807,8 @@ model SiteBudget {
   site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
   boqId          Int
   boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  overallSiteBudgetId          Int
+  overallSiteBudget            OverallSiteBudget      @relation(fields: [overallSiteBudgetId], references: [id], onDelete: Restrict)
   month          String
   week           String
   fromDate DateTime  @db.Date()
@@ -2874,13 +2880,29 @@ model OverallSiteBudget {
   site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
   boqId          Int
   boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  
+  isTechApprovalDone   Boolean  @default(false)
+  techApprovalById      Int?
+  techApprovalBy    User?                @relation("OverallSiteBudgetTechApprovalBy", fields: [techApprovalById], references: [id], onDelete: Restrict)
+  techApprovalAt DateTime?
+
+  isCommercialApprovalDone   Boolean  @default(false)
+  commercialApprovalById      Int?
+  commercialApprovalBy    User?                @relation("OverallSiteBudgetCommercialApprovalBy", fields: [commercialApprovalById], references: [id], onDelete: Restrict)
+  commercialApprovalAt DateTime?
+
+  isProjectApprovalDone   Boolean  @default(false)
+  projectApprovalById      Int?
+  projectApprovalBy    User?                @relation("OverallSiteBudgetProjectApprovalBy", fields: [projectApprovalById], references: [id], onDelete: Restrict)
+  projectApprovalAt DateTime?
+  
   createdById      Int
   updatedById      Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   overallSiteBudgetDetails  OverallSiteBudgetDetail[]
-
+  siteBudgets SiteBudget[]
   createdBy User @relation("OverallSiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("OverallSiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 

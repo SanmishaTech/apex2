@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
@@ -17,6 +18,7 @@ const budgetItemSchema = z.object({
   budgetQty: z.coerce.number().nonnegative(),
   budgetRate: z.coerce.number().nonnegative(),
   purchaseRate: z.coerce.number().nonnegative(),
+  budgetValue: z.coerce.number().nonnegative().optional(),
 });
 
 const detailSchema = z.object({
@@ -24,10 +26,208 @@ const detailSchema = z.object({
   items: z.array(budgetItemSchema).optional().default([]),
 });
 
+type QtyKey = `${number}::${number}`; // boqItemId::itemId
+
+type OverallBudgetViolation = {
+  boqItemId: number;
+  itemId: number;
+  field: "budgetQty" | "budgetRate" | "budgetValue";
+  existingValue?: number;
+  incomingValue?: number;
+  usedValue?: number;
+  overallValue?: number;
+};
+
+async function validateAgainstOverallBudget({
+  overallSiteBudgetId,
+  incomingDetails,
+  excludeSiteBudgetId,
+}: {
+  overallSiteBudgetId: number;
+  incomingDetails: Array<{
+    boqItemId: number;
+    items: Array<{ itemId: number; budgetQty: number; budgetRate: number; budgetValue: number }>;
+  }>;
+  excludeSiteBudgetId?: number;
+}) {
+  const overall = await (prisma as any).overallSiteBudget.findUnique({
+    where: { id: overallSiteBudgetId },
+    select: {
+      id: true,
+      overallSiteBudgetDetails: {
+        select: {
+          BoqItemId: true,
+          boqItem: { select: { id: true, item: true, activityId: true } },
+          overallSiteBudgetItems: {
+            select: {
+              itemId: true,
+              budgetQty: true,
+              budgetRate: true,
+              budgetValue: true,
+              item: { select: { id: true, item: true, itemCode: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!overall) return { ok: false as const, error: "Overall Site Budget not found" };
+
+  const overallQtyByKey = new Map<QtyKey, number>();
+  const overallRateByKey = new Map<QtyKey, number>();
+  const overallValueByKey = new Map<QtyKey, number>();
+  const labelByKey = new Map<QtyKey, { boqItemLabel: string; itemLabel: string }>();
+  for (const d of overall.overallSiteBudgetDetails || []) {
+    const boqItemId = Number(d.BoqItemId);
+    const boqItemLabel = `${d?.boqItem?.activityId || "BOQ"}-${boqItemId}`;
+    for (const it of d.overallSiteBudgetItems || []) {
+      const itemId = Number(it.itemId);
+      const key: QtyKey = `${boqItemId}::${itemId}`;
+      overallQtyByKey.set(key, Number(it?.budgetQty ?? 0));
+      overallRateByKey.set(key, Number((it as any)?.budgetRate ?? 0));
+      overallValueByKey.set(key, Number((it as any)?.budgetValue ?? 0));
+      labelByKey.set(key, {
+        boqItemLabel,
+        itemLabel: `${it?.item?.itemCode || "ITEM"}-${itemId} ${it?.item?.item || ""}`.trim(),
+      });
+    }
+  }
+
+  const existingRows = await (prisma as any).siteBudgetItem.findMany({
+    where: {
+      siteBudgetDetail: {
+        siteBudget: {
+          overallSiteBudgetId,
+          ...(excludeSiteBudgetId ? { id: { not: excludeSiteBudgetId } } : {}),
+        },
+      },
+    },
+    select: {
+      itemId: true,
+      budgetQty: true,
+      budgetRate: true,
+      budgetValue: true,
+      siteBudgetDetail: { select: { BoqItemId: true } },
+    },
+  });
+
+  const existingQtyByKey = new Map<QtyKey, number>();
+  const existingValueByKey = new Map<QtyKey, number>();
+  for (const r of existingRows || []) {
+    const boqItemId = Number(r?.siteBudgetDetail?.BoqItemId);
+    const itemId = Number(r?.itemId);
+    const key: QtyKey = `${boqItemId}::${itemId}`;
+    const q = Number(r?.budgetQty ?? 0);
+    existingQtyByKey.set(key, Number((existingQtyByKey.get(key) || 0) + (Number.isFinite(q) ? q : 0)));
+
+    const v = Number((r as any)?.budgetValue ?? 0);
+    existingValueByKey.set(
+      key,
+      Number((existingValueByKey.get(key) || 0) + (Number.isFinite(v) ? v : 0))
+    );
+  }
+
+  const incomingQtyByKey = new Map<QtyKey, number>();
+  const incomingValueByKey = new Map<QtyKey, number>();
+  const incomingMaxRateByKey = new Map<QtyKey, number>();
+  for (const d of incomingDetails || []) {
+    const boqItemId = Number(d.boqItemId);
+    for (const it of d.items || []) {
+      const itemId = Number(it.itemId);
+      const q = Number(it.budgetQty ?? 0);
+      if (!(Number.isFinite(itemId) && itemId > 0)) continue;
+      if (!(Number.isFinite(q) && q >= 0)) continue;
+      const key: QtyKey = `${boqItemId}::${itemId}`;
+      incomingQtyByKey.set(key, Number((incomingQtyByKey.get(key) || 0) + q));
+
+      const rate = Number((it as any)?.budgetRate ?? 0);
+      if (Number.isFinite(rate) && rate >= 0) {
+        const prev = Number(incomingMaxRateByKey.get(key) || 0);
+        incomingMaxRateByKey.set(key, Math.max(prev, rate));
+      }
+
+      const value = Number((it as any)?.budgetValue ?? 0);
+      if (Number.isFinite(value)) {
+        incomingValueByKey.set(key, Number((incomingValueByKey.get(key) || 0) + value));
+      }
+    }
+  }
+
+  const violations: OverallBudgetViolation[] = [];
+
+  // Qty + Value are cumulative (existing + incoming)
+  for (const [key, incQty] of incomingQtyByKey.entries()) {
+    const overallQty = Number(overallQtyByKey.get(key) || 0);
+    const usedQty = Number((existingQtyByKey.get(key) || 0) + incQty);
+    if (usedQty > overallQty) {
+      const [boqItemIdStr, itemIdStr] = String(key).split("::");
+      violations.push({
+        boqItemId: Number(boqItemIdStr) || 0,
+        itemId: Number(itemIdStr) || 0,
+        field: "budgetQty",
+        usedValue: usedQty,
+        overallValue: overallQty,
+      });
+    }
+  }
+
+  for (const [key, incValue] of incomingValueByKey.entries()) {
+    const overallValue = Number(overallValueByKey.get(key) || 0);
+    const usedValue = Number((existingValueByKey.get(key) || 0) + incValue);
+    if (usedValue > overallValue) {
+      const [boqItemIdStr, itemIdStr] = String(key).split("::");
+      violations.push({
+        boqItemId: Number(boqItemIdStr) || 0,
+        itemId: Number(itemIdStr) || 0,
+        field: "budgetValue",
+        usedValue,
+        overallValue,
+      });
+    }
+  }
+
+  // Rate is per-current-row (max incoming rate for key must not exceed overall rate)
+  for (const [key, maxRate] of incomingMaxRateByKey.entries()) {
+    const overallRate = Number(overallRateByKey.get(key) || 0);
+    if (Number(maxRate) > Number(overallRate)) {
+      const [boqItemIdStr, itemIdStr] = String(key).split("::");
+      violations.push({
+        boqItemId: Number(boqItemIdStr) || 0,
+        itemId: Number(itemIdStr) || 0,
+        field: "budgetRate",
+        incomingValue: Number(maxRate),
+        overallValue: overallRate,
+      });
+    }
+  }
+
+  if (violations.length) {
+    const lines = violations
+      .slice(0, 20)
+      .map((v) => {
+        const key: QtyKey = `${v.boqItemId}::${v.itemId}`;
+        const labels = labelByKey.get(key);
+        const left = `${labels?.boqItemLabel || v.boqItemId} | ${labels?.itemLabel || v.itemId}`;
+        if (v.field === "budgetRate") {
+          return `${left}: Rate ${Number(v.incomingValue || 0)} > ${Number(v.overallValue || 0)}`;
+        }
+        return `${left}: ${Number(v.usedValue || 0)} > ${Number(v.overallValue || 0)}`;
+      });
+    const msg =
+      "Overall budget validation failed:\n" +
+      lines.join("\n") +
+      (violations.length > 20 ? `\n...and ${violations.length - 20} more` : "");
+    return { ok: false as const, error: msg, violations };
+  }
+
+  return { ok: true as const };
+}
+
 const createSchema = z
   .object({
     siteId: z.coerce.number().int().positive(),
     boqId: z.coerce.number().int().positive(),
+    overallSiteBudgetId: z.coerce.number().int().positive(),
     month: z.string().min(1).max(50),
     week: z.string().min(1).max(50),
     fromDate: z
@@ -37,6 +237,7 @@ const createSchema = z
       .string()
       .refine((d) => !Number.isNaN(Date.parse(d)), { message: "Invalid toDate" }),
     details: z.array(detailSchema).optional().default([]),
+    applyOverallBudgetValidation: z.coerce.boolean().optional().default(false),
   })
   .superRefine((d, ctx) => {
     if (d.fromDate && d.toDate && new Date(d.fromDate) > new Date(d.toDate)) {
@@ -53,6 +254,7 @@ const updateSchema = z
     id: z.coerce.number().int().positive(),
     siteId: z.coerce.number().int().positive().optional(),
     boqId: z.coerce.number().int().positive().optional(),
+    overallSiteBudgetId: z.coerce.number().int().positive().optional(),
     month: z.string().min(1).max(50).optional(),
     week: z.string().min(1).max(50).optional(),
     fromDate: z
@@ -64,6 +266,7 @@ const updateSchema = z
       .refine((d) => !Number.isNaN(Date.parse(d)), { message: "Invalid toDate" })
       .optional(),
     details: z.array(detailSchema).optional(),
+    applyOverallBudgetValidation: z.coerce.boolean().optional().default(false),
   })
   .superRefine((d, ctx) => {
     if (d.fromDate && d.toDate && new Date(d.fromDate) > new Date(d.toDate)) {
@@ -200,6 +403,15 @@ export async function POST(req: NextRequest) {
       return ApiError("Selected BOQ does not belong to selected site", 400);
     }
 
+    const overall = await (prisma as any).overallSiteBudget.findUnique({
+      where: { id: parsed.overallSiteBudgetId },
+      select: { id: true, siteId: true, boqId: true },
+    });
+    if (!overall) return ApiError("Overall Site Budget not found", 404);
+    if (overall.siteId !== parsed.siteId || overall.boqId !== parsed.boqId) {
+      return ApiError("Selected Overall Site Budget does not match selected site/BOQ", 400);
+    }
+
     const monthVal = parsed.month.trim();
     const weekVal = parsed.week.trim();
     const existingCombo = await (prisma as any).siteBudget.findFirst({
@@ -229,6 +441,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (parsed.applyOverallBudgetValidation) {
+      const v = await validateAgainstOverallBudget({
+        overallSiteBudgetId: parsed.overallSiteBudgetId,
+        incomingDetails: (parsed.details || []).map((d) => ({
+          boqItemId: Number(d.boqItemId),
+          items: (d.items || []).map((it) => ({
+            itemId: Number(it.itemId),
+            budgetQty: Number(it.budgetQty || 0),
+            budgetRate: Number(it.budgetRate || 0),
+            budgetValue: Number((it as any).budgetValue ?? 0),
+          })),
+        })),
+      });
+      if (!v.ok) {
+        return NextResponse.json(
+          {
+            message: v.error,
+            code: "OVERALL_BUDGET_VALIDATION",
+            violations: (v as any).violations || [],
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const detailsCreate = (parsed.details || [])
       .map((d) => {
         const itemsCreate = (d.items || [])
@@ -236,12 +473,17 @@ export async function POST(req: NextRequest) {
             const budgetQty = Number(it.budgetQty || 0);
             const budgetRate = Number(it.budgetRate || 0);
             const purchaseRate = Number(it.purchaseRate || 0);
+            const budgetValue = Number(
+              it.budgetValue !== undefined && it.budgetValue !== null
+                ? it.budgetValue
+                : budgetQty * budgetRate
+            );
             return {
               itemId: Number(it.itemId),
               budgetQty: budgetQty as any,
               budgetRate: budgetRate as any,
               purchaseRate: purchaseRate as any,
-              budgetValue: (budgetQty * budgetRate) as any,
+              budgetValue: budgetValue as any,
             };
           })
           .filter((it) => Number.isFinite(Number(it.itemId)) && Number(it.itemId) > 0);
@@ -259,6 +501,7 @@ export async function POST(req: NextRequest) {
         data: {
           siteId: parsed.siteId,
           boqId: parsed.boqId,
+          overallSiteBudgetId: parsed.overallSiteBudgetId,
           month: monthVal,
           week: weekVal,
           fromDate,
@@ -308,6 +551,7 @@ export async function PATCH(req: NextRequest) {
         id: true,
         siteId: true,
         boqId: true,
+        overallSiteBudgetId: true,
         month: true,
         week: true,
         fromDate: true,
@@ -318,6 +562,8 @@ export async function PATCH(req: NextRequest) {
 
     const nextSiteId = parsed.siteId ?? existing.siteId;
     const nextBoqId = parsed.boqId ?? existing.boqId;
+    const nextOverallSiteBudgetId =
+      parsed.overallSiteBudgetId ?? existing.overallSiteBudgetId;
     const nextFrom = parsed.fromDate ? toUtcDateOnly(parsed.fromDate) : existing.fromDate;
     const nextTo = parsed.toDate ? toUtcDateOnly(parsed.toDate) : existing.toDate;
     if (nextFrom > nextTo) return ApiError("fromDate must be before or equal to toDate", 400);
@@ -348,6 +594,41 @@ export async function PATCH(req: NextRequest) {
       return ApiError("Selected BOQ does not belong to selected site", 400);
     }
 
+    const overall = await (prisma as any).overallSiteBudget.findUnique({
+      where: { id: nextOverallSiteBudgetId },
+      select: { id: true, siteId: true, boqId: true },
+    });
+    if (!overall) return ApiError("Overall Site Budget not found", 404);
+    if (overall.siteId !== nextSiteId || overall.boqId !== nextBoqId) {
+      return ApiError("Selected Overall Site Budget does not match selected site/BOQ", 400);
+    }
+
+    if (parsed.applyOverallBudgetValidation && Array.isArray(parsed.details)) {
+      const v = await validateAgainstOverallBudget({
+        overallSiteBudgetId: nextOverallSiteBudgetId,
+        incomingDetails: (parsed.details || []).map((d) => ({
+          boqItemId: Number(d.boqItemId),
+          items: (d.items || []).map((it) => ({
+            itemId: Number(it.itemId),
+            budgetQty: Number(it.budgetQty || 0),
+            budgetRate: Number(it.budgetRate || 0),
+            budgetValue: Number((it as any).budgetValue ?? 0),
+          })),
+        })),
+        excludeSiteBudgetId: parsed.id,
+      });
+      if (!v.ok) {
+        return NextResponse.json(
+          {
+            message: v.error,
+            code: "OVERALL_BUDGET_VALIDATION",
+            violations: (v as any).violations || [],
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     if (Array.isArray(parsed.details)) {
       const boqItemIds = Array.from(
         new Set<number>((parsed.details || []).map((d) => Number(d.boqItemId)))
@@ -369,6 +650,9 @@ export async function PATCH(req: NextRequest) {
         data: {
           ...(parsed.siteId !== undefined ? { siteId: nextSiteId } : {}),
           ...(parsed.boqId !== undefined ? { boqId: nextBoqId } : {}),
+          ...(parsed.overallSiteBudgetId !== undefined
+            ? { overallSiteBudgetId: nextOverallSiteBudgetId }
+            : {}),
           ...(parsed.month !== undefined ? { month: nextMonth } : {}),
           ...(parsed.week !== undefined ? { week: nextWeek } : {}),
           ...(parsed.fromDate !== undefined ? { fromDate: nextFrom } : {}),
@@ -403,6 +687,11 @@ export async function PATCH(req: NextRequest) {
               budgetQty: Number(it.budgetQty || 0),
               budgetRate: Number(it.budgetRate || 0),
               purchaseRate: Number(it.purchaseRate || 0),
+              budgetValue: Number(
+                (it as any).budgetValue !== undefined && (it as any).budgetValue !== null
+                  ? (it as any).budgetValue
+                  : Number(it.budgetQty || 0) * Number(it.budgetRate || 0)
+              ),
             }))
             .filter((it) => Number.isFinite(it.itemId) && it.itemId > 0);
 
@@ -438,7 +727,7 @@ export async function PATCH(req: NextRequest) {
           const incomingItemIds = new Set<number>();
           for (const it of incomingItems) {
             incomingItemIds.add(it.itemId);
-            const budgetValue = it.budgetQty * it.budgetRate;
+            const budgetValue = Number(it.budgetValue ?? it.budgetQty * it.budgetRate);
             const existingItemId = existingItemsByItemId.get(it.itemId);
             if (existingItemId) {
               await tx.siteBudgetItem.update({

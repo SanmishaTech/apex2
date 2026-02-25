@@ -36,7 +36,13 @@ export interface OverallSiteBudgetsFormInitialData {
 }
 
 export interface OverallSiteBudgetsFormProps {
-  mode: "create" | "edit";
+  mode:
+    | "create"
+    | "edit"
+    | "view"
+    | "techApproval"
+    | "commercialApproval"
+    | "projectApproval";
   initial?: OverallSiteBudgetsFormInitialData | null;
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string;
@@ -97,12 +103,14 @@ function BudgetItemsEditor({
   itemOptions,
   itemMetaById,
   disabled,
+  hideActions,
 }: {
   detailIndex: number;
   form: any;
   itemOptions: Array<{ value: string; label: string }>;
   itemMetaById: Map<string, { unitName: string }>;
   disabled?: boolean;
+  hideActions?: boolean;
 }) {
   const { control } = form;
   const { fields, append, remove } = useFieldArray({
@@ -156,7 +164,11 @@ function BudgetItemsEditor({
             <div className="col-span-2">Purchase Rate</div>
             <div className="col-span-1">Unit</div>
             <div className="col-span-2 text-right">Budget Value</div>
-            <div className="col-span-1 text-right">Actions</div>
+            {!hideActions ? (
+              <div className="col-span-1 text-right">Actions</div>
+            ) : (
+              <div className="col-span-1 text-right"></div>
+            )}
           </div>
 
           <div className="divide-y">
@@ -237,19 +249,21 @@ function BudgetItemsEditor({
                     </div>
                   </div>
                   <div className="col-span-1 flex justify-end">
-                    <AppButton
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      iconName="Trash2"
-                      className="h-7 w-7 bg-red-600 text-white hover:text-white"
-                      onClick={() => remove(itemIndex)}
-                      disabled={disabled}
-                      aria-label="Remove item"
-                      title="Remove"
-                    >
-                      <span className="sr-only">Remove</span>
-                    </AppButton>
+                    {!hideActions ? (
+                      <AppButton
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        iconName="Trash2"
+                        className="h-7 w-7 bg-red-600 text-white hover:text-white"
+                        onClick={() => remove(itemIndex)}
+                        disabled={disabled}
+                        aria-label="Remove item"
+                        title="Remove"
+                      >
+                        <span className="sr-only">Remove</span>
+                      </AppButton>
+                    ) : null}
                   </div>
                 </div>
               ))
@@ -260,25 +274,27 @@ function BudgetItemsEditor({
         </div>
       </div>
 
-      <div>
-        <AppButton
-          type="button"
-          size="sm"
-          iconName="Plus"
-          className="h-7 text-xs"
-          onClick={() =>
-            append({
-              itemId: "",
-              budgetQty: "",
-              budgetRate: "",
-              purchaseRate: "",
-            } as any)
-          }
-          disabled={disabled}
-        >
-          Add Item
-        </AppButton>
-      </div>
+      {!hideActions ? (
+        <div>
+          <AppButton
+            type="button"
+            size="sm"
+            iconName="Plus"
+            className="h-7 text-xs"
+            onClick={() =>
+              append({
+                itemId: "",
+                budgetQty: "",
+                budgetRate: "",
+                purchaseRate: "",
+              } as any)
+            }
+            disabled={disabled}
+          >
+            Add Item
+          </AppButton>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -292,6 +308,12 @@ export function OverallSiteBudgetsForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const isCreate = mode === "create";
+  const isView = mode === "view";
+  const isApproval =
+    mode === "techApproval" ||
+    mode === "commercialApproval" ||
+    mode === "projectApproval";
+  const readonly = isView || isApproval;
   const [prevSiteId, setPrevSiteId] = useState<string>("");
 
   const { data: sitesData } = useSWR<SitesResponse>(
@@ -458,6 +480,30 @@ export function OverallSiteBudgetsForm({
     }
   }
 
+  async function handleApprove() {
+    if (!initial?.id) return;
+    const statusAction =
+      mode === "techApproval"
+        ? "approveTech"
+        : mode === "commercialApproval"
+        ? "approveCommercial"
+        : "approveProject";
+
+    setSubmitting(true);
+    try {
+      const res = await apiPatch(`/api/overall-site-budgets/${initial.id}`, {
+        statusAction,
+      });
+      toast.success("Approved");
+      onSuccess?.(res);
+      router.push(redirectOnSuccess);
+    } catch (err) {
+      toast.error((err as Error).message || "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const siteOptions = (sitesData?.data || []).map((s) => ({
     value: String(s.id),
     label: s.site,
@@ -476,10 +522,24 @@ export function OverallSiteBudgetsForm({
       <AppCard className="w-auto mx-auto">
         <AppCard.Header>
           <AppCard.Title>
-            {isCreate ? "Create Overall Site Budget" : "Edit Overall Site Budget"}
+            {isCreate
+              ? "Create Overall Site Budget"
+              : isView
+              ? "View Overall Site Budget"
+              : mode === "techApproval"
+              ? "Tech Approval"
+              : mode === "commercialApproval"
+              ? "Commercial Approval"
+              : mode === "projectApproval"
+              ? "Project Approval"
+              : "Edit Overall Site Budget"}
           </AppCard.Title>
           <AppCard.Description>
-            {isCreate ? "Add a new overall site budget." : "Update overall site budget."}
+            {isCreate
+              ? "Add a new overall site budget."
+              : readonly
+              ? "Review overall site budget."
+              : "Update overall site budget."}
           </AppCard.Description>
         </AppCard.Header>
 
@@ -553,7 +613,8 @@ export function OverallSiteBudgetsForm({
                         form={form}
                         itemOptions={itemOptions}
                         itemMetaById={itemMetaById}
-                        disabled={Boolean(row.isGroup)}
+                        disabled={readonly ? true : Boolean(row.isGroup)}
+                        hideActions={readonly}
                       />
                     </div>
                   </div>
@@ -572,14 +633,28 @@ export function OverallSiteBudgetsForm({
             >
               Cancel
             </AppButton>
-            <AppButton
-              type="submit"
-              iconName={isCreate ? "Plus" : "Save"}
-              isLoading={submitting}
-              disabled={submitting}
-            >
-              {isCreate ? "Create" : "Save Changes"}
-            </AppButton>
+            {readonly ? (
+              isApproval ? (
+                <AppButton
+                  type="button"
+                  iconName="Check"
+                  isLoading={submitting}
+                  disabled={submitting}
+                  onClick={handleApprove}
+                >
+                  Approve
+                </AppButton>
+              ) : null
+            ) : (
+              <AppButton
+                type="submit"
+                iconName={isCreate ? "Plus" : "Save"}
+                isLoading={submitting}
+                disabled={submitting}
+              >
+                {isCreate ? "Create" : "Save Changes"}
+              </AppButton>
+            )}
           </AppCard.Footer>
         </form>
       </AppCard>

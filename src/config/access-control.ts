@@ -748,6 +748,24 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
+    // Allow handler to enforce granular permissions: approveTech/approveCommercial/approveProject
+    prefix: "/api/overall-site-budgets/",
+    methods: {
+      GET: [PERMISSIONS.READ_OVERALL_SITE_BUDGETS],
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_OVERALL_SITE_BUDGETS],
+    },
+  },
+  {
+    prefix: "/api/overall-site-budgets",
+    methods: {
+      GET: [PERMISSIONS.READ_OVERALL_SITE_BUDGETS],
+      POST: [PERMISSIONS.CREATE_OVERALL_SITE_BUDGETS],
+      PATCH: [PERMISSIONS.EDIT_OVERALL_SITE_BUDGETS],
+      DELETE: [PERMISSIONS.DELETE_OVERALL_SITE_BUDGETS],
+    },
+  },
+  {
     prefix: "/api/manpower-assignments",
     methods: {
       GET: [PERMISSIONS.READ_MANPOWER_ASSIGNMENTS],
