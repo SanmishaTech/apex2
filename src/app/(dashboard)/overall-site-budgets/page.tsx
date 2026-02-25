@@ -18,7 +18,15 @@ import { formatRelativeTime, formatDate } from "@/lib/locales";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import Link from "next/link";
 import { EditButton } from "@/components/common/icon-button";
+import { ViewButton, IconButton } from "@/components/common/icon-button";
 import type { SitesResponse } from "@/types/sites";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 type OverallSiteBudgetListItem = {
   id: number;
@@ -26,6 +34,17 @@ type OverallSiteBudgetListItem = {
   site: { id: number; site: string } | null;
   boqId: number;
   boq: { id: number; boqNo: string | null } | null;
+  isTechApprovalDone?: boolean;
+  isCommercialApprovalDone?: boolean;
+  isProjectApprovalDone?: boolean;
+  createdById?: number | null;
+  techApprovalById?: number | null;
+  commercialApprovalById?: number | null;
+  projectApprovalById?: number | null;
+  createdBy?: { id: number; name: string | null } | null;
+  techApprovalBy?: { id: number; name: string | null } | null;
+  commercialApprovalBy?: { id: number; name: string | null } | null;
+  projectApprovalBy?: { id: number; name: string | null } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -61,6 +80,7 @@ export default function OverallSiteBudgetsPage() {
     };
 
   const { can } = usePermissions();
+  const { user } = useCurrentUser();
   const canReadSites = can(PERMISSIONS.READ_SITES) || can(PERMISSIONS.VIEW_SITES);
 
   const [searchDraft, setSearchDraft] = useState(search);
@@ -84,6 +104,23 @@ export default function OverallSiteBudgetsPage() {
       search: searchDraft.trim(),
       siteId: siteIdDraft,
     });
+  }
+
+  function UserBadge({
+    name,
+    className,
+  }: {
+    name?: string | null;
+    className: string;
+  }) {
+    if (!name) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${className}`}
+      >
+        {name}
+      </span>
+    );
   }
 
   function resetFilters() {
@@ -148,6 +185,51 @@ export default function OverallSiteBudgetsPage() {
       sortable: false,
       accessor: (r) => r.boq?.boqNo || `BOQ ${r.boqId}` || "—",
       cellClassName: "font-medium whitespace-nowrap",
+    },
+    {
+      key: "createdBy",
+      header: "Cr By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge name={r.createdBy?.name ?? null} className="bg-sky-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "techApprovalBy",
+      header: "Tech By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge
+          name={r.techApprovalBy?.name ?? null}
+          className="bg-emerald-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "commercialApprovalBy",
+      header: "Comm By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge
+          name={r.commercialApprovalBy?.name ?? null}
+          className="bg-violet-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "projectApprovalBy",
+      header: "Proj By",
+      sortable: false,
+      accessor: (r) => (
+        <UserBadge
+          name={r.projectApprovalBy?.name ?? null}
+          className="bg-amber-600"
+        />
+      ),
+      className: "whitespace-nowrap",
     },
     {
       key: "createdAt",
@@ -237,46 +319,153 @@ export default function OverallSiteBudgetsPage() {
           )}
         </FilterBar>
 
-        <DataTable
-          columns={columns}
-          data={data?.data || []}
-          loading={isLoading}
-          sort={sortState}
-          onSortChange={(s) => toggleSort(s.field)}
-          stickyColumns={1}
-          renderRowActions={(row) => {
-            if (
-              !can(PERMISSIONS.EDIT_OVERALL_SITE_BUDGETS) &&
-              !can(PERMISSIONS.DELETE_OVERALL_SITE_BUDGETS)
-            )
-              return null;
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-max">
+            <DataTable
+              columns={columns}
+              data={data?.data || []}
+              loading={isLoading}
+              sort={sortState}
+              onSortChange={(s) => toggleSort(s.field)}
+              stickyColumns={1}
+              renderRowActions={(row) => {
+                const canView = can(PERMISSIONS.VIEW_OVERALL_SITE_BUDGETS);
+                const canEdit = can(PERMISSIONS.EDIT_OVERALL_SITE_BUDGETS);
+                const canDelete = can(PERMISSIONS.DELETE_OVERALL_SITE_BUDGETS);
 
-            return (
-              <div className="flex">
-                {can(PERMISSIONS.EDIT_OVERALL_SITE_BUDGETS) && (
-                  <Link href={`/overall-site-budgets/${row.siteId}/edit/${row.id}`}>
-                    <EditButton
-                      tooltip="Edit Overall Site Budget"
-                      aria-label="Edit Overall Site Budget"
-                    />
-                  </Link>
-                )}
-                {can(PERMISSIONS.DELETE_OVERALL_SITE_BUDGETS) && (
-                  <DeleteButton
-                    onDelete={() => handleDelete(row.id)}
-                    itemLabel="overall site budget"
-                    title="Delete overall site budget?"
-                    description={
-                      `This will permanently remove Overall Site Budget for BOQ "${
-                        row.boq?.boqNo || row.boqId
-                      }". This action cannot be undone.`
-                    }
-                  />
-                )}
-              </div>
-            );
-          }}
-        />
+                const canApproveTech = can(
+                  PERMISSIONS.APPROVE_OVERALL_SITE_BUDGETS_TECH
+                );
+                const canApproveCommercial = can(
+                  PERMISSIONS.APPROVE_OVERALL_SITE_BUDGETS_COMMERCIAL
+                );
+                const canApproveProject = can(
+                  PERMISSIONS.APPROVE_OVERALL_SITE_BUDGETS_PROJECT
+                );
+
+                const isTechDone = Boolean(row.isTechApprovalDone);
+                const isCommercialDone = Boolean(row.isCommercialApprovalDone);
+                const isProjectDone = Boolean(row.isProjectApprovalDone);
+                const anyApprovalDone = isTechDone || isCommercialDone || isProjectDone;
+
+                const userId = (user as any)?.id as number | undefined;
+
+                const isCreator =
+                  typeof userId === "number" &&
+                  typeof row.createdById === "number" &&
+                  row.createdById === userId;
+
+                const hasAnyApprovalByUser =
+                  typeof userId === "number" &&
+                  ((typeof row.techApprovalById === "number" &&
+                    row.techApprovalById === userId) ||
+                    (typeof row.commercialApprovalById === "number" &&
+                      row.commercialApprovalById === userId) ||
+                    (typeof row.projectApprovalById === "number" &&
+                      row.projectApprovalById === userId));
+
+                const showTechApproval =
+                  canApproveTech && !isTechDone && !isCreator && !hasAnyApprovalByUser;
+                const showCommercialApproval =
+                  canApproveCommercial &&
+                  isTechDone &&
+                  !isCommercialDone &&
+                  !isCreator &&
+                  !hasAnyApprovalByUser &&
+                  !(typeof userId === "number" && row.techApprovalById === userId);
+                const showProjectApproval =
+                  canApproveProject &&
+                  isCommercialDone &&
+                  !isProjectDone &&
+                  !isCreator &&
+                  !hasAnyApprovalByUser &&
+                  !(typeof userId === "number" && row.techApprovalById === userId) &&
+                  !(typeof userId === "number" &&
+                    row.commercialApprovalById === userId);
+
+                const anyAction =
+                  canView ||
+                  canEdit ||
+                  canDelete ||
+                  showTechApproval ||
+                  showCommercialApproval ||
+                  showProjectApproval;
+                if (!anyAction) return null;
+
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <AppButton size="sm" variant="secondary" type="button">
+                        Actions
+                      </AppButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canView && (
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/overall-site-budgets/${row.siteId}/view/${row.id}`}
+                          >
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {canEdit && !anyApprovalDone && (
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/overall-site-budgets/${row.siteId}/edit/${row.id}`}
+                          >
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {showTechApproval && (
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/overall-site-budgets/${row.siteId}/tech-approval/${row.id}`}
+                          >
+                            Tech Approval
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {showCommercialApproval && (
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/overall-site-budgets/${row.siteId}/commercial-approval/${row.id}`}
+                          >
+                            Commercial Approval
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {showProjectApproval && (
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/overall-site-budgets/${row.siteId}/project-approval/${row.id}`}
+                          >
+                            Project Approval
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {canDelete && (
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            handleDelete(row.id);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }}
+            />
+          </div>
+        </div>
       </AppCard.Content>
       <AppCard.Footer className="justify-end">
         <Pagination
