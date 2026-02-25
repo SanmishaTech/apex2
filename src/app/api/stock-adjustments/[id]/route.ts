@@ -35,6 +35,18 @@ export async function GET(
             rate: true,
             amount: true,
             remarks: true,
+            stockAdjustmentDetailBatch: {
+              select: {
+                id: true,
+                batchNumber: true,
+                expiryDate: true,
+                batchIssuedQty: true,
+                batchReceivedQty: true,
+                unitRate: true,
+                amount: true,
+              },
+              orderBy: { id: "asc" },
+            },
             item: {
               select: {
                 id: true,

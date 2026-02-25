@@ -40,6 +40,17 @@ export async function GET(
             qty: true,
             rate: true,
             amount: true,
+            dailyConsumptionDetailBatch: {
+              select: {
+                id: true,
+                batchNumber: true,
+                expiryDate: true,
+                qty: true,
+                unitRate: true,
+                amount: true,
+              },
+              orderBy: { id: "asc" },
+            },
             item: {
               select: {
                 id: true,

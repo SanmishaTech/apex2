@@ -9,6 +9,23 @@ import { formatDate } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 
+const fmtINR0to2 = new Intl.NumberFormat('en-IN', {
+  useGrouping: true,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+const fmtINR2 = new Intl.NumberFormat('en-IN', {
+  useGrouping: true,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function n(v: any) {
+  const num = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(num) ? num : 0;
+}
+
 export default function ViewDailyConsumptionPage() {
   const params = useParams();
   const router = useRouter();
@@ -68,7 +85,7 @@ export default function ViewDailyConsumptionPage() {
               </div>
               <div>
                 <div className='text-xs text-muted-foreground'>Total Amount</div>
-                <div className='font-medium'>{Number(dc.totalAmount || 0).toFixed(2)}</div>
+                <div className='font-medium'>{fmtINR2.format(n(dc.totalAmount || 0))}</div>
               </div>
               <div>
                 <div className='text-xs text-muted-foreground'>Prepared By</div>
@@ -85,15 +102,54 @@ export default function ViewDailyConsumptionPage() {
                 <div className='col-span-2'>Qty</div>
                 <div className='col-span-2'>Amount</div>
               </div>
-              {(dc.dailyConsumptionDetails || []).map((d: any, idx: number) => (
-                <div key={d.id} className='grid grid-cols-12 gap-3 items-center py-2 border-b'>
-                  <div className='col-span-1'>{idx + 1}</div>
-                  <div className='col-span-5 truncate'>{d.item?.item || '-'}</div>
-                  <div className='col-span-2'>{d.item?.unit?.unitName || '-'}</div>
-                  <div className='col-span-2'>{Number(d.qty || 0).toFixed(4)}</div>
-                  <div className='col-span-2'>{Number(d.amount || 0).toFixed(2)}</div>
-                </div>
-              ))}
+              {(dc.dailyConsumptionDetails || []).map((d: any, idx: number) => {
+                const batches: any[] = Array.isArray(d.dailyConsumptionDetailBatch)
+                  ? d.dailyConsumptionDetailBatch
+                  : [];
+                return (
+                  <div key={d.id} className='border-b'>
+                    <div className='grid grid-cols-12 gap-3 items-center py-2'>
+                      <div className='col-span-1'>{idx + 1}</div>
+                      <div className='col-span-5 truncate'>{d.item?.item || '-'}</div>
+                      <div className='col-span-2'>{d.item?.unit?.unitName || '-'}</div>
+                      <div className='col-span-2'>{fmtINR0to2.format(n(d.qty || 0))}</div>
+                      <div className='col-span-2'>{fmtINR2.format(n(d.amount || 0))}</div>
+                    </div>
+
+                    {batches.length > 0 ? (
+                      <div className='px-3 pb-3'>
+                        <div className='rounded-md border bg-muted/20'>
+                          <div className='grid grid-cols-12 gap-3 px-3 py-2 text-[11px] font-medium text-muted-foreground'>
+                            <div className='col-span-4'>Batch No.</div>
+                            <div className='col-span-3'>Expiry</div>
+                            <div className='col-span-2'>Qty</div>
+                            <div className='col-span-1 text-right'>Rate</div>
+                            <div className='col-span-2 text-right'>Amount</div>
+                          </div>
+                          {batches.map((b: any) => (
+                            <div
+                              key={b.id}
+                              className='grid grid-cols-12 gap-3 px-3 py-2 border-t text-xs'
+                            >
+                              <div className='col-span-4 font-medium'>
+                                {b.batchNumber || '-'}
+                              </div>
+                              <div className='col-span-3'>{b.expiryDate || '-'}</div>
+                              <div className='col-span-2'>{fmtINR0to2.format(n(b.qty || 0))}</div>
+                              <div className='col-span-1 text-right'>
+                                {fmtINR2.format(n(b.unitRate || 0))}
+                              </div>
+                              <div className='col-span-2 text-right'>
+                                {fmtINR2.format(n(b.amount || 0))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
               {(!dc.dailyConsumptionDetails || dc.dailyConsumptionDetails.length === 0) && (
                 <div className='text-sm text-muted-foreground py-3'>No details</div>
               )}
