@@ -415,6 +415,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_SITE_BUDGETS,
       },
       {
+        title: "Overall Budget",
+        href: "/overall-site-budgets",
+        icon: Folder,
+        permission: PERMISSIONS.READ_OVERALL_SITE_BUDGETS,
+      },
+      {
         type: "group",
         title: "Reports",
         icon: FileText,
