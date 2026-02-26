@@ -16,12 +16,10 @@ export async function GET(req: NextRequest) {
     const perPage = Math.max(1, Math.min(100, parseInt(searchParams.get("perPage") || "10", 10)));
     const search = (searchParams.get("search") || "").trim();
     const siteIdParam = searchParams.get("siteId");
-    const itemIdParam = searchParams.get("itemId");
     const sort = (searchParams.get("sort") || "site").toString();
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
     const siteId = siteIdParam ? Number(siteIdParam) : undefined;
-    const itemId = itemIdParam ? Number(itemIdParam) : undefined;
 
     const where: any = {};
     // Restrict to assigned sites for non-admin users
@@ -43,13 +41,8 @@ export async function GET(req: NextRequest) {
     } else {
       if (Number.isFinite(siteId as number)) where.siteId = siteId;
     }
-    if (Number.isFinite(itemId as number)) where.itemId = itemId;
-
     if (search) {
-      where.OR = [
-        { site: { site: { contains: search, mode: "insensitive" } } },
-        { item: { item: { contains: search, mode: "insensitive" } } },
-      ];
+      where.item = { item: { contains: search } };
     }
 
     // Sorting mapping

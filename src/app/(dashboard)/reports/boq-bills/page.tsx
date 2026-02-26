@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
-import { AppSelect } from "@/components/common/app-select";
+import { AppCombobox } from "@/components/common/app-combobox";
 import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -34,6 +34,7 @@ type MatrixResponse = {
   bills: Array<{ id: number; label: string }>;
   rows: Array<{
     boqItemId: number;
+    clientSrNo?: string | null;
     description: string;
     unit: string;
     boqQty: number;
@@ -67,8 +68,8 @@ export default function BoqBillsReportPage() {
   const boqOptions = useMemo(() => {
     return (boqsData?.data || []).map((b) => {
       const boqNo = b.boqNo || "—";
-      const siteName = b.site?.site ? ` - ${b.site.site}` : "";
-      return { value: String(b.id), label: `${boqNo}${siteName}` };
+      const siteName = b.site?.site || "No Site";
+      return { value: String(b.id), label: `${siteName} - ${boqNo}` };
     });
   }, [boqsData]);
 
@@ -92,6 +93,8 @@ export default function BoqBillsReportPage() {
     let doneQty = 0;
     let unbilledQty = 0;
     let boqAmount = 0;
+    let executedAmount = 0;
+    let unbilledAmount = 0;
     let totalUptoQty = 0;
     let totalUptoAmount = 0;
 
@@ -107,6 +110,8 @@ export default function BoqBillsReportPage() {
       doneQty += Number(r.doneQty || 0);
       unbilledQty += Number(r.unbilledQty || 0);
       boqAmount += Number(r.boqAmount || 0);
+      executedAmount += Number(r.doneQty || 0) * Number(r.rate || 0);
+      unbilledAmount += Number(r.unbilledQty || 0) * Number(r.rate || 0);
       totalUptoQty += Number(r.totalUpto?.qty || 0);
       totalUptoAmount += Number(r.totalUpto?.amount || 0);
       for (const b of matrixData.bills) {
@@ -121,6 +126,8 @@ export default function BoqBillsReportPage() {
       doneQty,
       unbilledQty,
       boqAmount,
+      executedAmount,
+      unbilledAmount,
       totalUptoQty,
       totalUptoAmount,
       billQtyById,
@@ -176,19 +183,19 @@ export default function BoqBillsReportPage() {
         <AppCard.Content>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
-              <AppSelect
-                control={control}
-                name="boqId"
-                label="BOQ"
-                placeholder={isLoading ? "Loading..." : "Select BOQ"}
-                required
-              >
-                {boqOptions.map((b) => (
-                  <AppSelect.Item key={b.value} value={b.value}>
-                    {b.label}
-                  </AppSelect.Item>
-                ))}
-              </AppSelect>
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  BOQ
+                </label>
+                <AppCombobox
+                  value={selectedBoqId}
+                  onValueChange={(value) => form.setValue("boqId", value)}
+                  options={boqOptions}
+                  placeholder={isLoading ? "Loading..." : "Select BOQ"}
+                  searchPlaceholder="Search by site name or BOQ number..."
+                  disabled={isLoading}
+                />
+              </div>
             </div>
             <div className="flex justify-end">
               <AppButton
@@ -213,6 +220,12 @@ export default function BoqBillsReportPage() {
                       <tr>
                         <th
                           rowSpan={2}
+                          className="px-3 py-2 text-left font-medium border bg-blue-600 text-white whitespace-nowrap"
+                        >
+                          Client Sr. No.
+                        </th>
+                        <th
+                          rowSpan={2}
                           className="px-3 py-2 text-left font-medium w-[320px] border bg-blue-600 text-white whitespace-nowrap"
                         >
                           Description of item
@@ -233,7 +246,13 @@ export default function BoqBillsReportPage() {
                           Executed Quantity
                         </th>
                         <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
+                          Executed Amount
+                        </th>
+                        <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
                           Unbilled Qty
+                        </th>
+                        <th rowSpan={2} className="px-3 py-2 text-right font-medium border bg-blue-600 text-white whitespace-nowrap">
+                          Unbilled Amount
                         </th>
 
                         <th colSpan={2} className="px-3 py-2 text-center font-medium border bg-yellow-300 text-black whitespace-nowrap">
@@ -264,6 +283,9 @@ export default function BoqBillsReportPage() {
                     <tbody className="divide-y">
                       {matrixData.rows.map((r) => (
                         <tr key={r.boqItemId} className={r.isGroup ? "bg-muted/20" : ""}>
+                          <td className="px-3 py-2 text-left align-top whitespace-nowrap border border-gray-300 dark:border-gray-700">
+                            {r.clientSrNo || ""}
+                          </td>
                           <td className="px-3 py-2 text-left align-top whitespace-normal break-words w-[320px] max-w-[320px] border border-gray-300 dark:border-gray-700">
                             {r.description}
                           </td>
@@ -272,7 +294,13 @@ export default function BoqBillsReportPage() {
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.rate || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.boqAmount || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.doneQty || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">
+                            {(Number(r.doneQty || 0) * Number(r.rate || 0)).toFixed(2)}
+                          </td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">{Number(r.unbilledQty || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700">
+                            {(Number(r.unbilledQty || 0) * Number(r.rate || 0)).toFixed(2)}
+                          </td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{Number(r.totalUpto?.qty || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{Number(r.totalUpto?.amount || 0).toFixed(2)}</td>
                           {matrixData.bills.map((b) => {
@@ -295,11 +323,14 @@ export default function BoqBillsReportPage() {
                         <tr className="font-semibold">
                           <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700">TOTAL</td>
                           <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
+                          <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.boqQty.toFixed(2)}</td>
                           <td className="px-3 py-2 text-left border border-gray-300 dark:border-gray-700"></td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.boqAmount.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.doneQty.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.executedAmount.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.unbilledQty.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700">{totals.unbilledAmount.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{totals.totalUptoQty.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right border border-gray-300 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-950/30">{totals.totalUptoAmount.toFixed(2)}</td>
                           {matrixData.bills.map((b) => (

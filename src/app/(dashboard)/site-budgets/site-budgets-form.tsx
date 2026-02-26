@@ -743,7 +743,9 @@ export function SiteBudgetsForm({
     label: b?.boqNo || `BOQ ${b?.id}`,
   }));
 
-  const overallBudgetOptions = (overallBudgetsData?.data || []).map((b: any) => ({
+  const overallBudgetOptions = (overallBudgetsData?.data || [])
+    .filter((b: any) => Boolean((b as any)?.isProjectApprovalDone))
+    .map((b: any) => ({
     value: String(b.id),
     label: `(${b?.boq?.boqNo || `BOQ ${b?.boqId || ""}` || ""} - ${
       b?.site?.site || ""

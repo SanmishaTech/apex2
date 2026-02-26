@@ -9,7 +9,6 @@ import { NonFormTextInput } from '@/components/common/non-form-text-input';
 import { FilterBar } from '@/components/common';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
-import { AppSelect } from '@/components/common/app-select';
 import { DataTable, SortState, Column } from '@/components/common/data-table';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
@@ -51,61 +50,49 @@ export default function BoqsPage() {
     page: 1,
     perPage: 10,
     search: '',
-    siteId: '',
     sort: 'createdAt',
     order: 'desc',
   });
-  const { page, perPage, search, siteId, sort, order } =
+  const { page, perPage, search, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
-      siteId: string;
       sort: string;
       order: 'asc' | 'desc';
     };
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
-  const [siteIdDraft, setSiteIdDraft] = useState(siteId);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
-    setSiteIdDraft(siteId);
-  }, [search, siteId]);
+  }, [search]);
 
-  const filtersDirty = searchDraft !== search || siteIdDraft !== siteId;
+  const filtersDirty = searchDraft !== search;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
-      siteId: siteIdDraft,
     });
   }
 
   function resetFilters() {
     setSearchDraft('');
-    setSiteIdDraft('');
-    setQp({ page: 1, search: '', siteId: '' });
+    setQp({ page: 1, search: '' });
   }
-
-  const { data: siteOptionsResp } = useSWR<{ data: SiteOption[] }>(
-    '/api/sites/options',
-    apiGet
-  );
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('page', String(page));
     sp.set('perPage', String(perPage));
     if (search) sp.set('search', search);
-    if (siteId) sp.set('siteId', siteId);
     if (sort) sp.set('sort', sort);
     if (order) sp.set('order', order);
     return `/api/boqs?${sp.toString()}`;
-  }, [page, perPage, search, siteId, sort, order]);
+  }, [page, perPage, search, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<BoqsResponse>(query, apiGet);
 
@@ -208,38 +195,25 @@ export default function BoqsPage() {
         <FilterBar title='Search & Filter'>
           <NonFormTextInput
             aria-label='Search BOQs'
-            placeholder='Search by BOQ No or Work Name...'
+            placeholder='Search by Site...'
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName='w-full'
           />
-          <AppSelect
-            label=''
-            value={siteIdDraft || '__all'}
-            onValueChange={(v) => setSiteIdDraft(v === '__all' ? '' : v)}
-            placeholder='Select site'
-          >
-            <AppSelect.Item value='__all'>All Sites</AppSelect.Item>
-            {(siteOptionsResp?.data || []).map((s) => (
-              <AppSelect.Item key={s.id} value={String(s.id)}>
-                {s.site}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
           <AppButton
             size='sm'
             onClick={applyFilters}
-            disabled={!filtersDirty && !searchDraft && !siteIdDraft}
-            className='min-w-21'
+            disabled={!filtersDirty && !searchDraft}
+            className='min-w-[84px]'
           >
             Filter
           </AppButton>
-          {(search || siteId) && (
+          {search && (
             <AppButton
               variant='secondary'
               size='sm'
               onClick={resetFilters}
-              className='min-w-21'
+              className='min-w-[84px]'
             >
               Reset
             </AppButton>

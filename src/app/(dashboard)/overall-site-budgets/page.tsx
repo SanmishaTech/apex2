@@ -451,12 +451,21 @@ export default function OverallSiteBudgetsPage() {
                       )}
 
                       {canDelete && (
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            handleDelete(row.id);
-                          }}
-                        >
-                          Delete
+                        <DropdownMenuItem asChild>
+                          <DeleteButton
+                            onDelete={() => handleDelete(row.id)}
+                            itemLabel="overall site budget"
+                            title="Delete overall site budget?"
+                            description={
+                              `This will permanently remove Overall Site Budget for BOQ \"${
+                                row.boq?.boqNo || row.boqId
+                              }\". This action cannot be undone.`
+                            }
+                          >
+                            <button type="button" className="w-full text-left cursor-pointer">
+                              Delete
+                            </button>
+                          </DeleteButton>
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>

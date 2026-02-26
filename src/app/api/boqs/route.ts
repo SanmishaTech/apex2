@@ -39,15 +39,12 @@ export async function GET(req: NextRequest) {
     | "desc";
 
   type BoqWhere = {
-    OR?: { workName?: { contains: string }; boqNo?: { contains: string } }[];
+    site?: { site?: { contains: string } };
     siteId?: number | { in: number[] };
   };
   const where: BoqWhere = {};
   if (search) {
-    where.OR = [
-      { workName: { contains: search } },
-      { boqNo: { contains: search } },
-    ];
+    where.site = { site: { contains: search } };
   }
 
   const siteIdParamRaw = searchParams.get("siteId");

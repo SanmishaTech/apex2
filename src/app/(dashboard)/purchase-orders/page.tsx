@@ -98,16 +98,20 @@ export default function PurchaseOrdersPage() {
     search: "",
     site: "",
     vendor: "",
+    approvalStatus: "",
+    poStatus: "",
     sort: "purchaseOrderDate",
     order: "desc",
   });
-  const { page, perPage, search, site, vendor, sort, order } =
+  const { page, perPage, search, site, vendor, approvalStatus, poStatus, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
       search: string;
       site: string;
       vendor: string;
+      approvalStatus: string;
+      poStatus: string;
       sort: string;
       order: "asc" | "desc";
     };
@@ -116,6 +120,8 @@ export default function PurchaseOrdersPage() {
   const [searchDraft, setSearchDraft] = useState(search);
   const [siteDraft, setSiteDraft] = useState(site);
   const [vendorDraft, setVendorDraft] = useState(vendor);
+  const [approvalStatusDraft, setApprovalStatusDraft] = useState(approvalStatus);
+  const [poStatusFilterDraft, setPoStatusFilterDraft] = useState(poStatus);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
@@ -130,14 +136,28 @@ export default function PurchaseOrdersPage() {
     setVendorDraft(vendor);
   }, [vendor]);
 
+  useEffect(() => {
+    setApprovalStatusDraft(approvalStatus);
+  }, [approvalStatus]);
+
+  useEffect(() => {
+    setPoStatusFilterDraft(poStatus);
+  }, [poStatus]);
+
   const filtersDirty =
-    searchDraft !== search || siteDraft !== site || vendorDraft !== vendor;
+    searchDraft !== search ||
+    siteDraft !== site ||
+    vendorDraft !== vendor ||
+    approvalStatusDraft !== approvalStatus ||
+    poStatusFilterDraft !== poStatus;
 
   function applyFilters() {
     setQp({
       search: searchDraft.trim(),
       site: siteDraft,
       vendor: vendorDraft,
+      approvalStatus: approvalStatusDraft,
+      poStatus: poStatusFilterDraft,
       page: 1, // Reset to first page when filters change
     });
   }
@@ -310,6 +330,8 @@ export default function PurchaseOrdersPage() {
       search: search,
       site: site,
       vendor: vendor,
+      approvalStatus: approvalStatus,
+      poStatus: poStatus,
       sort: sort,
       order: order,
     })}`,
@@ -642,7 +664,7 @@ export default function PurchaseOrdersPage() {
       <AppCard>
         <AppCard.Content>
           <FilterBar title="Search & Filter">
-            <div className="col-span-full grid grid-cols-4 gap-3 items-start">
+            <div className="col-span-full grid grid-cols-6 gap-3 items-start">
               <div className="flex flex-col gap-2 min-w-0">
                 <NonFormTextInput
                   label="Search"
@@ -654,7 +676,7 @@ export default function PurchaseOrdersPage() {
                   }}
                   containerClassName="min-w-0"
                 />
-                {(search || site || vendor) && (
+                {(search || site || vendor || approvalStatus || poStatus) && (
                   <AppButton
                     variant="secondary"
                     type="button"
@@ -662,10 +684,14 @@ export default function PurchaseOrdersPage() {
                       setSearchDraft("");
                       setSiteDraft("");
                       setVendorDraft("");
+                      setApprovalStatusDraft("");
+                      setPoStatusFilterDraft("");
                       setQp({
                         search: "",
                         site: "",
                         vendor: "",
+                        approvalStatus: "",
+                        poStatus: "",
                         page: 1,
                       });
                     }}
@@ -704,6 +730,36 @@ export default function PurchaseOrdersPage() {
                     {v.vendorName}
                   </AppSelect.Item>
                 ))}
+              </AppSelect>
+              <AppSelect
+                label="Approval Status"
+                value={approvalStatusDraft || "__none"}
+                onValueChange={(v) => setApprovalStatusDraft(v === "__none" ? "" : v)}
+                placeholder="All"
+                triggerClassName="h-9"
+                className="min-w-0"
+              >
+                <AppSelect.Item value="__none">All</AppSelect.Item>
+                <AppSelect.Item value="DRAFT">Draft</AppSelect.Item>
+                <AppSelect.Item value="APPROVED_LEVEL_1">Approved 1</AppSelect.Item>
+                <AppSelect.Item value="APPROVED_LEVEL_2">Approved 2</AppSelect.Item>
+                <AppSelect.Item value="COMPLETED">Completed</AppSelect.Item>
+                <AppSelect.Item value="SUSPENDED">Suspended</AppSelect.Item>
+              </AppSelect>
+              <AppSelect
+                label="Status"
+                value={poStatusFilterDraft || "__none"}
+                onValueChange={(v) => setPoStatusFilterDraft(v === "__none" ? "" : (v as any))}
+                placeholder="All"
+                triggerClassName="h-9"
+                className="min-w-0"
+              >
+                <AppSelect.Item value="__none">All</AppSelect.Item>
+                <AppSelect.Item value="OPEN">Open</AppSelect.Item>
+                <AppSelect.Item value="ORDER_PLACED">Order Placed</AppSelect.Item>
+                <AppSelect.Item value="IN_TRANSIT">In Transit</AppSelect.Item>
+                <AppSelect.Item value="RECEIVED">Received</AppSelect.Item>
+                <AppSelect.Item value="HOLD">Hold</AppSelect.Item>
               </AppSelect>
               <AppButton
                 type="button"

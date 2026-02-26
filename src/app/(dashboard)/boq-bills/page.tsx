@@ -157,7 +157,7 @@ export default function BoqBillsPage() {
         <FilterBar title="Search & Filter">
           <NonFormTextInput
             aria-label="Search BOQ Bills"
-            placeholder="Search by Bill No, Bill Name, BOQ No..."
+            placeholder="Search by Site..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName="w-full"

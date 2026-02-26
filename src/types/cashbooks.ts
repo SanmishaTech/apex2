@@ -45,6 +45,7 @@ export interface Cashbook {
   siteId: number | null;
   boqId: number | null;
   attachVoucherCopyUrl: string | null;
+  totalPaidAmount?: number;
   createdById?: number;
   updatedById?: number;
   isApproved1?: boolean;

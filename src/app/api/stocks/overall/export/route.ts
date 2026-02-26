@@ -36,14 +36,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = (searchParams.get("search") || "").trim();
     const siteIdParam = searchParams.get("siteId");
-    const itemIdParam = searchParams.get("itemId");
     const sort = (searchParams.get("sort") || "site").toString();
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
       | "desc";
 
     const siteId = siteIdParam ? Number(siteIdParam) : undefined;
-    const itemId = itemIdParam ? Number(itemIdParam) : undefined;
 
     const where: any = {};
 
@@ -67,13 +65,8 @@ export async function GET(req: NextRequest) {
       if (Number.isFinite(siteId as number)) where.siteId = siteId;
     }
 
-    if (Number.isFinite(itemId as number)) where.itemId = itemId;
-
     if (search) {
-      where.OR = [
-        { site: { site: { contains: search, mode: "insensitive" } } },
-        { item: { item: { contains: search, mode: "insensitive" } } },
-      ];
+      where.item = { item: { contains: search } };
     }
 
     // Sorting mapping (match /api/stocks/overall)
@@ -104,10 +97,7 @@ export async function GET(req: NextRequest) {
       ? (await prisma.site.findUnique({ where: { id: siteId }, select: { site: true } }))
           ?.site || String(siteId)
       : "All";
-    const itemName = itemId
-      ? (await prisma.item.findUnique({ where: { id: itemId }, select: { item: true } }))
-          ?.item || String(itemId)
-      : "All";
+    const itemName = search || "All";
 
     const wsData: any[][] = [];
     wsData.push(["Overall Stock Export"]);

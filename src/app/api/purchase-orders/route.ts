@@ -235,6 +235,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const siteFilter = searchParams.get("site") || "";
     const vendorFilter = searchParams.get("vendor") || "";
+    const approvalStatusFilter = searchParams.get("approvalStatus") || "";
+    const poStatusFilter = searchParams.get("poStatus") || "";
     const excludeLinked = searchParams.get("excludeLinked") === "true";
     const approved2Filter = searchParams.get("approved2");
     const sort = (searchParams.get("sort") || "purchaseOrderDate") as string;
@@ -295,6 +297,32 @@ export async function GET(req: NextRequest) {
       const vendorId = parseInt(vendorFilter);
       if (!isNaN(vendorId)) {
         where.vendorId = vendorId;
+      }
+    }
+
+    if (approvalStatusFilter) {
+      const allowed = new Set([
+        "DRAFT",
+        "APPROVED_LEVEL_1",
+        "APPROVED_LEVEL_2",
+        "COMPLETED",
+        "SUSPENDED",
+      ]);
+      if (allowed.has(approvalStatusFilter)) {
+        where.approvalStatus = approvalStatusFilter;
+      }
+    }
+
+    if (poStatusFilter) {
+      const allowed = new Set([
+        "OPEN",
+        "ORDER_PLACED",
+        "IN_TRANSIT",
+        "RECEIVED",
+        "HOLD",
+      ]);
+      if (allowed.has(poStatusFilter)) {
+        where.poStatus = poStatusFilter;
       }
     }
 

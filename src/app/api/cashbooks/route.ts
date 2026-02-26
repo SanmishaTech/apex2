@@ -251,6 +251,34 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const cashbookIds = (result.data || [])
+      .map((r: any) => r.id)
+      .filter((id: any): id is number => typeof id === "number");
+
+    if (cashbookIds.length > 0) {
+      const paidAgg = await prisma.cashbookDetail.groupBy({
+        by: ["cashbookId"],
+        where: { cashbookId: { in: cashbookIds } },
+        _sum: { amountPaid: true },
+      });
+
+      const paidByCashbookId = new Map<number, number>();
+      for (const row of paidAgg) {
+        const rawPaid = row._sum.amountPaid;
+        const paid = rawPaid == null
+          ? 0
+          : typeof rawPaid === "number"
+            ? rawPaid
+            : Number(rawPaid);
+        paidByCashbookId.set(row.cashbookId, paid);
+      }
+
+      result.data = (result.data || []).map((r: any) => ({
+        ...r,
+        totalPaidAmount: paidByCashbookId.get(r.id) ?? 0,
+      }));
+    }
+
     return Success(result);
   } catch (error) {
     console.error("Get cashbooks error:", error);
