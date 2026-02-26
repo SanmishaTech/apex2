@@ -49,11 +49,10 @@ export async function GET(req: NextRequest) {
 
     const where: any = {};
     if (search) {
-      where.OR = [
-        { billNumber: { contains: search } },
-        { billName: { contains: search } },
-        { boq: { boqNo: { contains: search } } },
-      ];
+      where.boq = {
+        ...(where.boq || {}),
+        site: { site: { contains: search } },
+      };
     }
 
     const role = auth.user.role;

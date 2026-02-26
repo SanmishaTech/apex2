@@ -141,6 +141,7 @@ export async function GET(req: NextRequest) {
       siteManpower: {
         select: {
           siteId: true,
+          site: { select: { id: true, site: true } },
           isPresent: true,
           assignedDate: true,
           wage: true,
@@ -168,6 +169,7 @@ export async function GET(req: NextRequest) {
             ...row,
             // Back-compat fields expected by some UIs
             currentSiteId: sm?.siteId ?? null,
+            currentSiteName: sm?.site?.site ?? null,
             assignedAt: sm?.assignedDate ?? null,
             category: sm?.category?.categoryName ?? null,
             skillSet: sm?.skillset?.skillsetName ?? null,

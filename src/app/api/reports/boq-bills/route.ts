@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
         orderBy: { id: "asc" },
         select: {
           id: true,
+          clientSrNo: true,
           item: true,
           unit: { select: { unitName: true } },
           qty: true,
@@ -118,6 +119,7 @@ export async function GET(req: NextRequest) {
 
     return {
       boqItemId: it.id,
+      clientSrNo: (it as any).clientSrNo ?? null,
       description: it.item || "",
       unit: it.unit?.unitName || "",
       boqQty: Number(Number(it.qty || 0).toFixed(4)),

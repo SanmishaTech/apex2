@@ -38,7 +38,7 @@ export default function ViewStockReportPage() {
     const base: Column<ReportRow>[] = [
       { key: 'item', header: 'Item', accessor: (r) => r.item, className: 'whitespace-nowrap' },
       { key: 'unit', header: 'Unit', accessor: (r) => r.unit || '-', className: 'whitespace-nowrap' },
-      { key: 'opening', header: 'Opening Stock', accessor: (r) => Number(r.opening).toFixed(4), className: 'whitespace-nowrap text-right' },
+      { key: 'opening', header: 'Opening Stock', accessor: (r) => Number(r.opening).toFixed(2), className: 'whitespace-nowrap text-right' },
     ];
     const dayCols: Column<ReportRow>[] = (data?.days || []).map((d, idx) => ({
       key: `day_${d}`,
@@ -46,13 +46,13 @@ export default function ViewStockReportPage() {
       className: 'whitespace-nowrap text-center',
       accessor: (r: ReportRow) => (
         <div className='text-xs leading-tight'>
-          <div>Rec: {Number(r.perDay[idx]?.received || 0).toFixed(4)}</div>
-          <div>Iss: {Number(r.perDay[idx]?.issued || 0).toFixed(4)}</div>
+          <div>Rec: {Number(r.perDay[idx]?.received || 0).toFixed(2)}</div>
+          <div>Iss: {Number(r.perDay[idx]?.issued || 0).toFixed(2)}</div>
         </div>
       ),
     }));
     const tail: Column<ReportRow>[] = [
-      { key: 'closing', header: 'Closing Stock', accessor: (r) => Number(r.closing).toFixed(4), className: 'whitespace-nowrap text-right' },
+      { key: 'closing', header: 'Closing Stock', accessor: (r) => Number(r.closing).toFixed(2), className: 'whitespace-nowrap text-right' },
     ];
     return [...base, ...dayCols, ...tail];
   }, [data?.days]);

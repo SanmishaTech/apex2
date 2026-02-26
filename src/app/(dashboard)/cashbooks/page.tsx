@@ -593,6 +593,17 @@ export default function CashbooksPage() {
       ),
     },
     {
+      key: "totalPaidAmount",
+      header: "Total Paid Amount",
+      accessor: (cashbook) => (
+        <div className="text-right font-mono">
+          {(cashbook as any)?.totalPaidAmount ?? 0}
+        </div>
+      ),
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+    },
+    {
       key: "createdAt",
       header: "Created At",
       sortable: true,

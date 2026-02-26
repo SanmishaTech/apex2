@@ -56,6 +56,7 @@ export type ManpowerListItem = {
   mlwf: string | null;
   isAssigned: boolean;
   currentSiteId: number | null;
+  currentSiteName?: string | null;
   assignedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -104,6 +105,7 @@ export default function ManpowerPage() {
       key: 'firstName', header: 'Name', sortable: true, accessor: (r) => `${r.firstName}${r.middleName ? ' ' + r.middleName : ''} ${r.lastName}`,
       className: 'whitespace-nowrap', cellClassName: 'font-medium whitespace-nowrap',
     },
+    { key: 'currentSiteName', header: 'Site', sortable: false, accessor: (r) => r.currentSiteName || '-', className: 'whitespace-nowrap' },
     { key: 'manpowerSupplier', header: 'Supplier', sortable: false, accessor: (r) => r.manpowerSupplier?.supplierName || '-', className: 'whitespace-nowrap' },
     { key: 'mobileNumber', header: 'Mobile', sortable: false, className: 'whitespace-nowrap' },
     { key: 'wage', header: 'Wage', sortable: true, className: 'text-right whitespace-nowrap', cellClassName: 'text-right tabular-nums whitespace-nowrap' },
