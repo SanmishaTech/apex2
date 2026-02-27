@@ -57,8 +57,6 @@ export interface BoqFormInitialData {
     amount?: string | number | null;
     orderedQty?: string | number | null;
     orderedValue?: string | number | null;
-    remainingQty?: string | number | null;
-    remainingValue?: string | number | null;
     isGroup?: boolean | null;
   }> | null;
 }
@@ -172,12 +170,6 @@ function toSubmitPayload(data: RawFormValues) {
       orderedQty: it.orderedQty && it.orderedQty !== "" ? it.orderedQty : null,
       orderedValue:
         it.orderedValue && it.orderedValue !== "" ? it.orderedValue : null,
-      remainingQty:
-        it.remainingQty && it.remainingQty !== "" ? it.remainingQty : null,
-      remainingValue:
-        it.remainingValue && it.remainingValue !== ""
-          ? it.remainingValue
-          : null,
       isGroup: Boolean(it.isGroup) || false,
     })),
   };
@@ -191,6 +183,9 @@ export function BoqForm({
 }: BoqFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [executedQtyByItemId, setExecutedQtyByItemId] = useState<Map<number, number>>(
+    new Map()
+  );
 
   // Add effect to style asterisks red after component mounts
   useEffect(() => {
@@ -267,9 +262,11 @@ export function BoqForm({
           rate: it.rate != null ? String(it.rate) : "",
           orderedQty: it.orderedQty != null ? String(it.orderedQty) : "",
           orderedValue: it.orderedValue != null ? String(it.orderedValue) : "",
-          remainingQty: it.remainingQty != null ? String(it.remainingQty) : "",
-          remainingValue:
-            it.remainingValue != null ? String(it.remainingValue) : "",
+          remainingQty:
+            it.qty != null && it.orderedQty != null
+              ? (Number(it.qty) - Number(it.orderedQty)).toFixed(2)
+              : "",
+          remainingValue: "",
           isGroup: Boolean(it.isGroup) || false,
         })) || [],
     },
@@ -288,17 +285,57 @@ export function BoqForm({
     return (q * r).toFixed(2);
   }
 
-  // Auto-calculate Ordered/Remaining values = qty * rate
+  useEffect(() => {
+    if (mode !== "edit" || !initial?.id) return;
+    (async () => {
+      try {
+        const res: any = await apiGet(`/api/boqs/${initial.id}`);
+        const boq = res?.data ?? res;
+        const items = Array.isArray(boq?.items) ? boq.items : [];
+        const map = new Map<number, number>();
+        for (const it of items) {
+          const id = Number((it as any)?.id);
+          if (!Number.isFinite(id) || id <= 0) continue;
+          map.set(id, Number((it as any)?.executedQty || 0));
+        }
+        setExecutedQtyByItemId(map);
+      } catch {
+        setExecutedQtyByItemId(new Map());
+      }
+    })();
+  }, [mode, initial?.id]);
+
+  // Auto-calculate Ordered/Remaining values and * rate
   useEffect(() => {
     (itemsWatch || []).forEach((row, index) => {
       const r = Number(row?.rate);
       const oq = Number(row?.orderedQty);
-      const cq = Number(row?.remainingQty);
+      const q = Number(row?.qty);
+      const itemIdRaw = row?.id;
+      const itemId =
+        itemIdRaw != null && String(itemIdRaw).trim() !== ""
+          ? Number(itemIdRaw)
+          : NaN;
+      const executed = Number.isFinite(itemId)
+        ? Number(executedQtyByItemId.get(itemId) || 0)
+        : 0;
+      const remainingQty =
+        isFinite(q) && isFinite(oq)
+          ? (q - oq - Number(executed || 0)).toFixed(2)
+          : "";
+      const cq = Number(remainingQty);
 
       const orderedValue =
         isFinite(oq) && isFinite(r) ? (oq * r).toFixed(2) : "";
       const remainingValue =
         isFinite(cq) && isFinite(r) ? (cq * r).toFixed(2) : "";
+
+      if ((row?.remainingQty ?? "") !== remainingQty) {
+        setValue(`items.${index}.remainingQty` as any, remainingQty, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
 
       if ((row?.orderedValue ?? "") !== orderedValue) {
         setValue(`items.${index}.orderedValue` as any, orderedValue, {
@@ -313,7 +350,7 @@ export function BoqForm({
         });
       }
     });
-  }, [itemsWatch, setValue]);
+  }, [itemsWatch, setValue, executedQtyByItemId]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -748,7 +785,7 @@ export function BoqForm({
                         <div className="grid grid-cols-12 gap-6 mt-3">
                           <div className="col-span-12 md:col-span-6 lg:col-span-6">
                             <FormLabel className="text-xs text-muted-foreground">
-                              Executed Qty
+                              Ordered Qty
                             </FormLabel>
                             <TextInput
                               control={control}
@@ -777,9 +814,18 @@ export function BoqForm({
                                 );
 
                                 const q = Number(itemsWatch?.[index]?.qty);
+                                const itemIdRaw = itemsWatch?.[index]?.id;
+                                const itemId =
+                                  itemIdRaw != null &&
+                                  String(itemIdRaw).trim() !== ""
+                                    ? Number(itemIdRaw)
+                                    : NaN;
+                                const executed = Number.isFinite(itemId)
+                                  ? Number(executedQtyByItemId.get(itemId) || 0)
+                                  : 0;
                                 const remainingQty =
                                   isFinite(q) && isFinite(oq)
-                                    ? (q - oq).toFixed(2)
+                                    ? (q - oq - Number(executed || 0)).toFixed(2)
                                     : "";
                                 setValue(
                                   `items.${index}.remainingQty` as any,

@@ -69,8 +69,6 @@ export async function GET(req: NextRequest) {
         amount: true,
         orderedQty: true,
         orderedValue: true,
-        remainingQty: true,
-        remainingValue: true,
         unit: { select: { unitName: true } },
         boq: {
           select: {
@@ -84,34 +82,58 @@ export async function GET(req: NextRequest) {
       orderBy: [{ id: "asc" }],
     });
 
+    const dpAgg = await prisma.dailyProgressDetail.groupBy({
+      by: ["boqItemId"],
+      _sum: { doneQty: true },
+      where: {
+        boqItemId: { in: rows.map((r) => r.id) },
+        dailyProgress: {
+          boqId: boqId as number,
+          ...(Number.isFinite(siteId as number) ? { siteId: siteId as number } : {}),
+        },
+      },
+    });
+    const dpDoneByItemId = new Map<number, number>();
+    for (const r of dpAgg) {
+      dpDoneByItemId.set(
+        Number((r as any).boqItemId),
+        Number((r as any)?._sum?.doneQty || 0)
+      );
+    }
+
     let totalAmount = 0;
     let totalOrderedAmount = 0;
     let totalRemainingAmount = 0;
-    const data = rows.map((r) => ({
-      id: r.id,
-      boqId: r.boqId,
-      boqNo: r.boq?.boqNo || "",
-      siteId: r.boq?.siteId ?? null,
-      site: r.boq?.site?.site || "-",
-      itemId: r.id, // no separate item ID in BoqItem, keep line id
-      description: r.item || "",
-      qty: Number(r.qty || 0),
-      unit: r.unit?.unitName || null,
-      orderedQty: Number(r.orderedQty || 0),
-      remainingQty: Number(r.remainingQty || 0),
-      rate: Number(r.rate || 0),
-      amount: Number(r.amount || 0),
-      orderedAmount: Number(r.orderedValue || 0),
-      remainingAmount: Number(r.remainingValue || 0),
-      orderedPct:
-        Number(r.qty || 0) === 0
-          ? 0
-          : (Number(r.orderedQty || 0) / Number(r.qty || 0)) * 100,
-      remainingPct:
-        Number(r.qty || 0) === 0
-          ? 0
-          : (Number(r.remainingQty || 0) / Number(r.qty || 0)) * 100,
-    }));
+    const data = rows.map((r) => {
+      const qty = Number(r.qty || 0);
+      const rate = Number(r.rate || 0);
+      const orderedQty = Number(r.orderedQty || 0);
+      const dpDoneQty = Number(dpDoneByItemId.get(r.id) || 0);
+      const executedQty = orderedQty + dpDoneQty;
+      const remainingQty = qty - executedQty;
+      const amount = Number(r.amount || 0);
+      const orderedAmount = executedQty * rate;
+      const remainingAmount = remainingQty * rate;
+      return {
+        id: r.id,
+        boqId: r.boqId,
+        boqNo: r.boq?.boqNo || "",
+        siteId: r.boq?.siteId ?? null,
+        site: r.boq?.site?.site || "-",
+        itemId: r.id, // no separate item ID in BoqItem, keep line id
+        description: r.item || "",
+        qty,
+        unit: r.unit?.unitName || null,
+        orderedQty: executedQty,
+        remainingQty,
+        rate,
+        amount,
+        orderedAmount,
+        remainingAmount,
+        orderedPct: qty === 0 ? 0 : (executedQty / qty) * 100,
+        remainingPct: qty === 0 ? 0 : (remainingQty / qty) * 100,
+      };
+    });
 
     data.forEach((d) => {
       totalAmount += d.amount;

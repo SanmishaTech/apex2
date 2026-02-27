@@ -78,10 +78,10 @@ const inputSchema = z.object({
         activityId: z.string().optional(),
         item: z.string().optional(),
         unit: z.string().optional(),
-        boqQty: z.string().optional(),
-        doneQty: z.string().optional(),
+        boqQty: z.union([z.string(), z.number()]).optional(),
+        doneQty: z.union([z.string(), z.number()]).optional(),
         particulars: z.string().optional(),
-        amount: z.string().optional(),
+        amount: z.union([z.string(), z.number()]).optional(),
       })
     )
     .optional()
@@ -161,6 +161,17 @@ export function DailyProgressForm({
       details: ((initial?.dailyProgressDetails ?? initial?.details) || []).map(
         (d: any) => {
           const bi = d?.boqItems;
+          const biQty = Number(bi?.qty ?? 0);
+          const biOrderedQty = Number(bi?.orderedQty ?? 0);
+          const biRate = Number(bi?.rate ?? 0);
+          const biRemainingQty =
+            Number.isFinite(biQty) && Number.isFinite(biOrderedQty)
+              ? String((biQty - biOrderedQty).toFixed(4))
+              : "";
+          const biRemainingValue =
+            biRemainingQty !== "" && Number.isFinite(biRate)
+              ? String((Number(biRemainingQty) * biRate).toFixed(4))
+              : "";
           return {
             boqItemId: d?.boqItemId ? String(d.boqItemId) : "",
             clientSerialNo: d?.clientSerialNo || "",
@@ -170,17 +181,13 @@ export function DailyProgressForm({
             boqQty:
               d?.boqQty != null && d?.boqQty !== ""
                 ? String(d.boqQty)
-                : bi?.remainingQty != null
-                ? String(bi.remainingQty)
-                : "",
+                : biRemainingQty,
             doneQty: d?.doneQty ? String(d.doneQty) : "",
             particulars: d?.particulars || "",
             amount:
               d?.amount != null && d?.amount !== ""
                 ? String(d.amount)
-                : bi?.remainingQty != null
-                ? String(bi.remainingQty)
-                : "",
+                : biRemainingValue,
           };
         }
       ),
@@ -206,6 +213,11 @@ export function DailyProgressForm({
   } = form;
 
   const details = useWatch({ control, name: "details" });
+
+  const fmtQty = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(2) : "—";
+  };
 
   const {
     fields: detailFields,
@@ -347,32 +359,60 @@ export function DailyProgressForm({
       return;
     }
     (async () => {
-      const res: any = await apiGet(`/api/boqs/${selectedBoqId}`);
+      const qs = new URLSearchParams();
+      const url = qs.toString()
+        ? `/api/boqs/${selectedBoqId}?${qs.toString()}`
+        : `/api/boqs/${selectedBoqId}`;
+      const res: any = await apiGet(url);
       const boq = res?.data ?? res;
       const items = boq?.items;
       if (Array.isArray(items)) {
-        const mapped = items.map((it: any) => ({
-          id: it.id,
-          activityId: it.activityId || null,
-          clientSrNo: it.clientSrNo || "-",
-          item: it.item || "-",
-          unit: (it.unit && (it.unit.unitName || it.unit)) || "-",
-          boqQty: it.remainingQty || "0",
-          amount: it.remainingQty || "0",
-        }));
+        const mapped = items.map((it: any) => {
+          const qty = Number(it?.qty ?? 0);
+          const orderedQty = Number(it?.orderedQty ?? 0);
+          const rate = Number(it?.rate ?? 0);
+          const fallbackRemaining =
+            Number.isFinite(qty) && Number.isFinite(orderedQty)
+              ? qty - orderedQty
+              : 0;
+          const remainingQty =
+            it.computedRemainingQty != null
+              ? Number(it.computedRemainingQty)
+              : fallbackRemaining;
+          const remainingValue =
+            Number.isFinite(remainingQty) && Number.isFinite(rate)
+              ? Number((remainingQty * rate).toFixed(4))
+              : 0;
+
+          return {
+            id: it.id,
+            activityId: it.activityId || null,
+            clientSrNo: it.clientSrNo || "-",
+            item: it.item || "-",
+            unit: (it.unit && (it.unit.unitName || it.unit)) || "-",
+            boqQty: remainingQty,
+            amount: remainingValue,
+          };
+        });
         setBoqItems(mapped);
       } else {
         setBoqItems([]);
       }
     })();
-  }, [selectedBoqId]);
+  }, [selectedBoqId, mode, initial?.id]);
 
   // Removed generic reset effect; handled in selectedSite/Boq effects above
+
+  function onInvalid(errors: any) {
+    console.log("DailyProgressForm validation errors:", errors);
+    toast.error("Please fill required fields");
+  }
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
     try {
       const payload = toSubmitPayload(data);
+      console.log("DailyProgressForm submitting payload:", payload);
       if (isCreate) {
         const res = await apiPost("/api/daily-progresses", payload);
         toast.success("Daily Progress created");
@@ -402,7 +442,7 @@ export function DailyProgressForm({
           </AppCard.Title>
         </AppCard.Header>
 
-        <form noValidate onSubmit={handleSubmit(onSubmit)}>
+        <form noValidate onSubmit={handleSubmit(onSubmit, onInvalid)}>
           <AppCard.Content>
             {/* ===== General Section ===== */}
             <FormSection
@@ -415,6 +455,13 @@ export function DailyProgressForm({
                   label="Site *"
                   placeholder="Select site"
                   triggerClassName="h-9 w-full"
+                  onValueChange={(value) => {
+                    setValue("siteId", value, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                    clearErrors("siteId");
+                  }}
                 >
                   {sitesData?.data?.map((s: any) => (
                     <AppSelect.Item key={s.id} value={String(s.id)}>
@@ -496,7 +543,7 @@ export function DailyProgressForm({
                               {detail?.unit || "—"}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums align-top whitespace-nowrap">
-                              {detail?.boqQty || "—"}
+                              {fmtQty(detail?.boqQty)}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums align-top whitespace-nowrap">
                               <TextInput
@@ -627,7 +674,7 @@ export function DailyProgressForm({
               type="submit"
               iconName={isCreate ? "Plus" : "Save"}
               isLoading={submitting}
-              disabled={submitting || !form.formState.isValid}
+              disabled={submitting}
             >
               {isCreate ? "Create Daily Progress" : "Save Changes"}
             </AppButton>

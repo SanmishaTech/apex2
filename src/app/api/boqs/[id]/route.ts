@@ -20,6 +20,15 @@ export async function GET(
     const excludeBoqBillId = excludeBoqBillIdRaw ? Number(excludeBoqBillIdRaw) : NaN;
     const excludeBillId = Number.isFinite(excludeBoqBillId) && excludeBoqBillId > 0 ? excludeBoqBillId : null;
 
+    const excludeDailyProgressIdRaw = searchParams.get("excludeDailyProgressId");
+    const excludeDailyProgressIdNum = excludeDailyProgressIdRaw
+      ? Number(excludeDailyProgressIdRaw)
+      : NaN;
+    const excludeDailyProgressId =
+      Number.isFinite(excludeDailyProgressIdNum) && excludeDailyProgressIdNum > 0
+        ? excludeDailyProgressIdNum
+        : undefined;
+
     const boq = await prisma.boq.findUnique({
       where: { id: idNum },
       select: {
@@ -60,8 +69,6 @@ export async function GET(
             amount: true,
             orderedQty: true,
             orderedValue: true,
-            remainingQty: true,
-            remainingValue: true,
             isGroup: true,
           },
           orderBy: { id: "asc" },
@@ -69,6 +76,28 @@ export async function GET(
       },
     });
     if (!boq) return Error("BOQ not found", 404);
+
+    const executedAgg = await prisma.dailyProgressDetail.groupBy({
+      by: ["boqItemId"],
+      _sum: { doneQty: true },
+      where: {
+        boqItemId: { in: (boq.items || []).map((it) => it.id) },
+        dailyProgress: {
+          boqId: idNum,
+          ...(typeof boq.siteId === "number" ? { siteId: boq.siteId } : {}),
+          ...(typeof excludeDailyProgressId === "number"
+            ? { id: { not: excludeDailyProgressId } }
+            : {}),
+        },
+      },
+    });
+    const executedByItemId = new Map<number, number>();
+    for (const r of executedAgg) {
+      executedByItemId.set(
+        Number((r as any).boqItemId),
+        Number(((r as any)?._sum?.doneQty as any) ?? 0)
+      );
+    }
 
     const billedDetails = await prisma.bOQBillDetail.findMany({
       where: {
@@ -90,6 +119,17 @@ export async function GET(
     const items = (boq.items || []).map((it) => ({
       ...it,
       billedQty: Number(billedQtyByItemId.get(Number(it.id)) || 0),
+      executedQty: Number(executedByItemId.get(Number(it.id)) || 0),
+      baseRemainingQty: Number(
+        (Number(it.qty || 0) - Number(it.orderedQty || 0)).toFixed(4)
+      ),
+      computedRemainingQty: Number(
+        (
+          Number(it.qty || 0) -
+          Number(it.orderedQty || 0) -
+          Number(executedByItemId.get(Number(it.id)) || 0)
+        ).toFixed(4)
+      ),
     }));
 
     return Success({ ...boq, items });

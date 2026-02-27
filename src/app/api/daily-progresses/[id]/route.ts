@@ -50,7 +50,7 @@ export async function GET(
                 qty: true,
                 rate: true,
                 amount: true,
-                remainingQty: true,
+                orderedQty: true,
               },
             },
           },
