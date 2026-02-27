@@ -132,9 +132,7 @@ export async function GET(req: NextRequest) {
           rate: true,
           amount: true,
           orderedQty: true,
-          remainingQty: true,
           orderedValue: true,
-          remainingValue: true,
           isGroup: true,
         },
       },
@@ -281,6 +279,25 @@ export async function GET(req: NextRequest) {
     monthExecutedQtyByItemId.set(itemId, sum);
   }
 
+  const overallAgg = await prisma.dailyProgressDetail.groupBy({
+    by: ["boqItemId"],
+    _sum: { doneQty: true },
+    where: {
+      boqItemId: { in: (boq.items || []).map((it) => it.id) },
+      dailyProgress: {
+        boqId,
+        ...(Number.isFinite(siteId) && siteId > 0 ? { siteId } : {}),
+      },
+    },
+  });
+  const overallDoneByItemId = new Map<number, number>();
+  for (const r of overallAgg) {
+    overallDoneByItemId.set(
+      Number((r as any).boqItemId),
+      Number((r as any)?._sum?.doneQty || 0)
+    );
+  }
+
   const wsData: any[][] = [];
   wsData.push(["BOQ Target Report"]);
   wsData.push([
@@ -335,9 +352,11 @@ export async function GET(req: NextRequest) {
     const boqQty = Number((it as any).qty || 0);
     const boqAmount = Number((it as any).amount || boqQty * rate);
     const orderedQty = Number((it as any).orderedQty || 0);
-    const remainingQty = Number((it as any).remainingQty || 0);
-    const orderedAmount = Number((it as any).orderedValue || orderedQty * rate);
-    const remainingAmount = Number((it as any).remainingValue || remainingQty * rate);
+    const overallDone = Number(overallDoneByItemId.get(Number(it.id)) || 0);
+    const executedQty = orderedQty + overallDone;
+    const remainingQty = boqQty - executedQty;
+    const orderedAmount = executedQty * rate;
+    const remainingAmount = remainingQty * rate;
     const monthTotalQty = Number(monthTotalQtyByItemId.get(Number(it.id)) || 0);
     const monthExecutedQty = Number(
       monthExecutedQtyByItemId.get(Number(it.id)) || 0
@@ -348,7 +367,7 @@ export async function GET(req: NextRequest) {
       it.item || "",
       Number(fmtQty(boqQty)),
       it.unit?.unitName || "",
-      Number(fmtQty(orderedQty)),
+      Number(fmtQty(executedQty)),
       Number(fmtQty(remainingQty)),
       Number(fmtRs(rate)),
       Number(fmtRs(boqAmount)),
@@ -447,7 +466,9 @@ export async function GET(req: NextRequest) {
     const rate = Number((it as any).rate || 0);
     const boqQty = Number((it as any).qty || 0);
     const orderedQty = Number((it as any).orderedQty || 0);
-    const remainingQty = Number((it as any).remainingQty || 0);
+    const overallDone = Number(overallDoneByItemId.get(Number(it.id)) || 0);
+    const executedQty = orderedQty + overallDone;
+    const remainingQty = boqQty - executedQty;
     const itemId = Number((it as any).id);
     const byIso = doneQtyByItemIdByIso.get(itemId);
 
@@ -463,7 +484,7 @@ export async function GET(req: NextRequest) {
       it.activityId || "",
       it.item || "",
       Number(fmtQty(boqQty)),
-      Number(fmtQty(orderedQty)),
+      Number(fmtQty(executedQty)),
       Number(fmtQty(remainingQty)),
       ...dayCells,
       Number(fmtQty(totalDone)),

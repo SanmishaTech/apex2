@@ -1,56 +1,10 @@
 // /app/api/daily-progresses/route.ts
 import { NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Success, Error } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
 import { ROLES } from "@/config/roles";
-
-// Helper: sum doneQty by BOQ item id
-function sumDoneQtyByBoqItem(
-  details: { boqItemId?: number | null; doneQty?: any }[]
-) {
-  const map = new Map<number, number>();
-  for (const d of details) {
-    const id = Number(d.boqItemId);
-    if (!Number.isFinite(id) || id <= 0) continue;
-    const qty = Number(d.doneQty || 0);
-    map.set(id, (map.get(id) || 0) + qty);
-  }
-  return map;
-}
-
-// Apply qty deltas to BOQ items (increment ordered*, recompute remaining*)
-async function applyBoqItemDeltas(
-  tx: Prisma.TransactionClient,
-  deltas: Map<number, number>
-) {
-  for (const [itemId, delta] of deltas) {
-    if (!Number.isFinite(delta) || delta === 0) continue;
-    const item = await tx.boqItem.findUnique({
-      where: { id: itemId },
-      select: { qty: true, rate: true, orderedQty: true },
-    });
-    if (!item) continue;
-
-    const qty = Number(item.qty || 0);
-    const rate = Number(item.rate || 0);
-    const currentOrdered = Number(item.orderedQty || 0);
-    const nextOrdered = Math.max(0, currentOrdered + Number(delta));
-    const remainingQty = qty - nextOrdered; // allow negative when over-ordered
-
-    await tx.boqItem.update({
-      where: { id: itemId },
-      data: {
-        orderedQty: nextOrdered as any,
-        orderedValue: (nextOrdered * rate) as any,
-        remainingQty: remainingQty as any,
-        remainingValue: (remainingQty * rate) as any, // can be negative
-      },
-    });
-  }
-}
 
 // GET /api/daily-progresses?search=&page=1&perPage=10&sort=progressDate&order=desc
 export async function GET(req: NextRequest) {
@@ -83,11 +37,11 @@ export async function GET(req: NextRequest) {
       const sumDoneQty = (agg._sum.doneQty as any) ?? 0;
       const item = await prisma.boqItem.findUnique({
         where: { id: boqItemIdAgg },
-        select: { remainingQty: true },
+        select: { qty: true },
       });
-      const remainingQty = (item?.remainingQty as any) ?? 0;
-      const balanceQty = Number(remainingQty) - Number(sumDoneQty);
-      return Success({ sumDoneQty, remainingQty, balanceQty });
+      const boqQty = Number((item?.qty as any) ?? 0);
+      const remainingQty = Number((boqQty - Number(sumDoneQty || 0)).toFixed(4));
+      return Success({ sumDoneQty, boqQty, remainingQty });
     } catch {
       return Error("Failed to aggregate done qty");
     }
@@ -259,10 +213,6 @@ export async function POST(req: NextRequest) {
         select: { id: true, progressDate: true },
       });
 
-      // 🔄 Increment ordered/remaining using deltas from submitted details
-      const deltas = sumDoneQtyByBoqItem(details);
-      await applyBoqItemDeltas(tx, deltas);
-
       return dp;
     });
 
@@ -309,12 +259,6 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // Capture impacted BOQ items and qty deltas
-      const existingDetails = await tx.dailyProgressDetail.findMany({
-        where: { dailyProgressId: id },
-        select: { boqItemId: true, doneQty: true },
-      });
-
       const updated = await tx.dailyProgress.update({
         where: { id },
         data,
@@ -356,26 +300,6 @@ export async function PATCH(req: NextRequest) {
             },
           });
         }
-      }
-
-      // 🔄 Apply deltas: new - old to adjust ordered/remaining
-      if (Array.isArray(b.details)) {
-        const newDetails = b.details.map((d: any) => ({
-          boqItemId: d.boqItemId,
-          doneQty: d.doneQty,
-        }));
-        const prevMap = sumDoneQtyByBoqItem(existingDetails);
-        const nextMap = sumDoneQtyByBoqItem(newDetails);
-        const deltaMap = new Map<number, number>();
-
-        for (const [itemId, qty] of prevMap.entries()) {
-          deltaMap.set(itemId, (deltaMap.get(itemId) || 0) - qty);
-        }
-        for (const [itemId, qty] of nextMap.entries()) {
-          deltaMap.set(itemId, (deltaMap.get(itemId) || 0) + qty);
-        }
-
-        await applyBoqItemDeltas(tx, deltaMap);
       }
 
       return updated;

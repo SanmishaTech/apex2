@@ -26,8 +26,8 @@ type BoqItem = {
   amount: string | number | null;
   orderedQty: string | number | null;
   orderedValue: string | number | null;
-  remainingQty: string | number | null;
-  remainingValue: string | number | null;
+  executedQty?: number;
+  computedRemainingQty?: number;
   isGroup: boolean | null;
   billedQty?: number;
 };
@@ -156,7 +156,7 @@ export default function ViewBoqPage() {
     },
     {
       key: 'orderedQty',
-      header: 'Executed Qty',
+      header: 'Ordered Qty',
       accessor: (r) => num(r.orderedQty).toFixed(2),
       className: 'whitespace-nowrap text-right',
       cellClassName: 'whitespace-nowrap text-right tabular-nums',
@@ -164,7 +164,11 @@ export default function ViewBoqPage() {
     {
       key: 'remainingQty',
       header: 'Remaining Qty',
-      accessor: (r) => num(r.remainingQty).toFixed(2),
+      accessor: (r) => {
+        const computed = (r as any)?.computedRemainingQty;
+        if (computed != null && computed !== '') return num(computed).toFixed(2);
+        return (num(r.qty) - num(r.orderedQty)).toFixed(2);
+      },
       className: 'whitespace-nowrap text-right',
       cellClassName: 'whitespace-nowrap text-right tabular-nums',
     },

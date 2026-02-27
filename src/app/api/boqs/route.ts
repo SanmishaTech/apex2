@@ -143,8 +143,6 @@ export async function POST(req: NextRequest) {
               : null);
           const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
-          const remainingQty = it.remainingQty ?? null;
-          const remainingValue = it.remainingValue ?? null;
           return {
             activityId: it.activityId ?? null,
             clientSrNo: it.clientSrNo ?? null,
@@ -155,8 +153,6 @@ export async function POST(req: NextRequest) {
             amount: amount as any,
             orderedQty: orderedQty as any,
             orderedValue: orderedValue as any,
-            remainingQty: remainingQty as any,
-            remainingValue: remainingValue as any,
             isGroup: Boolean(it.isGroup) || false,
           };
         });
@@ -359,8 +355,6 @@ export async function PATCH(req: NextRequest) {
               : null);
           const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
-          const remainingQty = it.remainingQty ?? null;
-          const remainingValue = it.remainingValue ?? null;
           await tx.boqItem.update({
             where: { id: itemId },
             data: {
@@ -374,8 +368,6 @@ export async function PATCH(req: NextRequest) {
               amount: amount as any,
               orderedQty: orderedQty as any,
               orderedValue: orderedValue as any,
-              remainingQty: remainingQty as any,
-              remainingValue: remainingValue as any,
               isGroup: Boolean(it.isGroup) || false,
             },
           });
@@ -392,8 +384,6 @@ export async function PATCH(req: NextRequest) {
               : null);
           const orderedQty = it.orderedQty ?? 0;
           const orderedValue = it.orderedValue ?? null;
-          const remainingQty = it.remainingQty ?? null;
-          const remainingValue = it.remainingValue ?? null;
           await tx.boqItem.create({
             data: {
               boqId: id,
@@ -406,8 +396,6 @@ export async function PATCH(req: NextRequest) {
               amount: amount as any,
               orderedQty: orderedQty as any,
               orderedValue: orderedValue as any,
-              remainingQty: remainingQty as any,
-              remainingValue: remainingValue as any,
               isGroup: Boolean(it.isGroup) || false,
             },
           });

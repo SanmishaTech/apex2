@@ -58,6 +58,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
   }
 
+  const executedAgg = await prisma.dailyProgressDetail.groupBy({
+    by: ["boqItemId"],
+    _sum: { doneQty: true },
+    where: {
+      boqItemId: { in: (boq.items || []).map((it) => it.id) },
+      dailyProgress: { boqId },
+    },
+  });
+  const executedByItemId = new Map<number, number>();
+  for (const r of executedAgg) {
+    executedByItemId.set(
+      Number((r as any).boqItemId),
+      Number((r as any)?._sum?.doneQty || 0)
+    );
+  }
+
   const bills = await prisma.bOQBill.findMany({
     where: { boqId },
     orderBy: [{ billDate: "asc" }, { id: "asc" }],
@@ -144,7 +160,9 @@ export async function GET(req: NextRequest) {
     const totalQty = Number(fmtQty(billed?.totalQty || 0));
     const totalAmt = Number(fmtRs(billed?.totalAmount || 0));
 
-    const doneQty = Number(fmtQty(Number((it as any).orderedQty || 0) || 0));
+    const orderedQty = Number(fmtQty(Number((it as any).orderedQty || 0) || 0));
+    const dpDoneQty = Number(executedByItemId.get(Number(it.id)) || 0);
+    const doneQty = Number(fmtQty(orderedQty + dpDoneQty));
     const unbilledQty = Number(fmtQty(doneQty - totalQty));
 
     const row: any[] = [
@@ -168,7 +186,11 @@ export async function GET(req: NextRequest) {
 
   const totalBoqQty = (boq.items || []).reduce((s, it) => s + Number(it.qty || 0), 0);
   const totalBoqAmount = (boq.items || []).reduce((s, it) => s + Number(it.amount || 0), 0);
-  const totalDoneQty = (boq.items || []).reduce((s, it) => s + Number((it as any).orderedQty || 0), 0);
+  const totalDoneQty = (boq.items || []).reduce((s, it) => {
+    const orderedQty = Number((it as any).orderedQty || 0);
+    const dpDoneQty = Number(executedByItemId.get(Number(it.id)) || 0);
+    return s + orderedQty + dpDoneQty;
+  }, 0);
   let totalUptoQty = 0;
   let totalUptoAmount = 0;
   for (const v of byItemId.values()) {

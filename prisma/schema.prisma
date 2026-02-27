@@ -903,8 +903,6 @@ model BoqItem {
   amount       Decimal @db.Decimal(14, 2) @default(0.00)
   orderedQty   Decimal @db.Decimal(12, 2) @default(0.00)
   orderedValue Decimal @db.Decimal(12, 2) @default(0.00)
-  remainingQty   Decimal @db.Decimal(12, 2) @default(0.00)
-  remainingValue Decimal @db.Decimal(12, 2) @default(0.00)
   isGroup      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -2950,3 +2948,4 @@ model OverallSiteBudgetItem {
   
   @@map("overall_site_budget_items")
 }
+// DO NOT PUSH CODE YET. solve remainning qty first.
