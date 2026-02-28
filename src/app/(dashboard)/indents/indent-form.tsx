@@ -178,7 +178,7 @@ export function IndentForm({
     .filter((it) => it.id && it.item)
     .map((it) => ({
       value: String(it.id),
-      label: it.itemCode ? `${it.item} (${it.itemCode})` : it.item,
+      label: it.item,
     }));
 
   // Reset form values when initial data changes
@@ -289,8 +289,8 @@ export function IndentForm({
 
   // Since DataTable doesn't support form inputs directly, we'll use a simpler table approach
   const renderItemsTable = () => (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full">
+    <div className="border rounded-lg overflow-x-auto md:overflow-hidden">
+      <table className="w-full min-w-180 md:min-w-0">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-left p-4 font-medium">Item *</th>
@@ -328,7 +328,7 @@ export function IndentForm({
                           emptyText="No item found."
                         />
                       </FormControl>
-                      <div className="min-h-[20px]">
+                      <div className="min-h-5">
                         <FormMessage className="text-xs" />
                       </div>
                     </FormItem>
@@ -345,7 +345,7 @@ export function IndentForm({
                       <FormControl>
                         <Input {...field} placeholder="Remark" />
                       </FormControl>
-                      <div className="min-h-[20px]">
+                      <div className="min-h-5">
                         <FormMessage className="text-xs" />
                       </div>
                     </FormItem>
@@ -373,7 +373,7 @@ export function IndentForm({
                           }}
                         />
                       </FormControl>
-                      <div className="min-h-[20px]">
+                      <div className="min-h-5">
                         <FormMessage className="text-xs" />
                       </div>
                     </FormItem>

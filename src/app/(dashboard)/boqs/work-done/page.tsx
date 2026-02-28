@@ -1,17 +1,15 @@
 "use client";
 
 import useSWR from "swr";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { AppCard } from "@/components/common";
 import { DataTable, Column } from "@/components/common/data-table";
-import type { SortState } from "@/components/common/data-table";
-import { Pagination } from "@/components/common/pagination";
 import { useProtectPage } from "@/hooks/use-protect-page";
-import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { apiGet } from "@/lib/api-client";
 import { AppCombobox } from "@/components/common/app-combobox";
 import { AppButton } from "@/components/common/app-button";
 import { toast } from "@/lib/toast";
+import { formatNumber } from "@/lib/locales";
 
 interface Row {
   clientSrNo?: string | null;
@@ -32,6 +30,7 @@ interface Row {
   remainingAmount: number;
   orderedPct?: number;
   remainingPct?: number;
+  dailyDone?: Record<string, number>;
 }
 
 interface ListResponse {
@@ -43,31 +42,60 @@ interface ListResponse {
     orderedPctTotal: number;
     remainingPctTotal: number;
   };
+  monthly?: Array<{
+    month: string;
+    label: string;
+    dates?: string[];
+    data: Row[];
+    totals?: {
+      amount: number;
+      orderedAmount: number;
+      remainingAmount: number;
+      orderedPctTotal: number;
+      remainingPctTotal: number;
+    };
+  }>;
 }
 
 export default function WorkDoneListPage() {
   useProtectPage();
 
-  const [qp, setQp] = useQueryParamsState({
-    boqId: "",
-  });
+  const [selectedBoqId, setSelectedBoqId] = useState<string>("");
+  const [appliedBoqId, setAppliedBoqId] = useState<string>("");
 
-  const { boqId } = qp as unknown as {
-    boqId: string;
+  const [fromMonthDraft, setFromMonthDraft] = useState<string>("");
+  const [toMonthDraft, setToMonthDraft] = useState<string>("");
+  const [fromMonth, setFromMonth] = useState<string>("");
+  const [toMonth, setToMonth] = useState<string>("");
+  const [searchNonce, setSearchNonce] = useState<number>(0);
+
+  const currentMonthMax = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, []);
+
+  const fmtMonth = (m: string) => {
+    if (!m) return "";
+    const [yy, mm] = String(m).split("-");
+    const y = Number(yy);
+    const mo = Number(mm);
+    if (!Number.isFinite(y) || !Number.isFinite(mo)) return m;
+    const d = new Date(Date.UTC(y, mo - 1, 1));
+    return d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   };
 
-  const [selectedBoqId, setSelectedBoqId] = useState<string>(boqId || "");
-
-  useEffect(() => {
-    setSelectedBoqId(boqId || "");
-  }, [boqId]);
-
   const query = useMemo(() => {
-    if (!selectedBoqId) return null;
+    if (!appliedBoqId) return null;
+    if (!fromMonth || !toMonth) return null;
     const sp = new URLSearchParams();
-    sp.set("boqId", selectedBoqId);
+    sp.set("boqId", appliedBoqId);
+    sp.set("fromMonth", fromMonth);
+    sp.set("toMonth", toMonth);
+    sp.set("_", String(searchNonce));
     return `/api/boqs/work-done?${sp.toString()}`;
-  }, [selectedBoqId]);
+  }, [appliedBoqId, fromMonth, toMonth, searchNonce]);
 
   const { data, isLoading } = useSWR<ListResponse>(query, apiGet, {
     revalidateOnFocus: false,
@@ -86,12 +114,27 @@ export default function WorkDoneListPage() {
     );
   }, [boqsOptions?.data, selectedBoqId]);
 
+  const appliedSiteName = useMemo(() => {
+    if (!appliedBoqId) return "-";
+    return (
+      (boqsOptions?.data || []).find((b: any) => String(b.id) === appliedBoqId)?.site
+        ?.site ?? "-"
+    );
+  }, [boqsOptions?.data, appliedBoqId]);
+
   const selectedBoqLabel = useMemo(() => {
     if (!selectedBoqId) return "boq";
     const b = (boqsOptions?.data || []).find((x: any) => String(x.id) === selectedBoqId);
     const boqNo = b?.boqNo || b?.workName || `BOQ-${selectedBoqId}`;
     return `${boqNo}${b?.site?.site ? `-${b.site.site}` : ""}`;
   }, [boqsOptions?.data, selectedBoqId]);
+
+  const appliedBoqLabel = useMemo(() => {
+    if (!appliedBoqId) return "boq";
+    const b = (boqsOptions?.data || []).find((x: any) => String(x.id) === appliedBoqId);
+    const boqNo = b?.boqNo || b?.workName || `BOQ-${appliedBoqId}`;
+    return `${boqNo}${b?.site?.site ? `-${b.site.site}` : ""}`;
+  }, [boqsOptions?.data, appliedBoqId]);
 
   async function downloadFile(url: string, filename: string) {
     const res = await fetch(url, { cache: "no-store" });
@@ -111,19 +154,27 @@ export default function WorkDoneListPage() {
   }
 
   async function handleExportExcel() {
-    if (!selectedBoqId) {
+    if (!appliedBoqId) {
       toast.error("Please select a BOQ");
+      return;
+    }
+    if (!fromMonth || !toMonth) {
+      toast.error("Please select From Month and To Month and click Search");
       return;
     }
     setDownloading(true);
     try {
-      const url = `/api/boqs/work-done-excel?boqId=${encodeURIComponent(selectedBoqId)}`;
+      const sp = new URLSearchParams();
+      sp.set("boqId", appliedBoqId);
+      sp.set("fromMonth", fromMonth);
+      sp.set("toMonth", toMonth);
+      const url = `/api/boqs/work-done-excel?${sp.toString()}`;
       const today = new Date().toISOString().slice(0, 10);
-      const safe = selectedBoqLabel
+      const safe = appliedBoqLabel
         .replace(/[^a-z0-9\- _]/gi, "")
         .replace(/\s+/g, "-")
         .toLowerCase();
-      const filename = `work-done-${safe}-${today}.xlsx`;
+      const filename = `work-done-${safe}-${fromMonth}-to-${toMonth}-${today}.xlsx`;
       await downloadFile(url, filename);
     } catch (e: any) {
       toast.error(e?.message || "Failed to export excel");
@@ -132,10 +183,46 @@ export default function WorkDoneListPage() {
     }
   }
 
-  const tableData: Row[] = selectedBoqId ? (data?.data || []) : [];
+  function handleSearch() {
+    if (!selectedBoqId) {
+      toast.error("Please select a BOQ");
+      return;
+    }
+    if (!fromMonthDraft || !toMonthDraft) {
+      toast.error("Please select From Month and To Month");
+      return;
+    }
+    if (String(fromMonthDraft) > String(toMonthDraft)) {
+      toast.error("From Month cannot be greater than To Month");
+      return;
+    }
+    if (String(toMonthDraft) > String(currentMonthMax)) {
+      toast.error("To Month cannot be greater than current month");
+      return;
+    }
+    setAppliedBoqId(selectedBoqId);
+    setFromMonth(fromMonthDraft);
+    setToMonth(toMonthDraft);
+    setSearchNonce((n) => n + 1);
+  }
+
+  function handleReset() {
+    setSelectedBoqId("");
+    setFromMonthDraft("");
+    setToMonthDraft("");
+    setAppliedBoqId("");
+    setFromMonth("");
+    setToMonth("");
+    setSearchNonce((n) => n + 1);
+  }
+
+  const tableData: Row[] = appliedBoqId && fromMonth && toMonth ? (data?.data || []) : [];
 
   const fmt = (num: number, suffix = "") =>
-    `${Number(num || 0).toFixed(2)}${suffix}`;
+    `${formatNumber(Number(num || 0), {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}${suffix}`;
   const highlight = (num: number, suffix = "") => {
     const isNeg = Number(num) < 0;
     const content = fmt(num, suffix);
@@ -162,6 +249,19 @@ export default function WorkDoneListPage() {
     { key: "remainingPct", header: "Remaining %", accessor: (r) => highlight(r.remainingPct ?? 0, "%"), sortable: false, className: "text-right", cellClassName: "text-right" },
   ];
 
+  const getMonthlyColumns = (dates: string[]): Column<Row>[] => {
+    if (!dates.length) return columns;
+    const dateCols: Column<Row>[] = dates.map((d) => ({
+      key: `d_${d}`,
+      header: d,
+      accessor: (r) => highlight(Number(r.dailyDone?.[d] || 0)),
+      sortable: false,
+      className: "text-right",
+      cellClassName: "text-right",
+    }));
+    return [...columns.slice(0, 4), ...dateCols, ...columns.slice(4)];
+  };
+
   return (
     <AppCard>
       <AppCard.Header>
@@ -185,13 +285,13 @@ export default function WorkDoneListPage() {
                 </div>
               )}
             </div>
-            <div className="flex flex-col md:flex-row md:items-end gap-2">
-              <div className="w-72">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+              <div className="w-full md:col-span-2">
+                <div className="text-xs font-medium mb-1">Site / BOQ</div>
                 <AppCombobox
                   value={selectedBoqId}
                   onValueChange={(val) => {
                     setSelectedBoqId(val);
-                    setQp({ boqId: val });
                   }}
                   options={(boqsOptions?.data || []).map((b: any) => ({
                     value: String(b.id),
@@ -203,11 +303,49 @@ export default function WorkDoneListPage() {
                 />
               </div>
 
-              <div className="md:ml-auto">
+              <div className="w-full md:col-span-1">
+                <div className="text-xs font-medium mb-1">From Month</div>
+                <input
+                  type="month"
+                  value={fromMonthDraft}
+                  onChange={(e) => setFromMonthDraft(e.target.value)}
+                  max={currentMonthMax}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="From Month"
+                />
+              </div>
+              <div className="w-full md:col-span-1">
+                <div className="text-xs font-medium mb-1">To Month</div>
+                <input
+                  type="month"
+                  value={toMonthDraft}
+                  onChange={(e) => setToMonthDraft(e.target.value)}
+                  max={currentMonthMax}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="To Month"
+                />
+              </div>
+
+              <div className="w-full md:col-span-1">
+                <AppButton type="button" onClick={handleSearch} disabled={!selectedBoqId}>
+                  Search
+                </AppButton>
+              </div>
+
+              <div className="w-full md:col-span-1 flex gap-2 md:justify-end">
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReset}
+                  disabled={!selectedBoqId && !fromMonthDraft && !toMonthDraft && !appliedBoqId && !fromMonth && !toMonth}
+                >
+                  Reset
+                </AppButton>
+
                 <AppButton
                   type="button"
                   onClick={handleExportExcel}
-                  disabled={!selectedBoqId || downloading}
+                  disabled={!appliedBoqId || !fromMonth || !toMonth || downloading}
                   isLoading={downloading}
                 >
                   Export Excel
@@ -217,44 +355,132 @@ export default function WorkDoneListPage() {
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={tableData}
-          loading={!!selectedBoqId && isLoading}
-          minTableWidth={1400}
-        />
-      </AppCard.Content>
-      <AppCard.Footer className="justify-between items-center flex-wrap gap-4">
-        <div className="text-sm text-muted-foreground">
-          {selectedBoqId
-            ? "Showing all items for selected BOQ."
-            : "Select a BOQ to view work done."}
-        </div>
-        {selectedBoqId && (
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div>
-              <span className="font-semibold">Total BOQ Amount: </span>
-              {Number(data?.totals?.amount || 0).toFixed(2)}
+        {appliedBoqId && fromMonth && toMonth ? (
+          <div className="rounded-md border-2 border-primary/30 bg-muted/20 p-3">
+            <div className="mb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-lg font-semibold">Total Work Done</div>
+                <div className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary">
+                  OVERALL
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Data searched for {appliedSiteName} from {fmtMonth(fromMonth)} to {fmtMonth(toMonth)}.
+              </div>
             </div>
-            <div>
-              <span className="font-semibold">Executed Amount: </span>
-              {Number(data?.totals?.orderedAmount || 0).toFixed(2)}
-            </div>
-            <div>
-              <span className="font-semibold">Remaining Amount: </span>
-              {Number(data?.totals?.remainingAmount || 0).toFixed(2)}
-            </div>
-            <div>
-              <span className="font-semibold">Executed % (Total): </span>
-              {Number(data?.totals?.orderedPctTotal || 0).toFixed(2)}%
-            </div>
-            <div>
-              <span className="font-semibold">Remaining % (Total): </span>
-              {Number(data?.totals?.remainingPctTotal || 0).toFixed(2)}%
+
+            <DataTable
+              columns={columns}
+              data={tableData}
+              loading={!!appliedBoqId && !!fromMonth && !!toMonth && isLoading}
+              stickyColumns={1}
+              minTableWidth={1400}
+            />
+
+            <div className="mt-3 flex flex-wrap gap-4 text-sm">
+              <div className="text-sm text-muted-foreground w-full">Showing all items for selected BOQ.</div>
+              <div>
+                <span className="font-semibold">Total BOQ Amount: </span>
+                {formatNumber(Number(data?.totals?.amount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Executed Amount: </span>
+                {formatNumber(Number(data?.totals?.orderedAmount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Remaining Amount: </span>
+                {formatNumber(Number(data?.totals?.remainingAmount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Executed % (Total): </span>
+                {formatNumber(Number(data?.totals?.orderedPctTotal || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}%
+              </div>
+              <div>
+                <span className="font-semibold">Remaining % (Total): </span>
+                {formatNumber(Number(data?.totals?.remainingPctTotal || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}%
+              </div>
             </div>
           </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={tableData}
+            loading={!!appliedBoqId && !!fromMonth && !!toMonth && isLoading}
+            stickyColumns={1}
+            minTableWidth={1400}
+          />
         )}
-      </AppCard.Footer>
+
+        {([...(data?.monthly || [])].reverse() || []).map((m) => (
+          <div key={m.month} className="mt-6 rounded-md border bg-background p-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+              <div className="text-sm font-semibold">Work Done from {m.label}</div>
+              <div className="text-xs font-semibold px-2 py-1 rounded bg-muted text-muted-foreground">
+                MONTHLY
+              </div>
+            </div>
+            <DataTable
+              columns={getMonthlyColumns(m.dates || [])}
+              data={m.data || []}
+              loading={false}
+              stickyColumns={1}
+              minTableWidth={1400 + (m.dates || []).length * 120}
+            />
+            <div className="mt-3 flex flex-wrap gap-4 text-sm">
+              <div>
+                <span className="font-semibold">Total BOQ Amount: </span>
+                {formatNumber(Number(m?.totals?.amount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Executed Amount: </span>
+                {formatNumber(Number(m?.totals?.orderedAmount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Remaining Amount: </span>
+                {formatNumber(Number(m?.totals?.remainingAmount || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div>
+                <span className="font-semibold">Executed % (Total): </span>
+                {formatNumber(Number(m?.totals?.orderedPctTotal || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}%
+              </div>
+              <div>
+                <span className="font-semibold">Remaining % (Total): </span>
+                {formatNumber(Number(m?.totals?.remainingPctTotal || 0), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}%
+              </div>
+            </div>
+          </div>
+        ))}
+      </AppCard.Content>
     </AppCard>
   );
 }
