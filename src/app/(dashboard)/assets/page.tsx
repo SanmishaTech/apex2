@@ -354,52 +354,43 @@ export default function AssetsPage() {
         </AppCard.Header>
 
         <AppCard.Content>
-          <FilterBar title="Search & Filter">
-            <div className="col-span-full grid grid-cols-1 md:grid-cols-4 gap-2">
-              <TextInput
-                control={control}
-                name="search"
-                placeholder="Search by asset number, name, make, or supplier..."
-                span={4}
-                spanFrom="md"
-                className="h-9"
-              />
-              <MultiSelectInput
-                control={control}
-                name="status"
-                label="Status"
-                placeholder="Select status..."
-                options={statusOptions}
-                size="sm"
-                span={4}
-                spanFrom="md"
-              />
-              <MultiSelectInput
-                control={control}
-                name="assetGroupId"
-                label="Asset"
-                placeholder="Select asset group..."
-                options={assetGroupOptions}
-                size="sm"
-                span={4}
-                spanFrom="md"
-              />
-              <MultiSelectInput
-                control={control}
-                name="site"
-                label="Sites"
-                placeholder="Select sites..."
-                options={siteOptions}
-                size="sm"
-                span={4}
-                spanFrom="md"
-              />
-            </div>
+          <FilterBar title="Search & Filter" columns={3}>
+            <TextInput
+              control={control}
+              name="search"
+              placeholder="Search by asset number, name, make, or supplier..."
+              itemClassName="col-span-1"
+              className="h-9"
+            />
+            <MultiSelectInput
+              control={control}
+              name="status"
+              placeholder="Select status..."
+              options={statusOptions}
+              size="sm"
+              className="col-span-1"
+            />
+            <MultiSelectInput
+              control={control}
+              name="assetGroupId"
+              placeholder="Select asset group..."
+              options={assetGroupOptions}
+              size="sm"
+              className="col-span-1"
+            />
+            <MultiSelectInput
+              control={control}
+              name="site"
+              placeholder="Select sites..."
+              options={siteOptions}
+              size="sm"
+              className="col-span-1"
+            />
             <AppButton
               size="sm"
               onClick={applyFilters}
               disabled={!filtersDirty}
-              className="min-w-21"
+              className="min-w-21 col-span-1"
               type="button"
             >
               Filter
@@ -409,7 +400,7 @@ export default function AssetsPage() {
               size="sm"
               onClick={handleExport}
               iconName="Download"
-              className="min-w-21"
+              className="min-w-21 col-span-1 text-foreground"
               disabled={exporting}
               type="button"
             >
@@ -429,7 +420,7 @@ export default function AssetsPage() {
                 variant="secondary"
                 size="sm"
                 onClick={clearFilters}
-                className="min-w-21"
+                className="min-w-21 col-span-1"
                 type="button"
               >
                 Reset

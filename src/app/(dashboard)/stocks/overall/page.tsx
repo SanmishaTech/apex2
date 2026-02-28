@@ -123,7 +123,7 @@ export default function OverallStockPage() {
     {
       key: "openingQty",
       header: "Opening Qty",
-      accessor: (r) => Number(r.openingQty || 0).toFixed(4),
+      accessor: (r) => Number(r.openingQty || 0).toFixed(2),
       sortable: true,
       className: "text-right whitespace-nowrap",
       cellClassName: "text-right whitespace-nowrap",
@@ -131,7 +131,7 @@ export default function OverallStockPage() {
     {
       key: "closingQty",
       header: "Closing Qty",
-      accessor: (r) => Number(r.closingQty || 0).toFixed(4),
+      accessor: (r) => Number(r.closingQty || 0).toFixed(2),
       sortable: true,
       className: "text-right whitespace-nowrap",
       cellClassName: "text-right whitespace-nowrap",

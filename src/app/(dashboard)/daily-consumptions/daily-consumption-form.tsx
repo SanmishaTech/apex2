@@ -25,7 +25,7 @@ const inputSchema = z.object({
   items: z
     .array(
       z.object({
-        itemId: z.string().min(1, "Item is required"),
+        itemId: z.string().optional().default(""),
         qty: z.string().optional().default(""),
         batches: z
           .array(
@@ -38,7 +38,8 @@ const inputSchema = z.object({
           .default([]),
       })
     )
-    .min(1, "At least one item is required"),
+    .optional()
+    .default([]),
 });
 
 type RawFormValues = z.infer<typeof inputSchema>;
@@ -277,13 +278,13 @@ export default function DailyConsumptionForm() {
           : r.qty && r.qty !== ""
             ? Number(r.qty)
             : 0;
-        if (!(qtyNum > 0)) {
+        if (qtyNum < 0) {
           hasError = true;
           form.setError(`items.${index}.qty` as any, {
             type: "manual",
-            message: "Qty must be greater than 0",
+            message: "Qty cannot be negative",
           });
-        } else if (typeof closing === "number" && qtyNum > Number(closing)) {
+        } else if (qtyNum > 0 && typeof closing === "number" && qtyNum > Number(closing)) {
           hasError = true;
           form.setError(`items.${index}.qty` as any, {
             type: "manual",
@@ -297,6 +298,14 @@ export default function DailyConsumptionForm() {
           (r.batches || []).forEach((b, bIndex) => {
             const bn = String(b?.batchNumber || "").trim();
             const bq = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
+            if (bq < 0) {
+              hasError = true;
+              form.setError(`items.${index}.batches.${bIndex}.qty` as any, {
+                type: "manual",
+                message: "Qty cannot be negative",
+              });
+              return;
+            }
             if (!bn && bq > 0) {
               hasError = true;
               form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
@@ -331,32 +340,45 @@ export default function DailyConsumptionForm() {
         setSubmitting(false);
         return;
       }
-      const payload = {
-        dailyConsumptionDate: data.dailyConsumptionDate,
-        siteId: parseInt(data.siteId),
-        dailyConsumptionDetails: (data.items || []).map((r) => ({
-          itemId: parseInt(r.itemId),
-          qty:
-            (r.batches || []).length > 0
-              ? Number(
-                  (r.batches || [])
-                    .reduce((acc, b) => {
-                      const q = b?.qty && b.qty !== "" ? Number(b.qty) : 0;
-                      return acc + (Number.isFinite(q) ? q : 0);
-                    }, 0)
-                    .toFixed(4)
-                )
-              : r.qty && r.qty !== ""
-                ? Number(r.qty)
-                : 0,
-          rate: 0,
-          dcDetailBatches: (r.batches || [])
+
+      const filteredDetails = (data.items || [])
+        .map((r) => {
+          const itemId = parseInt(String(r.itemId || 0), 10);
+          if (!Number.isFinite(itemId) || itemId <= 0) return null;
+
+          const siteRow = siteItemByItemId.get(itemId);
+          const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
+
+          const batchRows = (r.batches || [])
             .map((b) => ({
               batchNumber: String(b.batchNumber || "").trim(),
               qty: b.qty && b.qty !== "" ? Number(b.qty) : 0,
             }))
-            .filter((b) => !!b.batchNumber && Number(b.qty) > 0),
-        })),
+            .filter((b) => !!b.batchNumber && Number(b.qty) > 0);
+
+          const qty = isExpiry
+            ? Number(
+                (batchRows || []).reduce((acc, b) => acc + (Number(b.qty) || 0), 0).toFixed(4)
+              )
+            : r.qty && r.qty !== ""
+              ? Number(r.qty)
+              : 0;
+
+          if (!(qty > 0)) return null;
+
+          return {
+            itemId,
+            qty,
+            rate: 0,
+            dcDetailBatches: batchRows,
+          };
+        })
+        .filter(Boolean) as Array<{ itemId: number; qty: number; rate: number; dcDetailBatches: any[] }>;
+
+      const payload = {
+        dailyConsumptionDate: data.dailyConsumptionDate,
+        siteId: parseInt(data.siteId),
+        dailyConsumptionDetails: filteredDetails,
       };
       await apiPost("/api/daily-consumptions", payload);
       toast.success("Daily Consumption created");

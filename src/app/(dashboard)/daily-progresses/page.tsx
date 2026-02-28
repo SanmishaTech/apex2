@@ -141,7 +141,7 @@ export default function DailyProgressPage() {
             : r.amount != null
               ? Number(r.amount)
               : 0;
-        return <div className="font-mono text-right">{Number(qty || 0).toFixed(4)}</div>;
+        return <div className="font-mono text-right">{Number(qty || 0).toFixed(2)}</div>;
       },
       className: "text-right tabular-nums whitespace-nowrap",
     },

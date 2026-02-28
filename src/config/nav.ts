@@ -37,6 +37,8 @@ export type NavLeafItem = {
   href: string;
   icon: ComponentType<{ className?: string }>;
   permission: string; // permission required to view
+  /** When true (default), consider nested routes under href as active. When false, requires exact pathname match. */
+  matchChildren?: boolean;
 };
 
 export type NavGroupItem = {
@@ -460,6 +462,7 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/boqs",
         icon: Folder,
         permission: PERMISSIONS.READ_BOQS,
+        matchChildren: false,
       },
       {
         title: "BOQ Bills",
