@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError } from "@/lib/api-response";
 import { paginate } from "@/lib/paginate";
 import { guardApiAccess } from "@/lib/access-guard";
-import { ROLES } from "@/config/roles";
+import { PERMISSIONS, ROLES } from "@/config/roles";
 import { z } from "zod";
 
 function toUtcDateOnly(dateStr: string): Date {
@@ -388,6 +388,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createSchema.parse(body);
 
+    if (!parsed.applyOverallBudgetValidation) {
+      const permSet = new Set((auth as any).user?.permissions || []);
+      if (!permSet.has(PERMISSIONS.BYPASS_OVERALL_SITE_BUDGET_VALIDATION)) {
+        return ApiError("You do not have permission to bypass overall budget validation", 403);
+      }
+    }
+
     const fromDate = toUtcDateOnly(parsed.fromDate);
     const toDate = toUtcDateOnly(parsed.toDate);
     if (fromDate > toDate) {
@@ -544,6 +551,13 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = updateSchema.parse(body);
+
+    if (parsed.applyOverallBudgetValidation === false) {
+      const permSet = new Set((auth as any).user?.permissions || []);
+      if (!permSet.has(PERMISSIONS.BYPASS_OVERALL_SITE_BUDGET_VALIDATION)) {
+        return ApiError("You do not have permission to bypass overall budget validation", 403);
+      }
+    }
 
     const existing = await (prisma as any).siteBudget.findUnique({
       where: { id: parsed.id },
