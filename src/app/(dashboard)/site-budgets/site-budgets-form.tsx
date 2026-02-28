@@ -17,6 +17,8 @@ import useSWR from "swr";
 import type { SitesResponse } from "@/types/sites";
 import { ComboboxInput } from "@/components/common/combobox-input";
 import { CheckboxInput } from "@/components/common/checkbox-input";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 export interface SiteBudgetsFormInitialData {
   id?: number;
@@ -450,6 +452,7 @@ export function SiteBudgetsForm({
   redirectOnSuccess = "/site-budgets",
 }: SiteBudgetsFormProps) {
   const router = useRouter();
+  const { can } = usePermissions();
   const [submitting, setSubmitting] = useState(false);
   const isCreate = mode === "create";
   const [prevSiteId, setPrevSiteId] = useState<string>("");
@@ -940,7 +943,8 @@ export function SiteBudgetsForm({
           </AppCard.Content>
 
           <AppCard.Footer className="justify-end gap-2">
-            {showOverallBudgetValidationToggle ? (
+            {showOverallBudgetValidationToggle &&
+            can(PERMISSIONS.BYPASS_OVERALL_SITE_BUDGET_VALIDATION) ? (
               <div className="mr-auto">
                 <CheckboxInput
                   control={control}
