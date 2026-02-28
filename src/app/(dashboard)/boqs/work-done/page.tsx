@@ -10,9 +10,11 @@ import { useProtectPage } from "@/hooks/use-protect-page";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { apiGet } from "@/lib/api-client";
 import { AppCombobox } from "@/components/common/app-combobox";
+import { AppButton } from "@/components/common/app-button";
+import { toast } from "@/lib/toast";
 
 interface Row {
-  srNo?: number;
+  clientSrNo?: string | null;
   id: number;
   boqId: number;
   boqNo: string;
@@ -74,9 +76,63 @@ export default function WorkDoneListPage() {
   });
   const { data: boqsOptions } = useSWR<any>("/api/boqs?perPage=100", apiGet);
 
-  const tableData: Row[] = selectedBoqId
-    ? (data?.data || []).map((row, idx) => ({ ...row, srNo: idx + 1 }))
-    : [];
+  const [downloading, setDownloading] = useState(false);
+
+  const selectedSiteName = useMemo(() => {
+    if (!selectedBoqId) return "-";
+    return (
+      (boqsOptions?.data || []).find((b: any) => String(b.id) === selectedBoqId)?.site
+        ?.site ?? "-"
+    );
+  }, [boqsOptions?.data, selectedBoqId]);
+
+  const selectedBoqLabel = useMemo(() => {
+    if (!selectedBoqId) return "boq";
+    const b = (boqsOptions?.data || []).find((x: any) => String(x.id) === selectedBoqId);
+    const boqNo = b?.boqNo || b?.workName || `BOQ-${selectedBoqId}`;
+    return `${boqNo}${b?.site?.site ? `-${b.site.site}` : ""}`;
+  }, [boqsOptions?.data, selectedBoqId]);
+
+  async function downloadFile(url: string, filename: string) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      toast.error(`Download failed (${res.status})`);
+      return;
+    }
+    const blob = await res.blob();
+    const link = document.createElement("a");
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  async function handleExportExcel() {
+    if (!selectedBoqId) {
+      toast.error("Please select a BOQ");
+      return;
+    }
+    setDownloading(true);
+    try {
+      const url = `/api/boqs/work-done-excel?boqId=${encodeURIComponent(selectedBoqId)}`;
+      const today = new Date().toISOString().slice(0, 10);
+      const safe = selectedBoqLabel
+        .replace(/[^a-z0-9\- _]/gi, "")
+        .replace(/\s+/g, "-")
+        .toLowerCase();
+      const filename = `work-done-${safe}-${today}.xlsx`;
+      await downloadFile(url, filename);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to export excel");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  const tableData: Row[] = selectedBoqId ? (data?.data || []) : [];
 
   const fmt = (num: number, suffix = "") =>
     `${Number(num || 0).toFixed(2)}${suffix}`;
@@ -92,7 +148,7 @@ export default function WorkDoneListPage() {
   };
 
   const columns: Column<Row>[] = [
-    { key: "srNo", header: "Sr. No.", accessor: (r) => r.srNo ?? "" },
+    { key: "clientSrNo", header: "Client Sr. No.", accessor: (r) => r.clientSrNo || "-" },
     { key: "description", header: "BOQ Item Description", accessor: (r) => r.description, sortable: false },
     { key: "qty", header: "BOQ Qty", accessor: (r) => highlight(r.qty), sortable: false, className: "text-right", cellClassName: "text-right" },
     { key: "unit", header: "Unit", accessor: (r) => r.unit || "-", sortable: false },
@@ -125,29 +181,38 @@ export default function WorkDoneListPage() {
               {selectedBoqId && (
                 <div className="text-xs text-muted-foreground">
                   Site:{" "}
-                  {
-                    (boqsOptions?.data || []).find(
-                      (b: any) => String(b.id) === selectedBoqId
-                    )?.site?.site ?? "-"
-                  }
+                  {selectedSiteName}
                 </div>
               )}
             </div>
-            <div className="w-72">
-              <AppCombobox
-                value={selectedBoqId}
-                onValueChange={(val) => {
-                  setSelectedBoqId(val);
-                  setQp({ boqId: val });
-                }}
-                options={(boqsOptions?.data || []).map((b: any) => ({
-                  value: String(b.id),
-                  label: `${b.boqNo || b.workName || `BOQ #${b.id}`}${b?.site?.site ? ` - ${b.site.site}` : ""}`,
-                }))}
-                placeholder="Select BOQ"
-                searchPlaceholder="Search BOQ..."
-                emptyText="No BOQ found"
-              />
+            <div className="flex flex-col md:flex-row md:items-end gap-2">
+              <div className="w-72">
+                <AppCombobox
+                  value={selectedBoqId}
+                  onValueChange={(val) => {
+                    setSelectedBoqId(val);
+                    setQp({ boqId: val });
+                  }}
+                  options={(boqsOptions?.data || []).map((b: any) => ({
+                    value: String(b.id),
+                    label: `${b.boqNo || b.workName || `BOQ #${b.id}`}${b?.site?.site ? ` - ${b.site.site}` : ""}`,
+                  }))}
+                  placeholder="Select BOQ"
+                  searchPlaceholder="Search BOQ..."
+                  emptyText="No BOQ found"
+                />
+              </div>
+
+              <div className="md:ml-auto">
+                <AppButton
+                  type="button"
+                  onClick={handleExportExcel}
+                  disabled={!selectedBoqId || downloading}
+                  isLoading={downloading}
+                >
+                  Export Excel
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>

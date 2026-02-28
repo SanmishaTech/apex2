@@ -25,6 +25,25 @@ function formatYMDLocal(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+function parseYMDLocal(value: string): Date | null {
+  const s = String(value || "").trim();
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(s);
+  if (!m) return null;
+  const yyyy = Number(m[1]);
+  const mm = Number(m[2]);
+  const dd = Number(m[3]);
+  if (!(yyyy > 0 && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31)) return null;
+  const d = new Date(yyyy, mm - 1, dd);
+  if (Number.isNaN(d.getTime())) return null;
+  if (
+    d.getFullYear() !== yyyy ||
+    d.getMonth() !== mm - 1 ||
+    d.getDate() !== dd
+  )
+    return null;
+  return d;
+}
+
 // GET /api/stocks/sites/[id]
 // Returns previous 7 days stock report for a site (moved from /report)
 export async function GET(
@@ -44,14 +63,35 @@ export async function GET(
     });
     if (!site) return NotFound("Site not found");
 
+    const { searchParams } = new URL(req.url);
+    const fromDateParam = (searchParams.get("fromDate") || "").trim();
+    const toDateParam = (searchParams.get("toDate") || "").trim();
+
     const today = startOfDay(new Date());
-    const days: Date[] = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() - (6 - i));
-      return d;
-    });
-    const startDate = startOfDay(days[0]);
-    const endDate = endOfDay(days[6]);
+
+    const defaultFrom = new Date(today);
+    defaultFrom.setDate(today.getDate() - 6);
+    const defaultTo = new Date(today);
+
+    const fromDateLocal = fromDateParam ? parseYMDLocal(fromDateParam) : defaultFrom;
+    const toDateLocal = toDateParam ? parseYMDLocal(toDateParam) : defaultTo;
+
+    if (!fromDateLocal || !toDateLocal) {
+      return BadRequest("Invalid fromDate/toDate. Expected YYYY-MM-DD");
+    }
+    const startDate = startOfDay(fromDateLocal);
+    const endDate = endOfDay(toDateLocal);
+    if (startDate > endDate) return BadRequest("fromDate must be before or equal to toDate");
+
+    const days: Date[] = [];
+    {
+      const cur = startOfDay(new Date(startDate));
+      while (cur <= endDate) {
+        days.push(new Date(cur));
+        cur.setDate(cur.getDate() + 1);
+        if (days.length > 366) return BadRequest("Date range is too large");
+      }
+    }
 
     const siteItems = await prisma.siteItem.findMany({
       where: { siteId: id },

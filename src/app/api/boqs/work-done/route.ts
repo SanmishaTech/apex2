@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         boqId: true,
+        clientSrNo: true,
         item: true,
         qty: true,
         rate: true,
@@ -117,6 +118,7 @@ export async function GET(req: NextRequest) {
       return {
         id: r.id,
         boqId: r.boqId,
+        clientSrNo: r.clientSrNo || null,
         boqNo: r.boq?.boqNo || "",
         siteId: r.boq?.siteId ?? null,
         site: r.boq?.site?.site || "-",

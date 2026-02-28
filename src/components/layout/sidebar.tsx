@@ -79,11 +79,14 @@ export function Sidebar({
             currentPathname + (searchParamsStr ? "?" + searchParamsStr : "");
           const currentUrl = new URL(currentFullPath, "http://example.com");
 
+          const matchChildren = c.matchChildren !== false;
+
           // Exact match (including query params) or child route
           return (
             (currentUrl.pathname === cUrl.pathname &&
               currentUrl.search === cUrl.search) ||
-            currentUrl.pathname.startsWith(cUrl.pathname + "/") ||
+            (matchChildren &&
+              currentUrl.pathname.startsWith(cUrl.pathname + "/")) ||
             (currentUrl.pathname === cUrl.pathname &&
               cUrl.search &&
               currentUrl.search.includes(cUrl.search.substring(1)))

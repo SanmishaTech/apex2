@@ -71,7 +71,8 @@ const createSchema = z.object({
           .default([]),
       })
     )
-    .min(1, "At least one item is required"),
+    .optional()
+    .default([]),
 });
 
 // GET /api/daily-consumptions?search=&siteId=1&page=1&perPage=10&sort=dailyConsumptionNo&order=asc
@@ -206,11 +207,13 @@ export async function POST(req: NextRequest) {
 
     const { dailyConsumptionDetails, ...restForValidation } = validated as any;
     // Build details for validation
-    const detailsForValidation = (dailyConsumptionDetails || []).map((d: any) => ({
-      itemId: Number(d.itemId),
-      qty: Number(d.qty ?? 0),
-      dcDetailBatches: Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [],
-    }));
+    const detailsForValidation = (dailyConsumptionDetails || [])
+      .map((d: any) => ({
+        itemId: Number(d.itemId),
+        qty: Number(d.qty ?? 0),
+        dcDetailBatches: Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [],
+      }))
+      .filter((d: any) => Number.isFinite(d.itemId) && d.itemId > 0 && d.qty > 0);
     const siteIdForValidation = Number((restForValidation as any).siteId);
     if (
       detailsForValidation.length > 0 &&
@@ -241,15 +244,9 @@ export async function POST(req: NextRequest) {
       let idx = 0;
       for (const d of detailsForValidation) {
         const closing = closingById.get(Number(d.itemId)) ?? 0;
-        if (!(d.qty > 0)) {
-          errors.push(`Row ${idx + 1}: Qty must be greater than 0`);
-        } else {
-          const reqTotal = requestedByItem.get(Number(d.itemId)) ?? d.qty;
-          if (reqTotal > closing) {
-            errors.push(
-              `Item ${d.itemId}: Qty cannot exceed closing (${closing})`
-            );
-          }
+        const reqTotal = requestedByItem.get(Number(d.itemId)) ?? d.qty;
+        if (reqTotal > closing) {
+          errors.push(`Item ${d.itemId}: Qty cannot exceed closing (${closing})`);
         }
         idx++;
       }
@@ -326,6 +323,10 @@ export async function POST(req: NextRequest) {
     const created = await prisma.$transaction(async (tx) => {
       const { dailyConsumptionDetails, ...rest } = validated as any;
 
+      const filteredDetails = (dailyConsumptionDetails || []).filter(
+        (d: any) => Number(d?.qty ?? 0) > 0
+      );
+
       const {
         dailyConsumptionNo: rawNo,
         dailyConsumptionDate,
@@ -359,7 +360,7 @@ export async function POST(req: NextRequest) {
       // Compute detail rows using SiteItem.unitRate and roundings
       const distinctItemIds: number[] = Array.from(
         new Set(
-          (dailyConsumptionDetails || []).map((d: any) => Number(d.itemId))
+          (filteredDetails || []).map((d: any) => Number(d.itemId))
         )
       );
 
@@ -399,7 +400,7 @@ export async function POST(req: NextRequest) {
       siteItems.forEach((si) => siteItemById.set(Number(si.itemId), si));
 
       // Preload batch unit rates for expiry items so we can compute weighted average rate/amount
-      const batchReq = (dailyConsumptionDetails || [])
+      const batchReq = (filteredDetails || [])
         .flatMap((d: any) => {
           const itemId = Number(d.itemId);
           const isExpiry = Boolean(isExpiryByItemId.get(itemId));
@@ -437,7 +438,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const details = (dailyConsumptionDetails || []).map((d: any) => {
+      const details = (filteredDetails || []).map((d: any) => {
         const itemId = Number(d.itemId);
         const isExpiry = Boolean(isExpiryByItemId.get(itemId));
         const dcBatches = Array.isArray(d?.dcDetailBatches) ? d.dcDetailBatches : [];

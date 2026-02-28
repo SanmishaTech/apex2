@@ -13,6 +13,8 @@ type FilterBarProps = {
   variant?: 'subtle' | 'gradient' | 'outline' | 'glass';
   /** Spacing density */
   size?: 'sm' | 'md';
+  /** Fixed number of columns for the content grid. If omitted, uses auto-fit layout. */
+  columns?: 1 | 2 | 3 | 4;
   /** Allow collapsing */
   collapsible?: boolean;
   /** Initial open state when collapsible */
@@ -32,6 +34,7 @@ export function FilterBar({
   title = 'Filters',
   variant = 'subtle',
   size = 'md',
+  columns,
   collapsible = true,
   defaultOpen = true,
 }: FilterBarProps) {
@@ -78,7 +81,12 @@ export function FilterBar({
         <div className={cn(open ? 'overflow-visible' : 'overflow-hidden')}> 
           <div
             className={cn(
-              'grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] auto-rows-fr',
+              'grid auto-rows-fr',
+              columns === 1 && 'grid-cols-1',
+              columns === 2 && 'grid-cols-1 md:grid-cols-2',
+              columns === 3 && 'grid-cols-1 md:grid-cols-3',
+              columns === 4 && 'grid-cols-1 md:grid-cols-4',
+              !columns && 'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]',
               size === 'sm' ? 'gap-2' : 'gap-3'
             )}
           >
