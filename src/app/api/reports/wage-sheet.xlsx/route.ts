@@ -8,6 +8,9 @@ export async function GET(req: NextRequest) {
     const period = apiUrl.searchParams.get("period");
     const mode = apiUrl.searchParams.get("mode") as "company" | "govt" | null;
     const siteId = apiUrl.searchParams.get("siteId");
+    const siteIds = apiUrl.searchParams.get("siteIds");
+    const categoryId = apiUrl.searchParams.get("categoryId");
+    const pf = apiUrl.searchParams.get("pf");
 
     if (!period || !/^\d{2}-\d{4}$/.test(period)) {
       return NextResponse.json({ error: "Missing or invalid period (MM-YYYY)" }, { status: 400 });
@@ -26,8 +29,14 @@ export async function GET(req: NextRequest) {
     const protocol = req.headers.get('x-forwarded-proto') || 'http';
     const baseUrl = `${protocol}://${host}`;
     
-    const detailsUrl = `${baseUrl}/api/reports/wage-sheet-details?period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}${siteId ? `&siteId=${encodeURIComponent(siteId)}` : ""}`;
-    console.log("Fetching from:", detailsUrl);
+    const qs = new URLSearchParams();
+    qs.set("period", period);
+    qs.set("mode", mode);
+    if (siteIds) qs.set("siteIds", siteIds);
+    if (!siteIds && siteId) qs.set("siteId", siteId);
+    if (categoryId) qs.set("categoryId", categoryId);
+    if (pf) qs.set("pf", pf);
+    const detailsUrl = `${baseUrl}/api/reports/wage-sheet-details?${qs.toString()}`;
     
     // Pass authentication headers from the original request
     const headers = new Headers();
@@ -49,7 +58,6 @@ export async function GET(req: NextRequest) {
     }
     
     const wageData = await detailsResponse.json();
-    console.log("Fetched wage data with", wageData.data?.length, "sites");
     
     if (!wageData.data || wageData.data.length === 0) {
       return NextResponse.json({ error: "No data available for the selected period" }, { status: 404 });
@@ -87,11 +95,11 @@ export async function GET(req: NextRequest) {
           "GROSS WAGE",
           "HRA @5%",
           "PF @12%",
-          "ESIC",
+          "ESIC @0.75%",
           "PT",
           "MLWF",
           "TOTAL DEDUCTION",
-          "PAYABLE"
+          "NET WAGES"
         );
       } else {
         headers.push(
@@ -166,7 +174,9 @@ export async function GET(req: NextRequest) {
           
           // Add supplier total row
           const supplierTotal = ["", "Total"];
-          for (let i = 0; i < 4 + daysInMonth; i++) supplierTotal.push("");
+          const fixedCols = 7; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, RATE/SKILL SET
+          const padCount = (fixedCols - 2) + daysInMonth;
+          for (let i = 0; i < padCount; i++) supplierTotal.push("");
           
           const totals = workers.reduce((acc, w) => ({
             workingDays: acc.workingDays + Number(w.workingDays || 0),
@@ -204,7 +214,8 @@ export async function GET(req: NextRequest) {
           
           // Add daily attendance
           worker.dailyAttendance.forEach((status: string) => {
-            row.push(status || "");
+            const parts = String(status || "").split("\n");
+            row.push(parts[0] || "");
           });
           
           // Add summary values
@@ -227,7 +238,9 @@ export async function GET(req: NextRequest) {
       
       // Add Grand Total row
       const grandTotal = ["", "Grand Total"];
-      for (let i = 0; i < 4 + daysInMonth; i++) grandTotal.push("");
+      const fixedCols = 7; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, RATE/SKILL SET
+      const padCount = (fixedCols - 2) + daysInMonth;
+      for (let i = 0; i < padCount; i++) grandTotal.push("");
       
       if (mode === 'company') {
         const totals = siteGroup.workers.reduce((acc: any, w: any) => ({
@@ -314,7 +327,7 @@ export async function GET(req: NextRequest) {
           { wch: 8 },  // PT
           { wch: 8 },  // MLWF
           { wch: 14 }, // Total Deduction
-          { wch: 12 }  // Payable
+          { wch: 12 }  // Net Wages
         );
       }
       

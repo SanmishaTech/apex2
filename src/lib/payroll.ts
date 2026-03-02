@@ -50,7 +50,21 @@ export async function generatePayroll(params: GeneratePayrollParams) {
   const cfg = await prisma.payrollConfig.upsert({
     where: { id: 1 },
     update: {},
-    create: {},
+    create: {
+      id: 1,
+      hoursPerDay: 8,
+      govtWorkingDayCap: 26,
+      hraPercentage: 5,
+      pfPercentage: 12,
+      esicPercentage: 0.75,
+      ptThreshold1: 7500,
+      ptAmount1: 175,
+      ptThreshold2: 10000,
+      ptAmount2: 200,
+      febPtAmount: 300,
+      mlwfAmount: 12,
+      mlwfMonths: "02,06",
+    },
   });
 
   // Gather attendance within period
@@ -73,9 +87,10 @@ export async function generatePayroll(params: GeneratePayrollParams) {
   for (const a of attendances) {
     const key = `${a.manpowerId}:${a.siteId}` as AttendanceAggKey;
     const cur = aggs.get(key) ?? { manpowerId: a.manpowerId, siteId: a.siteId, presentDays: 0, otDays: 0, idleDays: 0 };
-    if (a.isPresent) {
+    const effectivePresent = Boolean(a.isPresent) || Boolean(a.isIdle);
+    if (effectivePresent) {
       cur.presentDays += 1;
-      // Sum OT only when present, same as legacy query SUM(IF(attendance, ot, 0))
+      // Sum OT for both present and idle days (idle is treated as present in reports)
       cur.otDays += Number(a.ot ?? 0);
     }
     if (a.isIdle) cur.idleDays += 1;

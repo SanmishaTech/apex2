@@ -3,7 +3,6 @@ import useSWR from "swr";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,17 +13,33 @@ import {
 import { toast } from "@/lib/toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useForm } from "react-hook-form";
+import { Form } from "@/components/ui/form";
+import { MultiSelectInput } from "@/components/common/multi-select-input";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+type FormValues = {
+  siteIds: string[];
+};
 
 export default function WageSheetPage() {
   const search = useSearchParams();
   const [period, setPeriod] = useState("");
   const [mode, setMode] = useState<"company" | "govt" | "all">("govt");
-  const [siteId, setSiteId] = useState<string>("all");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [pf, setPf] = useState<string>("");
   const [exportType, setExportType] = useState<"none" | "excel" | "pdf">(
     "none"
   );
+
+  const form = useForm<FormValues>({
+    defaultValues: {
+      siteIds: [],
+    },
+  });
+
+  const selectedSiteIds = form.watch("siteIds");
 
   // Build last 24 months options MM-YYYY
   const periodOptions = useMemo(() => {
@@ -48,27 +63,54 @@ export default function WageSheetPage() {
     }
     const p = search?.get("period");
     if (p) setPeriod(p);
+    const cat = search?.get("categoryId");
+    if (cat) setCategoryId(cat);
+    const pfParam = search?.get("pf");
+    if (pfParam === "true" || pfParam === "false") setPf(pfParam);
+
+    const siteIdsCsv = search?.get("siteIds");
     const s = search?.get("siteId");
-    if (s) {
-      setSiteId(s);
+    if (siteIdsCsv) {
+      const ids = siteIdsCsv
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      form.setValue("siteIds", ids);
+    } else if (s && s !== "all") {
+      form.setValue("siteIds", [s]);
     } else {
-      setSiteId("all");
+      form.setValue("siteIds", []);
     }
   }, [search]);
 
   const sitesQuery = "/api/sites/options";
   const sites = useSWR(sitesQuery, fetcher);
 
+  const categoriesQuery = "/api/categories?perPage=1000&sort=categoryName&order=asc";
+  const categories = useSWR(categoriesQuery, fetcher);
+
+  const siteOptions = useMemo(
+    () =>
+      (sites.data?.data || []).map((s: any) => ({
+        value: String(s.id),
+        label: s.site,
+      })),
+    [sites.data]
+  );
+
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (period) params.set("period", period);
-    if (siteId && siteId !== "all") params.set("siteId", siteId);
+    const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+    if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
     if (mode !== "all") params.set("mode", mode);
+    if (categoryId) params.set("categoryId", categoryId);
+    if (pf) params.set("pf", pf);
     const qs = params.toString();
     return "/api/reports/wage-sheet" + (qs ? `?${qs}` : "");
-  }, [period, mode, siteId]);
+  }, [period, mode, selectedSiteIds, categoryId, pf]);
 
-  const { data, isLoading, mutate } = useSWR(query, fetcher);
+  const { data, isLoading } = useSWR(query, fetcher);
 
   async function downloadFile(url: string, filename: string) {
     const res = await fetch(url, { cache: "no-store" });
@@ -94,8 +136,11 @@ export default function WageSheetPage() {
     }
     const params = new URLSearchParams();
     params.set("period", period);
-    if (siteId && siteId !== "all") params.set("siteId", siteId);
+    const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+    if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
     if (mode !== "all") params.set("mode", mode);
+    if (categoryId) params.set("categoryId", categoryId);
+    if (pf) params.set("pf", pf);
     const url = `/api/reports/wage-sheet.xlsx?${params.toString()}`;
     const fname = `wage-sheet-${period}${
       mode !== "all" ? `-${mode}` : ""
@@ -115,8 +160,11 @@ export default function WageSheetPage() {
       // Fetch detailed daily attendance data
       const params = new URLSearchParams();
       params.set("period", period);
-      if (siteId && siteId !== "all") params.set("siteId", siteId);
+      const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+      if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
       params.set("mode", mode);
+      if (categoryId) params.set("categoryId", categoryId);
+      if (pf) params.set("pf", pf);
       const url = `/api/reports/wage-sheet-details?${params.toString()}`;
 
       const response = await fetch(url);
@@ -125,12 +173,22 @@ export default function WageSheetPage() {
       }
 
       const wageData = await response.json();
+
+      const siteName = (() => {
+        const ids = (selectedSiteIds || []).filter(Boolean);
+        if (!ids.length) return "All Sites";
+        if (ids.length === 1) {
+          return (
+            sites.data?.data?.find((s: any) => String(s.id) === ids[0])?.site ||
+            "Selected Site"
+          );
+        }
+        return `${ids.length} Sites`;
+      })();
       const pdfBlob = await generateWageSheetPDF(
         wageData,
         period,
-        siteId !== "all"
-          ? sites.data?.data?.find((s: any) => String(s.id) === siteId)?.site
-          : "All Sites"
+        siteName
       );
 
       // Open PDF in new tab
@@ -224,13 +282,13 @@ export default function WageSheetPage() {
           "Total Days",
           "Wage Rate",
           "Gross Wage",
-          "HB @5%",
-          "Total PF @12%",
-          "ESI",
+          "HRA @5%",
+          "PF @12%",
+          "ESIC @0.75%",
           "PT",
           "LWF",
           "Total Deduction",
-          "Payable"
+          "Net Wages"
         );
       } else {
         // Company rates columns
@@ -340,6 +398,11 @@ export default function WageSheetPage() {
 
         // Add daily attendance (P/A/I/O)
         worker.dailyAttendance.forEach((status: string) => {
+          if (mode === "govt") {
+            const parts = String(status || "").split("\n");
+            row.push(parts[0] || "-");
+            return;
+          }
           row.push(status || "-");
         });
 
@@ -579,8 +642,11 @@ export default function WageSheetPage() {
       // Open in new tab with current filters
       const params = new URLSearchParams();
       params.set("period", period);
-      if (siteId && siteId !== "all") params.set("siteId", siteId);
+      const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+      if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
       params.set("mode", mode);
+      if (categoryId) params.set("categoryId", categoryId);
+      if (pf) params.set("pf", pf);
       const url = `/reports/wage-sheet?${params.toString()}`;
       window.open(url, "_blank");
     }
@@ -591,30 +657,42 @@ export default function WageSheetPage() {
       ? "Monthly Wage Sheet As Per Minimum Wage"
       : "Monthly Wage Sheet As Per Company Rates";
 
+  const groupedBySite = useMemo(() => {
+    const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+    const map = new Map<string, { siteId: number; siteName: string; rows: any[] }>();
+
+    for (const r of rows) {
+      const key = String(r.siteId ?? "");
+      if (!map.has(key)) {
+        map.set(key, {
+          siteId: Number(r.siteId || 0),
+          siteName: String(r.siteName || ""),
+          rows: [],
+        });
+      }
+      map.get(key)!.rows.push(r);
+    }
+
+    return Array.from(map.values()).sort((a, b) => (a.siteName || "").localeCompare(b.siteName || ""));
+  }, [data?.data]);
+
   return (
-    <div className="space-y-6">
-      <div className="border rounded-md overflow-hidden">
-        <div className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold">
-          {title}
-        </div>
-        <div className="p-4 bg-muted/30">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-            <div>
-              <label className="block text-sm mb-1">Site</label>
-              <Select value={siteId} onValueChange={(v) => setSiteId(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="---" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sites</SelectItem>
-                  {sites.data?.data?.map((s: any) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.site}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <Form {...form}>
+      <div className="space-y-6">
+        <div className="border rounded-md overflow-hidden">
+          <div className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold">
+            {title}
+          </div>
+          <div className="p-4 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
+              <MultiSelectInput
+                control={form.control}
+                name="siteIds"
+                label="Sites"
+                placeholder="All Sites"
+                options={siteOptions}
+                className="w-full"
+              />
             <div>
               <label className="block text-sm mb-1">Period</label>
               <Select value={period} onValueChange={(v) => setPeriod(v)}>
@@ -627,6 +705,35 @@ export default function WageSheetPage() {
                       {p}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Category</label>
+              <Select value={categoryId || "all"} onValueChange={(v) => setCategoryId(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="---" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {categories.data?.data?.map((c: any) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.categoryName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">PF</label>
+              <Select value={pf || "all"} onValueChange={(v) => setPf(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="---" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="true">Yes</SelectItem>
+                  <SelectItem value="false">No</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -646,131 +753,151 @@ export default function WageSheetPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="mt-6 flex justify-end">
-            <Button
-              onClick={handleShow}
-              disabled={!/^\d{2}-\d{4}$/.test(period)}
-            >
-              Show
-            </Button>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleShow}
+                disabled={!/^\d{2}-\d{4}$/.test(period)}
+              >
+                Show
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="overflow-auto border rounded-md">
-        <table className="min-w-full text-sm">
-          <thead className="bg-muted">
-            <tr>
-              <th className="p-2 text-left">Site</th>
-              <th className="p-2 text-left">Manpower</th>
-              <th className="p-2 text-left">Supplier</th>
-              <th className="p-2 text-right">Days</th>
-              <th className="p-2 text-right">OT</th>
-              <th className="p-2 text-right">Wage</th>
-              <th className="p-2 text-right">Gross</th>
-              <th className="p-2 text-right">HRA</th>
-              <th className="p-2 text-right">PF</th>
-              <th className="p-2 text-right">ESIC</th>
-              <th className="p-2 text-right">PT</th>
-              <th className="p-2 text-right">MLWF</th>
-              <th className="p-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={13} className="p-4">
-                  Loading...
-                </td>
-              </tr>
-            ) : !data?.data?.length ? (
-              <tr>
-                <td colSpan={13} className="p-4">
-                  No data
-                </td>
-              </tr>
-            ) : (
-              data.data.map((r: any, idx: number) => (
-                <tr key={idx} className="border-t">
-                  <td className="p-2">{r.siteName}</td>
-                  <td className="p-2">{r.manpowerName}</td>
-                  <td className="p-2">{r.supplier ?? ""}</td>
-                  <td className="p-2 text-right">
-                    {Number(r.workingDays).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(r.ot).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(r.wages).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">
-                    {Number(r.grossWages).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(r.hra).toFixed(2)}</td>
-                  <td className="p-2 text-right">{Number(r.pf).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(r.esic).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(r.pt).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(r.mlwf).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">
-                    {Number(r.total).toFixed(2)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {!!data?.summary?.length && (
-        <div className="overflow-auto border rounded-md">
-          <table className="min-w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="p-2 text-left">Site</th>
-                <th className="p-2 text-right">Days</th>
-                <th className="p-2 text-right">OT</th>
-                <th className="p-2 text-right">Gross</th>
-                <th className="p-2 text-right">HRA</th>
-                <th className="p-2 text-right">PF</th>
-                <th className="p-2 text-right">ESIC</th>
-                <th className="p-2 text-right">PT</th>
-                <th className="p-2 text-right">MLWF</th>
-                <th className="p-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.summary.map((s: any, idx: number) => (
-                <tr key={idx} className="border-t">
-                  <td className="p-2">{s.siteName}</td>
-                  <td className="p-2 text-right">
-                    {Number(s.workingDays).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(s.ot).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(s.grossWages).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(s.hra).toFixed(2)}</td>
-                  <td className="p-2 text-right">{Number(s.pf).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(s.esic).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">{Number(s.pt).toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {Number(s.mlwf).toFixed(2)}
-                  </td>
-                  <td className="p-2 text-right">
-                    {Number(s.total).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {isLoading ? (
+        <div className="border rounded-md p-4">Loading...</div>
+      ) : !data?.data?.length ? (
+        <div className="border rounded-md p-4">No data</div>
+      ) : (
+        <div className="space-y-6">
+          {groupedBySite.map((g) => (
+            <div key={String(g.siteId)} className="space-y-2">
+              <div className="text-sm font-semibold">{g.siteName}</div>
+              <div className="overflow-auto border rounded-md">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="p-2 text-left">Manpower</th>
+                      <th className="p-2 text-left">Supplier</th>
+                      <th className="p-2 text-right">Days</th>
+                      {mode !== "govt" ? (
+                        <th className="p-2 text-right">OT</th>
+                      ) : null}
+                      <th className="p-2 text-right">Wage</th>
+                      <th className="p-2 text-right">Gross</th>
+                      <th className="p-2 text-right">HRA</th>
+                      <th className="p-2 text-right">PF</th>
+                      <th className="p-2 text-right">ESIC</th>
+                      <th className="p-2 text-right">PT</th>
+                      <th className="p-2 text-right">MLWF</th>
+                      <th className="p-2 text-right">
+                        {mode === "govt" ? "Net Wages" : "Total"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.rows.map((r: any, idx: number) => (
+                      <tr key={idx} className="border-t">
+                        <td className="p-2">{r.manpowerName}</td>
+                        <td className="p-2">{r.supplier ?? ""}</td>
+                        <td className="p-2 text-right">
+                          {Number(r.workingDays).toFixed(2)}
+                        </td>
+                        {mode !== "govt" ? (
+                          <td className="p-2 text-right">
+                            {Number(r.ot).toFixed(2)}
+                          </td>
+                        ) : null}
+                        <td className="p-2 text-right">
+                          {Number(r.wages).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.grossWages).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.hra).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.pf).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.esic).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.pt).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.mlwf).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.total).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
-    </div>
+
+        {!!data?.summary?.length && (
+          <div className="overflow-auto border rounded-md">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="p-2 text-left">Site</th>
+                  {mode === "all" ? (
+                    <>
+                      <th className="p-2 text-right">Days</th>
+                      <th className="p-2 text-right">OT</th>
+                    </>
+                  ) : null}
+                  <th className="p-2 text-right">Gross</th>
+                  <th className="p-2 text-right">HRA</th>
+                  <th className="p-2 text-right">PF</th>
+                  <th className="p-2 text-right">ESIC</th>
+                  <th className="p-2 text-right">PT</th>
+                  <th className="p-2 text-right">MLWF</th>
+                  <th className="p-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.summary.map((s: any, idx: number) => (
+                  <tr key={idx} className="border-t">
+                    <td className="p-2">{s.siteName}</td>
+                    {mode === "all" ? (
+                      <>
+                        <td className="p-2 text-right">
+                          {Number(s.workingDays).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">{Number(s.ot).toFixed(2)}</td>
+                      </>
+                    ) : null}
+                    <td className="p-2 text-right">
+                      {Number(s.grossWages).toFixed(2)}
+                    </td>
+                    <td className="p-2 text-right">{Number(s.hra).toFixed(2)}</td>
+                    <td className="p-2 text-right">{Number(s.pf).toFixed(2)}</td>
+                    <td className="p-2 text-right">
+                      {Number(s.esic).toFixed(2)}
+                    </td>
+                    <td className="p-2 text-right">{Number(s.pt).toFixed(2)}</td>
+                    <td className="p-2 text-right">
+                      {Number(s.mlwf).toFixed(2)}
+                    </td>
+                    <td className="p-2 text-right">
+                      {Number(s.total).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Form>
   );
 }
