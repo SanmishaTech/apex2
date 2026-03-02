@@ -1568,7 +1568,7 @@ model PayrollConfig {
   govtWorkingDayCap Int      @default(26)
   hraPercentage     Decimal  @default(5.00) @db.Decimal(6, 2)
   pfPercentage      Decimal  @default(12.00) @db.Decimal(6, 2)
-  esicPercentage    Decimal  @default(1.75) @db.Decimal(6, 2)
+  esicPercentage    Decimal  @default(0.75) @db.Decimal(6, 2)
   ptThreshold1      Decimal  @default(7500) @db.Decimal(12, 2)
   ptAmount1         Decimal  @default(175) @db.Decimal(12, 2)
   ptThreshold2      Decimal  @default(10000) @db.Decimal(12, 2)
