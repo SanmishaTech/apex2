@@ -7,13 +7,16 @@ import {
   NotFound,
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { PERMISSIONS } from "@/config/roles";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const workOrderItemSchema = z.object({
   id: z.number().optional(), // For existing items
-  itemId: z.coerce.number().min(1, "Item is required"),
-  sac_code: z.string().min(1, "SAC code is required"),
+  serialNo: z.coerce.number().min(1, "Sr. No. is required").optional(),
+  Item: z.string().min(1, "Item is required"),
+  unitId: z.coerce.number().min(1, "Unit is required"),
+  sac_code: z.string().nullable().optional(),
   remark: z.string().nullable().optional(),
   qty: z.coerce
     .number()
@@ -63,6 +66,8 @@ const workOrderItemSchema = z.object({
 });
 
 const updateSchema = z.object({
+  purchaseOrderId: z.coerce.number().optional(),
+  boqId: z.coerce.number().optional(),
   workOrderDate: z
     .string()
     .transform((val) => new Date(val))
@@ -75,7 +80,9 @@ const updateSchema = z.object({
   vendorId: z.number().optional(),
   billingAddressId: z.number().optional(),
   siteDeliveryAddressId: z.number().optional(),
-  paymentTermId: z.number().nullable().optional(),
+  paymentTermIds: z
+    .array(z.union([z.string(), z.number()]).transform((v) => String(v)))
+    .optional(),
   quotationNo: z.string().optional(),
   quotationDate: z
     .string()
@@ -144,11 +151,12 @@ export async function GET(
         workOrderNo: true,
         workOrderDate: true,
         deliveryDate: true,
+        purchaseOrderId: true,
+        boqId: true,
         siteId: true,
         vendorId: true,
         billingAddressId: true,
         siteDeliveryAddressId: true,
-        paymentTermId: true,
         woStatus: true,
         quotationNo: true,
         quotationDate: true,
@@ -220,29 +228,28 @@ export async function GET(
             },
           },
         },
-        paymentTerm: {
+        WOPaymentTerms: {
           select: {
-            id: true,
-            paymentTerm: true,
+            paymentTermId: true,
+            paymentTerm: {
+              select: {
+                id: true,
+                paymentTerm: true,
+                description: true,
+              },
+            },
           },
         },
         workOrderDetails: {
           select: {
             id: true,
             serialNo: true,
-            itemId: true,
-            item: {
+            Item: true,
+            unitId: true,
+            unit: {
               select: {
                 id: true,
-                itemCode: true,
-                item: true,
-                unitId: true,
-                unit: {
-                  select: {
-                    id: true,
-                    unitName: true,
-                  },
-                },
+                unitName: true,
               },
             },
             sac_code: true,
@@ -290,13 +297,50 @@ export async function PATCH(
     const body = await req.json();
     const updateData = updateSchema.parse(body);
 
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    const has = (p: string) => permSet.has(p);
+
+    // Enforce field-level update permissions (remarks, billStatus)
+    if (Object.prototype.hasOwnProperty.call(updateData, "remarks")) {
+      if (!has(PERMISSIONS.UPDATE_WORK_ORDER_REMARKS)) {
+        throw new Error("BAD_REQUEST: Missing permission to update remarks");
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, "billStatus")) {
+      if (!has(PERMISSIONS.UPDATE_WORK_ORDER_BILL_STATUS)) {
+        throw new Error("BAD_REQUEST: Missing permission to update bill status");
+      }
+    }
+
     if (Object.keys(updateData).length === 0) {
       return BadRequest("No valid fields to update");
     }
 
     const result = await prisma.$transaction(async (tx) => {
       // Update work order header
-      const { workOrderItems, statusAction, ...woData } = updateData as any;
+      const {
+        workOrderItems,
+        statusAction,
+        paymentTermIds: paymentTermIdsRaw,
+        ...woData
+      } = updateData as any;
+
+      const nextPaymentTermIds: number[] | undefined = Array.isArray(
+        paymentTermIdsRaw
+      )
+        ? Array.from(
+            new Set(
+              (paymentTermIdsRaw as any[])
+                .map((v) => Number(v))
+                .filter((n) => Number.isFinite(n) && n > 0)
+            )
+          )
+        : undefined;
+
+      // For general edits (non-status) require EDIT permission
+      if (Object.keys(woData).length > 0 && !has(PERMISSIONS.EDIT_WORK_ORDERS)) {
+        throw new Error("BAD_REQUEST: Missing permission to edit work orders");
+      }
 
       // Update basic fields if provided
       if (Object.keys(woData).length > 0 || statusAction) {
@@ -304,6 +348,32 @@ export async function PATCH(
 
         // Handle status actions
         if (statusAction) {
+          if (statusAction === "approve1") {
+            if (!has(PERMISSIONS.APPROVE_WORK_ORDERS_L1)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to approve level 1"
+              );
+            }
+          } else if (statusAction === "approve2") {
+            if (!has(PERMISSIONS.APPROVE_WORK_ORDERS_L2)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to approve level 2"
+              );
+            }
+          } else if (statusAction === "complete") {
+            if (!has(PERMISSIONS.COMPLETE_WORK_ORDERS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to complete work order"
+              );
+            }
+          } else if (statusAction === "suspend" || statusAction === "unsuspend") {
+            if (!has(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to suspend/unsuspend work order"
+              );
+            }
+          }
+
           const current: any = await tx.workOrder.findUnique({
             where: { id },
             select: {
@@ -315,7 +385,7 @@ export async function PATCH(
           });
 
           if (!current) {
-            throw new Error("BAD_REQUEST: Work order not found");
+            throw new Error("NOT_FOUND: Work order not found");
           }
 
           const now = new Date();
@@ -389,6 +459,22 @@ export async function PATCH(
         });
       }
 
+      if (nextPaymentTermIds !== undefined) {
+        await (tx as any).wOPaymentTerm.deleteMany({
+          where: { workOrderId: id },
+        });
+
+        if (nextPaymentTermIds.length > 0) {
+          await (tx as any).wOPaymentTerm.createMany({
+            data: nextPaymentTermIds.map((paymentTermId) => ({
+              workOrderId: id,
+              paymentTermId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
       // Update or create work order items
       if (workOrderItems && workOrderItems.length > 0) {
         // Get existing item IDs to identify which ones to delete
@@ -403,9 +489,14 @@ export async function PATCH(
         // Process each item in the request
         for (const [index, item] of workOrderItems.entries()) {
           const itemData: any = {
-            serialNo: index + 1,
-            itemId: item.itemId,
-            sac_code: item.sac_code,
+            serialNo:
+              typeof (item as any).serialNo === "number" &&
+              Number.isFinite(Number((item as any).serialNo))
+                ? Number((item as any).serialNo)
+                : index + 1,
+            Item: (item as any).Item,
+            unitId: (item as any).unitId,
+            sac_code: (item as any).sac_code || null,
             remark: item.remark || null,
             qty: item.qty,
             orderedQty: item.orderedQty ?? null,
@@ -463,11 +554,12 @@ export async function PATCH(
           workOrderNo: true,
           workOrderDate: true,
           deliveryDate: true,
+          purchaseOrderId: true,
+          boqId: true,
           siteId: true,
           vendorId: true,
           billingAddressId: true,
           siteDeliveryAddressId: true,
-          paymentTermId: true,
           quotationNo: true,
           quotationDate: true,
           transport: true,
@@ -538,29 +630,28 @@ export async function PATCH(
               },
             },
           },
-          paymentTerm: {
+          WOPaymentTerms: {
             select: {
-              id: true,
-              paymentTerm: true,
-              description: true,
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
             },
           },
           workOrderDetails: {
             select: {
               id: true,
               serialNo: true,
-              itemId: true,
-              item: {
+              Item: true,
+              unitId: true,
+              unit: {
                 select: {
                   id: true,
-                  itemCode: true,
-                  item: true,
-                  unit: {
-                    select: {
-                      id: true,
-                      unitName: true,
-                    },
-                  },
+                  unitName: true,
                 },
               },
               sac_code: true,
@@ -650,6 +741,11 @@ export async function DELETE(
   if (auth.ok === false) return auth.response;
 
   try {
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    if (!permSet.has(PERMISSIONS.DELETE_WORK_ORDERS)) {
+      throw new Error("BAD_REQUEST: Missing permission to delete work orders");
+    }
+
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid work order ID");
 

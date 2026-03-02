@@ -1,14 +1,12 @@
 "use client";
 
 import { WorkOrderForm } from "../work-order-form";
-import { useSearchParams } from "next/navigation";
+import { useProtectPage } from "@/hooks/use-protect-page";
 
 export default function NewWorkOrderPage() {
-  const searchParams = useSearchParams();
-  const indentIdParam = searchParams?.get("indentId");
-  const indentId = indentIdParam ? parseInt(indentIdParam, 10) : undefined;
+  useProtectPage();
 
-  return <WorkOrderForm mode="create" indentId={indentId} />;
+  return <WorkOrderForm mode="create" />;
 }
 
 

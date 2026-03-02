@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppButton } from "@/components/common";
 import { AppCard } from "@/components/common/app-card";
 import { AppSelect } from "@/components/common/app-select";
+import { MultiSelectInput } from "@/components/common/multi-select-input";
 import { TextInput } from "@/components/common/text-input";
 import { TextareaInput } from "@/components/common/textarea-input";
 import { apiPost, apiPatch } from "@/lib/api-client";
@@ -68,21 +69,17 @@ type PaymentTerm = {
   description: string;
 };
 
-type Item = {
+type Unit = {
   id: number;
-  itemCode: string;
-  item: string;
-  unit: {
-    id: number;
-    unitName: string;
-  };
+  unitName: string;
 };
 
 type WorkOrderItem = {
   id?: number;
-  itemId: number;
-  item?: Item;
-  sac_code?: string;
+  serialNo?: number;
+  Item: string;
+  unitId: number;
+  sac_code?: string | null;
   remark?: string;
   qty: number;
   orderedQty?: number | null;
@@ -103,11 +100,13 @@ type WorkOrderFormInitialData = {
   workOrderNo?: string;
   workOrderDate?: string;
   deliveryDate?: string;
+  purchaseOrderId?: number | null;
+  boqId?: number | null;
   siteId?: number | null;
   vendorId?: number | null;
   billingAddressId?: number | null;
   siteDeliveryAddressId?: number | null;
-  paymentTermId?: number | null;
+  paymentTermIds?: Array<number | string>;
   quotationNo?: string;
   quotationDate?: string;
   transport?: string | null;
@@ -132,19 +131,26 @@ export interface WorkOrderFormProps {
   onSuccess?: (result?: unknown) => void;
   redirectOnSuccess?: string; // default '/work-orders'
   mutate?: () => Promise<any>;
-  indentId?: number;
 }
 
 const workOrderItemSchema = z.object({
-  itemId: z
+  serialNo: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => {
+      if (val === null || val === undefined || val === "") return undefined;
+      return typeof val === "string" ? parseInt(val, 10) : val;
+    }),
+  Item: z.string().min(1, "Item is required"),
+  unitId: z
     .union([z.string(), z.number()])
     .transform((val) => String(val))
     .refine(
       (val) => val !== "__none" && val !== "0" && val !== "",
-      "Item is required"
+      "Unit is required"
     )
     .transform((val) => parseInt(val)),
-  sac_code: z.string().min(1, "SAC code is required"),
+  sac_code: z.string().optional().nullable(),
   remark: z.string().optional(),
   qty: z
     .union([z.string(), z.number()])
@@ -196,6 +202,22 @@ const workOrderItemSchema = z.object({
 const createInputSchema = z.object({
   // Type is required for create/edit but not for approvals; make optional here
   type: z.enum(["SUB_CONTRACT", "PWR_WORK"]).optional(),
+  purchaseOrderId: z
+    .union([z.string(), z.number()])
+    .transform((val) => String(val))
+    .refine(
+      (val) => val !== "__none" && val !== "0" && val !== "",
+      "Purchase Order is required"
+    )
+    .transform((val) => parseInt(val)),
+  boqId: z
+    .union([z.string(), z.number()])
+    .transform((val) => String(val))
+    .refine(
+      (val) => val !== "__none" && val !== "0" && val !== "",
+      "BOQ is required"
+    )
+    .transform((val) => parseInt(val)),
   workOrderDate: z.string().min(1, "WO date is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   siteId: z
@@ -230,13 +252,10 @@ const createInputSchema = z.object({
       "Delivery address is required"
     )
     .transform((val) => parseInt(val)),
-  paymentTermId: z
-    .union([z.string(), z.number()])
+  paymentTermIds: z
+    .array(z.union([z.string(), z.number()]).transform((v) => String(v)))
     .optional()
-    .transform((val) => {
-      if (!val || val === "__none" || val === "") return undefined;
-      return typeof val === "string" ? parseInt(val) : val;
-    }),
+    .default([]),
   quotationNo: z.string().min(1, "Quotation No. is required"),
   quotationDate: z.string().min(1, "Quotation date is required"),
   transport: z.string().optional(),
@@ -317,8 +336,8 @@ export function WorkOrderForm({
     apiGet
   );
 
-  const { data: itemsData } = useSWR<ApiListResponse<Item>>(
-    "/api/items?perPage=1000&include=unit",
+  const { data: unitsData } = useSWR<ApiListResponse<Unit>>(
+    "/api/units?perPage=1000",
     apiGet
   );
 
@@ -342,16 +361,26 @@ export function WorkOrderForm({
   // Initialize form with proper types
   const defaultValues = useMemo<DeepPartial<FormData>>(() => {
     const today = format(new Date(), "yyyy-MM-dd");
+
+    const initialPaymentTermIds: string[] = Array.isArray(initial?.paymentTermIds)
+      ? (initial?.paymentTermIds || [])
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .map((n) => String(n))
+      : [];
+
     return {
       type: initial?.type,
       workOrderNo: initial?.workOrderNo ?? "",
+      purchaseOrderId: initial?.purchaseOrderId ?? 0,
+      boqId: initial?.boqId ?? 0,
       workOrderDate: formatDateField(initial?.workOrderDate, today),
       deliveryDate: formatDateField(initial?.deliveryDate),
       siteId: initial?.siteId ?? 0,
       vendorId: initial?.vendorId ?? 0,
       billingAddressId: initial?.billingAddressId ?? 0,
       siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
-      paymentTermId: initial?.paymentTermId ?? 0,
+      paymentTermIds: initialPaymentTermIds,
       quotationNo: initial?.quotationNo ?? "",
       quotationDate: formatDateField(initial?.quotationDate, today),
       transport: initial?.transport ?? "",
@@ -367,8 +396,11 @@ export function WorkOrderForm({
       gstReverseStatus: initial?.gstReverseStatus ?? null,
       gstReverseAmount: initial?.gstReverseAmount ?? null,
       workOrderItems: initial?.workOrderItems?.map((item) => ({
-        itemId: item.itemId ?? 0,
-        sac_code: (item as any).sac_code ?? "",
+        id: item.id,
+        serialNo: (item as any).serialNo,
+        Item: (item as any).Item ?? "",
+        unitId: (item as any).unitId ?? 0,
+        sac_code: ((item as any).sac_code as any) ?? null,
         remark: item.remark ?? "",
         qty: item.qty ?? 1,
         approved1Qty: isApprovalMode
@@ -383,8 +415,10 @@ export function WorkOrderForm({
         igstPercent: item.igstPercent ?? 0,
       })) || [
         {
-          itemId: 0,
-          sac_code: "",
+          serialNo: 1,
+          Item: "",
+          unitId: 0,
+          sac_code: null,
           qty: 1,
           rate: 0,
           cgstPercent: 0,
@@ -434,7 +468,7 @@ export function WorkOrderForm({
   const vendorValue = form.watch("vendorId");
   const billingAddressValue = form.watch("billingAddressId");
   const siteDeliveryAddressValue = form.watch("siteDeliveryAddressId");
-  const paymentTermValue = form.watch("paymentTermId");
+  const paymentTermValues = form.watch("paymentTermIds");
   const woStatusValue = form.watch("woStatus");
   const typeValue = form.watch("type");
   const transitInsuranceStatus = form.watch("transitInsuranceStatus");
@@ -457,7 +491,7 @@ export function WorkOrderForm({
   const billingAddresses = billingAddressesData?.data ?? [];
   const siteDeliveryAddresses = siteDetailData?.siteDeliveryAddresses ?? [];
   const paymentTerms = paymentTermsData?.data ?? [];
-  const itemOptions = itemsData?.data ?? [];
+  const units = unitsData?.data ?? [];
 
   type WorkOrderItemFormValue = FormData["workOrderItems"][number];
 
@@ -574,13 +608,15 @@ export function WorkOrderForm({
   // Add a new empty item row
   const addItem = () => {
     append({
-      itemId: 0,
+      serialNo: fields.length + 1,
+      Item: "",
+      unitId: 0,
       qty: 1,
       rate: 0,
       cgstPercent: 0,
       sgstPercent: 0,
       igstPercent: 0,
-      sac_code: "",
+      sac_code: null,
     });
   };
 
@@ -612,8 +648,11 @@ export function WorkOrderForm({
         const approvedQty = metrics.qty;
 
         const baseItem = {
-          itemId: Number(item.itemId),
-          sac_code: item.sac_code || "",
+          id: (item as any).id,
+          serialNo: (item as any).serialNo,
+          Item: (item as any).Item,
+          unitId: Number((item as any).unitId),
+          sac_code: (item as any).sac_code || null,
           remark: item.remark?.trim() ? item.remark.trim() : null,
           qty: isApprovalMode ? approvedQty : metrics.qty,
           rate: metrics.rate,
@@ -687,6 +726,8 @@ export function WorkOrderForm({
 
       const payload: any = {
         ...data,
+        purchaseOrderId: data.purchaseOrderId ? Number(data.purchaseOrderId) : null,
+        boqId: data.boqId ? Number(data.boqId) : null,
         siteId: data.siteId ? Number(data.siteId) : null,
         vendorId: data.vendorId ? Number(data.vendorId) : null,
         billingAddressId: data.billingAddressId
@@ -695,7 +736,15 @@ export function WorkOrderForm({
         siteDeliveryAddressId: data.siteDeliveryAddressId
           ? Number(data.siteDeliveryAddressId)
           : null,
-        paymentTermId: data.paymentTermId ? Number(data.paymentTermId) : null,
+        paymentTermIds: Array.isArray((data as any).paymentTermIds)
+          ? Array.from(
+              new Set(
+                ((data as any).paymentTermIds as any[])
+                  .map((v) => Number(v))
+                  .filter((n) => Number.isFinite(n) && n > 0)
+              )
+            )
+          : [],
         paymentTermsInDays: data.paymentTermsInDays
           ? Number(data.paymentTermsInDays)
           : null,
@@ -1076,28 +1125,22 @@ export function WorkOrderForm({
                   <label className="block text-sm font-medium mb-2">
                     Payment Term
                   </label>
-                  <AppSelect
-                    value={
-                      paymentTermValue && paymentTermValue > 0
-                        ? paymentTermValue.toString()
-                        : "__none"
-                    }
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : parseInt(value, 10);
-                      form.setValue("paymentTermId", next);
-                    }}
-                    placeholder="Select Payment Term"
-                    disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="payment-term-none" value="__none">
-                      Select Payment Term
-                    </AppSelect.Item>
-                    {paymentTerms.map((term) => (
-                      <AppSelect.Item key={term.id} value={term.id.toString()}>
-                        {term.paymentTerm}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
+                  <FormRow cols={3}>
+                    <div>
+                      <MultiSelectInput
+                        control={form.control}
+                        name={"paymentTermIds" as any}
+                        label="Payment Terms"
+                        placeholder="Select Payment Terms"
+                        options={paymentTerms.map((t) => ({
+                          value: String(t.id),
+                          label: t.paymentTerm,
+                        }))}
+                        disabled={isApprovalMode}
+                        size="sm"
+                      />
+                    </div>
+                  </FormRow>
                 </div>
 
                 <TextInput
@@ -1225,15 +1268,11 @@ export function WorkOrderForm({
                           {isApprovalMode ? (
                             <>
                               <div className="font-medium">
-                                {initial?.workOrderItems?.[index]?.item
-                                  ?.itemCode
-                                  ? `${initial.workOrderItems[index].item.itemCode} - ${initial.workOrderItems[index].item.item}`
-                                  : initial?.workOrderItems?.[index]?.item
-                                      ?.item || ""}
+                                {initial?.workOrderItems?.[index]?.Item || ""}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 Unit:{" "}
-                                {initial?.workOrderItems?.[index]?.item?.unit
+                                {(initial?.workOrderItems?.[index] as any)?.unit
                                   ?.unitName || ""}
                               </div>
                               <FormField
@@ -1255,71 +1294,48 @@ export function WorkOrderForm({
                               />
                             </>
                           ) : (
-                            <>
+                            <FormRow cols={12}>
+                              <TextInput
+                                control={form.control}
+                                name={`workOrderItems.${index}.serialNo` as any}
+                                label="Sr. No."
+                                placeholder="Sr. No."
+                                disabled={isReadOnly}
+                                span={2}
+                                spanFrom="md"
+                              />
+                              <TextInput
+                                control={form.control}
+                                name={`workOrderItems.${index}.Item` as any}
+                                label="Item"
+                                placeholder="Item"
+                                disabled={isReadOnly}
+                                span={5}
+                                spanFrom="md"
+                              />
                               <FormField
                                 control={form.control}
-                                name={`workOrderItems.${index}.itemId`}
+                                name={`workOrderItems.${index}.unitId` as any}
                                 render={({ field }) => (
-                                  <FormItem className="space-y-1">
+                                  <FormItem className="space-y-1 md:col-span-3 col-span-12">
                                     <FormControl>
                                       <AppSelect
-                                        value={
-                                          field.value && field.value > 0
-                                            ? field.value.toString()
-                                            : "__none"
-                                        }
+                                        label="Unit"
+                                        value={field.value ? String(field.value) : "__none"}
                                         onValueChange={(value) => {
-                                          if (value === "__none") {
-                                            field.onChange(0);
-                                            return;
-                                          }
-
-                                          const parsedValue = parseInt(
-                                            value,
-                                            10
-                                          );
-                                          field.onChange(
-                                            Number.isNaN(parsedValue)
-                                              ? 0
-                                              : parsedValue
-                                          );
-
-                                          // Update rate if item is selected
-                                          if (
-                                            value !== "__none" &&
-                                            itemOptions.length
-                                          ) {
-                                            const selectedItem =
-                                              itemOptions.find(
-                                                (item) =>
-                                                  item.id.toString() === value
-                                              );
-                                            if (selectedItem) {
-                                              // You might want to fetch the item's standard rate here
-                                              // For now, we'll just set a default rate of 0
-                                              form.setValue(
-                                                `workOrderItems.${index}.rate`,
-                                                0
-                                              );
-                                            }
-                                          }
+                                          const next =
+                                            value === "__none" ? 0 : parseInt(value, 10);
+                                          field.onChange(next);
                                         }}
-                                        placeholder="Select Item"
+                                        placeholder="Select Unit"
+                                        disabled={isReadOnly}
                                       >
-                                        <AppSelect.Item
-                                          key={`item-placeholder-${index}`}
-                                          value="__none"
-                                        >
-                                          Select Item
+                                        <AppSelect.Item key="unit-none" value="__none">
+                                          Select Unit
                                         </AppSelect.Item>
-                                        {itemOptions.map((item) => (
-                                          <AppSelect.Item
-                                            key={item.id}
-                                            value={item.id.toString()}
-                                          >
-                                            {item.itemCode
-                                              ? `${item.itemCode} - ${item.item}`
-                                              : item.item}
+                                        {units.map((u) => (
+                                          <AppSelect.Item key={u.id} value={String(u.id)}>
+                                            {u.unitName}
                                           </AppSelect.Item>
                                         ))}
                                       </AppSelect>
@@ -1332,20 +1348,21 @@ export function WorkOrderForm({
                                 control={form.control}
                                 name={`workOrderItems.${index}.remark`}
                                 render={({ field }) => (
-                                  <FormItem className="mt-2">
+                                  <FormItem className="space-y-1 md:col-span-2 col-span-12">
                                     <FormControl>
                                       <Input
                                         {...field}
                                         placeholder="Remark"
                                         value={field.value || ""}
                                         className="text-xs"
+                                        disabled={isReadOnly}
                                       />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
-                            </>
+                            </FormRow>
                           )}
                         </td>
                         {isApprovalMode && (
@@ -1378,6 +1395,7 @@ export function WorkOrderForm({
                                     <Input
                                       {...field}
                                       placeholder="SAC Code"
+                                      value={field.value ?? ""}
                                       className="w-32"
                                     />
                                   </FormControl>

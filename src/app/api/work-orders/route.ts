@@ -6,10 +6,13 @@ import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
+import { PERMISSIONS } from "@/config/roles";
 
 const workOrderItemSchema = z.object({
-  itemId: z.coerce.number().min(1, "Item is required"),
-  sac_code: z.string().min(1, "SAC code is required"),
+  serialNo: z.coerce.number().min(1, "Sr. No. is required").optional(),
+  Item: z.string().min(1, "Item is required"),
+  unitId: z.coerce.number().min(1, "Unit is required"),
+  sac_code: z.string().nullable().optional(),
   remark: z.string().nullable().optional(),
   qty: z.coerce
     .number()
@@ -41,14 +44,18 @@ const workOrderItemSchema = z.object({
 });
 
 const createSchema = z.object({
-  indentId: z.coerce.number().optional(),
+  purchaseOrderId: z.coerce.number().min(1, "Purchase Order is required"),
+  boqId: z.coerce.number().min(1, "BOQ is required"),
   siteId: z.coerce.number().min(1, "Site is required"),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
   siteDeliveryAddressId: z.coerce
     .number()
     .min(1, "Site delivery address is required"),
-  paymentTermId: z.coerce.number().optional(),
+  paymentTermIds: z
+    .array(z.union([z.string(), z.number()]).transform((v) => String(v)))
+    .optional()
+    .default([]),
   type: z.enum(["SUB_CONTRACT", "PWR_WORK"]),
   workOrderDate: z.string().transform((val) => new Date(val)),
   deliveryDate: z.string().transform((val) => new Date(val)),
@@ -271,12 +278,13 @@ export async function GET(req: NextRequest) {
         workOrderDetails: {
           select: {
             id: true,
-            itemId: true,
-            item: {
+            serialNo: true,
+            Item: true,
+            unitId: true,
+            unit: {
               select: {
                 id: true,
-                itemCode: true,
-                item: true,
+                unitName: true,
               },
             },
             qty: true,
@@ -308,10 +316,27 @@ export async function POST(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   try {
+    const permSet = new Set((auth.user.permissions || []) as string[]);
+    if (!permSet.has(PERMISSIONS.CREATE_WORK_ORDERS)) {
+      throw new Error("BAD_REQUEST: Missing permission to create work orders");
+    }
+
     const body = await req.json();
     const parsedData = createSchema.parse(body);
 
     const result = await prisma.$transaction(async (tx) => {
+      const paymentTermIds: number[] = Array.isArray(
+        (parsedData as any).paymentTermIds
+      )
+        ? Array.from(
+            new Set(
+              ((parsedData as any).paymentTermIds as any[])
+                .map((v) => Number(v))
+                .filter((n) => Number.isFinite(n) && n > 0)
+            )
+          )
+        : [];
+
       // Generate financial year-based WO number within the transaction
       const workOrderNo = await generateWONumber(tx, parsedData.workOrderDate);
 
@@ -320,11 +345,12 @@ export async function POST(req: NextRequest) {
         type: parsedData.type,
         workOrderDate: parsedData.workOrderDate,
         deliveryDate: parsedData.deliveryDate,
+        purchaseOrderId: parsedData.purchaseOrderId,
+        boqId: parsedData.boqId,
         siteId: parsedData.siteId,
         vendorId: parsedData.vendorId,
         billingAddressId: parsedData.billingAddressId,
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,
-        paymentTermId: parsedData.paymentTermId || null,
         quotationNo: parsedData.quotationNo,
         note: parsedData.note || null,
         transport: parsedData.transport || null,
@@ -351,24 +377,21 @@ export async function POST(req: NextRequest) {
         approvalStatus: "DRAFT",
         createdById: auth.user.id,
         updatedById: auth.user.id,
-        indentId: parsedData.indentId || null,
       };
 
       const workOrder = await tx.workOrder.create({
-        data: {
-          ...woData,
-          indentId: parsedData.indentId || null,
-        },
+        data: woData,
         select: {
           id: true,
           workOrderNo: true,
           workOrderDate: true,
           deliveryDate: true,
+          purchaseOrderId: true,
+          boqId: true,
           siteId: true,
           vendorId: true,
           billingAddressId: true,
           siteDeliveryAddressId: true,
-          paymentTermId: true,
           quotationNo: true,
           quotationDate: true,
           transport: true,
@@ -413,23 +436,43 @@ export async function POST(req: NextRequest) {
               pinCode: true,
             },
           },
-          paymentTerm: {
+          WOPaymentTerms: {
             select: {
-              id: true,
-              paymentTerm: true,
-              description: true,
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
             },
           },
         },
       });
 
+      if (paymentTermIds.length > 0) {
+        await (tx as any).wOPaymentTerm.createMany({
+          data: paymentTermIds.map((paymentTermId) => ({
+            workOrderId: workOrder.id,
+            paymentTermId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       // Create WO items
       const woId = workOrder.id;
       const itemsData = parsedData.workOrderItems.map((item, index) => ({
         workOrderId: woId,
-        serialNo: index + 1,
-        itemId: item.itemId,
-        sac_code: item.sac_code,
+        serialNo:
+          typeof (item as any).serialNo === "number" &&
+          Number.isFinite(Number((item as any).serialNo))
+            ? Number((item as any).serialNo)
+            : index + 1,
+        Item: (item as any).Item,
+        unitId: (item as any).unitId,
+        sac_code: (item as any).sac_code || null,
         remark: item.remark || null,
         qty: item.qty,
         orderedQty: item.qty,
@@ -459,11 +502,12 @@ export async function POST(req: NextRequest) {
           workOrderNo: true,
           workOrderDate: true,
           deliveryDate: true,
+          purchaseOrderId: true,
+          boqId: true,
           siteId: true,
           vendorId: true,
           billingAddressId: true,
           siteDeliveryAddressId: true,
-          paymentTermId: true,
           quotationNo: true,
           quotationDate: true,
           transport: true,
@@ -500,23 +544,28 @@ export async function POST(req: NextRequest) {
               city: true,
             },
           },
-          paymentTerm: {
+          WOPaymentTerms: {
             select: {
-              id: true,
-              paymentTerm: true,
-              description: true,
+              paymentTermId: true,
+              paymentTerm: {
+                select: {
+                  id: true,
+                  paymentTerm: true,
+                  description: true,
+                },
+              },
             },
           },
           workOrderDetails: {
             select: {
               id: true,
               serialNo: true,
-              itemId: true,
-              item: {
+              Item: true,
+              unitId: true,
+              unit: {
                 select: {
                   id: true,
-                  itemCode: true,
-                  item: true,
+                  unitName: true,
                 },
               },
               sac_code: true,

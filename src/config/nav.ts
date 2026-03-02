@@ -373,12 +373,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.VIEW_OUTWARD_DELIVERY_CHALLAN,
       },
-      // {
-      //   title: "Work Orders",
-      //   href: "/work-orders",
-      //   icon: FileText,
-      //   permission: PERMISSIONS.READ_WORK_ORDERS,
-      // },
+      {
+        title: "Work Orders",
+        href: "/work-orders",
+        icon: FileText,
+        permission: PERMISSIONS.VIEW_WORK_ORDERS,
+      },
       {
         title: "Units",
         href: "/units",

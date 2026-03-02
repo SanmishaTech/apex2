@@ -7,8 +7,11 @@ import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { AppCard } from "@/components/common/app-card";
 import { WorkOrderForm } from "../../work-order-form";
+import { useProtectPage } from "@/hooks/use-protect-page";
 
 export default function WorkOrderApprove1Page() {
+  useProtectPage();
+
   const params = useParams();
   const router = useRouter();
   const id = params?.id ? parseInt(params.id as string, 10) : null;
@@ -31,11 +34,15 @@ export default function WorkOrderApprove1Page() {
       workOrderNo: workOrder.workOrderNo,
       workOrderDate: workOrder.workOrderDate,
       deliveryDate: workOrder.deliveryDate,
+      purchaseOrderId: workOrder.purchaseOrderId,
+      boqId: workOrder.boqId,
       siteId: workOrder.site?.id,
       vendorId: workOrder.vendor?.id,
       billingAddressId: workOrder.billingAddress?.id,
       siteDeliveryAddressId: workOrder.siteDeliveryAddress?.id,
-      paymentTermId: workOrder.paymentTerm?.id,
+      paymentTermIds: Array.isArray(workOrder.WOPaymentTerms)
+        ? workOrder.WOPaymentTerms.map((t: any) => t.paymentTermId)
+        : [],
       quotationNo: workOrder.quotationNo ?? undefined,
       quotationDate: workOrder.quotationDate ?? undefined,
       transport: workOrder.transport,
@@ -91,8 +98,10 @@ export default function WorkOrderApprove1Page() {
           : String(workOrder.gstReverseAmount),
       workOrderItems: workOrder.workOrderDetails?.map((detail: any) => ({
         id: detail.id,
-        itemId: detail.itemId,
-        item: detail.item,
+        serialNo: detail.serialNo,
+        Item: detail.Item,
+        unitId: detail.unitId,
+        unit: detail.unit,
         sac_code: detail.sac_code,
         remark: detail.remark ?? undefined,
         qty: detail.qty,

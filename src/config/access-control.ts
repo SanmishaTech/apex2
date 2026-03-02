@@ -133,6 +133,21 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/purchase-orders",
     permissions: [PERMISSIONS.VIEW_PURCHASE_ORDERS],
   },
+
+  // Work Orders
+  {
+    prefix: "/work-orders/new",
+    permissions: [PERMISSIONS.CREATE_WORK_ORDERS],
+  },
+  // Allow viewing subpages (approve1/approve2/print/etc) without requiring EDIT rights
+  {
+    prefix: "/work-orders/",
+    permissions: [PERMISSIONS.READ_WORK_ORDERS],
+  },
+  {
+    prefix: "/work-orders",
+    permissions: [PERMISSIONS.VIEW_WORK_ORDERS],
+  },
   {
     prefix: "/daily-progresses/",
     permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
@@ -629,6 +644,26 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       // Let the handler enforce granular permissions (approve1/approve2/suspend/complete)
       PATCH: [],
       // DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
+    },
+  },
+  {
+    prefix: "/api/work-orders",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDERS],
+      POST: [PERMISSIONS.CREATE_WORK_ORDERS],
+      // Let the handler enforce granular permissions (approve1/approve2/suspend/complete/remarks/billStatus)
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
+    },
+  },
+  {
+    // Subroutes like /api/work-orders/:id and /api/work-orders/:id/print
+    prefix: "/api/work-orders/",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDERS],
+      POST: [PERMISSIONS.CREATE_WORK_ORDERS],
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
     },
   },
   {
