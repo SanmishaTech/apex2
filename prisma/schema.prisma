@@ -593,6 +593,7 @@ model Unit {
   // Relations
   boqItems    BoqItem[]
   items       Item[]
+  workOrderDetails  WorkOrderDetail[]
 
   @@map("units")
 }
@@ -711,7 +712,6 @@ model Item {
   indentItems IndentItem[]
 
     purchaseOrderDetails PurchaseOrderDetail[] 
-   workOrderDetails WorkOrderDetail[]
    stockLedgers StockLedger[]
    siteItems    SiteItem[]
    outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
@@ -881,7 +881,7 @@ model Boq {
   boqBills BOQBill[]
   siteBudgets SiteBudget[]
   overallSiteBudgets           OverallSiteBudget[]
-
+  workOrders                    WorkOrder[]
 
   @@index([siteId])
   @@index([boqNo])
@@ -1163,8 +1163,8 @@ model PaymentTerm {
   updatedAt   DateTime @updatedAt
 
   purchaseOrders PurchaseOrder[]
-    workOrders WorkOrder[]
-    poPaymentTerms POPaymentTerm[]
+  poPaymentTerms POPaymentTerm[]
+  woPaymentTerms WOPaymentTerm[]
 
   @@index([paymentTerm])
   @@map("payment_terms")
@@ -1184,6 +1184,22 @@ model POPaymentTerm {
   @@index([paymentTermId])
   @@unique([purchaseOrderId, paymentTermId])
   @@map("po_payment_terms")
+}
+
+model WOPaymentTerm {
+  id          Int      @id @default(autoincrement())
+  workOrderId      Int
+  paymentTermId Int  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete:Restrict)
+  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+
+  @@index([workOrderId])
+  @@index([paymentTermId])
+  @@unique([workOrderId, paymentTermId])
+  @@map("wo_payment_terms")
 }
 
 // Cashbook Heads master data
@@ -1824,7 +1840,6 @@ model Indent {
 
   // Relations
   indentItems IndentItem[]
-  workOrders WorkOrder[]
   purchaseOrderIndent PurchaseOrderIndent[]
 
   
@@ -1927,6 +1942,7 @@ model PurchaseOrder {
 
   purchaseOrderDetails PurchaseOrderDetail[] 
   inwardDeliveryChallan InwardDeliveryChallan[]
+  workOrders WorkOrder[]
   poPaymentTerms POPaymentTerm[]
   purchaseOrderIndent PurchaseOrderIndent[]
     poAdditionalCharge  PoAdditionalCharge[]
@@ -2111,18 +2127,18 @@ enum WorkOrderType {
 model WorkOrder {
   id                      Int       @id @default(autoincrement())
   type         WorkOrderType  
-  indentId                Int?
-  indent    Indent?                @relation( fields: [indentId], references: [id], onDelete:Restrict)
   siteId                  Int
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
   siteDeliveryAddressId                  Int
   siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
-  paymentTermId           Int?
-  paymentTerm    PaymentTerm?                @relation( fields: [paymentTermId], references: [id], onDelete:Restrict)
+  purchaseOrderId                Int
+  purchaseOrder    PurchaseOrder                @relation( fields: [purchaseOrderId], references: [id], onDelete:Restrict)
   billingAddressId        Int
   billingAddress    BillingAddress                @relation( fields: [billingAddressId], references: [id], onDelete:Restrict)
   vendorId                Int
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
+  boqId                Int
+  boq    Boq                @relation(fields: [boqId], references: [id], onDelete:Restrict)
   workOrderNo         String   @db.VarChar(30)  @unique
   workOrderDate       DateTime 
   quotationNo             String   @db.VarChar(100)
@@ -2178,11 +2194,12 @@ model WorkOrder {
 
   workOrderDetails WorkOrderDetail[] 
   workOrderBills WorkOrderBill[]
+  WOPaymentTerms    WOPaymentTerm[]
 @@index([siteId])
-@@index([indentId])
+@@index([purchaseOrderId])
+@@index([boqId])
 @@index([vendorId])
 @@index([billingAddressId])
-@@index([paymentTermId])
 @@index([createdById])
 @@index([updatedById])
 @@index([approved1ById])
@@ -2199,10 +2216,11 @@ model WorkOrderDetail {
   serialNo        Int
   workOrderId Int
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
-  itemId          Int
-  item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  sac_code        String  
-  remark          String?   @db.VarChar(500)
+  Item            String @db.Text
+  unitId           Int
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  sac_code        String?  
+  remark          String?   @db.Text
   qty             Decimal?  @db.Decimal(12, 2)
   orderedQty      Decimal?  @db.Decimal(12, 2)
   approved1Qty    Decimal?  @db.Decimal(12, 2)
@@ -2218,7 +2236,6 @@ model WorkOrderDetail {
   amount          Decimal?  @db.Decimal(10, 2)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
 
 @@index([workOrderId])
 

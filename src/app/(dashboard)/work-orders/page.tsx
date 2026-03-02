@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { toast } from "@/lib/toast";
 
+import { useProtectPage } from "@/hooks/use-protect-page";
+
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 
@@ -95,6 +97,8 @@ type SortState = {
 };
 
 export default function WorkOrdersPage() {
+  useProtectPage();
+
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("work-orders-list");
   const [qp, setQp] = useQueryParamsState({
