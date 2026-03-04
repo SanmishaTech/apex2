@@ -14,6 +14,7 @@ import { FormSection, FormRow } from "@/components/common/app-form";
 import { format } from "date-fns";
 
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
@@ -60,7 +61,11 @@ type Vendor = {
 type BillingAddress = {
   id: number;
   companyName: string;
-  city: string;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: { id: number; city: string } | null;
+  state?: { id: number; state: string } | null;
+  pincode?: string | null;
 };
 
 type PaymentTerm = {
@@ -346,6 +351,19 @@ export function WorkOrderForm({
       return format(parsed, "yyyy-MM-dd");
     }
     return fallback ?? "";
+  };
+
+  const formatBillingAddressLabel = (address: BillingAddress): string => {
+    const parts = [
+      address.addressLine1,
+      address.addressLine2,
+      address.city?.city,
+      address.state?.state,
+      address.pincode,
+    ]
+      .map((p) => (typeof p === "string" ? p.trim() : ""))
+      .filter(Boolean);
+    return parts.join(", ") || address.companyName || `Address ${address.id}`;
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -816,7 +834,7 @@ export function WorkOrderForm({
         <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
           <AppCard.Content className="space-y-6">
             <FormSection legend="Work Order Details">
-              <FormRow cols={3}>
+              <FormRow cols={3} from="md">
                 <TextInput
                   control={form.control}
                   name="workOrderNo"
@@ -1044,6 +1062,7 @@ export function WorkOrderForm({
                     }}
                     placeholder="Select Billing Address"
                     disabled={isApprovalMode}
+                    contentClassName="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
                   >
                     <AppSelect.Item key="billing-none" value="__none">
                       Select Billing Address
@@ -1052,8 +1071,11 @@ export function WorkOrderForm({
                       <AppSelect.Item
                         key={address.id}
                         value={address.id.toString()}
+                        className="whitespace-normal break-words"
                       >
-                        {`${address.companyName}`}
+                        <span className="whitespace-normal break-words">
+                          {formatBillingAddressLabel(address)}
+                        </span>
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
@@ -1063,9 +1085,7 @@ export function WorkOrderForm({
                     </p>
                   ) : null}
                 </div>
-              </FormRow>
 
-              <FormRow cols={3}>
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Delivery Address
@@ -1083,6 +1103,7 @@ export function WorkOrderForm({
                     }}
                     placeholder="Select Delivery Address"
                     disabled={isApprovalMode}
+                    contentClassName="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
                   >
                     <AppSelect.Item key="delivery-none" value="__none">
                       {siteValue
@@ -1095,16 +1116,19 @@ export function WorkOrderForm({
                       <AppSelect.Item
                         key={address.id}
                         value={address.id.toString()}
+                        className="whitespace-normal break-words"
                       >
-                        {address.addressLine1 || address.addressLine2
-                          ? `${address.addressLine1 ?? ""}$${
-                              address.addressLine2
-                                ? `, ${address.addressLine2}`
-                                : ""
-                            }`
-                              .replace("$", "")
-                              .trim()
-                          : `Address ${address.id}`}
+                        <span className="whitespace-normal break-words">
+                          {address.addressLine1 || address.addressLine2
+                            ? `${address.addressLine1 ?? ""}$$${
+                                address.addressLine2
+                                  ? `, ${address.addressLine2}`
+                                  : ""
+                              }`
+                                .replace("$$$", "")
+                                .trim()
+                            : `Address ${address.id}`}
+                        </span>
                       </AppSelect.Item>
                     ))}
                   </AppSelect>
@@ -1114,11 +1138,10 @@ export function WorkOrderForm({
                     </p>
                   ) : null}
                 </div>
+              </FormRow>
 
+              <FormRow cols={3} from="md">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Payment Term
-                  </label>
                   <MultiSelectInput
                     control={form.control}
                     name={"paymentTermIds" as any}
@@ -1278,11 +1301,12 @@ export function WorkOrderForm({
                                 Item
                               </div>
                               {isApprovalMode ? (
-                                <Input
+                                <Textarea
                                   readOnly
                                   tabIndex={-1}
                                   value={initial?.workOrderItems?.[index]?.Item || ""}
-                                  className="h-7 w-full text-[11px]"
+                                  rows={2}
+                                  className="min-h-7 w-full text-[11px] resize-none"
                                 />
                               ) : (
                                 <FormField
@@ -1291,12 +1315,12 @@ export function WorkOrderForm({
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
                                       <FormControl>
-                                        <Input
-                                          type="text"
+                                        <Textarea
                                           {...field}
                                           value={field.value || ""}
                                           placeholder="Item"
-                                          className="h-7 w-full text-[11px]"
+                                          rows={2}
+                                          className="min-h-7 w-full text-[11px] resize-none"
                                           disabled={isReadOnly}
                                         />
                                       </FormControl>
@@ -1422,7 +1446,7 @@ export function WorkOrderForm({
                                             field.onChange(e.target.value)
                                           }
                                           className="h-7 text-right w-full text-[11px] min-w-[96px]"
-                                          disabled={isReadOnly}
+                                          disabled={!isApproval2}
                                         />
                                       </FormControl>
                                       <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
@@ -1468,7 +1492,7 @@ export function WorkOrderForm({
                                             field.onChange(e.target.value)
                                           }
                                           className="h-7 text-right w-full text-[11px] min-w-[96px]"
-                                          disabled={isReadOnly}
+                                          disabled={!isApproval1}
                                         />
                                       </FormControl>
                                       <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
@@ -1532,46 +1556,29 @@ export function WorkOrderForm({
                               <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
                                 Rate
                               </div>
-                              {isApprovalMode ? (
-                                <Input
-                                  readOnly
-                                  tabIndex={-1}
-                                  value={String(
-                                    toNumber(
-                                      (initial?.workOrderItems?.[index] as any)?.rate ??
-                                        0
-                                    )
-                                  )}
-                                  className="h-7 text-right w-full text-[11px]"
-                                />
-                              ) : (
-                                <FormField
-                                  control={form.control}
-                                  name={`workOrderItems.${index}.rate`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                      <FormControl>
-                                        <Input
-                                          type="text"
-                                          inputMode="decimal"
-                                          {...field}
-                                          value={
-                                            typeof field.value === "string"
-                                              ? field.value
-                                              : field.value?.toString() || ""
-                                          }
-                                          onChange={(e) =>
-                                            field.onChange(e.target.value)
-                                          }
-                                          className="h-7 text-right w-full text-[11px]"
-                                          disabled={isReadOnly}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              )}
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.rate`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        {...field}
+                                        value={
+                                          typeof field.value === "string"
+                                            ? field.value
+                                            : field.value?.toString() || ""
+                                        }
+                                        onChange={(e) => field.onChange(e.target.value)}
+                                        className="h-7 text-right w-full text-[11px]"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
                             </td>
 
                             <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
@@ -1597,7 +1604,7 @@ export function WorkOrderForm({
                                           field.onChange(e.target.value)
                                         }
                                         className="h-7 text-right w-full text-[11px]"
-                                        disabled={isReadOnly}
+                                        disabled={false}
                                       />
                                     </FormControl>
                                     <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
@@ -1631,7 +1638,7 @@ export function WorkOrderForm({
                                           field.onChange(e.target.value)
                                         }
                                         className="h-7 text-right w-full text-[11px]"
-                                        disabled={isReadOnly}
+                                        disabled={false}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -1662,7 +1669,7 @@ export function WorkOrderForm({
                                           field.onChange(e.target.value)
                                         }
                                         className="h-7 text-right w-full text-[11px]"
-                                        disabled={isReadOnly}
+                                        disabled={false}
                                       />
                                     </FormControl>
                                     <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">

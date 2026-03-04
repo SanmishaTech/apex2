@@ -10,10 +10,25 @@ import {
   WorkOrderBillFormInitialData,
 } from "../../work-order-bill-form";
 import { WorkOrderBill } from "@/types/work-order-bills";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 export default function EditWorkOrderBillPage() {
+  useProtectPage();
+  const { can } = usePermissions();
   const params = useParams<{ id: string }>();
   const id = Number(params?.id);
+
+  if (!can(PERMISSIONS.EDIT_WORK_ORDER_BILLS)) {
+    return (
+      <div className="p-6">
+        <div className="text-center text-muted-foreground">
+          You don't have permission to edit work order bills.
+        </div>
+      </div>
+    );
+  }
 
   const {
     data: bill,

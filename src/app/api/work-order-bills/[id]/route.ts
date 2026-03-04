@@ -2,7 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { guardApiPermissions } from "@/lib/access-guard";
 import { z } from "zod";
+import { PERMISSIONS } from "@/config/roles";
 
 const updateSchema = z.object({
   workOrderId: z.coerce.number().min(1).optional(),
@@ -51,7 +53,7 @@ const billSelect = {
 
 // GET /api/work-order-bills/[id]
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_WORK_ORDER_BILLS]);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
 // PATCH /api/work-order-bills/[id]
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.EDIT_WORK_ORDER_BILLS]);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -106,7 +108,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
 // DELETE /api/work-order-bills/[id]
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.DELETE_WORK_ORDER_BILLS]);
   if (auth.ok === false) return auth.response;
 
   try {

@@ -148,6 +148,20 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/work-orders",
     permissions: [PERMISSIONS.VIEW_WORK_ORDERS],
   },
+
+  // Work Order Bills
+  {
+    prefix: "/work-order-bills/new",
+    permissions: [PERMISSIONS.CREATE_WORK_ORDER_BILLS],
+  },
+  {
+    prefix: "/work-order-bills/",
+    permissions: [PERMISSIONS.READ_WORK_ORDER_BILLS],
+  },
+  {
+    prefix: "/work-order-bills",
+    permissions: [PERMISSIONS.VIEW_WORK_ORDER_BILLS],
+  },
   {
     prefix: "/daily-progresses/",
     permissions: [PERMISSIONS.EDIT_DAILY_PROGRESSES],
@@ -664,6 +678,22 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_WORK_ORDERS],
       PATCH: [],
       DELETE: [PERMISSIONS.DELETE_WORK_ORDERS],
+    },
+  },
+
+  {
+    prefix: "/api/work-order-bills",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDER_BILLS],
+      POST: [PERMISSIONS.CREATE_WORK_ORDER_BILLS],
+    },
+  },
+  {
+    prefix: "/api/work-order-bills/",
+    methods: {
+      GET: [PERMISSIONS.READ_WORK_ORDER_BILLS],
+      PATCH: [PERMISSIONS.EDIT_WORK_ORDER_BILLS],
+      DELETE: [PERMISSIONS.DELETE_WORK_ORDER_BILLS],
     },
   },
   {

@@ -355,12 +355,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
-      // {
-      //   title: "Work Order Bills",
-      //   href: "/work-order-bills",
-      //   icon: FileText,
-      //   permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
-      // },
+      {
+        title: "Work Order Bills",
+        href: "/work-order-bills",
+        icon: FileText,
+        permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
+      },
       {
         title: "Inward Delivery Challan",
         href: "/inward-delivery-challans",

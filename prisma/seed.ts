@@ -49,6 +49,25 @@ async function main() {
     console.error("Admin permission bootstrap failed:", e);
   }
 
+  // Bootstrap: ensure default User role also has all permissions (as requested)
+  try {
+    const userRole = await prisma.role.findUnique({
+      where: { name: ROLES.USER },
+      select: { id: true },
+    });
+    if (userRole) {
+      const permIds = await prisma.permission.findMany({
+        select: { id: true },
+      });
+      await prisma.rolePermission.createMany({
+        data: permIds.map((p) => ({ roleId: userRole.id, permissionId: p.id })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (e) {
+    console.error("User permission bootstrap failed:", e);
+  }
+
   try {
     const adminEmail = "admin@demo.com";
 

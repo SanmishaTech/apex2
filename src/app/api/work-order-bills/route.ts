@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { guardApiPermissions } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
+import { PERMISSIONS } from "@/config/roles";
 
 const createSchema = z.object({
   workOrderId: z.coerce.number().min(1, "Work order is required"),
@@ -24,7 +26,7 @@ const createSchema = z.object({
 
 // GET /api/work-order-bills?search=&page=1&perPage=10&sort=billDate&order=desc&workOrderId=&status=
 export async function GET(req: NextRequest) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_WORK_ORDER_BILLS]);
   if (auth.ok === false) return auth.response;
 
   try {
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/work-order-bills - Create new work order bill
 export async function POST(req: NextRequest) {
-  const auth = await guardApiAccess(req);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.CREATE_WORK_ORDER_BILLS]);
   if (auth.ok === false) return auth.response;
 
   try {
