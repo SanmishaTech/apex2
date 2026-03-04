@@ -51,48 +51,6 @@ export default function WorkOrderApprove2Page() {
       woStatus: workOrder.woStatus === "HOLD" ? ("HOLD" as const) : null,
       paymentTermsInDays: workOrder.paymentTermsInDays,
       deliverySchedule: workOrder.deliverySchedule,
-      transitInsuranceStatus:
-        workOrder.transitInsuranceStatus === "EXCLUSIVE" ||
-        workOrder.transitInsuranceStatus === "INCLUSIVE" ||
-        workOrder.transitInsuranceStatus === "NOT_APPLICABLE"
-          ? (workOrder.transitInsuranceStatus as
-              | "EXCLUSIVE"
-              | "INCLUSIVE"
-              | "NOT_APPLICABLE")
-          : null,
-      transitInsuranceAmount:
-        workOrder.transitInsuranceAmount == null
-          ? null
-          : typeof workOrder.transitInsuranceAmount === "string"
-          ? workOrder.transitInsuranceAmount
-          : String(workOrder.transitInsuranceAmount),
-      pfStatus:
-        workOrder.pfStatus === "EXCLUSIVE" ||
-        workOrder.pfStatus === "INCLUSIVE" ||
-        workOrder.pfStatus === "NOT_APPLICABLE"
-          ? (workOrder.pfStatus as "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE")
-          : null,
-      pfCharges:
-        workOrder.pfCharges == null
-          ? null
-          : typeof workOrder.pfCharges === "string"
-          ? workOrder.pfCharges
-          : String(workOrder.pfCharges),
-      gstReverseStatus:
-        workOrder.gstReverseStatus === "EXCLUSIVE" ||
-        workOrder.gstReverseStatus === "INCLUSIVE" ||
-        workOrder.gstReverseStatus === "NOT_APPLICABLE"
-          ? (workOrder.gstReverseStatus as
-              | "EXCLUSIVE"
-              | "INCLUSIVE"
-              | "NOT_APPLICABLE")
-          : null,
-      gstReverseAmount:
-        workOrder.gstReverseAmount == null
-          ? null
-          : typeof workOrder.gstReverseAmount === "string"
-          ? workOrder.gstReverseAmount
-          : String(workOrder.gstReverseAmount),
       workOrderItems: workOrder.workOrderDetails?.map((detail: any) => ({
         id: detail.id,
         serialNo: detail.serialNo,

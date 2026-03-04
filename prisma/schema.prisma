@@ -2155,14 +2155,7 @@ model WorkOrder {
   totalCgstAmount              Decimal? @db.Decimal(12,2) 
   totalSgstAmount              Decimal? @db.Decimal(12,2) 
   totalIgstAmount              Decimal? @db.Decimal(12,2) 
-  gstReverseStatus        String?   @db.VarChar(20)
-  gstReverseAmount        String?   @db.VarChar(50)
-  exciseTaxStatus         String?   @db.VarChar(20)
-  exciseTaxAmount         String?   @db.VarChar(50)
-  octroiTaxStatus         String?   @db.VarChar(20)
-  octroiTaxAmount         String?   @db.VarChar(50)
-  transitInsuranceStatus  String?   @db.VarChar(20)
-  transitInsuranceAmount  String?   @db.VarChar(50)
+ 
   amountInWords           String?   @db.VarChar(255)
   approvalStatus IndentApprovalStatus @default(DRAFT)
   woStatus                   String?  //HOLD OR NULL

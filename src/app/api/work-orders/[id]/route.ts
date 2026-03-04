@@ -102,33 +102,8 @@ const updateSchema = z.object({
   totalCgstAmount: z.coerce.number().optional(),
   totalSgstAmount: z.coerce.number().optional(),
   totalIgstAmount: z.coerce.number().optional(),
-  transitInsuranceStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  transitInsuranceAmount: z.string().nullable().optional(),
-  pfStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  pfCharges: z.string().nullable().optional(),
-  gstReverseStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  gstReverseAmount: z.string().nullable().optional(),
   remarks: z.string().nullable().optional(),
   billStatus: z.string().nullable().optional(),
-  exciseTaxStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  exciseTaxAmount: z.string().nullable().optional(),
-  octroiTaxStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  octroiTaxAmount: z.string().nullable().optional(),
 });
 
 // GET /api/work-orders/[id] - Get single work order
@@ -170,16 +145,6 @@ export async function GET(
         totalCgstAmount: true,
         totalSgstAmount: true,
         totalIgstAmount: true,
-        transitInsuranceStatus: true,
-        transitInsuranceAmount: true,
-        pfStatus: true,
-        pfCharges: true,
-        gstReverseStatus: true,
-        gstReverseAmount: true,
-        exciseTaxStatus: true,
-        exciseTaxAmount: true,
-        octroiTaxStatus: true,
-        octroiTaxAmount: true,
         approvalStatus: true,
         isSuspended: true,
         isComplete: true,
@@ -573,16 +538,6 @@ export async function PATCH(
           totalCgstAmount: true,
           totalSgstAmount: true,
           totalIgstAmount: true,
-          transitInsuranceStatus: true,
-          transitInsuranceAmount: true,
-          pfStatus: true,
-          pfCharges: true,
-          gstReverseStatus: true,
-          gstReverseAmount: true,
-          exciseTaxStatus: true,
-          exciseTaxAmount: true,
-          octroiTaxStatus: true,
-          octroiTaxAmount: true,
           approvalStatus: true,
           isSuspended: true,
           isComplete: true,

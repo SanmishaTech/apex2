@@ -66,39 +66,14 @@ const createSchema = z.object({
   terms: z.string().optional(),
   woStatus: z.enum(["HOLD"]).optional().nullable(),
   paymentTermsInDays: z.coerce.number().optional(),
-  transitInsuranceStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  transitInsuranceAmount: z.string().nullable().optional(),
-  pfStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  pfCharges: z.string().nullable().optional(),
-  gstReverseStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  gstReverseAmount: z.string().nullable().optional(),
-  exciseTaxStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  exciseTaxAmount: z.string().nullable().optional(),
-  octroiTaxStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  octroiTaxAmount: z.string().nullable().optional(),
   deliverySchedule: z.string().optional(),
+  workOrderItems: z
+    .array(workOrderItemSchema)
+    .min(1, "At least one item is required"),
   amount: z.coerce.number(),
   totalCgstAmount: z.coerce.number(),
   totalSgstAmount: z.coerce.number(),
   totalIgstAmount: z.coerce.number(),
-  workOrderItems: z
-    .array(workOrderItemSchema)
-    .min(1, "At least one item is required"),
 });
 
 const COMPANY_CODE = "DCTPL";
@@ -355,16 +330,6 @@ export async function POST(req: NextRequest) {
         note: parsedData.note || null,
         transport: parsedData.transport || null,
         quotationDate: parsedData.quotationDate,
-        transitInsuranceStatus: parsedData.transitInsuranceStatus || null,
-        transitInsuranceAmount: parsedData.transitInsuranceAmount || null,
-        pfStatus: parsedData.pfStatus || null,
-        pfCharges: parsedData.pfCharges || null,
-        gstReverseStatus: parsedData.gstReverseStatus || null,
-        gstReverseAmount: parsedData.gstReverseAmount || null,
-        exciseTaxStatus: parsedData.exciseTaxStatus || null,
-        exciseTaxAmount: parsedData.exciseTaxAmount || null,
-        octroiTaxStatus: parsedData.octroiTaxStatus || null,
-        octroiTaxAmount: parsedData.octroiTaxAmount || null,
         terms: parsedData.terms || null,
         woStatus: parsedData.woStatus ?? null,
         paymentTermsInDays: parsedData.paymentTermsInDays || null,
@@ -384,14 +349,9 @@ export async function POST(req: NextRequest) {
         select: {
           id: true,
           workOrderNo: true,
+          type: true,
           workOrderDate: true,
           deliveryDate: true,
-          purchaseOrderId: true,
-          boqId: true,
-          siteId: true,
-          vendorId: true,
-          billingAddressId: true,
-          siteDeliveryAddressId: true,
           quotationNo: true,
           quotationDate: true,
           transport: true,
@@ -401,7 +361,9 @@ export async function POST(req: NextRequest) {
           paymentTermsInDays: true,
           deliverySchedule: true,
           amount: true,
-          amountInWords: true,
+          totalCgstAmount: true,
+          totalSgstAmount: true,
+          totalIgstAmount: true,
           approvalStatus: true,
           isSuspended: true,
           isComplete: true,

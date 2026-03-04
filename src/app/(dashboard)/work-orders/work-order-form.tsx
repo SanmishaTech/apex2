@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { Fragment, useState, useMemo, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { Resolver, DeepPartial } from "react-hook-form";
 import {
@@ -116,12 +116,6 @@ type WorkOrderFormInitialData = {
   type?: "SUB_CONTRACT" | "PWR_WORK";
   paymentTermsInDays?: number | null;
   deliverySchedule?: string | null;
-  transitInsuranceStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
-  transitInsuranceAmount?: string | null;
-  pfStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
-  pfCharges?: string | null;
-  gstReverseStatus?: "EXCLUSIVE" | "INCLUSIVE" | "NOT_APPLICABLE" | null;
-  gstReverseAmount?: string | null;
   workOrderItems?: WorkOrderItem[];
 };
 
@@ -270,21 +264,6 @@ const createInputSchema = z.object({
       return typeof val === "string" ? parseInt(val) : val;
     }),
   deliverySchedule: z.string().optional(),
-  transitInsuranceStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  transitInsuranceAmount: z.string().nullable().optional(),
-  pfStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  pfCharges: z.string().nullable().optional(),
-  gstReverseStatus: z
-    .enum(["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"])
-    .nullable()
-    .optional(),
-  gstReverseAmount: z.string().nullable().optional(),
   workOrderItems: z
     .array(workOrderItemSchema)
     .min(1, "At least one item is required"),
@@ -294,6 +273,7 @@ const createInputSchema = z.object({
 type FormData = z.infer<typeof createInputSchema> & {
   workOrderNo?: string;
 };
+
 export function WorkOrderForm({
   mode,
   initial,
@@ -336,6 +316,16 @@ export function WorkOrderForm({
     apiGet
   );
 
+  const { data: purchaseOrdersData } = useSWR<ApiListResponse<any>>(
+    "/api/purchase-orders?perPage=1000",
+    apiGet
+  );
+
+  const { data: boqsData } = useSWR<ApiListResponse<any>>(
+    "/api/boqs?perPage=1000",
+    apiGet
+  );
+
   const { data: unitsData } = useSWR<ApiListResponse<Unit>>(
     "/api/units?perPage=1000",
     apiGet
@@ -355,79 +345,108 @@ export function WorkOrderForm({
     if (!Number.isNaN(parsed.getTime())) {
       return format(parsed, "yyyy-MM-dd");
     }
-    return value.slice(0, 10) || fallback || "";
+    return fallback ?? "";
   };
 
-  // Initialize form with proper types
-  const defaultValues = useMemo<DeepPartial<FormData>>(() => {
-    const today = format(new Date(), "yyyy-MM-dd");
+  const today = format(new Date(), "yyyy-MM-dd");
 
-    const initialPaymentTermIds: string[] = Array.isArray(initial?.paymentTermIds)
-      ? (initial?.paymentTermIds || [])
-          .map((v) => Number(v))
-          .filter((n) => Number.isFinite(n) && n > 0)
-          .map((n) => String(n))
-      : [];
+  const initialPaymentTermIds = useMemo(() => {
+    return initial?.paymentTermIds?.map((id) => String(id)) ?? [];
+  }, [initial?.paymentTermIds?.join(",")]);
+
+  const defaultValues: DeepPartial<FormData> = useMemo(() => {
+    if (initial) {
+      return {
+        type: initial?.type ?? "SUB_CONTRACT",
+        workOrderNo: initial?.workOrderNo ?? "",
+        purchaseOrderId: initial?.purchaseOrderId ?? 0,
+        boqId: initial?.boqId ?? 0,
+        workOrderDate: formatDateField(initial?.workOrderDate, today),
+        deliveryDate: formatDateField(initial?.deliveryDate),
+        siteId: initial?.siteId ?? 0,
+        vendorId: initial?.vendorId ?? 0,
+        billingAddressId: initial?.billingAddressId ?? 0,
+        siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
+        paymentTermIds: initialPaymentTermIds,
+        quotationNo: initial?.quotationNo ?? "",
+        quotationDate: formatDateField(initial?.quotationDate, today),
+        transport: initial?.transport ?? "",
+        note: initial?.note ?? "",
+        terms: initial?.terms ?? "",
+        woStatus: initial?.woStatus ?? null,
+        paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
+        deliverySchedule: initial?.deliverySchedule ?? "",
+        workOrderItems:
+          initial?.workOrderItems?.map((item) => ({
+            id: item.id,
+            serialNo: (item as any).serialNo,
+            Item: (item as any).Item ?? "",
+            unitId: (item as any).unitId ?? 0,
+            sac_code: ((item as any).sac_code as any) ?? null,
+            remark: item.remark ?? "",
+            qty: item.qty ?? 1,
+            approved1Qty: isApprovalMode
+              ? Number(item.approved1Qty ?? item.qty ?? 0)
+              : item.approved1Qty ?? undefined,
+            approved2Qty: isApproval2
+              ? Number(item.approved2Qty ?? item.approved1Qty ?? item.qty ?? 0)
+              : item.approved2Qty ?? undefined,
+            rate: item.rate ?? 0,
+            cgstPercent: item.cgstPercent ?? 0,
+            sgstPercent: item.sgstPercent ?? 0,
+            igstPercent: item.igstPercent ?? 0,
+          })) ??
+          [
+            {
+              serialNo: 1,
+              Item: "",
+              unitId: 0,
+              qty: 1,
+              rate: 0,
+              cgstPercent: 0,
+              sgstPercent: 0,
+              igstPercent: 0,
+              sac_code: null,
+            },
+          ],
+      };
+    }
 
     return {
-      type: initial?.type,
-      workOrderNo: initial?.workOrderNo ?? "",
-      purchaseOrderId: initial?.purchaseOrderId ?? 0,
-      boqId: initial?.boqId ?? 0,
-      workOrderDate: formatDateField(initial?.workOrderDate, today),
-      deliveryDate: formatDateField(initial?.deliveryDate),
-      siteId: initial?.siteId ?? 0,
-      vendorId: initial?.vendorId ?? 0,
-      billingAddressId: initial?.billingAddressId ?? 0,
-      siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
-      paymentTermIds: initialPaymentTermIds,
-      quotationNo: initial?.quotationNo ?? "",
-      quotationDate: formatDateField(initial?.quotationDate, today),
-      transport: initial?.transport ?? "",
-      note: initial?.note ?? "",
-      terms: initial?.terms ?? "",
-      woStatus: initial?.woStatus ?? null,
-      paymentTermsInDays: initial?.paymentTermsInDays ?? 0,
-      deliverySchedule: initial?.deliverySchedule ?? "",
-      transitInsuranceStatus: initial?.transitInsuranceStatus ?? null,
-      transitInsuranceAmount: initial?.transitInsuranceAmount ?? null,
-      pfStatus: initial?.pfStatus ?? null,
-      pfCharges: initial?.pfCharges ?? null,
-      gstReverseStatus: initial?.gstReverseStatus ?? null,
-      gstReverseAmount: initial?.gstReverseAmount ?? null,
-      workOrderItems: initial?.workOrderItems?.map((item) => ({
-        id: item.id,
-        serialNo: (item as any).serialNo,
-        Item: (item as any).Item ?? "",
-        unitId: (item as any).unitId ?? 0,
-        sac_code: ((item as any).sac_code as any) ?? null,
-        remark: item.remark ?? "",
-        qty: item.qty ?? 1,
-        approved1Qty: isApprovalMode
-          ? Number(item.approved1Qty ?? item.qty ?? 0)
-          : item.approved1Qty ?? undefined,
-        approved2Qty: isApproval2
-          ? Number(item.approved2Qty ?? item.approved1Qty ?? item.qty ?? 0)
-          : item.approved2Qty ?? undefined,
-        rate: item.rate ?? 0,
-        cgstPercent: item.cgstPercent ?? 0,
-        sgstPercent: item.sgstPercent ?? 0,
-        igstPercent: item.igstPercent ?? 0,
-      })) || [
+      type: "SUB_CONTRACT",
+      purchaseOrderId: 0,
+      boqId: 0,
+      workOrderDate: today,
+      deliveryDate: today,
+      siteId: 0,
+      vendorId: 0,
+      billingAddressId: 0,
+      siteDeliveryAddressId: 0,
+      paymentTermIds: [],
+      quotationNo: "",
+      quotationDate: today,
+      transport: "",
+      note: "",
+      terms: "",
+      woStatus: null,
+      paymentTermsInDays: 0,
+      deliverySchedule: "",
+      workOrderItems: [
         {
           serialNo: 1,
           Item: "",
           unitId: 0,
-          sac_code: null,
           qty: 1,
           rate: 0,
           cgstPercent: 0,
           sgstPercent: 0,
           igstPercent: 0,
+          sac_code: null,
+          remark: "",
         },
       ],
     };
-  }, [initial, isApprovalMode]);
+  }, [initial, isApprovalMode, isApproval2, today, initialPaymentTermIds]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(createInputSchema) as unknown as Resolver<FormData>,
@@ -448,15 +467,6 @@ export function WorkOrderForm({
     }
   }, [isApprovalMode, initial?.type, form]);
 
-  // useEffect(() => {
-  //   if (isApprovalMode && typeof defaultValues.poStatus !== "undefined") {
-  //     form.setValue("poStatus", defaultValues.poStatus ?? null, {
-  //       shouldDirty: false,
-  //       shouldTouch: false,
-  //     });
-  //   }
-  // }, [defaultValues.poStatus, form, isApprovalMode]);
-
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "workOrderItems",
@@ -471,12 +481,6 @@ export function WorkOrderForm({
   const paymentTermValues = form.watch("paymentTermIds");
   const woStatusValue = form.watch("woStatus");
   const typeValue = form.watch("type");
-  const transitInsuranceStatus = form.watch("transitInsuranceStatus");
-  const transitInsuranceAmount = form.watch("transitInsuranceAmount");
-  const pfStatus = form.watch("pfStatus");
-  const pfCharges = form.watch("pfCharges");
-  const gstReverseStatus = form.watch("gstReverseStatus");
-  const gstReverseAmount = form.watch("gstReverseAmount");
   const { errors } = form.formState;
 
   const { data: siteDetailData } = useSWR<
@@ -492,6 +496,25 @@ export function WorkOrderForm({
   const siteDeliveryAddresses = siteDetailData?.siteDeliveryAddresses ?? [];
   const paymentTerms = paymentTermsData?.data ?? [];
   const units = unitsData?.data ?? [];
+  const purchaseOrders = purchaseOrdersData?.data ?? [];
+  const boqs = boqsData?.data ?? [];
+
+  const filteredPurchaseOrders =
+    siteValue && siteValue > 0
+      ? purchaseOrders.filter((po: any) => Number(po?.siteId) === Number(siteValue))
+      : [];
+
+  const filteredBoqs =
+    siteValue && siteValue > 0
+      ? boqs.filter((b: any) => Number(b?.siteId) === Number(siteValue))
+      : [];
+
+  const handleSiteChange = (nextSiteId: number) => {
+    form.setValue("siteId", nextSiteId);
+    form.setValue("siteDeliveryAddressId", 0);
+    form.setValue("purchaseOrderId", 0 as any);
+    form.setValue("boqId", 0 as any);
+  };
 
   type WorkOrderItemFormValue = FormData["workOrderItems"][number];
 
@@ -559,49 +582,30 @@ export function WorkOrderForm({
   const computedItems = items.map((item) => computeItemMetrics(item));
 
   // Calculate totals with proper type safety and number formatting
-  const itemTotals = computedItems.reduce(
+  const headerTotals = computedItems.reduce(
     (acc, item) => ({
-      amount: roundTo2(acc.amount + item.amount),
-      cgstAmt: roundTo2(acc.cgstAmt + item.cgstAmt),
-      sgstAmt: roundTo2(acc.sgstAmt + item.sgstAmt),
-      igstAmt: roundTo2(acc.igstAmt + item.igstAmt),
-      taxableAmount: roundTo2(acc.taxableAmount + item.taxableAmount),
+      taxableAmount: roundTo2(acc.taxableAmount + (item as any).taxableAmount),
+      totalCgstAmount: roundTo2(acc.totalCgstAmount + item.cgstAmt),
+      totalSgstAmount: roundTo2(acc.totalSgstAmount + item.sgstAmt),
+      totalIgstAmount: roundTo2(acc.totalIgstAmount + item.igstAmt),
+      total: roundTo2(acc.total + item.amount),
     }),
     {
-      amount: 0,
-      cgstAmt: 0,
-      sgstAmt: 0,
-      igstAmt: 0,
       taxableAmount: 0,
+      totalCgstAmount: 0,
+      totalSgstAmount: 0,
+      totalIgstAmount: 0,
+      total: 0,
     }
   );
 
-  // Calculate additional charges to add to total
-  const transitInsuranceNumericAmount =
-    transitInsuranceStatus === null && transitInsuranceAmount
-      ? toNumber(transitInsuranceAmount)
-      : 0;
-
-  const pfChargesNumericAmount =
-    pfStatus === null && pfCharges ? toNumber(pfCharges) : 0;
-
-  const gstReverseNumericAmount =
-    gstReverseStatus === null && gstReverseAmount
-      ? toNumber(gstReverseAmount)
-      : 0;
-
-  // Final totals including all additional charges
+  // Final totals
   const totals = {
-    ...itemTotals,
-    transitInsuranceAmount: transitInsuranceNumericAmount,
-    pfChargesAmount: pfChargesNumericAmount,
-    gstReverseAmount: gstReverseNumericAmount,
-    amount: roundTo2(
-      itemTotals.amount +
-        transitInsuranceNumericAmount +
-        pfChargesNumericAmount +
-        gstReverseNumericAmount
-    ),
+    taxableAmount: headerTotals.taxableAmount,
+    cgstAmt: headerTotals.totalCgstAmount,
+    sgstAmt: headerTotals.totalSgstAmount,
+    igstAmt: headerTotals.totalIgstAmount,
+    amount: roundTo2(headerTotals.total),
   };
 
   // Handle vendor change to update billing addresses
@@ -703,26 +707,7 @@ export function WorkOrderForm({
         }
       );
 
-      // Add additional charges to total if they are numeric values
-      const transitInsuranceNumeric =
-        data.transitInsuranceStatus === null && data.transitInsuranceAmount
-          ? toNumber(data.transitInsuranceAmount)
-          : 0;
-
-      const pfChargesNumeric =
-        data.pfStatus === null && data.pfCharges ? toNumber(data.pfCharges) : 0;
-
-      const gstReverseNumeric =
-        data.gstReverseStatus === null && data.gstReverseAmount
-          ? toNumber(data.gstReverseAmount)
-          : 0;
-
-      const finalAmount = roundTo2(
-        headerTotals.amount +
-          transitInsuranceNumeric +
-          pfChargesNumeric +
-          gstReverseNumeric
-      );
+      const finalAmount = roundTo2(headerTotals.amount);
 
       const payload: any = {
         ...data,
@@ -749,12 +734,6 @@ export function WorkOrderForm({
           ? Number(data.paymentTermsInDays)
           : null,
         woStatus: data.woStatus ?? null,
-        transitInsuranceStatus: data.transitInsuranceStatus || null,
-        transitInsuranceAmount: data.transitInsuranceAmount || null,
-        pfStatus: data.pfStatus || null,
-        pfCharges: data.pfCharges || null,
-        gstReverseStatus: data.gstReverseStatus || null,
-        gstReverseAmount: data.gstReverseAmount || null,
         amount: finalAmount,
         totalCgstAmount: headerTotals.totalCgstAmount,
         totalSgstAmount: headerTotals.totalSgstAmount,
@@ -803,59 +782,6 @@ export function WorkOrderForm({
     }
   };
 
-  // Handle transit insurance status change
-  useEffect(() => {
-    if (
-      transitInsuranceStatus === "EXCLUSIVE" ||
-      transitInsuranceStatus === "INCLUSIVE" ||
-      transitInsuranceStatus === "NOT_APPLICABLE"
-    ) {
-      form.setValue("transitInsuranceAmount", transitInsuranceStatus);
-    } else if (
-      transitInsuranceStatus === null &&
-      transitInsuranceAmount &&
-      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(
-        transitInsuranceAmount
-      )
-    ) {
-      form.setValue("transitInsuranceAmount", null);
-    }
-  }, [transitInsuranceStatus, form]);
-
-  // Handle pf status change
-  useEffect(() => {
-    if (
-      pfStatus === "EXCLUSIVE" ||
-      pfStatus === "INCLUSIVE" ||
-      pfStatus === "NOT_APPLICABLE"
-    ) {
-      form.setValue("pfCharges", pfStatus);
-    } else if (
-      pfStatus === null &&
-      pfCharges &&
-      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(pfCharges)
-    ) {
-      form.setValue("pfCharges", null);
-    }
-  }, [pfStatus, form]);
-
-  // Handle gst reverse status change
-  useEffect(() => {
-    if (
-      gstReverseStatus === "EXCLUSIVE" ||
-      gstReverseStatus === "INCLUSIVE" ||
-      gstReverseStatus === "NOT_APPLICABLE"
-    ) {
-      form.setValue("gstReverseAmount", gstReverseStatus);
-    } else if (
-      gstReverseStatus === null &&
-      gstReverseAmount &&
-      ["EXCLUSIVE", "INCLUSIVE", "NOT_APPLICABLE"].includes(gstReverseAmount)
-    ) {
-      form.setValue("gstReverseAmount", null);
-    }
-  }, [gstReverseStatus, form]);
-
   // Handle vendor change
   const onVendorChange = (value: string) => {
     const nextVendor = value === "__none" ? 0 : parseInt(value, 10);
@@ -866,7 +792,7 @@ export function WorkOrderForm({
   // Format number input
   return (
     <Form {...form}>
-      <AppCard className="max-w-6xl mx-auto">
+      <AppCard className="w-full mx-auto">
         <AppCard.Header>
           <AppCard.Title>
             {isCreate
@@ -890,7 +816,7 @@ export function WorkOrderForm({
         <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
           <AppCard.Content className="space-y-6">
             <FormSection legend="Work Order Details">
-              <FormRow cols={4}>
+              <FormRow cols={3}>
                 <TextInput
                   control={form.control}
                   name="workOrderNo"
@@ -914,6 +840,107 @@ export function WorkOrderForm({
                   required={!isApprovalMode}
                   disabled={isApprovalMode}
                 />
+              </FormRow>
+
+              <FormRow cols={3}>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Site<span className="ml-0.5 text-destructive">*</span>
+                  </label>
+                  <AppSelect
+                    value={siteValue && siteValue > 0 ? siteValue.toString() : "__none"}
+                    onValueChange={(value) => {
+                      const next = value === "__none" ? 0 : parseInt(value, 10);
+                      handleSiteChange(next);
+                    }}
+                    placeholder="Select Site"
+                    disabled={isApprovalMode}
+                  >
+                    <AppSelect.Item key="site-none" value="__none">
+                      Select Site
+                    </AppSelect.Item>
+                    {sites.map((site) => (
+                      <AppSelect.Item key={site.id} value={site.id.toString()}>
+                        {site.site}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {errors.siteId ? (
+                    <p className="text-sm text-destructive mt-2">
+                      {errors.siteId.message as string}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Purchase Order<span className="ml-0.5 text-destructive">*</span>
+                  </label>
+                  <AppSelect
+                    value={
+                      (form.watch("purchaseOrderId") as any) &&
+                      (form.watch("purchaseOrderId") as any) > 0
+                        ? String(form.watch("purchaseOrderId") as any)
+                        : "__none"
+                    }
+                    onValueChange={(value) => {
+                      const next = value === "__none" ? 0 : parseInt(value, 10);
+                      form.setValue("purchaseOrderId", next as any);
+                    }}
+                    placeholder="Select Purchase Order"
+                    disabled={isApprovalMode || !(siteValue && siteValue > 0)}
+                  >
+                    <AppSelect.Item key="po-none" value="__none">
+                      {siteValue && siteValue > 0
+                        ? "Select Purchase Order"
+                        : "Select Site first"}
+                    </AppSelect.Item>
+                    {filteredPurchaseOrders.map((po: any) => (
+                      <AppSelect.Item key={po.id} value={String(po.id)}>
+                        {po.purchaseOrderNo ?? `PO ${po.id}`}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {errors.purchaseOrderId ? (
+                    <p className="text-sm text-destructive mt-2">
+                      {errors.purchaseOrderId.message as string}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    BOQ<span className="ml-0.5 text-destructive">*</span>
+                  </label>
+                  <AppSelect
+                    value={
+                      (form.watch("boqId") as any) && (form.watch("boqId") as any) > 0
+                        ? String(form.watch("boqId") as any)
+                        : "__none"
+                    }
+                    onValueChange={(value) => {
+                      const next = value === "__none" ? 0 : parseInt(value, 10);
+                      form.setValue("boqId", next as any);
+                    }}
+                    placeholder="Select BOQ"
+                    disabled={isApprovalMode || !(siteValue && siteValue > 0)}
+                  >
+                    <AppSelect.Item key="boq-none" value="__none">
+                      {siteValue && siteValue > 0 ? "Select BOQ" : "Select Site first"}
+                    </AppSelect.Item>
+                    {filteredBoqs.map((b: any) => (
+                      <AppSelect.Item key={b.id} value={String(b.id)}>
+                        {b.boqName ?? b.boqNo ?? `BOQ ${b.id}`}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {errors.boqId ? (
+                    <p className="text-sm text-destructive mt-2">
+                      {errors.boqId.message as string}
+                    </p>
+                  ) : null}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">Type</label>
                   <AppSelect
@@ -937,6 +964,7 @@ export function WorkOrderForm({
                     </AppSelect.Item>
                   </AppSelect>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     WO Status
@@ -962,40 +990,6 @@ export function WorkOrderForm({
 
             <FormSection legend="Vendor & Billing">
               <FormRow cols={3}>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Site<span className="ml-0.5 text-destructive">*</span>
-                  </label>
-                  <AppSelect
-                    value={
-                      siteValue && siteValue > 0
-                        ? siteValue.toString()
-                        : "__none"
-                    }
-                    onValueChange={(value) => {
-                      const next = value === "__none" ? 0 : parseInt(value, 10);
-                      form.setValue("siteId", next);
-                      form.setValue("siteDeliveryAddressId", 0);
-                    }}
-                    placeholder="Select Site"
-                    disabled={isApprovalMode}
-                  >
-                    <AppSelect.Item key="site-none" value="__none">
-                      Select Site
-                    </AppSelect.Item>
-                    {sites.map((site) => (
-                      <AppSelect.Item key={site.id} value={site.id.toString()}>
-                        {site.site}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                  {errors.siteId ? (
-                    <p className="text-sm text-destructive mt-2">
-                      {errors.siteId.message as string}
-                    </p>
-                  ) : null}
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Vendor<span className="ml-0.5 text-destructive">*</span>
@@ -1125,22 +1119,18 @@ export function WorkOrderForm({
                   <label className="block text-sm font-medium mb-2">
                     Payment Term
                   </label>
-                  <FormRow cols={3}>
-                    <div>
-                      <MultiSelectInput
-                        control={form.control}
-                        name={"paymentTermIds" as any}
-                        label="Payment Terms"
-                        placeholder="Select Payment Terms"
-                        options={paymentTerms.map((t) => ({
-                          value: String(t.id),
-                          label: t.paymentTerm,
-                        }))}
-                        disabled={isApprovalMode}
-                        size="sm"
-                      />
-                    </div>
-                  </FormRow>
+                  <MultiSelectInput
+                    control={form.control}
+                    name={"paymentTermIds" as any}
+                    label="Payment Terms"
+                    placeholder="Select Payment Terms"
+                    options={paymentTerms.map((t) => ({
+                      value: String(t.id),
+                      label: t.paymentTerm,
+                    }))}
+                    disabled={isApprovalMode}
+                    size="sm"
+                  />
                 </div>
 
                 <TextInput
@@ -1180,676 +1170,593 @@ export function WorkOrderForm({
                   max={999}
                   disabled={isApprovalMode}
                 />
-                <TextareaInput
-                  control={form.control}
-                  name="deliverySchedule"
-                  label="Delivery Schedule"
-                  rows={2}
-                  span={1}
-                />
               </FormRow>
+
+              <TextareaInput
+                control={form.control}
+                name="deliverySchedule"
+                label="Delivery Schedule"
+                rows={2}
+                span={3}
+              />
             </FormSection>
 
             <FormSection legend="Notes">
-              <FormRow cols={2}>
-                <TextareaInput
-                  control={form.control}
-                  name="note"
-                  label="Note"
-                  rows={3}
-                />
-                <TextareaInput
-                  control={form.control}
-                  name="terms"
-                  label="Terms & Conditions"
-                  rows={4}
-                  span={2}
-                />
-              </FormRow>
+              <TextareaInput
+                control={form.control}
+                name="note"
+                label="Note"
+                rows={3}
+                span={3}
+              />
+
+              <TextareaInput
+                control={form.control}
+                name="terms"
+                label="Terms & Conditions"
+                rows={4}
+                span={3}
+              />
             </FormSection>
 
-            {/* Items Table */}
             <FormSection legend="Items">
-              <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <table className="min-w-full table-auto divide-y divide-gray-200 dark:divide-slate-700 text-xs">
-                  <thead className="bg-gray-50 dark:bg-slate-800/60">
-                    <tr>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Item
-                      </th>
-                      {isApprovalMode && (
-                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ordered Qty
-                        </th>
-                      )}
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SAC Code
-                      </th>
-                      {isApproval2 ? (
-                        <>
-                          <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Approved 1 Qty
-                          </th>
-                          <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Approved 2 Qty
-                          </th>
-                        </>
-                      ) : (
-                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {isApprovalMode ? "Approved Qty" : "Qty"}
-                        </th>
-                      )}
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        CGST %
-                      </th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SGST %
-                      </th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        IGST %
-                      </th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      {!isApprovalMode && (
-                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
-                    {fields.map((field, index) => (
-                      <tr key={field.fieldId ?? index}>
-                        <td className="px-2 py-2 align-top">
-                          {isApprovalMode ? (
-                            <>
-                              <div className="font-medium">
-                                {initial?.workOrderItems?.[index]?.Item || ""}
+              <div className="w-full overflow-x-auto rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900">
+                <table className="w-full table-auto border-collapse bg-transparent text-[11px]">
+                  <colgroup>
+                    <col className="w-[70px]" />
+                    <col className="w-auto" />
+                    <col className="w-auto" />
+                    <col className="w-auto" />
+                    <col className="w-[140px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-px" />
+                  </colgroup>
+                  <tbody>
+                    {fields.map((field, index) => {
+                      const colCount = 7;
+                      const qtyLabel = isApproval2
+                        ? "Approved 2 Qty"
+                        : isApproval1
+                        ? "Approved 1 Qty"
+                        : "Qty";
+
+                      return (
+                        <Fragment key={field.fieldId ?? index}>
+                          <tr
+                            className={
+                              index % 2 === 0
+                                ? "bg-slate-50/60 dark:bg-slate-950/30 hover:bg-sky-50/60 dark:hover:bg-slate-800/40"
+                                : "bg-white dark:bg-slate-900 hover:bg-sky-50/60 dark:hover:bg-slate-800/40"
+                            }
+                          >
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Sr. No.
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                Unit:{" "}
-                                {(initial?.workOrderItems?.[index] as any)?.unit
-                                  ?.unitName || ""}
-                              </div>
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.remark`}
-                                render={({ field }) => (
-                                  <FormItem className="mt-2">
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Remark"
-                                        value={field.value || ""}
-                                        className="text-xs"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </>
-                          ) : (
-                            <FormRow cols={12}>
-                              <TextInput
-                                control={form.control}
-                                name={`workOrderItems.${index}.serialNo` as any}
-                                label="Sr. No."
-                                placeholder="Sr. No."
-                                disabled={isReadOnly}
-                                span={2}
-                                spanFrom="md"
-                              />
-                              <TextInput
-                                control={form.control}
-                                name={`workOrderItems.${index}.Item` as any}
-                                label="Item"
-                                placeholder="Item"
-                                disabled={isReadOnly}
-                                span={5}
-                                spanFrom="md"
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.unitId` as any}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1 md:col-span-3 col-span-12">
-                                    <FormControl>
-                                      <AppSelect
-                                        label="Unit"
-                                        value={field.value ? String(field.value) : "__none"}
-                                        onValueChange={(value) => {
-                                          const next =
-                                            value === "__none" ? 0 : parseInt(value, 10);
-                                          field.onChange(next);
-                                        }}
-                                        placeholder="Select Unit"
-                                        disabled={isReadOnly}
-                                      >
-                                        <AppSelect.Item key="unit-none" value="__none">
-                                          Select Unit
-                                        </AppSelect.Item>
-                                        {units.map((u) => (
-                                          <AppSelect.Item key={u.id} value={String(u.id)}>
-                                            {u.unitName}
-                                          </AppSelect.Item>
-                                        ))}
-                                      </AppSelect>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.remark`}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1 md:col-span-2 col-span-12">
-                                    <FormControl>
-                                      <Input
-                                        {...field}
-                                        placeholder="Remark"
-                                        value={field.value || ""}
-                                        className="text-xs"
-                                        disabled={isReadOnly}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </FormRow>
-                          )}
-                        </td>
-                        {isApprovalMode && (
-                          <td className="px-4 py-3 text-right font-medium align-top">
-                            {toNumber(
-                              initial?.workOrderItems?.[index]?.orderedQty ??
-                                initial?.workOrderItems?.[index]?.qty ??
-                                0
-                            ).toLocaleString("en-IN", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 4,
-                            })}
-                          </td>
-                        )}
-                        <td className="px-4 py-3 align-top">
-                          {/* SAC Code input (editable in create/edit) */}
-                          {isApprovalMode ? (
-                            <div className="text-xs text-muted-foreground">
-                              {form.getValues(
-                                `workOrderItems.${index}.sac_code`
-                              ) || ""}
-                            </div>
-                          ) : (
-                            <FormField
-                              control={form.control}
-                              name={`workOrderItems.${index}.sac_code`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      placeholder="SAC Code"
-                                      value={field.value ?? ""}
-                                      className="w-32"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
+                              {isApprovalMode ? (
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={String(
+                                    (initial?.workOrderItems?.[index] as any)?.serialNo ??
+                                      ""
+                                  )}
+                                  className="h-7 w-full text-[11px]"
+                                />
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.serialNo` as any}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          {...field}
+                                          value={
+                                            field.value === null ||
+                                            field.value === undefined
+                                              ? ""
+                                              : String(field.value)
+                                          }
+                                          placeholder="Sr. No."
+                                          className="h-7 w-full text-[11px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
                               )}
-                            />
-                          )}
-                        </td>
-                        {isApproval2 ? (
-                          <>
-                            <td className="px-4 py-3 text-right font-medium align-top">
-                              {toNumber(
-                                initial?.workOrderItems?.[index]
-                                  ?.approved1Qty ?? 0
-                              ).toLocaleString("en-IN", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 4,
-                              })}
                             </td>
-                            <td className="px-4 py-3 align-top">
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.approved2Qty`}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1">
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        step="0.0001"
-                                        min="0.0001"
-                                        {...field}
-                                        value={field.value?.toString() || ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(
-                                            value === ""
-                                              ? ""
-                                              : parseFloat(value) || 0
-                                          );
-                                        }}
-                                        className="text-right w-24"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </td>
-                          </>
-                        ) : (
-                          <td className="px-4 py-3 align-top">
-                            {isApprovalMode ? (
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.approved1Qty`}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1">
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        step="0.0001"
-                                        min="0.0001"
-                                        {...field}
-                                        value={field.value?.toString() || ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(
-                                            value === ""
-                                              ? ""
-                                              : parseFloat(value) || 0
-                                          );
-                                        }}
-                                        className="text-right w-24"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            ) : (
-                              <FormField
-                                control={form.control}
-                                name={`workOrderItems.${index}.qty`}
-                                render={({ field }) => (
-                                  <FormItem className="space-y-1">
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        step="0.0001"
-                                        min="0.0001"
-                                        {...field}
-                                        value={field.value?.toString() || ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(
-                                            value === ""
-                                              ? ""
-                                              : parseFloat(value) || 0
-                                          );
-                                        }}
-                                        className="text-right w-24"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            )}
-                          </td>
-                        )}
-                        <td className="px-2 py-2 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`workOrderItems.${index}.rate`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    {...field}
-                                    value={field.value?.toString() || ""}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? ""
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-24"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        {/* Discount column removed for Work Orders */}
-                        <td className="px-2 py-2 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`workOrderItems.${index}.cgstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-16"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  CGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.cgstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`workOrderItems.${index}.sgstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-16"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  SGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.sgstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <FormField
-                            control={form.control}
-                            name={`workOrderItems.${index}.igstPercent`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="100"
-                                    {...field}
-                                    value={field.value?.toString() || "0"}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      field.onChange(
-                                        value === ""
-                                          ? "0"
-                                          : parseFloat(value) || 0
-                                      );
-                                    }}
-                                    className="text-right w-16"
-                                  />
-                                </FormControl>
-                                <div className="text-xs text-muted-foreground text-right">
-                                  IGST Amt:{" "}
-                                  {formatAmount(computedItems[index]?.igstAmt)}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </td>
-                        <td className="px-2 py-2 text-right text-xs font-medium align-top">
-                          {formatAmount(computedItems[index]?.amount)}
-                        </td>
-                        {!isApprovalMode && (
-                          <td className="px-2 py-2 text-right text-xs font-medium align-top">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-800"
+
+                            <td
+                              colSpan={4}
+                              className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Item
+                              </div>
+                              {isApprovalMode ? (
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={initial?.workOrderItems?.[index]?.Item || ""}
+                                  className="h-7 w-full text-[11px]"
+                                />
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.Item` as any}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          {...field}
+                                          value={field.value || ""}
+                                          placeholder="Item"
+                                          className="h-7 w-full text-[11px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Unit
+                              </div>
+                              {isApprovalMode ? (
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={
+                                    (initial?.workOrderItems?.[index] as any)?.unit
+                                      ?.unitName || ""
+                                  }
+                                  className="h-7 w-full text-[11px]"
+                                />
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.unitId` as any}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <AppSelect
+                                          value={
+                                            field.value && field.value > 0
+                                              ? String(field.value)
+                                              : "__none"
+                                          }
+                                          onValueChange={(value) => {
+                                            const next =
+                                              value === "__none"
+                                                ? 0
+                                                : parseInt(value, 10);
+                                            field.onChange(next);
+                                          }}
+                                          placeholder="Unit"
+                                          disabled={isReadOnly}
+                                        >
+                                          <AppSelect.Item
+                                            key="unit-none"
+                                            value="__none"
+                                          >
+                                            Unit
+                                          </AppSelect.Item>
+                                          {units.map((u) => (
+                                            <AppSelect.Item
+                                              key={u.id}
+                                              value={String(u.id)}
+                                            >
+                                              {u.unitName}
+                                            </AppSelect.Item>
+                                          ))}
+                                        </AppSelect>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-center align-top w-px whitespace-nowrap">
+                              {!isApprovalMode && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeItem(index)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+
+                          <tr
+                            className={
+                              index % 2 === 0
+                                ? "bg-slate-50/60 dark:bg-slate-950/30"
+                                : "bg-white dark:bg-slate-900"
+                            }
+                          >
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                {qtyLabel}
+                              </div>
+                              {isApproval2 ? (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.approved2Qty`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          {...field}
+                                          value={
+                                            typeof field.value === "string"
+                                              ? field.value
+                                              : field.value != null
+                                                ? field.value?.toString() || ""
+                                                : String(
+                                                    toNumber(
+                                                      (initial?.workOrderItems?.[index] as any)
+                                                        ?.qty
+                                                    ) ||
+                                                      toNumber((items?.[index] as any)?.qty) ||
+                                                      0
+                                                  )
+                                          }
+                                          onChange={(e) =>
+                                            field.onChange(e.target.value)
+                                          }
+                                          className="h-7 text-right w-full text-[11px] min-w-[96px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
+                                        Qty: {String(
+                                          toNumber(
+                                            (initial?.workOrderItems?.[index] as any)
+                                              ?.qty
+                                          ) ||
+                                            toNumber((items?.[index] as any)?.qty) ||
+                                            0
+                                        )}
+                                      </div>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              ) : isApproval1 ? (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.approved1Qty`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          {...field}
+                                          value={
+                                            typeof field.value === "string"
+                                              ? field.value
+                                              : field.value != null
+                                                ? field.value?.toString() || ""
+                                                : String(
+                                                    toNumber(
+                                                      (initial?.workOrderItems?.[index] as any)
+                                                        ?.qty
+                                                    ) ||
+                                                      toNumber((items?.[index] as any)?.qty) ||
+                                                      0
+                                                  )
+                                          }
+                                          onChange={(e) =>
+                                            field.onChange(e.target.value)
+                                          }
+                                          className="h-7 text-right w-full text-[11px] min-w-[96px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
+                                        Qty: {String(
+                                          toNumber(
+                                            (initial?.workOrderItems?.[index] as any)
+                                              ?.qty
+                                          ) ||
+                                            toNumber((items?.[index] as any)?.qty) ||
+                                            0
+                                        )}
+                                      </div>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              ) : isApprovalMode ? (
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={String(
+                                    toNumber(
+                                      initial?.workOrderItems?.[index]?.orderedQty ??
+                                        initial?.workOrderItems?.[index]?.qty ??
+                                        0
+                                    )
+                                  )}
+                                  className="h-7 text-right w-full text-[11px]"
+                                />
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.qty`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          {...field}
+                                          value={
+                                            typeof field.value === "string"
+                                              ? field.value
+                                              : field.value?.toString() || ""
+                                          }
+                                          onChange={(e) =>
+                                            field.onChange(e.target.value)
+                                          }
+                                          className="h-7 text-right w-full text-[11px] min-w-[96px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Rate
+                              </div>
+                              {isApprovalMode ? (
+                                <Input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={String(
+                                    toNumber(
+                                      (initial?.workOrderItems?.[index] as any)?.rate ??
+                                        0
+                                    )
+                                  )}
+                                  className="h-7 text-right w-full text-[11px]"
+                                />
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`workOrderItems.${index}.rate`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormControl>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          {...field}
+                                          value={
+                                            typeof field.value === "string"
+                                              ? field.value
+                                              : field.value?.toString() || ""
+                                          }
+                                          onChange={(e) =>
+                                            field.onChange(e.target.value)
+                                          }
+                                          className="h-7 text-right w-full text-[11px]"
+                                          disabled={isReadOnly}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                CGST %
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.cgstPercent`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        {...field}
+                                        value={
+                                          typeof field.value === "string"
+                                            ? field.value
+                                            : field.value?.toString() || ""
+                                        }
+                                        onChange={(e) =>
+                                          field.onChange(e.target.value)
+                                        }
+                                        className="h-7 text-right w-full text-[11px]"
+                                        disabled={isReadOnly}
+                                      />
+                                    </FormControl>
+                                    <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
+                                      Amt: {formatAmount(computedItems[index]?.cgstAmt)}
+                                    </div>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                SGST %
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.sgstPercent`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        {...field}
+                                        value={
+                                          typeof field.value === "string"
+                                            ? field.value
+                                            : field.value?.toString() || ""
+                                        }
+                                        onChange={(e) =>
+                                          field.onChange(e.target.value)
+                                        }
+                                        className="h-7 text-right w-full text-[11px]"
+                                        disabled={isReadOnly}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                IGST %
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.igstPercent`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        {...field}
+                                        value={
+                                          typeof field.value === "string"
+                                            ? field.value
+                                            : field.value?.toString() || ""
+                                        }
+                                        onChange={(e) =>
+                                          field.onChange(e.target.value)
+                                        }
+                                        className="h-7 text-right w-full text-[11px]"
+                                        disabled={isReadOnly}
+                                      />
+                                    </FormControl>
+                                    <div className="text-[10px] text-gray-600 dark:text-slate-300 text-left">
+                                      Amt: {formatAmount(computedItems[index]?.igstAmt)}
+                                    </div>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top">
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Amount
+                              </div>
+                              <div className="h-7 w-full text-[11px] text-right flex items-center justify-end">
+                                {formatAmount(computedItems[index]?.amount)}
+                              </div>
+                            </td>
+
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2" />
+                          </tr>
+
+                          <tr
+                            className={
+                              index % 2 === 0
+                                ? "bg-slate-50/60 dark:bg-slate-950/30"
+                                : "bg-white dark:bg-slate-900"
+                            }
+                          >
+                            <td
+                              colSpan={5}
+                              className="border border-slate-200 dark:border-slate-700 px-1 py-2 align-top"
+                            >
+                              <div className="mb-1 text-xs font-medium text-gray-900 dark:text-slate-100 text-left leading-none">
+                                Remark
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`workOrderItems.${index}.remark`}
+                                render={({ field }) => (
+                                  <FormItem className="space-y-1">
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        value={field.value || ""}
+                                        placeholder="Remark"
+                                        className="h-7 w-full text-[11px]"
+                                        disabled={isReadOnly}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </td>
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2" />
+                            <td className="border border-slate-200 dark:border-slate-700 px-1 py-2" />
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
+
                   <tfoot className="bg-gray-50 dark:bg-slate-900/70">
                     <tr>
-                      <td
-                        colSpan={isApproval2 ? 9 : 8}
-                        className="text-right px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100"
-                      >
-                        Subtotal
+                      <td colSpan={5} className="px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          {!isApprovalMode ? (
+                            <Button
+                              type="button"
+                              onClick={addItem}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              size="sm"
+                            >
+                              Add Item
+                            </Button>
+                          ) : (
+                            <div />
+                          )}
+                          <div className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                            Subtotal
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
                         {formatAmount(totals.taxableAmount)}
                       </td>
+                      <td className="px-4 py-3" />
                     </tr>
-                    <tr>
-                      <td colSpan={isApproval2 ? 9 : 8} className="px-4 py-3">
-                        <div className="flex justify-end items-center gap-4">
-                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
-                            Transit Insurance
-                          </span>
-                          <AppSelect
-                            className="w-44"
-                            triggerClassName="h-9"
-                            value={
-                              transitInsuranceStatus
-                                ? transitInsuranceStatus
-                                : "__none"
-                            }
-                            onValueChange={(value) => {
-                              const next =
-                                value === "__none"
-                                  ? null
-                                  : (value as
-                                      | "EXCLUSIVE"
-                                      | "INCLUSIVE"
-                                      | "NOT_APPLICABLE");
-                              form.setValue("transitInsuranceStatus", next);
-                            }}
-                            placeholder="Select Status"
-                          >
-                            <AppSelect.Item
-                              key="transit-insurance-none"
-                              value="__none"
-                            >
-                              None
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="transit-insurance-exclusive"
-                              value="EXCLUSIVE"
-                            >
-                              Exclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="transit-insurance-inclusive"
-                              value="INCLUSIVE"
-                            >
-                              Inclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="transit-insurance-not-applicable"
-                              value="NOT_APPLICABLE"
-                            >
-                              Not Applicable
-                            </AppSelect.Item>
-                          </AppSelect>
-                          <FormField
-                            control={form.control}
-                            name="transitInsuranceAmount"
-                            render={({ field }) => (
-                              <FormItem className="w-40">
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    value={
-                                      field.value === null ||
-                                      field.value === undefined
-                                        ? ""
-                                        : String(field.value)
-                                    }
-                                    onChange={(event) => {
-                                      field.onChange(event.target.value);
-                                    }}
-                                    type={
-                                      transitInsuranceStatus === null
-                                        ? "number"
-                                        : "text"
-                                    }
-                                    placeholder={
-                                      transitInsuranceStatus === null
-                                        ? "Enter amount"
-                                        : "Auto-filled"
-                                    }
-                                    disabled={transitInsuranceStatus !== null}
-                                    className="h-9 text-right"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
-                        {formatAmount(totals.transitInsuranceAmount)}
-                      </td>
-                    </tr>
+
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 9 : 8}
-                        className="px-4 py-3"
-                      >
-                        <div className="flex justify-end items-center gap-4">
-                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
-                            Transport Charges
-                          </span>
-                          <AppSelect
-                            className="w-44"
-                            triggerClassName="h-9"
-                            value={pfStatus ? pfStatus : "__none"}
-                            onValueChange={(value) => {
-                              const next =
-                                value === "__none"
-                                  ? null
-                                  : (value as
-                                      | "EXCLUSIVE"
-                                      | "INCLUSIVE"
-                                      | "NOT_APPLICABLE");
-                              form.setValue("pfStatus", next);
-                            }}
-                            placeholder="Select Status"
-                          >
-                            <AppSelect.Item key="pf-none" value="__none">
-                              None
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="pf-exclusive"
-                              value="EXCLUSIVE"
-                            >
-                              Exclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="pf-inclusive"
-                              value="INCLUSIVE"
-                            >
-                              Inclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="pf-not-applicable"
-                              value="NOT_APPLICABLE"
-                            >
-                              Not Applicable
-                            </AppSelect.Item>
-                          </AppSelect>
-                          <FormField
-                            control={form.control}
-                            name="pfCharges"
-                            render={({ field }) => (
-                              <FormItem className="w-40">
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    value={
-                                      field.value === null ||
-                                      field.value === undefined
-                                        ? ""
-                                        : String(field.value)
-                                    }
-                                    onChange={(event) => {
-                                      field.onChange(event.target.value);
-                                    }}
-                                    type={pfStatus === null ? "number" : "text"}
-                                    placeholder={
-                                      pfStatus === null
-                                        ? "Enter amount"
-                                        : "Auto-filled"
-                                    }
-                                    disabled={pfStatus !== null}
-                                    className="h-9 text-right"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
-                        {formatAmount(totals.pfChargesAmount)}
-                      </td>
-                    </tr>
-                    {/* Discount row removed for Work Orders */}
-                    <tr>
-                      <td
-                        colSpan={isApprovalMode ? 9 : 8}
+                        colSpan={5}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         CGST
@@ -1857,10 +1764,11 @@ export function WorkOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.cgstAmt)}
                       </td>
+                      <td className="px-4 py-1" />
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 9 : 8}
+                        colSpan={5}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         SGST
@@ -1868,10 +1776,11 @@ export function WorkOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.sgstAmt)}
                       </td>
+                      <td className="px-4 py-1" />
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 9 : 8}
+                        colSpan={5}
                         className="text-right px-4 py-1 text-sm font-medium text-gray-700 dark:text-slate-200"
                       >
                         IGST
@@ -1879,103 +1788,17 @@ export function WorkOrderForm({
                       <td className="px-4 py-1 text-right text-sm font-medium text-gray-700 dark:text-slate-100">
                         {formatAmount(totals.igstAmt)}
                       </td>
+                      <td className="px-4 py-1" />
+                    </tr>
+
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3" />
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" />
                     </tr>
                     <tr>
                       <td
-                        colSpan={isApprovalMode ? 9 : 8}
-                        className="px-4 py-3"
-                      >
-                        <div className="flex justify-end items-center gap-4">
-                          <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
-                            GST Reverse Charge
-                          </span>
-                          <AppSelect
-                            className="w-44"
-                            triggerClassName="h-9"
-                            value={
-                              gstReverseStatus ? gstReverseStatus : "__none"
-                            }
-                            onValueChange={(value) => {
-                              const next =
-                                value === "__none"
-                                  ? null
-                                  : (value as
-                                      | "EXCLUSIVE"
-                                      | "INCLUSIVE"
-                                      | "NOT_APPLICABLE");
-                              form.setValue("gstReverseStatus", next);
-                            }}
-                            placeholder="Select Status"
-                          >
-                            <AppSelect.Item
-                              key="gst-reverse-none"
-                              value="__none"
-                            >
-                              None
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="gst-reverse-exclusive"
-                              value="EXCLUSIVE"
-                            >
-                              Exclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="gst-reverse-inclusive"
-                              value="INCLUSIVE"
-                            >
-                              Inclusive
-                            </AppSelect.Item>
-                            <AppSelect.Item
-                              key="gst-reverse-not-applicable"
-                              value="NOT_APPLICABLE"
-                            >
-                              Not Applicable
-                            </AppSelect.Item>
-                          </AppSelect>
-                          <FormField
-                            control={form.control}
-                            name="gstReverseAmount"
-                            render={({ field }) => (
-                              <FormItem className="w-40">
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    value={
-                                      field.value === null ||
-                                      field.value === undefined
-                                        ? ""
-                                        : String(field.value)
-                                    }
-                                    onChange={(event) => {
-                                      field.onChange(event.target.value);
-                                    }}
-                                    type={
-                                      gstReverseStatus === null
-                                        ? "number"
-                                        : "text"
-                                    }
-                                    placeholder={
-                                      gstReverseStatus === null
-                                        ? "Enter amount"
-                                        : "Auto-filled"
-                                    }
-                                    disabled={gstReverseStatus !== null}
-                                    className="h-9 text-right"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-slate-100">
-                        {formatAmount(totals.gstReverseAmount)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td
-                        colSpan={isApprovalMode ? 9 : 8}
+                        colSpan={5}
                         className="text-right px-4 py-3 text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200"
                       >
                         Total Amount
@@ -1983,25 +1806,11 @@ export function WorkOrderForm({
                       <td className="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-slate-100 border-t border-gray-200">
                         {formatAmount(totals.amount)}
                       </td>
+                      <td className="px-4 py-3 border-t border-gray-200" />
                     </tr>
                   </tfoot>
                 </table>
               </div>
-
-              {!isApprovalMode && (
-                <div className="mt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addItem}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Item
-                  </Button>
-                </div>
-              )}
             </FormSection>
           </AppCard.Content>
           <AppCard.Footer className="justify-end gap-3">
