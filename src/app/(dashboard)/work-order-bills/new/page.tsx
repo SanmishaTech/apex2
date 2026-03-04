@@ -13,6 +13,9 @@ import { EditButton } from "@/components/common/icon-button";
 import { DeleteButton } from "@/components/common/delete-button";
 import { toast } from "@/lib/toast";
 import { useMemo } from "react";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 const BILL_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -28,6 +31,8 @@ function formatBillDate(value?: string | null) {
 }
 
 export default function NewWorkOrderBillPage() {
+  useProtectPage();
+  const { can } = usePermissions();
   const router = useRouter();
   const sp = useSearchParams();
   const workOrderId = sp?.get("workOrderId");
@@ -128,17 +133,23 @@ export default function NewWorkOrderBillPage() {
               loading={isLoading}
               renderRowActions={(row) => (
                 <div className="flex">
-                  <EditButton
-                    tooltip="Edit Bill"
-                    aria-label="Edit Bill"
-                    onClick={() => router.push(`/work-order-bills/${row.id}/edit`)}
-                  />
-                  <DeleteButton
-                    onDelete={() => handleDelete(row.id)}
-                    itemLabel="bill"
-                    title="Delete bill?"
-                    description={`This will permanently remove ${row.billNo}. This action cannot be undone.`}
-                  />
+                  {can(PERMISSIONS.EDIT_WORK_ORDER_BILLS) && (
+                    <EditButton
+                      tooltip="Edit Bill"
+                      aria-label="Edit Bill"
+                      onClick={() =>
+                        router.push(`/work-order-bills/${row.id}/edit`)
+                      }
+                    />
+                  )}
+                  {can(PERMISSIONS.DELETE_WORK_ORDER_BILLS) && (
+                    <DeleteButton
+                      onDelete={() => handleDelete(row.id)}
+                      itemLabel="bill"
+                      title="Delete bill?"
+                      description={`This will permanently remove ${row.billNo}. This action cannot be undone.`}
+                    />
+                  )}
                 </div>
               )}
             />

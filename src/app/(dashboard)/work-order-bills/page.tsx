@@ -14,6 +14,9 @@ import { formatDate } from "@/lib/utils";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { AppSelect } from "@/components/common/app-select";
+import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
 
 type WorkOrder = {
   id: number;
@@ -32,6 +35,8 @@ type WorkOrdersResponse = {
 };
 
 export default function WorkOrderBillsPage() {
+  useProtectPage();
+  const { can } = usePermissions();
   const { pushWithScrollSave } = useScrollRestoration("work-order-bills-list");
 
   const [qp, setQp] = useQueryParamsState({
@@ -152,9 +157,17 @@ export default function WorkOrderBillsPage() {
           stickyColumns={1}
           renderRowActions={(row) => (
             <div className="flex">
-              <AppButton size="sm" variant="secondary" onClick={() => pushWithScrollSave(`/work-order-bills/new?workOrderId=${row.id}`)}>
-                Add Bill
-              </AppButton>
+              {can(PERMISSIONS.CREATE_WORK_ORDER_BILLS) && (
+                <AppButton
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    pushWithScrollSave(`/work-order-bills/new?workOrderId=${row.id}`)
+                  }
+                >
+                  Add Bill
+                </AppButton>
+              )}
             </div>
           )}
         />

@@ -45,6 +45,9 @@ type WorkOrder = {
   deliveryDate: string;
   siteId: number;
   vendorId: number;
+  createdById?: number | null;
+  approved1ById?: number | null;
+  approved2ById?: number | null;
   site: {
     id: number;
     site: string;
@@ -53,6 +56,9 @@ type WorkOrder = {
     id: number;
     vendorName: string;
   };
+  createdBy?: { id: number; name: string } | null;
+  approved1By?: { id: number; name: string } | null;
+  approved2By?: { id: number; name: string } | null;
   amount: number;
   approvalStatus: string;
   isSuspended: boolean;
@@ -164,6 +170,49 @@ export default function WorkOrdersPage() {
       default:
         return "Draft";
     }
+  }
+
+  function IndentLikeStatusBadge({
+    status,
+    suspended,
+  }: {
+    status?: string;
+    suspended?: boolean;
+  }) {
+    const label = suspended ? "Suspended" : prettyStatus(status);
+    const cls = suspended
+      ? "bg-rose-600"
+      : status === "APPROVED_LEVEL_1"
+        ? "bg-amber-600"
+        : status === "APPROVED_LEVEL_2"
+          ? "bg-sky-600"
+          : status === "COMPLETED"
+            ? "bg-emerald-600"
+            : "bg-slate-600";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  function UserBadge({
+    name,
+    className,
+  }: {
+    name?: string | null;
+    className: string;
+  }) {
+    if (!name) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${className}`}
+      >
+        {name}
+      </span>
+    );
   }
 
   function getAvailableActions(
@@ -419,23 +468,46 @@ export default function WorkOrdersPage() {
     {
       key: "status",
       header: "Status",
-      accessor: (row) => prettyStatus(row.approvalStatus),
-      render: (row) => (
-        <div className="flex items-center">
-          <div
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              row.isSuspended
-                ? "bg-yellow-100 text-yellow-800"
-                : row.isComplete
-                ? "bg-green-100 text-green-800"
-                : "bg-blue-100 text-blue-800"
-            }`}
-          >
-            {prettyStatus(row.approvalStatus)}
-            {row.isSuspended && " (Suspended)"}
-          </div>
-        </div>
+      className: "whitespace-nowrap",
+      accessor: (row) => (
+        <IndentLikeStatusBadge
+          status={row.approvalStatus}
+          suspended={!!row.isSuspended}
+        />
       ),
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge name={row.createdBy?.name ?? null} className="bg-sky-600" />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved1By",
+      header: "Approve 1 By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge
+          name={row.approved1By?.name ?? null}
+          className="bg-emerald-600"
+        />
+      ),
+      className: "whitespace-nowrap",
+    },
+    {
+      key: "approved2By",
+      header: "Approve 2 By",
+      sortable: false,
+      accessor: (row) => (
+        <UserBadge
+          name={row.approved2By?.name ?? null}
+          className="bg-violet-600"
+        />
+      ),
+      className: "whitespace-nowrap",
     },
   ];
 
@@ -550,25 +622,21 @@ export default function WorkOrdersPage() {
                 <div className="flex gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <AppButton
-                        size="sm"
-                        variant="secondary"
-                        disabled={
-                          po.approvalStatus === "SUSPENDED" ||
-                          po.approvalStatus === "COMPLETED"
-                        }
-                      >
-                        Actions
+                      <AppButton variant="ghost" size="icon" type="button">
+                        ⋮
                       </AppButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {/* <DropdownMenuItem
-                            onClick={() =>
-                              pushWithScrollSave(`/work-orders/${po.id}/edit`)
-                            }
-                          >
-                            Edit
-                          </DropdownMenuItem> */}
+                      <DropdownMenuItem
+                        onClick={() => pushWithScrollSave(`/work-orders/${po.id}/view`)}
+                      >
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => pushWithScrollSave(`/work-orders/${po.id}/edit`)}
+                      >
+                        Edit
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
                         Add Remark
                       </DropdownMenuItem>

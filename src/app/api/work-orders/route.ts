@@ -225,6 +225,9 @@ export async function GET(req: NextRequest) {
         deliveryDate: true,
         siteId: true,
         vendorId: true,
+        createdById: true,
+        approved1ById: true,
+        approved2ById: true,
         quotationNo: true,
         quotationDate: true,
         amount: true,
@@ -238,6 +241,24 @@ export async function GET(req: NextRequest) {
         billStatus: true,
         createdAt: true,
         updatedAt: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved1By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approved2By: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         site: {
           select: {
             id: true,
