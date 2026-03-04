@@ -346,6 +346,8 @@ export async function PATCH(
               isApproved1: true,
               isApproved2: true,
               isComplete: true,
+              createdById: true,
+              approved1ById: true,
             } as any,
           });
 
@@ -361,6 +363,9 @@ export async function PATCH(
                 "BAD_REQUEST: Only DRAFT can be approved (level 1)"
               );
             }
+            if (current.createdById === auth.user.id) {
+              throw new Error("BAD_REQUEST: Creator cannot approve level 1");
+            }
             updateData.approvalStatus = "APPROVED_LEVEL_1";
             updateData.isApproved1 = true;
             updateData.approved1ById = auth.user.id;
@@ -369,6 +374,14 @@ export async function PATCH(
             if (current.approvalStatus !== "APPROVED_LEVEL_1") {
               throw new Error(
                 "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+              );
+            }
+            if (current.createdById === auth.user.id) {
+              throw new Error("BAD_REQUEST: Creator cannot approve level 2");
+            }
+            if (current.approved1ById === auth.user.id) {
+              throw new Error(
+                "BAD_REQUEST: Level 1 approver cannot approve level 2"
               );
             }
             updateData.approvalStatus = "APPROVED_LEVEL_2";

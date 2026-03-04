@@ -6,6 +6,9 @@ import useSWR from "swr";
 import { toast } from "@/lib/toast";
 
 import { useProtectPage } from "@/hooks/use-protect-page";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { PERMISSIONS } from "@/config/roles";
 
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
@@ -104,6 +107,9 @@ type SortState = {
 
 export default function WorkOrdersPage() {
   useProtectPage();
+
+  const { can } = usePermissions();
+  const { user } = useCurrentUser();
 
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("work-orders-list");
@@ -217,7 +223,9 @@ export default function WorkOrdersPage() {
 
   function getAvailableActions(
     s?: string,
-    isSuspended?: boolean
+    isSuspended?: boolean,
+    isCreator?: boolean,
+    isL1Approver?: boolean
   ): Array<{
     key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
     label: string;
@@ -231,22 +239,40 @@ export default function WorkOrdersPage() {
       case "DRAFT":
       case "":
       case undefined:
-        baseActions.push({ key: "approve1", label: "Approve 1" });
-        baseActions.push({ key: "suspend", label: "Suspend" });
+        if (can(PERMISSIONS.APPROVE_WORK_ORDERS_L1) && !isCreator) {
+          baseActions.push({ key: "approve1", label: "Approve 1" });
+        }
+        if (can(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "APPROVED_LEVEL_1":
-        baseActions.push({ key: "approve2", label: "Approve 2" });
-        baseActions.push({ key: "suspend", label: "Suspend" });
+        if (
+          can(PERMISSIONS.APPROVE_WORK_ORDERS_L2) &&
+          !isCreator &&
+          !isL1Approver
+        ) {
+          baseActions.push({ key: "approve2", label: "Approve 2" });
+        }
+        if (can(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "APPROVED_LEVEL_2":
-        baseActions.push({ key: "complete", label: "Complete" });
-        baseActions.push({ key: "suspend", label: "Suspend" });
+        if (can(PERMISSIONS.COMPLETE_WORK_ORDERS)) {
+          baseActions.push({ key: "complete", label: "Complete" });
+        }
+        if (can(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
+          baseActions.push({ key: "suspend", label: "Suspend" });
+        }
         break;
 
       case "SUSPENDED":
-        baseActions.push({ key: "unsuspend", label: "Unsuspend" });
+        if (can(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
+          baseActions.push({ key: "unsuspend", label: "Unsuspend" });
+        }
         break;
 
       case "COMPLETED":
@@ -637,38 +663,28 @@ export default function WorkOrdersPage() {
                       >
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleRemarkClick(po)}>
-                        Add Remark
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleBillStatusClick(po)}>
-                        Bill Status
-                      </DropdownMenuItem>
+                      {getAvailableActions(
+                        po.approvalStatus,
+                        po.isSuspended,
+                        Boolean(user?.id && po.createdById && user.id === po.createdById),
+                        Boolean(user?.id && po.approved1ById && user.id === po.approved1ById)
+                      ).map((action) => (
+                        <DropdownMenuItem
+                          key={action.key}
+                          onClick={() => openApproval(po.id, action.key)}
+                        >
+                          {action.label}
+                        </DropdownMenuItem>
+                      ))}
                       {/* <DropdownMenuItem onClick={() => handlePrint(po)}>
                             Print
                           </DropdownMenuItem> */}
-                      {(() => {
-                        const actions = getAvailableActions(
-                          po.approvalStatus,
-                          po.isSuspended
-                        );
-                        if (actions.length === 0) {
-                          return null;
-                        }
-                        return actions.map((a) => (
-                          <DropdownMenuItem
-                            key={a.key}
-                            onSelect={() => openApproval(po.id, a.key)}
-                          >
-                            {a.label}
-                          </DropdownMenuItem>
-                        ));
-                      })()}
                       {/* {can(PERMISSIONS.DELETE_PURCHASE_ORDERS) && (
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => handleDeleteClick(po)}
                             >
-                              Delete
+                            Delete
                             </DropdownMenuItem>
                           )} */}
                     </DropdownMenuContent>
