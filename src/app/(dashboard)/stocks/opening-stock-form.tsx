@@ -70,8 +70,11 @@ const batchSchema = z
     batchNumber: z.string().min(1, "Batch number is required"),
     expiryDate: z
       .string()
-      .min(1, "Expiry date is required")
-      .regex(/^\d{4}-\d{2}$/, "Expiry date must be in YYYY-MM format"),
+      .optional()
+      .refine(
+        (val) => !val || /^\d{4}-\d{2}$/.test(val),
+        "Expiry date must be in YYYY-MM format"
+      ),
     openingQty: z
       .union([z.string(), z.number()])
       .transform((v) => (typeof v === "string" ? parseFloat(v) : v))
@@ -301,7 +304,7 @@ function ExpiryBatchesEditor({
           <thead>
             <tr>
               <th className="text-left p-2 text-sm">Batch Number *</th>
-              <th className="text-left p-2 text-sm">Expiry Date *</th>
+              <th className="text-left p-2 text-sm">Expiry Date</th>
               <th className="text-left p-2 text-sm">Opening Qty *</th>
               <th className="text-left p-2 text-sm">Batch Opening Rate *</th>
               <th className="text-left p-2 text-sm">Opening Value *</th>
@@ -505,9 +508,8 @@ export function OpeningStockForm() {
         siteIdFromQuery ||
         (watchSiteId && watchSiteId !== "__none" ? watchSiteId : undefined);
       return effectiveSiteId
-        ? `/api/site-items?siteId=${String(effectiveSiteId)}&ts=${
-            mountTs.current
-          }`
+        ? `/api/site-items?siteId=${String(effectiveSiteId)}&ts=${mountTs.current
+        }`
         : null;
     },
     apiGet,
@@ -706,199 +708,199 @@ export function OpeningStockForm() {
                     <Fragment key={f.id}>
                       <tr className="border-t">
                         <td className="p-2">
-                        <FormField
-                          control={form.control}
-                          name={`details.${index}.itemId`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0">
-                              <FormControl>
+                          <FormField
+                            control={form.control}
+                            name={`details.${index}.itemId`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  {(() => {
+                                    const rows = form.getValues("details") || [];
+                                    const usedIds = new Set<string>(
+                                      rows
+                                        .map((r: any, i: number) =>
+                                          i !== index
+                                            ? String(r?.itemId || "")
+                                            : ""
+                                        )
+                                        .filter(
+                                          (v: string) => !!v && v !== "__none"
+                                        )
+                                    );
+                                    const options = (itemsData?.data || [])
+                                      .filter((it) => !usedIds.has(String(it.id)))
+                                      .map((it) => ({
+                                        value: String(it.id),
+                                        label: it.item,
+                                      }));
+                                    return (
+                                      <ComboboxInput
+                                        control={form.control as any}
+                                        name={`details.${index}.itemId`}
+                                        inputClassName="w-full h-8 px-2 truncate"
+                                        placeholder="Select item"
+                                        options={options}
+                                      />
+                                    );
+                                  })()}
+                                </FormControl>
                                 {(() => {
-                                  const rows = form.getValues("details") || [];
-                                  const usedIds = new Set<string>(
-                                    rows
-                                      .map((r: any, i: number) =>
-                                        i !== index
-                                          ? String(r?.itemId || "")
-                                          : ""
-                                      )
-                                      .filter(
-                                        (v: string) => !!v && v !== "__none"
-                                      )
+                                  const selectedId = String(
+                                    form.watch(`details.${index}.itemId`) || ""
                                   );
-                                  const options = (itemsData?.data || [])
-                                    .filter((it) => !usedIds.has(String(it.id)))
-                                    .map((it) => ({
-                                      value: String(it.id),
-                                      label: it.item,
-                                    }));
+                                  if (!selectedId || selectedId === "__none")
+                                    return null;
+                                  const selected = (itemsData?.data || []).find(
+                                    (it) => String(it.id) === selectedId
+                                  );
+                                  const unitName = selected?.unit?.unitName;
+                                  return unitName ? (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Unit: {unitName}
+                                    </div>
+                                  ) : null;
+                                })()}
+                                {/* <FormMessage className="text-xs" /> */}
+                              </FormItem>
+                            )}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <FormField
+                            control={form.control}
+                            name={`details.${index}.openingStock`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={field.value as any}
+                                    type="text"
+                                    inputMode="decimal"
+                                    onChange={(e) => {
+                                      field.onChange(sanitizeDecimal2(e.target.value));
+                                      onQtyRateChange(index);
+                                    }}
+                                    className="text-sm"
+                                    disabled={isExpiryItem(index)}
+                                  />
+                                </FormControl>
+                                {(() => {
+                                  const itemId = String(
+                                    form.watch(`details.${index}.itemId`) || ""
+                                  );
+                                  if (!itemId || itemId === "__none") return null;
+                                  const si = (siteItemsData?.data || []).find(
+                                    (d: any) => String(d.itemId) === itemId
+                                  );
+                                  const v =
+                                    typeof si?.closingStock === "number"
+                                      ? si.closingStock
+                                      : 0;
                                   return (
-                                    <ComboboxInput
-                                      control={form.control as any}
-                                      name={`details.${index}.itemId`}
-                                      inputClassName="w-full h-8 px-2 truncate"
-                                      placeholder="Select item"
-                                      options={options}
-                                    />
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Closing Qty: {v}
+                                    </div>
                                   );
                                 })()}
-                              </FormControl>
-                              {(() => {
-                                const selectedId = String(
-                                  form.watch(`details.${index}.itemId`) || ""
-                                );
-                                if (!selectedId || selectedId === "__none")
-                                  return null;
-                                const selected = (itemsData?.data || []).find(
-                                  (it) => String(it.id) === selectedId
-                                );
-                                const unitName = selected?.unit?.unitName;
-                                return unitName ? (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Unit: {unitName}
-                                  </div>
-                                ) : null;
-                              })()}
-                              {/* <FormMessage className="text-xs" /> */}
-                            </FormItem>
-                          )}
-                        />
+                                <FormMessage className="text-sm" />
+                              </FormItem>
+                            )}
+                          />
                         </td>
                         <td className="p-2">
-                        <FormField
-                          control={form.control}
-                          name={`details.${index}.openingStock`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0">
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  value={field.value as any}
-                                  type="text"
-                                  inputMode="decimal"
-                                  onChange={(e) => {
-                                    field.onChange(sanitizeDecimal2(e.target.value));
-                                    onQtyRateChange(index);
-                                  }}
-                                  className="text-sm"
-                                  disabled={isExpiryItem(index)}
-                                />
-                              </FormControl>
-                              {(() => {
-                                const itemId = String(
-                                  form.watch(`details.${index}.itemId`) || ""
-                                );
-                                if (!itemId || itemId === "__none") return null;
-                                const si = (siteItemsData?.data || []).find(
-                                  (d: any) => String(d.itemId) === itemId
-                                );
-                                const v =
-                                  typeof si?.closingStock === "number"
-                                    ? si.closingStock
-                                    : 0;
-                                return (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Closing Qty: {v}
-                                  </div>
-                                );
-                              })()}
-                              <FormMessage className="text-sm" />
-                            </FormItem>
-                          )}
-                        />
+                          <FormField
+                            control={form.control}
+                            name={`details.${index}.openingRate`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={field.value as any}
+                                    type="text"
+                                    inputMode="decimal"
+                                    onChange={(e) => {
+                                      field.onChange(sanitizeDecimal2(e.target.value));
+                                      onQtyRateChange(index);
+                                    }}
+                                    className="text-sm"
+                                    disabled={isExpiryItem(index)}
+                                  />
+                                </FormControl>
+                                {(() => {
+                                  const itemId = String(
+                                    form.watch(`details.${index}.itemId`) || ""
+                                  );
+                                  if (!itemId || itemId === "__none") return null;
+                                  const si = (siteItemsData?.data || []).find(
+                                    (d: any) => String(d.itemId) === itemId
+                                  );
+                                  const v =
+                                    typeof si?.openingRate === "number"
+                                      ? si.openingRate
+                                      : 0;
+                                  return (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Opening Rate: {v}
+                                    </div>
+                                  );
+                                })()}
+                                <FormMessage className="text-sm" />
+                              </FormItem>
+                            )}
+                          />
                         </td>
                         <td className="p-2">
-                        <FormField
-                          control={form.control}
-                          name={`details.${index}.openingRate`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0">
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  value={field.value as any}
-                                  type="text"
-                                  inputMode="decimal"
-                                  onChange={(e) => {
-                                    field.onChange(sanitizeDecimal2(e.target.value));
-                                    onQtyRateChange(index);
-                                  }}
-                                  className="text-sm"
-                                  disabled={isExpiryItem(index)}
-                                />
-                              </FormControl>
-                              {(() => {
-                                const itemId = String(
-                                  form.watch(`details.${index}.itemId`) || ""
-                                );
-                                if (!itemId || itemId === "__none") return null;
-                                const si = (siteItemsData?.data || []).find(
-                                  (d: any) => String(d.itemId) === itemId
-                                );
-                                const v =
-                                  typeof si?.openingRate === "number"
-                                    ? si.openingRate
-                                    : 0;
-                                return (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Opening Rate: {v}
-                                  </div>
-                                );
-                              })()}
-                              <FormMessage className="text-sm" />
-                            </FormItem>
-                          )}
-                        />
-                        </td>
-                        <td className="p-2">
-                        <FormField
-                          control={form.control}
-                          name={`details.${index}.openingValue`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0">
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  value={field.value as any}
-                                  type="number"
-                                  step="0.01"
-                                  className="text-sm"
-                                  disabled
-                                />
-                              </FormControl>
-                              {(() => {
-                                const itemId = String(
-                                  form.watch(`details.${index}.itemId`) || ""
-                                );
-                                if (!itemId || itemId === "__none") return null;
-                                const si = (siteItemsData?.data || []).find(
-                                  (d: any) => String(d.itemId) === itemId
-                                );
-                                const v =
-                                  typeof si?.closingValue === "number"
-                                    ? si.closingValue
-                                    : 0;
-                                return (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Closing Value: {v}
-                                  </div>
-                                );
-                              })()}
-                              <FormMessage className="text-sm" />
-                            </FormItem>
-                          )}
-                        />
+                          <FormField
+                            control={form.control}
+                            name={`details.${index}.openingValue`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    value={field.value as any}
+                                    type="number"
+                                    step="0.01"
+                                    className="text-sm"
+                                    disabled
+                                  />
+                                </FormControl>
+                                {(() => {
+                                  const itemId = String(
+                                    form.watch(`details.${index}.itemId`) || ""
+                                  );
+                                  if (!itemId || itemId === "__none") return null;
+                                  const si = (siteItemsData?.data || []).find(
+                                    (d: any) => String(d.itemId) === itemId
+                                  );
+                                  const v =
+                                    typeof si?.closingValue === "number"
+                                      ? si.closingValue
+                                      : 0;
+                                  return (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Closing Value: {v}
+                                    </div>
+                                  );
+                                })()}
+                                <FormMessage className="text-sm" />
+                              </FormItem>
+                            )}
+                          />
                         </td>
                         <td className="p-2 text-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => remove(index)}
-                          disabled={false}
-                          className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => remove(index)}
+                            disabled={false}
+                            className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </td>
                       </tr>
 

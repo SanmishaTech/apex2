@@ -163,12 +163,6 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (!targets.length) {
-    return NextResponse.json(
-      { error: `No BOQ Targets found for selected month (${month})` },
-      { status: 404 }
-    );
-  }
 
   const weeks = targets.map((t, idx) => {
     const from = new Date(t.fromTargetDate as any);

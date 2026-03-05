@@ -158,20 +158,13 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (!targets.length) {
-    return NextResponse.json(
-      { error: `No BOQ Targets found for selected month (${month})` },
-      { status: 404 }
-    );
-  }
 
   const weeks = targets.map((t, idx) => {
     const from = new Date(t.fromTargetDate as any);
     const to = new Date(t.toTargetDate as any);
     const days = inclusiveDays(from, to);
-    const labelBase = `${idx + 1}${
-      idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"
-    } Week`;
+    const labelBase = `${idx + 1}${idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"
+      } Week`;
     const label = `${labelBase} (${formatRange(from, to)})`;
     return {
       id: t.id,

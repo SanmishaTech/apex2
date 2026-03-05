@@ -8,8 +8,11 @@ const batchSchema = z.object({
   batchNumber: z.string().min(1, "Batch number is required"),
   expiryDate: z
     .string()
-    .min(1, "Expiry date is required")
-    .regex(/^\d{4}-\d{2}$/, "Expiry date must be in YYYY-MM format"),
+    .optional()
+    .refine(
+      (val) => !val || /^\d{4}-\d{2}$/.test(val),
+      "Expiry date must be in YYYY-MM format"
+    ),
   openingQty: z.coerce
     .number()
     .min(0, "Opening qty must be >= 0")
@@ -48,8 +51,8 @@ const openingStockDetailSchema = z
       typeof val.itemId === "number" && Number.isFinite(val.itemId)
         ? val.itemId
         : typeof val.item === "number" && Number.isFinite(val.item)
-        ? val.item
-        : NaN,
+          ? val.item
+          : NaN,
     openingStock: val.openingStock,
     openingRate: val.openingRate,
     openingValue: val.openingValue,
@@ -105,14 +108,14 @@ export async function POST(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const itemIds = Array.isArray(parsed.details)
         ? (parsed.details
-            .map((d: any) => Number(d?.itemId))
-            .filter((v: any) => Number.isFinite(v)) as number[])
+          .map((d: any) => Number(d?.itemId))
+          .filter((v: any) => Number.isFinite(v)) as number[])
         : [];
       const itemsMeta = itemIds.length
         ? await tx.item.findMany({
-            where: { id: { in: itemIds } },
-            select: { id: true, isExpiryDate: true },
-          })
+          where: { id: { in: itemIds } },
+          select: { id: true, isExpiryDate: true },
+        })
         : [];
       const isExpiryByItemId = new Map<number, boolean>();
       for (const it of itemsMeta) {
@@ -167,60 +170,60 @@ export async function POST(req: NextRequest) {
 
           const siteItemId = existing?.id
             ? (
-                await tx.siteItem.update({
-                  where: { id: existing.id },
-                  data: (() => {
-                    const prevOpeningValue = Number(existing.openingValue || 0);
-                    const prevClosingStock = Number(existing.closingStock || 0);
-                    const prevClosingValue = Number(existing.closingValue || 0);
+              await tx.siteItem.update({
+                where: { id: existing.id },
+                data: (() => {
+                  const prevOpeningValue = Number(existing.openingValue || 0);
+                  const prevClosingStock = Number(existing.closingStock || 0);
+                  const prevClosingValue = Number(existing.closingValue || 0);
 
-                    const deltaStock = Number(d.openingStock || 0) - prevOpeningStock;
-                    const deltaValue = Number(d.openingValue || 0) - prevOpeningValue;
+                  const deltaStock = Number(d.openingStock || 0) - prevOpeningStock;
+                  const deltaValue = Number(d.openingValue || 0) - prevOpeningValue;
 
-                    const nextClosingStock = Math.max(0, prevClosingStock + deltaStock);
-                    const nextClosingValue = Math.max(0, prevClosingValue + deltaValue);
-                    const nextUnitRate =
-                      Number.isFinite(nextClosingStock) && nextClosingStock > 0
-                        ? nextClosingValue / nextClosingStock
-                        : 0;
+                  const nextClosingStock = Math.max(0, prevClosingStock + deltaStock);
+                  const nextClosingValue = Math.max(0, prevClosingValue + deltaValue);
+                  const nextUnitRate =
+                    Number.isFinite(nextClosingStock) && nextClosingStock > 0
+                      ? nextClosingValue / nextClosingStock
+                      : 0;
 
-                    return {
-                      openingStock: d.openingStock,
-                      openingRate: d.openingRate,
-                      openingValue: d.openingValue,
-                      closingStock: nextClosingStock,
-                      closingValue: nextClosingValue,
-                      unitRate: nextUnitRate,
-                      log: "OPENING_STOCK",
-                    };
-                  })(),
-                  select: { id: true },
-                })
-              ).id
+                  return {
+                    openingStock: d.openingStock,
+                    openingRate: d.openingRate,
+                    openingValue: d.openingValue,
+                    closingStock: nextClosingStock,
+                    closingValue: nextClosingValue,
+                    unitRate: nextUnitRate,
+                    log: "OPENING_STOCK",
+                  };
+                })(),
+                select: { id: true },
+              })
+            ).id
             : (
-                await tx.siteItem.create({
-                  data: (() => {
-                    const openingStock = Number(d.openingStock || 0);
-                    const openingValue = Number(d.openingValue || 0);
-                    const unitRate =
-                      Number.isFinite(openingStock) && openingStock > 0
-                        ? openingValue / openingStock
-                        : 0;
-                    return {
-                      siteId: parsed.siteId,
-                      itemId: d.itemId as number,
-                      openingStock: d.openingStock,
-                      openingRate: d.openingRate,
-                      openingValue: d.openingValue,
-                      closingStock: d.openingStock,
-                      closingValue: d.openingValue,
-                      unitRate,
-                      log: "OPENING_STOCK",
-                    };
-                  })(),
-                  select: { id: true },
-                })
-              ).id;
+              await tx.siteItem.create({
+                data: (() => {
+                  const openingStock = Number(d.openingStock || 0);
+                  const openingValue = Number(d.openingValue || 0);
+                  const unitRate =
+                    Number.isFinite(openingStock) && openingStock > 0
+                      ? openingValue / openingStock
+                      : 0;
+                  return {
+                    siteId: parsed.siteId,
+                    itemId: d.itemId as number,
+                    openingStock: d.openingStock,
+                    openingRate: d.openingRate,
+                    openingValue: d.openingValue,
+                    closingStock: d.openingStock,
+                    closingValue: d.openingValue,
+                    unitRate,
+                    log: "OPENING_STOCK",
+                  };
+                })(),
+                select: { id: true },
+              })
+            ).id;
 
           // Fix log siteItemId for INITIAL case (created above before create)
           if (
