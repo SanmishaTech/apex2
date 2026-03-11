@@ -104,6 +104,30 @@ export interface SiteFormProps {
   mutate?: () => Promise<any>;
 }
 
+const DeliveryCityDropdown = ({ stateId, value, onChange, disabled }: { stateId: number | null, value: string | null, onChange: (v: number | null) => void, disabled?: boolean }) => {
+  const { data: citiesData } = useSWR<{ data: City[] }>(
+    stateId ? `/api/cities?perPage=100&stateId=${stateId}` : null,
+    apiGet
+  );
+  const cities = citiesData?.data || [];
+  
+  return (
+    <AppSelect
+      value={value ? String(value) : "__none"}
+      onValueChange={(v) => onChange(v === "__none" ? null : Number(v))}
+      placeholder="Select city"
+      disabled={disabled || !stateId}
+    >
+      <AppSelect.Item value="__none">Select City</AppSelect.Item>
+      {cities.map((city) => (
+        <AppSelect.Item key={city.id} value={city.id.toString()}>
+          {city.city}
+        </AppSelect.Item>
+      ))}
+    </AppSelect>
+  );
+};
+
 export function SiteForm({
   mode,
   initial,
@@ -359,13 +383,7 @@ export function SiteForm({
   );
   const states = statesData?.data || [];
 
-  // Fetch cities for dropdown based on selected state
-  // Fetch all cities once and filter per-address locally to avoid hook-in-loop issues
-  const { data: allCitiesData } = useSWR<{ data: City[] }>(
-    "/api/cities?perPage=100",
-    apiGet
-  );
-  const cities = allCitiesData?.data || [];
+  // Add City hook inside component handled by DeliveryCityDropdown now
 
   // Fetch zones for dropdown
   const { data: zonesData } = useSWR<{ data: Zone[] }>(
@@ -759,26 +777,12 @@ export function SiteForm({
 
                 <div>
                   <label className="block text-sm font-medium mb-2">City</label>
-                  <AppSelect
-                    value={watch("cityId") ? String(watch("cityId")) : "__none"}
-                    onValueChange={(v) =>
-                      setValue("cityId", v === "__none" ? null : Number(v))
-                    }
-                    placeholder="Select city"
-                    disabled={!selectedStateId}
-                  >
-                    <AppSelect.Item value="__none">Select City</AppSelect.Item>
-                    {cities
-                      .filter((c: any) => c.stateId === selectedStateId)
-                      .map((city: any) => (
-                        <AppSelect.Item
-                          key={city.id}
-                          value={city.id.toString()}
-                        >
-                          {city.city}
-                        </AppSelect.Item>
-                      ))}
-                  </AppSelect>
+                  <DeliveryCityDropdown 
+                    stateId={selectedStateId ?? null} 
+                    value={watch("cityId") ? String(watch("cityId")) : null} 
+                    onChange={(v) => setValue("cityId", v)} 
+                    disabled={!selectedStateId} 
+                  />
                 </div>
 
                 <TextInput
@@ -997,9 +1001,7 @@ export function SiteForm({
                 {addressFields.map((addr, idx) => {
                   const addrStateId = watch(`deliveryAddresses.${idx}.stateId`);
                   const addrCityId = watch(`deliveryAddresses.${idx}.cityId`);
-                  const cityOptions = cities.filter(
-                    (c: any) => c.stateId === addrStateId
-                  );
+                  // City options loaded inside DeliveryCityDropdown
 
                   return (
                     <div
@@ -1080,29 +1082,12 @@ export function SiteForm({
                           <label className="block text-sm font-medium mb-2">
                             City
                           </label>
-                          <AppSelect
-                            value={addrCityId ? String(addrCityId) : "__none"}
-                            onValueChange={(v) =>
-                              setValue(
-                                `deliveryAddresses.${idx}.cityId` as any,
-                                v === "__none" ? null : Number(v)
-                              )
-                            }
-                            placeholder="Select city"
+                          <DeliveryCityDropdown
+                            stateId={addrStateId || null}
+                            value={addrCityId ? String(addrCityId) : null}
+                            onChange={(v) => setValue(`deliveryAddresses.${idx}.cityId` as any, v)}
                             disabled={!addrStateId}
-                          >
-                            <AppSelect.Item value="__none">
-                              Select City
-                            </AppSelect.Item>
-                            {cityOptions.map((city: any) => (
-                              <AppSelect.Item
-                                key={city.id}
-                                value={city.id.toString()}
-                              >
-                                {city.city}
-                              </AppSelect.Item>
-                            ))}
-                          </AppSelect>
+                          />
                         </div>
 
                         <TextInput

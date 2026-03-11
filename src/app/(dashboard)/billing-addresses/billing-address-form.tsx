@@ -149,9 +149,8 @@ export function BillingAddressForm({
   const { data: states } = useSWR("/api/states?perPage=1000", apiGet) as {
     data: any;
   };
-  const { data: cities } = useSWR("/api/cities?perPage=1000", apiGet) as {
-    data: any;
-  };
+  // Cities loaded dynamically below
+
 
   // Add effect to style asterisks red after component mounts
   useEffect(() => {
@@ -197,8 +196,13 @@ export function BillingAddressForm({
     },
   });
 
-  const { control, handleSubmit } = form;
+  const { control, handleSubmit, watch } = form;
   const isCreate = mode === "create";
+
+  const selectedStateId = watch("stateId");
+  const { data: cities } = useSWR(selectedStateId ? `/api/cities?perPage=100&stateId=${selectedStateId}` : null, apiGet) as {
+    data: any;
+  };
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
