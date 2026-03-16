@@ -1221,7 +1221,7 @@ model CashbookHead {
 model CashbookBudget {
   id                      Int      @id @default(autoincrement())
   name                    String
-  month                   String  @unique
+  month                   String
   siteId                  Int?
   site                    Site?    @relation(fields: [siteId], references: [id])
   boqId                   Int?

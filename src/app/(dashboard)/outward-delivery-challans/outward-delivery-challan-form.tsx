@@ -198,11 +198,16 @@ function toSubmitPayload(
   data: RawFormValues,
   docs: Array<{ documentName: string; documentUrl: string | File | null }>
 ) {
-  const sumBatches = (batches: Array<{ challanQty?: string }> | undefined) => {
+  const sumBatches = (
+    batches:
+      | Array<{ challanQty?: string | number | null | undefined }>
+      | undefined
+  ) => {
     return Number(
       ((batches || []) as any[])
         .reduce((acc, b) => {
-          const q = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+          const raw = b?.challanQty;
+          const q = raw !== null && raw !== undefined && raw !== "" ? Number(raw) : 0;
           return acc + (Number.isFinite(q) ? q : 0);
         }, 0)
         .toFixed(2)
@@ -210,23 +215,38 @@ function toSubmitPayload(
   };
 
   // batches will be enriched with expiryDate using siteItems data at callsite
+  const details = (data.items || [])
+    .map((it) => {
+      const cleanedBatches = (it.batches || [])
+        .map((b) => ({
+          batchNumber: String(b.batchNumber || "").trim(),
+          challanQty: b.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0,
+        }))
+        .filter((b) => !!b.batchNumber && Number(b.challanQty) > 0);
+
+      const totalQty = cleanedBatches.length
+        ? sumBatches(cleanedBatches)
+        : it.challanQty && it.challanQty !== ""
+          ? Number(it.challanQty)
+          : 0;
+
+      if (!(Number.isFinite(totalQty) && totalQty > 0)) return null;
+
+      return {
+        itemId: parseInt(it.itemId),
+        challanQty: totalQty,
+        odcDetailBatches: cleanedBatches,
+      };
+    })
+    .filter(Boolean);
+
   const payload: any = {
     outwardChallanDate: data.outwardChallanDate || null,
     challanNo: data.challanNo?.trim() || null,
     challanDate: data.challanDate || null,
     fromSiteId: data.fromSiteId ? parseInt(data.fromSiteId) : undefined,
     toSiteId: data.toSiteId ? parseInt(data.toSiteId) : undefined,
-    outwardDeliveryChallanDetails: (data.items || []).map((it) => ({
-      itemId: parseInt(it.itemId),
-      challanQty: (it.batches || []).length > 0 ? sumBatches(it.batches) : it.challanQty && it.challanQty !== "" ? Number(it.challanQty) : 0,
-      odcDetailBatches: (it.batches || [])
-        .map((b) => ({
-          batchNumber: String(b.batchNumber || "").trim(),
-          challanQty:
-            b.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0,
-        }))
-        .filter((b) => !!b.batchNumber && Number(b.challanQty) > 0),
-    })),
+    outwardDeliveryChallanDetails: details,
     outwardDeliveryChallanDocuments: docs.map((doc, index) => ({
       documentName: doc.documentName || "",
       documentUrl:
@@ -377,6 +397,7 @@ export default function OutwardDeliveryChallanForm({
     try {
       // Client-side validation: qty > 0 and <= closing stock for fromSite
       const errs: Array<string> = [];
+      let selectedCount = 0;
       (data.items || []).forEach((it, index) => {
         const itemId = parseInt(String(it.itemId || 0), 10);
         const closing = closingByItem.get(itemId) ?? 0;
@@ -392,13 +413,15 @@ export default function OutwardDeliveryChallanForm({
             ? Number(it.challanQty)
             : 0;
 
+        // If qty is empty/0, treat it as an unselected row (do not block submission)
         if (!(qty > 0)) {
-          errs.push(`Row ${index + 1}: Qty must be greater than 0`);
-          form.setError(`items.${index}.challanQty` as any, {
-            type: "manual",
-            message: "Qty must be greater than 0",
-          });
-        } else if (qty > closing) {
+          // For expiry items, batch rows might have partially filled values; validate those below.
+          return;
+        }
+
+        selectedCount += 1;
+
+        if (qty > closing) {
           errs.push(
             `Row ${index + 1}: Qty cannot exceed closing qty (${closing})`
           );
@@ -413,6 +436,10 @@ export default function OutwardDeliveryChallanForm({
           (it.batches || []).forEach((b, bIndex) => {
             const bn = String(b?.batchNumber || "").trim();
             const bq = b?.challanQty && b.challanQty !== "" ? Number(b.challanQty) : 0;
+
+            // ignore fully empty batch rows
+            if (!bn && !(bq > 0)) return;
+
             if (!bn && bq > 0) {
               errs.push(`Row ${index + 1}: Batch is required`);
               form.setError(`items.${index}.batches.${bIndex}.batchNumber` as any, {
@@ -429,6 +456,16 @@ export default function OutwardDeliveryChallanForm({
                 });
               }
               used.add(bn);
+
+              if (!(bq > 0)) {
+                errs.push(`Row ${index + 1}: Batch qty must be greater than 0`);
+                form.setError(`items.${index}.batches.${bIndex}.challanQty` as any, {
+                  type: "manual",
+                  message: "Qty must be greater than 0",
+                });
+                return;
+              }
+
               const info = batchInfo.get(bn);
               const bClosing = info ? Number(info.closingQty || 0) : 0;
               if (bq > bClosing) {
@@ -442,6 +479,12 @@ export default function OutwardDeliveryChallanForm({
           });
         }
       });
+
+      if (selectedCount === 0) {
+        toast.error("Please enter challan qty for at least one item");
+        setSubmitting(false);
+        return;
+      }
       if (errs.length > 0) {
         toast.error("Please fix quantity errors before submitting");
         setSubmitting(false);
