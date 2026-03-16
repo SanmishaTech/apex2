@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useMemo, useState, useEffect } from "react";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import {
   Form,
   FormControl,
@@ -155,7 +155,12 @@ export function IndentForm({
     },
   });
 
-  const { fields, append, remove } = useFieldArray<FormData>({
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "indentItems",
+  });
+
+  const watchedIndentItems = useWatch({
     control: form.control,
     name: "indentItems",
   });
@@ -180,6 +185,20 @@ export function IndentForm({
       value: String(it.id),
       label: it.item,
     }));
+
+  const itemUnitById = useMemo(() => {
+    const m = new Map<string, string>();
+    const rows = (itemsData?.data || []) as any[];
+    for (const it of rows) {
+      const id = it?.id;
+      if (!id) continue;
+      const unitName = it?.unit?.unitName;
+      if (typeof unitName === "string" && unitName.trim()) {
+        m.set(String(id), unitName.trim());
+      }
+    }
+    return m;
+  }, [itemsData]);
 
   // Reset form values when initial data changes
   useEffect(() => {
@@ -294,6 +313,7 @@ export function IndentForm({
         <thead className="bg-muted/50">
           <tr>
             <th className="text-left p-4 font-medium">Item *</th>
+            <th className="text-left p-4 font-medium">Unit</th>
             <th className="text-left p-4 font-medium">Remark</th>
             <th className="text-left p-4 font-medium">Indent Qty *</th>
             <th className="text-center p-4 font-medium">Actions</th>
@@ -334,6 +354,16 @@ export function IndentForm({
                     </FormItem>
                   )}
                 />
+              </td>
+
+              <td className="p-4">
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {(() => {
+                    const selected = watchedIndentItems?.[index]?.itemId;
+                    const selectedId = String(selected || "");
+                    return itemUnitById.get(selectedId) || "-";
+                  })()}
+                </div>
               </td>
 
               <td className="p-4">
