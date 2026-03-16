@@ -1145,11 +1145,11 @@ export default function IndentsPage() {
       </AppCard>
       {/* Pre-approval Dialog */}
       <Dialog open={approvalOpen} onOpenChange={setApprovalOpen}>
-        <DialogContent className="sm:max-w-5xl">
+        <DialogContent className="sm:max-w-5xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Review and Approve Indent</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
             {approvalLoading || !approvalIndent ? (
               <div className="p-4 text-sm text-muted-foreground">
                 Loading...

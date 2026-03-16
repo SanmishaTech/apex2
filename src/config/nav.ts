@@ -434,6 +434,12 @@ export const NAV_ITEMS: NavItem[] = [
             icon: FileText,
             permission: PERMISSIONS.READ_SITE_BUDGETS,
           },
+          {
+            title: "Material Receiving Report",
+            href: "/reports/material-receiving-report",
+            icon: FileText,
+            permission: PERMISSIONS.READ_SITE_BUDGETS,
+          },
         ],
       },
     ],
