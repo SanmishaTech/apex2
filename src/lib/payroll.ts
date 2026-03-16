@@ -24,21 +24,112 @@ function toFixed2(n: number): number {
 }
 
 export function amountInWords(num: number): string {
-  // Simple en words generator (non-Indian format). Good enough for now.
-  // For full Indian numbering (Lakh/Crore), enhance later if needed.
-  const a = ["","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
-  const b = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
-  const n = Math.floor(Math.abs(num));
-  if (n === 0) return "zero";
-  const numToWords = (x: number): string => {
-    if (x < 20) return a[x];
-    if (x < 100) return b[Math.floor(x / 10)] + (x % 10 ? " " + a[x % 10] : "");
-    if (x < 1000) return a[Math.floor(x / 100)] + " hundred" + (x % 100 ? " " + numToWords(x % 100) : "");
-    if (x < 1000000) return numToWords(Math.floor(x / 1000)) + " thousand" + (x % 1000 ? " " + numToWords(x % 1000) : "");
-    if (x < 1000000000) return numToWords(Math.floor(x / 1000000)) + " million" + (x % 1000000 ? " " + numToWords(x % 1000000) : "");
-    return numToWords(Math.floor(x / 1000000000)) + " billion" + (x % 1000000000 ? " " + numToWords(x % 1000000000) : "");
+  const nRaw = typeof num === "number" ? num : Number(num);
+  if (!Number.isFinite(nRaw)) return "Zero";
+
+  const abs = Math.abs(nRaw);
+  const rupees = Math.floor(abs);
+  const paise = Math.round((abs - rupees) * 100);
+
+  const ones = [
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+  ];
+  const tens = [
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+  ];
+
+  const twoDigits = (x: number) => {
+    if (x === 0) return "";
+    if (x < 20) return ones[x];
+    const t = Math.floor(x / 10);
+    const r = x % 10;
+    return tens[t] + (r ? " " + ones[r] : "");
   };
-  return numToWords(n);
+
+  const threeDigits = (x: number) => {
+    if (x === 0) return "";
+    const h = Math.floor(x / 100);
+    const r = x % 100;
+    const head = h ? `${ones[h]} hundred` : "";
+    const tail = r ? twoDigits(r) : "";
+    return [head, tail].filter(Boolean).join(" ");
+  };
+
+  const indianIntToWords = (x: number) => {
+    if (x === 0) return "zero";
+    let n = x;
+    const parts: string[] = [];
+
+    const crore = Math.floor(n / 10000000);
+    if (crore) {
+      parts.push(`${indianIntToWords(crore)} crore`);
+      n = n % 10000000;
+    }
+
+    const lakh = Math.floor(n / 100000);
+    if (lakh) {
+      parts.push(`${indianIntToWords(lakh)} lakh`);
+      n = n % 100000;
+    }
+
+    const thousand = Math.floor(n / 1000);
+    if (thousand) {
+      parts.push(`${indianIntToWords(thousand)} thousand`);
+      n = n % 1000;
+    }
+
+    const hundreds = n;
+    if (hundreds) {
+      parts.push(threeDigits(hundreds));
+    }
+
+    return parts.join(" ").trim();
+  };
+
+  const titleCase = (s: string) =>
+    s
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+  let words = titleCase(indianIntToWords(rupees));
+  if (paise > 0) {
+    const p = titleCase(indianIntToWords(paise));
+    words = `${words} And ${p} Paise`;
+  }
+  if (nRaw < 0) {
+    words = `Minus ${words}`;
+  }
+  return words;
 }
 
 export async function generatePayroll(params: GeneratePayrollParams) {
