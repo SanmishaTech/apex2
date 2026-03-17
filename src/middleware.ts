@@ -8,12 +8,17 @@ export async function middleware(req: NextRequest) {
   // PUBLIC (unauthenticated) paths
   const isStaticAsset =
     /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf)$/i.test(pathname);
+  const isPwaAsset =
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
+    pathname.startsWith("/icons/");
   const publicPaths = [
     "/login",
     "/api/auth/login", // login endpoint
   ];
   const isPublic =
     isStaticAsset ||
+    isPwaAsset ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/public") ||

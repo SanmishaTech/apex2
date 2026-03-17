@@ -39,6 +39,7 @@ export function Sidebar({
   const items = useMemo(() => {
     if (!user) return [] as NavItem[];
     const permissionSet = new Set((user.permissions || []) as string[]);
+    const hasEmployee = user.hasEmployee !== false;
 
     function filterNavItems(items: NavItem[]): NavItem[] {
       return items
@@ -51,13 +52,16 @@ export function Sidebar({
             if (filteredChildren.length === 0) return null;
             return { ...item, children: filteredChildren } as NavGroupItem;
           }
-          return permissionSet.has(item.permission) ? item : null;
+          if (!permissionSet.has(item.permission)) return null;
+          if (item.href === "/employee-attendance" && !hasEmployee)
+            return null;
+          return item;
         })
         .filter(Boolean) as NavItem[];
     }
 
     return filterNavItems(NAV_ITEMS);
-  }, [user?.permissions]);
+  }, [user?.permissions, user?.hasEmployee]);
 
   // Create a function to check active children that accepts pathname and searchParams as arguments
   const createActiveChecker = (

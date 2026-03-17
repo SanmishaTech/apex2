@@ -183,6 +183,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_ATTENDANCES,
       },
       {
+        title: "Employee Attendance",
+        href: "/employee-attendance",
+        icon: ClipboardCheck,
+        permission: PERMISSIONS.VIEW_EMPLOYEES,
+      },
+      {
         title: "Edit Attendance",
         href: "/edit-attendance",
         icon: Edit3,

@@ -108,7 +108,7 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   overallSiteBudgetTechApprovals OverallSiteBudget[] @relation("OverallSiteBudgetTechApprovalBy")
   overallSiteBudgetCommercialApprovals OverallSiteBudget[] @relation("OverallSiteBudgetCommercialApprovalBy")
   overallSiteBudgetProjectApprovals OverallSiteBudget[] @relation("OverallSiteBudgetProjectApprovalBy")
-
+  employeeAttendances  EmployeeAttendance[]
   @@map("users")
 }
 
@@ -477,6 +477,7 @@ model Employee {
   siteEmployees      SiteEmployee[]
   siteEmployeesLogs  SiteEmployeeLog[]
   employeeDocuments  EmployeeDocument[]
+  employeeAttendances EmployeeAttendance[]
 
   // Leave Details
   sickLeavesPerYear   Int?
@@ -503,6 +504,42 @@ model Employee {
   @@index([reporting2Id])
   @@index([reportingSiteId])
   @@map("employees")
+}
+
+model EmployeeAttendance {
+  id          Int      @id @default(autoincrement())
+
+  date        DateTime @db.Date()
+
+  employeeId  Int
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict  )
+
+  siteId      Int
+
+  type        AttendanceType
+  time        DateTime
+
+  imageUrl    String
+
+  latitude    Decimal @db.Decimal(10, 7)
+  longitude   Decimal @db.Decimal(10, 7)
+
+  createdById   Int
+  createdBy    User  @relation(fields: [createdById], references: [id], onDelete: Restrict  )
+  createdAt   DateTime @default(now())
+  @@unique([date, employeeId, type])
+  @@index([date, employeeId])
+  @@index([employeeId, time])
+  @@index([date])
+  @@index([employeeId])
+  @@index([siteId])
+  @@index([type])
+  @@map("employee_attendances")
+}
+
+enum AttendanceType {
+  IN
+  OUT
 }
 
 // Category master data

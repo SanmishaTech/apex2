@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { LogIn, LogOut } from "lucide-react";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -18,6 +21,45 @@ import type { Asset, AssetsResponse } from "@/types/assets";
 
 export default function InternalDashboard() {
   const { can } = usePermissions();
+  const router = useRouter();
+
+  type TodayApi = {
+    data: {
+      hasEmployee: boolean;
+      in: { time: string | Date } | null;
+      out: { time: string | Date } | null;
+    };
+  };
+
+  const { data: todayData } = useSWR<TodayApi>(
+    "/api/employee-attendances/today",
+    apiGet
+  );
+
+  const hasEmployee = todayData?.data?.hasEmployee === true;
+  const inMarked = Boolean(todayData?.data?.in);
+  const outMarked = Boolean(todayData?.data?.out);
+
+  useEffect(() => {
+    try {
+      const msg = window.sessionStorage.getItem("employee_attendance_toast");
+      if (msg) {
+        window.sessionStorage.removeItem("employee_attendance_toast");
+        toast.success(msg);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const goMark = (type: "IN" | "OUT") => {
+    try {
+      window.sessionStorage.setItem("employee_attendance_type", type);
+    } catch {
+      // ignore
+    }
+    router.push("/employee-attendance");
+  };
 
   // Build queries for small recent lists (top 5)
   const sitesQuery = "/api/sites?page=1&perPage=5&sort=createdAt&order=desc";
@@ -222,6 +264,60 @@ export default function InternalDashboard() {
 
   return (
     <div className="p-4 space-y-4">
+      {hasEmployee && (!inMarked || !outMarked) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {!inMarked && (
+            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 via-cyan-500/10 to-background p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    Office IN
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Capture photo + location to mark entry.
+                  </div>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                  <LogIn className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <AppButton className="w-full" onClick={() => goMark("IN")}>
+                  Mark IN
+                </AppButton>
+              </div>
+            </div>
+          )}
+
+          {!outMarked && (
+            <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-rose-500/15 via-amber-500/10 to-background p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    Office OUT
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Capture photo + location to mark exit.
+                  </div>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-rose-500/15 flex items-center justify-center">
+                  <LogOut className="h-5 w-5 text-rose-700 dark:text-rose-300" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <AppButton
+                  className="w-full"
+                  variant="secondary"
+                  onClick={() => goMark("OUT")}
+                >
+                  Mark OUT
+                </AppButton>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <AppCard>
           <AppCard.Header>
