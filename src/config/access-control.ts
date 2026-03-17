@@ -918,6 +918,18 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_EMPLOYEE_ASSIGNMENTS],
     },
   },
+  {
+    prefix: "/api/employee-attendances/today",
+    methods: {
+      GET: [],
+    },
+  },
+  {
+    prefix: "/api/employee-attendances/my-sites",
+    methods: {
+      GET: [],
+    },
+  },
   // add more API rules here
 ];
 

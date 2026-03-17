@@ -7,4 +7,5 @@ export type CurrentUser = {
   status: boolean;
   lastLogin: Date | null;
   permissions: string[];
+  hasEmployee: boolean;
 };

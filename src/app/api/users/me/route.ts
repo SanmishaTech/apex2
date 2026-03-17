@@ -49,6 +49,11 @@ export async function GET(req: NextRequest) {
       return Error("User not found", 404);
     }
 
+    const employee = await prisma.employee.findFirst({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
     const roleName = user.userRoles?.[0]?.role?.name ?? null;
     const rolePerms =
       user.userRoles?.[0]?.role?.permissions
@@ -69,6 +74,7 @@ export async function GET(req: NextRequest) {
       status: user.status,
       lastLogin: user.lastLogin,
       permissions,
+      hasEmployee: Boolean(employee),
     });
   } catch (err) {
     console.error("Me endpoint error:", err);
