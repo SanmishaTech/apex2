@@ -9,6 +9,7 @@ import { useRef } from "react";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { AppSelect } from "@/components/common/app-select";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { apiGet, apiUpload } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
@@ -29,12 +30,14 @@ export default function EmployeeAttendancePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const sitesQuery = useMemo(() => "/api/employee-attendances/my-sites", []);
 
@@ -126,7 +129,10 @@ export default function EmployeeAttendancePage() {
     };
   }, [imageFile]);
 
-  const getLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+  const getLocation = async (): Promise<
+    { latitude: number; longitude: number; accuracy: number | null }
+    | null
+  > => {
     setGeoError(null);
 
     if (!("geolocation" in navigator)) {
@@ -139,17 +145,28 @@ export default function EmployeeAttendancePage() {
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          const acc = Number.isFinite(pos.coords.accuracy)
+            ? pos.coords.accuracy
+            : null;
           setLatitude(lat);
           setLongitude(lng);
-          resolve({ latitude: lat, longitude: lng });
+          setAccuracy(acc);
+          resolve({ latitude: lat, longitude: lng, accuracy: acc });
         },
         (err) => {
-          setGeoError(err.message || "Failed to get location");
+          const msg =
+            err.code === 1
+              ? "Location permission denied. Please enable GPS/location access and try again."
+              : err.code === 2
+                ? "Location unavailable. Please turn on GPS and try again."
+                : "Location request timed out";
+          setGeoError(msg);
           resolve(null);
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000,
+          timeout: 25000,
+          maximumAge: 0,
         }
       );
     });
@@ -242,6 +259,64 @@ export default function EmployeeAttendancePage() {
     setImageFile(file);
   };
 
+  const doSubmitAttendance = async () => {
+    if (!attendanceType) {
+      toast.error("Please start from Dashboard (Office In/Out)");
+      return;
+    }
+
+    if (!siteId) {
+      toast.error("Please select a site");
+      return;
+    }
+
+    if (!imageFile) {
+      toast.error("Please capture an image");
+      return;
+    }
+
+    if (latitude === null || longitude === null) {
+      toast.error("Location is required to mark attendance");
+      return;
+    }
+
+    if (accuracy === null) {
+      toast.error("Location accuracy is required to mark attendance");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const form = new FormData();
+      form.append("siteId", siteId);
+      form.append("type", attendanceType);
+      form.append("image", imageFile);
+      form.append("latitude", String(latitude));
+      form.append("longitude", String(longitude));
+      form.append("accuracy", String(accuracy));
+
+      await apiUpload("/api/employee-attendances", form, { timeoutMs: 60000 });
+      try {
+        window.sessionStorage.setItem(
+          "employee_attendance_toast",
+          attendanceType === "IN"
+            ? "Office IN marked successfully"
+            : "Office OUT marked successfully"
+        );
+      } catch {
+        // ignore
+      }
+
+      setImageFile(null);
+      router.push("/dashboard");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to mark attendance");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitAttendance = async () => {
     if (!attendanceType) {
       toast.error("Please start from Dashboard (Office In/Out)");
@@ -263,40 +338,12 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const ok = window.confirm(
-        "Are you sure you want to mark attendance now? This cannot be reversed."
-      );
-      if (!ok) return;
-
-      const form = new FormData();
-      form.append("siteId", siteId);
-      form.append("type", attendanceType);
-      form.append("image", imageFile);
-      form.append("latitude", String(latitude));
-      form.append("longitude", String(longitude));
-
-      await apiUpload("/api/employee-attendances", form);
-      try {
-        window.sessionStorage.setItem(
-          "employee_attendance_toast",
-          attendanceType === "IN"
-            ? "Office IN marked successfully"
-            : "Office OUT marked successfully"
-        );
-      } catch {
-        // ignore
-      }
-
-      setImageFile(null);
-      router.push("/dashboard");
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Failed to mark attendance");
-    } finally {
-      setSubmitting(false);
+    if (accuracy === null) {
+      toast.error("Location accuracy is required to mark attendance");
+      return;
     }
+
+    setConfirmOpen(true);
   };
 
   const sites = sitesData?.data || [];
@@ -336,28 +383,9 @@ export default function EmployeeAttendancePage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-lg border border-border space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-sm font-medium">Location</span>
-                </div>
-                <div className="flex gap-2">
-                  <AppButton size="sm" variant="outline" onClick={() => void getLocation()}>
-                    Refresh
-                  </AppButton>
-                </div>
-              </div>
-
-              {geoError ? (
-                <div className="text-sm text-red-600">{geoError}</div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  <div>Latitude: {latitude ?? "—"}</div>
-                  <div>Longitude: {longitude ?? "—"}</div>
-                </div>
-              )}
-            </div>
+            {geoError && (
+              <div className="text-sm text-red-600">{geoError}</div>
+            )}
 
             <div className="p-4 rounded-lg border border-border space-y-3">
               <div className="flex items-center gap-2">
@@ -388,6 +416,7 @@ export default function EmployeeAttendancePage() {
                       setImageFile(null);
                       setLatitude(null);
                       setLongitude(null);
+                      setAccuracy(null);
                       setGeoError(null);
                     }}
                   >
@@ -404,7 +433,11 @@ export default function EmployeeAttendancePage() {
             </div>
 
             <div className="flex justify-end">
-              <AppButton onClick={submitAttendance} isLoading={submitting}>
+              <AppButton
+                onClick={submitAttendance}
+                isLoading={submitting}
+                className="w-full sm:w-auto"
+              >
                 <Save className="h-4 w-4 mr-2" />
                 Save Attendance
               </AppButton>
@@ -456,6 +489,18 @@ export default function EmployeeAttendancePage() {
             )}
           </div>
         </div>
+
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Confirm attendance?"
+          description="This action cannot be reversed. Do you want to continue?"
+          confirmText={submitting ? "Saving..." : "Yes, mark attendance"}
+          cancelText="Cancel"
+          disabled={submitting}
+          confirmButtonClassName="bg-emerald-600 hover:bg-emerald-700 text-white"
+          onConfirm={doSubmitAttendance}
+        />
       </AppCard.Content>
     </AppCard>
   );

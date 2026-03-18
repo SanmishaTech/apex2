@@ -375,6 +375,9 @@ export const PERMISSIONS = {
   // Attendance Report Permissions
   VIEW_ATTENDANCE_REPORTS: "VIEW:ATTENDANCE_REPORTS",
 
+  // Employee Attendance report (photo+geo)
+  VIEW_EMPLOYEE_ATTENDANCE: "VIEW:EMPLOYEE_ATTENDANCE",
+
   // satrt
   VIEW_ROLES: "VIEW:ROLES",
   EDIT_ROLES_PERMISSIONS: "EDIT:ROLES_PERMISSIONS",
@@ -574,6 +577,11 @@ export const PERMISSIONS = {
     key: "attendance_reports",
     label: "Attendance Reports",
     permissions: [PERMISSIONS.VIEW_ATTENDANCE_REPORTS],
+  },
+  {
+    key: "employee_attendance",
+    label: "Employee Attendance",
+    permissions: [PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE],
   },
   {
     key: "units",

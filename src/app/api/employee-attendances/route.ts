@@ -15,10 +15,32 @@ const createSchema = z.object({
   longitude: z
     .union([z.string(), z.number()])
     .transform((v) => Number(v)),
+  accuracy: z
+    .union([z.string(), z.number()])
+    .transform((v) => Number(v)),
 });
 
 function toDateOnly(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function toDateOnlyIST(d: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(d)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+
+  const y = Number(parts.year);
+  const m = Number(parts.month);
+  const day = Number(parts.day);
+  return new Date(Date.UTC(y, m - 1, day));
 }
 
 export async function POST(req: NextRequest) {
@@ -38,10 +60,15 @@ export async function POST(req: NextRequest) {
       type: form.get("type"),
       latitude: form.get("latitude"),
       longitude: form.get("longitude"),
+      accuracy: form.get("accuracy"),
     });
 
-    if (!Number.isFinite(parsed.latitude) || !Number.isFinite(parsed.longitude)) {
-      return BadRequest("Latitude and longitude are required");
+    if (
+      !Number.isFinite(parsed.latitude) ||
+      !Number.isFinite(parsed.longitude) ||
+      !Number.isFinite(parsed.accuracy)
+    ) {
+      return BadRequest("Latitude, longitude and accuracy are required");
     }
 
     const file = form.get("image") as File | null;
@@ -59,7 +86,7 @@ export async function POST(req: NextRequest) {
       return BadRequest(uploadResult.error || "Failed to upload image");
     }
 
-    const imageUrl = `/api/uploads/employee-attendance/${uploadResult.filename}`;
+    const imageUrl = `/uploads/employee-attendance/${uploadResult.filename}`;
 
     const employee = await prisma.employee.findFirst({
       where: { userId: auth.user.id },
@@ -71,9 +98,9 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const dateObj = toDateOnly(now);
+    const dateObj = toDateOnlyIST(now);
 
-    const attendance = await prisma.employeeAttendance.upsert({
+    const existing = await prisma.employeeAttendance.findUnique({
       where: {
         date_employeeId_type: {
           date: dateObj,
@@ -81,15 +108,15 @@ export async function POST(req: NextRequest) {
           type: parsed.type,
         },
       },
-      update: {
-        siteId: parsed.siteId,
-        time: now,
-        imageUrl,
-        latitude: new Prisma.Decimal(parsed.latitude),
-        longitude: new Prisma.Decimal(parsed.longitude),
-        createdById: auth.user.id,
-      },
-      create: {
+      select: { id: true },
+    });
+
+    if (existing) {
+      return BadRequest("Attendance is already marked");
+    }
+
+    const attendance = await prisma.employeeAttendance.create({
+      data: {
         date: dateObj,
         employeeId: employee.id,
         siteId: parsed.siteId,
@@ -98,6 +125,7 @@ export async function POST(req: NextRequest) {
         imageUrl,
         latitude: new Prisma.Decimal(parsed.latitude),
         longitude: new Prisma.Decimal(parsed.longitude),
+        accuracy: new Prisma.Decimal(parsed.accuracy),
         createdById: auth.user.id,
       },
       select: {
@@ -110,6 +138,7 @@ export async function POST(req: NextRequest) {
         imageUrl: true,
         latitude: true,
         longitude: true,
+        accuracy: true,
         createdAt: true,
       },
     });
@@ -119,6 +148,9 @@ export async function POST(req: NextRequest) {
     console.error("Create employee attendance error:", error);
     if (error instanceof z.ZodError) {
       return BadRequest(error.errors);
+    }
+    if (error?.code === "P2002") {
+      return BadRequest("Attendance is already marked");
     }
     return ApiError("Failed to create employee attendance");
   }
