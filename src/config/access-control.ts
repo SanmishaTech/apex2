@@ -56,6 +56,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   },
   // Payslips
   { prefix: "/payslips", permissions: [PERMISSIONS.VIEW_PAYSLIPS] },
+  { prefix: "/reports/employee-attendance", permissions: [PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE] },
   // Companies
   { prefix: "/companies/new", permissions: [PERMISSIONS.CREATE_COMPANIES] },
   { prefix: "/companies/", permissions: [PERMISSIONS.EDIT_COMPANIES] },
@@ -890,6 +891,12 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/daily-cashbook-excel",
     methods: {
       GET: [PERMISSIONS.GENERATE_DAILY_CASHBOOK_REPORT],
+    },
+  },
+  {
+    prefix: "/api/reports/employee-attendance",
+    methods: {
+      GET: [PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE],
     },
   },
   {

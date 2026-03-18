@@ -295,7 +295,7 @@ export default function EmployeeAttendancePage() {
       form.append("longitude", String(longitude));
       form.append("accuracy", String(accuracy));
 
-      await apiUpload("/api/employee-attendances", form);
+      await apiUpload("/api/employee-attendances", form, { timeoutMs: 60000 });
       try {
         window.sessionStorage.setItem(
           "employee_attendance_toast",

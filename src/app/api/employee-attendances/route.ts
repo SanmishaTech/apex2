@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       return BadRequest(uploadResult.error || "Failed to upload image");
     }
 
-    const imageUrl = `/api/uploads/employee-attendance/${uploadResult.filename}`;
+    const imageUrl = `/uploads/employee-attendance/${uploadResult.filename}`;
 
     const employee = await prisma.employee.findFirst({
       where: { userId: auth.user.id },

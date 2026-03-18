@@ -237,6 +237,19 @@ export const NAV_ITEMS: NavItem[] = [
               },
             ],
           },
+          {
+            type: "group",
+            title: "Employee Reports",
+            icon: FileBarChart,
+            children: [
+              {
+                title: "Attendance Report",
+                href: "/reports/employee-attendance",
+                icon: ClipboardCheck,
+                permission: PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE,
+              },
+            ],
+          },
         ],
       },
     ],
