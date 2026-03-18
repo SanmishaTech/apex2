@@ -523,7 +523,7 @@ model EmployeeAttendance {
 
   latitude    Decimal @db.Decimal(10, 7)
   longitude   Decimal @db.Decimal(10, 7)
-
+  accuracy Decimal     @db.Decimal(8, 2)
   createdById   Int
   createdBy    User  @relation(fields: [createdById], references: [id], onDelete: Restrict  )
   createdAt   DateTime @default(now())

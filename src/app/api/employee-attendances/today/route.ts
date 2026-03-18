@@ -8,6 +8,25 @@ function toDateOnly(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+function toDateOnlyIST(d: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(d)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+
+  const y = Number(parts.year);
+  const m = Number(parts.month);
+  const day = Number(parts.day);
+  return new Date(Date.UTC(y, m - 1, day));
+}
+
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -28,7 +47,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const today = toDateOnly(new Date());
+    const today = toDateOnlyIST(new Date());
 
     const rows = await prisma.employeeAttendance.findMany({
       where: {

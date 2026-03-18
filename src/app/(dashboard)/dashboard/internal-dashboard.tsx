@@ -267,17 +267,17 @@ export default function InternalDashboard() {
       {hasEmployee && (!inMarked || !outMarked) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {!inMarked && (
-            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 via-cyan-500/10 to-background p-4 shadow-sm">
+            <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-background p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  <div className="text-sm font-semibold text-foreground">
                     Office IN
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Capture photo + location to mark entry.
                   </div>
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center">
                   <LogIn className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
                 </div>
               </div>
@@ -290,24 +290,23 @@ export default function InternalDashboard() {
           )}
 
           {!outMarked && (
-            <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-rose-500/15 via-amber-500/10 to-background p-4 shadow-sm">
+            <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-background p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                  <div className="text-sm font-semibold text-foreground">
                     Office OUT
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Capture photo + location to mark exit.
                   </div>
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-rose-500/15 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 flex items-center justify-center">
                   <LogOut className="h-5 w-5 text-rose-700 dark:text-rose-300" />
                 </div>
               </div>
               <div className="mt-4">
                 <AppButton
                   className="w-full"
-                  variant="secondary"
                   onClick={() => goMark("OUT")}
                 >
                   Mark OUT
