@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       outwardChallanDate: true,
       fromSite: { select: { site: true } },
       outwardDeliveryChallanDetails: {
-        select: { itemId: true, challanQty: true },
+        select: { itemId: true, receivedQty: true },
       },
     },
     orderBy: [{ outwardChallanDate: "asc" }, { id: "asc" }],
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
       outwardChallanDate: true,
       toSite: { select: { site: true } },
       outwardDeliveryChallanDetails: {
-        select: { itemId: true, challanQty: true },
+        select: { itemId: true, receivedQty: true },
       },
     },
     orderBy: [{ outwardChallanDate: "asc" }, { id: "asc" }],
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     for (const d of x.outwardDeliveryChallanDetails || []) {
       const itemId = Number(d.itemId);
       if (!Number.isFinite(itemId)) continue;
-      const qty = Number(d.challanQty ?? 0);
+      const qty = Number(d.receivedQty ?? 0);
       perItem.set(itemId, (perItem.get(itemId) || 0) + qty);
     }
     receivedLotItemQtyMaps.push(perItem);
@@ -223,7 +223,7 @@ export async function GET(req: NextRequest) {
     for (const d of x.outwardDeliveryChallanDetails || []) {
       const itemId = Number(d.itemId);
       if (!Number.isFinite(itemId)) continue;
-      const qty = Number(d.challanQty ?? 0);
+      const qty = Number(d.receivedQty ?? 0);
       perItem.set(itemId, (perItem.get(itemId) || 0) + qty);
     }
     transferredLotItemQtyMaps.push(perItem);

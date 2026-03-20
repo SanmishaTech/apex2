@@ -442,7 +442,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         children: [
           {
-            title: "Budget Reports",
+            title: "Overall Budget Report",
             href: "/reports/budget-reports",
             icon: FileText,
             permission: PERMISSIONS.READ_SITE_BUDGETS,
@@ -450,6 +450,12 @@ export const NAV_ITEMS: NavItem[] = [
           {
             title: "Material Receiving Report",
             href: "/reports/material-receiving-report",
+            icon: FileText,
+            permission: PERMISSIONS.READ_SITE_BUDGETS,
+          },
+          {
+            title: "Budget Planning Report",
+            href: "/reports/budget-planning",
             icon: FileText,
             permission: PERMISSIONS.READ_SITE_BUDGETS,
           },

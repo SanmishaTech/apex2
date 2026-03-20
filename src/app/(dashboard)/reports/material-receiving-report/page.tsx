@@ -11,6 +11,7 @@ import { ComboboxInput } from "@/components/common/combobox-input";
 import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
+import { formatNumber } from "@/lib/locales";
 import { PERMISSIONS } from "@/config/roles";
 
 type FormValues = {
@@ -246,127 +247,127 @@ export default function MaterialReceivingReportPage() {
           </AppCard.Header>
           <AppCard.Content>
             <div className="border rounded-lg overflow-x-auto">
-              <table className="w-full min-w-300 text-xs">
+              <table className="w-full min-w-300 text-xs border-collapse border border-slate-300 dark:border-slate-700">
                 <thead>
-                  <tr className="bg-sky-700 text-white">
-                    <th rowSpan={2} className="text-left p-3 font-medium">
+                  <tr className="bg-sky-700 dark:bg-sky-900 text-white">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-left p-3 font-medium">
                       Sr No
                     </th>
-                    <th rowSpan={2} className="text-left p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-left p-3 font-medium">
                       Material Name
                     </th>
-                    <th rowSpan={2} className="text-left p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-left p-3 font-medium">
                       Unit
                     </th>
-                    <th rowSpan={2} className="text-right p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">
                       Closing Qty
                     </th>
-                    <th rowSpan={2} className="text-right p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">
                       Overall Qty
                     </th>
 
                     <th
                       colSpan={receivedLots.length * 3 + 1}
-                      className="text-center p-3 font-medium"
+                      className="border border-sky-600 dark:border-sky-800 text-center p-3 font-medium"
                     >
                       Received lots
                     </th>
                     <th
                       colSpan={transferredLots.length * 3 + 1}
-                      className="text-center p-3 font-medium"
+                      className="border border-sky-600 dark:border-sky-800 text-center p-3 font-medium"
                     >
                       Transferred Lots
                     </th>
 
-                    <th rowSpan={2} className="text-right p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">
                       Total Received
                     </th>
-                    <th rowSpan={2} className="text-right p-3 font-medium">
+                    <th rowSpan={2} className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">
                       Bal to be sent
                     </th>
                   </tr>
-                  <tr className="bg-sky-700 text-white">
+                  <tr className="bg-sky-700 dark:bg-sky-900 text-white">
                     {receivedLots.map((l) => (
                       <th
                         key={`rh-${l.id}`}
                         colSpan={3}
-                        className="text-center p-3 font-medium"
+                        className="border border-sky-600 dark:border-sky-800 text-center p-3 font-medium"
                       >
                         {l.label}
                       </th>
                     ))}
-                    <th className="text-right p-3 font-medium">Total</th>
+                    <th className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">Total</th>
 
                     {transferredLots.map((l) => (
                       <th
                         key={`th-${l.id}`}
                         colSpan={3}
-                        className="text-center p-3 font-medium"
+                        className="border border-sky-600 dark:border-sky-800 text-center p-3 font-medium"
                       >
                         {l.label}
                       </th>
                     ))}
-                    <th className="text-right p-3 font-medium">Total</th>
+                    <th className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">Total</th>
                   </tr>
-                  <tr className="bg-sky-50 text-sky-900">
-                    <th className="text-left p-3 font-medium" colSpan={5}></th>
+                  <tr className="bg-sky-50 dark:bg-slate-800 text-sky-900 dark:text-sky-100">
+                    <th className="border border-slate-300 dark:border-slate-600 text-left p-3 font-medium" colSpan={5}></th>
 
                     {receivedLots.map((l) => (
                       <Fragment key={`rsub-${l.id}`}>
                         <th
                           key={`rdate-${l.id}`}
-                          className="text-left p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-left p-3 font-medium whitespace-nowrap"
                         >
                           Date
                         </th>
                         <th
                           key={`rqty-${l.id}`}
-                          className="text-right p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium whitespace-nowrap"
                         >
                           Qty
                         </th>
                         <th
                           key={`rsrc-${l.id}`}
-                          className="text-left p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-left p-3 font-medium whitespace-nowrap"
                         >
                           Source
                         </th>
                       </Fragment>
                     ))}
-                    <th className="text-right p-3 font-medium whitespace-nowrap"></th>
+                    <th className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium whitespace-nowrap"></th>
 
                     {transferredLots.map((l) => (
                       <Fragment key={`tsub-${l.id}`}>
                         <th
                           key={`tdate-${l.id}`}
-                          className="text-left p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-left p-3 font-medium whitespace-nowrap"
                         >
                           Date
                         </th>
                         <th
                           key={`tqty-${l.id}`}
-                          className="text-right p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium whitespace-nowrap"
                         >
                           Qty
                         </th>
                         <th
                           key={`tdst-${l.id}`}
-                          className="text-left p-3 font-medium whitespace-nowrap"
+                          className="border border-slate-300 dark:border-slate-600 text-left p-3 font-medium whitespace-nowrap"
                         >
                           Destination
                         </th>
                       </Fragment>
                     ))}
-                    <th className="text-right p-3 font-medium whitespace-nowrap"></th>
-                    <th className="text-right p-3 font-medium"></th>
-                    <th className="text-right p-3 font-medium"></th>
+                    <th className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium whitespace-nowrap"></th>
+                    <th className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium"></th>
+                    <th className="border border-slate-300 dark:border-slate-600 text-right p-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {reportLoading ? (
                     <tr>
                       <td
-                        className="p-4 text-muted-foreground"
+                        className="border border-slate-300 dark:border-slate-700 p-4 text-muted-foreground"
                         colSpan={
                           4 +
                           (receivedLots.length * 3 + 1) +
@@ -380,7 +381,7 @@ export default function MaterialReceivingReportPage() {
                   ) : rows.length === 0 ? (
                     <tr>
                       <td
-                        className="p-4 text-muted-foreground"
+                        className="border border-slate-300 dark:border-slate-700 p-4 text-muted-foreground"
                         colSpan={
                           4 +
                           (receivedLots.length * 3 + 1) +
@@ -396,23 +397,25 @@ export default function MaterialReceivingReportPage() {
                       <tr
                         key={r.itemId}
                         className={
-                          "border-t hover:bg-muted/30 " +
-                          (idx % 2 === 0 ? "bg-white" : "bg-slate-50")
+                          "hover:bg-muted/30 " +
+                          (idx % 2 === 0
+                            ? "bg-white dark:bg-slate-900"
+                            : "bg-slate-50 dark:bg-slate-800/50")
                         }
                       >
-                        <td className="p-3 whitespace-nowrap">{idx + 1}</td>
-                        <td className="p-3 min-w-60 font-medium">
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap">{idx + 1}</td>
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 min-w-60 font-medium">
                           {r.materialName}
                         </td>
-                        <td className="p-3 whitespace-nowrap text-muted-foreground">
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap text-muted-foreground">
                           {r.unitName}
                         </td>
-                        <td className="p-3 text-right whitespace-nowrap">
-                          {Number(r.closingQty || 0).toFixed(2)}
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap">
+                          {formatNumber(Number(r.closingQty || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
-                        <td className="p-3 text-right whitespace-nowrap">
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap">
                           {r.overallQtyExists ? (
-                            Number(r.overallQty || 0).toFixed(2)
+                            formatNumber(Number(r.overallQty || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                           ) : (
                             <span className="text-muted-foreground italic text-xs">
                               Does Not Exist
@@ -420,67 +423,69 @@ export default function MaterialReceivingReportPage() {
                           )}
                         </td>
 
-                        {receivedLots.map((l, li) => (
-                          <Fragment key={`r-${r.itemId}-${l.id}`}>
-                            <td
-                              key={`rdate-${r.itemId}-${l.id}`}
-                              className="p-3 whitespace-nowrap text-muted-foreground"
-                            >
-                              {l.date}
-                            </td>
-                            <td
-                              key={`rqty-${r.itemId}-${l.id}`}
-                              className="p-3 text-right whitespace-nowrap"
-                            >
-                              {r.receivedLotQty?.[li]
-                                ? Number(r.receivedLotQty[li]).toFixed(2)
-                                : ""}
-                            </td>
-                            <td
-                              key={`rsrc-${r.itemId}-${l.id}`}
-                              className="p-3 whitespace-nowrap text-muted-foreground"
-                            >
-                              {l.source || ""}
-                            </td>
-                          </Fragment>
-                        ))}
-                        <td className="p-3 text-right whitespace-nowrap font-semibold">
-                          {r.receivedTotal ? r.receivedTotal.toFixed(2) : ""}
+                        {receivedLots.map((l, li) => {
+                          const hasQty = Boolean(r.receivedLotQty?.[li]);
+                          return (
+                            <Fragment key={`r-${r.itemId}-${l.id}`}>
+                              <td
+                                key={`rdate-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap text-muted-foreground"
+                              >
+                                {hasQty ? l.date : ""}
+                              </td>
+                              <td
+                                key={`rqty-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap"
+                              >
+                                {hasQty ? formatNumber(Number(r.receivedLotQty[li]), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+                              </td>
+                              <td
+                                key={`rsrc-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap text-muted-foreground"
+                              >
+                                {hasQty ? (l.source || "") : ""}
+                              </td>
+                            </Fragment>
+                          );
+                        })}
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap font-semibold">
+                          {r.receivedTotal ? formatNumber(r.receivedTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                         </td>
 
-                        {transferredLots.map((l, li) => (
-                          <Fragment key={`t-${r.itemId}-${l.id}`}>
-                            <td
-                              key={`tdate-${r.itemId}-${l.id}`}
-                              className="p-3 whitespace-nowrap text-muted-foreground"
-                            >
-                              {l.date}
-                            </td>
-                            <td
-                              key={`tqty-${r.itemId}-${l.id}`}
-                              className="p-3 text-right whitespace-nowrap"
-                            >
-                              {r.transferredLotQty?.[li]
-                                ? Number(r.transferredLotQty[li]).toFixed(2)
-                                : ""}
-                            </td>
-                            <td
-                              key={`tdst-${r.itemId}-${l.id}`}
-                              className="p-3 whitespace-nowrap text-muted-foreground"
-                            >
-                              {l.destination || ""}
-                            </td>
-                          </Fragment>
-                        ))}
-                        <td className="p-3 text-right whitespace-nowrap font-semibold">
-                          {r.transferredTotal ? r.transferredTotal.toFixed(2) : ""}
+                        {transferredLots.map((l, li) => {
+                          const hasQty = Boolean(r.transferredLotQty?.[li]);
+                          return (
+                            <Fragment key={`t-${r.itemId}-${l.id}`}>
+                              <td
+                                key={`tdate-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap text-muted-foreground"
+                              >
+                                {hasQty ? l.date : ""}
+                              </td>
+                              <td
+                                key={`tqty-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap"
+                              >
+                                {hasQty ? formatNumber(Number(r.transferredLotQty[li]), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+                              </td>
+                              <td
+                                key={`tdst-${r.itemId}-${l.id}`}
+                                className="border border-slate-300 dark:border-slate-700 p-3 whitespace-nowrap text-muted-foreground"
+                              >
+                                {hasQty ? (l.destination || "") : ""}
+                              </td>
+                            </Fragment>
+                          );
+                        })}
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap font-semibold">
+                          {r.transferredTotal ? formatNumber(r.transferredTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                         </td>
 
-                        <td className="p-3 text-right whitespace-nowrap font-semibold">
-                          {r.totalReceived ? r.totalReceived.toFixed(2) : ""}
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap font-semibold">
+                          {r.totalReceived ? formatNumber(r.totalReceived, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                         </td>
-                        <td className="p-3 text-right whitespace-nowrap font-semibold">
-                          {r.balToBeSent ? r.balToBeSent.toFixed(2) : ""}
+                        <td className="border border-slate-300 dark:border-slate-700 p-3 text-right whitespace-nowrap font-semibold">
+                          {r.balToBeSent ? formatNumber(r.balToBeSent, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                         </td>
                       </tr>
                     ))
