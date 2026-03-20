@@ -90,11 +90,13 @@ function AddressCell({
 function ImageCell({ imageUrl }: { imageUrl: string | null }) {
   if (!imageUrl) return <span className="text-muted-foreground">—</span>;
 
+  const resolvedUrl = imageUrl.startsWith("/uploads/") ? `/api${imageUrl}` : imageUrl;
+
   const absoluteUrl = (() => {
     try {
-      return new URL(imageUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost").toString();
+      return new URL(resolvedUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost").toString();
     } catch {
-      return imageUrl;
+      return resolvedUrl;
     }
   })();
 
