@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency, formatDate, formatDateForInput } from '@/lib/locales';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
 import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { useProtectPage } from '@/hooks/use-protect-page';
+import { usePermissions } from '@/hooks/use-permissions';
+import { Form } from '@/components/ui/form';
+import { ComboboxInput } from '@/components/common/combobox-input';
 import { PERMISSIONS } from '@/config/roles';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
@@ -42,43 +46,61 @@ export default function NewManpowerTransferPage() {
   
   // Check permissions
   const { loading: pageLoading } = useProtectPage();
+  const { can } = usePermissions();
+  const hasSitePermission = can(PERMISSIONS.READ_SITES);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    challanDate: new Date().toISOString().split('T')[0],
-    fromSiteId: '',
-    toSiteId: '',
-    remarks: '',
+  // Form state via react-hook-form
+  const form = useForm({
+    mode: 'onChange',
+    defaultValues: {
+      challanDate: new Date().toISOString().split('T')[0],
+      fromSiteId: '',
+      toSiteId: '',
+      remarks: '',
+    }
   });
+
+  const { control, watch, setValue, getValues } = form;
+  const fromSiteIdRaw = watch('fromSiteId');
+  const toSiteIdRaw = watch('toSiteId');
+  const challanDate = watch('challanDate');
+  const remarks = watch('remarks');
 
   const [selectedManpower, setSelectedManpower] = useState<number[]>([]);
   const [creating, setCreating] = useState(false);
 
-  // Fetch sites
-  const { data: sitesData } = useSWR<{ data: Site[] }>('/api/sites', fetcher);
+  // Clear manpower selection when from site changes
+  useEffect(() => {
+    setSelectedManpower([]);
+  }, [fromSiteIdRaw]);
+
+  // Fetch assigned sites utilizing ?perPage=1000 limitation bypass
+  const { data: sitesData, isLoading: sitesLoading } = useSWR<{ data: Site[] }>(
+    hasSitePermission ? '/api/sites?perPage=1000&sort=site&order=asc' : null, 
+    fetcher
+  );
+
+  const sites = sitesData?.data || [];
+  const siteOptions = useMemo(() => {
+    return sites.map((s) => ({
+      value: String(s.id),
+      label: `${s.site} ${s.shortName ? `(${s.shortName})` : ''}`
+    }));
+  }, [sites]);
+
+  const toSiteOptions = useMemo(() => {
+    return siteOptions.filter((s) => s.value !== fromSiteIdRaw);
+  }, [siteOptions, fromSiteIdRaw]);
 
   // Fetch assigned manpower for selected from site
   const { data: manpowerData, isLoading: loadingManpower } = useSWR(
-    formData.fromSiteId 
-      ? `/api/manpower?isAssigned=true&currentSiteId=${formData.fromSiteId}&page=1&perPage=1000`
+    fromSiteIdRaw 
+      ? `/api/manpower?isAssigned=true&currentSiteId=${fromSiteIdRaw}&page=1&perPage=1000`
       : null,
     fetcher
   );
 
   const assignedManpower: AssignedManpowerForTransfer[] = manpowerData?.data || [];
-
-  // Handle form input changes
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-    
-    // Reset selected manpower when from site changes
-    if (field === 'fromSiteId') {
-      setSelectedManpower([]);
-    }
-  };
 
   // Handle manpower selection
   const toggleManpowerSelection = (manpowerId: number) => {
@@ -99,13 +121,14 @@ export default function NewManpowerTransferPage() {
 
   // Handle form submission
   const handleSubmit = async () => {
+    const vals = getValues();
     // Validation
-    if (!formData.challanDate || !formData.fromSiteId || !formData.toSiteId) {
+    if (!vals.challanDate || !vals.fromSiteId || !vals.toSiteId) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    if (formData.fromSiteId === formData.toSiteId) {
+    if (vals.fromSiteId === vals.toSiteId) {
       toast.error('From site and to site cannot be the same');
       return;
     }
@@ -118,10 +141,10 @@ export default function NewManpowerTransferPage() {
     setCreating(true);
     try {
       const request: CreateManpowerTransferRequest = {
-        challanDate: formData.challanDate,
-        fromSiteId: parseInt(formData.fromSiteId),
-        toSiteId: parseInt(formData.toSiteId),
-        remarks: formData.remarks || null,
+        challanDate: vals.challanDate,
+        fromSiteId: parseInt(vals.fromSiteId),
+        toSiteId: parseInt(vals.toSiteId),
+        remarks: vals.remarks || null,
         manpowerIds: selectedManpower,
       };
 
@@ -214,8 +237,8 @@ export default function NewManpowerTransferPage() {
     return <div className="p-6">Loading...</div>;
   }
 
-  const fromSite = sitesData?.data?.find(s => s.id === parseInt(formData.fromSiteId));
-  const toSite = sitesData?.data?.find(s => s.id === parseInt(formData.toSiteId));
+  const fromSite = sites.find(s => s.id === parseInt(fromSiteIdRaw || '0'));
+  const toSite = sites.find(s => s.id === parseInt(toSiteIdRaw || '0'));
 
   return (
     <div className="space-y-6">
@@ -235,60 +258,43 @@ export default function NewManpowerTransferPage() {
         </AppCard.Header>
 
         <AppCard.Content>
-          <FormSection title="Transfer Details">
-            <FormRow>
+          <Form {...form}>
+            <FormSection title="Transfer Details">
+              <FormRow>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  value={formData.challanDate}
-                  onChange={(e) => handleInputChange('challanDate', e.target.value)}
+                  value={challanDate}
+                  onChange={(e) => setValue('challanDate', e.target.value, { shouldValidate: true })}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  From Site <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.fromSiteId}
-                  onChange={(e) => handleInputChange('fromSiteId', e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring"
+              <div className="z-20 relative">
+                <ComboboxInput
+                  control={control}
+                  name="fromSiteId"
+                  label="From Site *"
+                  options={siteOptions}
+                  placeholder={sitesLoading ? "Loading..." : "Select from site"}
                   required
-                >
-                  <option value="">Select from site</option>
-                  {sitesData?.data?.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.site} {site.shortName ? `(${site.shortName})` : ''}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </FormRow>
 
             <FormRow>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  To Site <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.toSiteId}
-                  onChange={(e) => handleInputChange('toSiteId', e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring"
+              <div className="z-10 relative">
+                <ComboboxInput
+                  control={control}
+                  name="toSiteId"
+                  label="To Site *"
+                  options={toSiteOptions}
+                  placeholder={sitesLoading ? "Loading..." : "Select to site"}
                   required
-                >
-                  <option value="">Select to site</option>
-                  {sitesData?.data
-                    ?.filter(site => site.id.toString() !== formData.fromSiteId)
-                    ?.map((site) => (
-                      <option key={site.id} value={site.id}>
-                        {site.site} {site.shortName ? `(${site.shortName})` : ''}
-                      </option>
-                    ))}
-                </select>
+                />
               </div>
             </FormRow>
 
@@ -298,8 +304,8 @@ export default function NewManpowerTransferPage() {
                   Remarks
                 </label>
                 <textarea
-                  value={formData.remarks}
-                  onChange={(e) => handleInputChange('remarks', e.target.value)}
+                  value={remarks}
+                  onChange={(e) => setValue('remarks', e.target.value, { shouldValidate: true })}
                   rows={3}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring"
                   placeholder="Add any additional remarks..."
@@ -307,11 +313,12 @@ export default function NewManpowerTransferPage() {
               </div>
             </FormRow>
           </FormSection>
+          </Form>
         </AppCard.Content>
       </AppCard>
 
       {/* Manpower Selection */}
-      {formData.fromSiteId && (
+      {fromSiteIdRaw && (
         <AppCard>
           <AppCard.Header>
             <div className="flex items-center justify-between w-full">
@@ -322,7 +329,7 @@ export default function NewManpowerTransferPage() {
                 <div>
                   <AppCard.Title>Select Manpower to Transfer</AppCard.Title>
                   <AppCard.Description>
-                    {formData.toSiteId ? (
+                    {toSiteIdRaw ? (
                       <span className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-primary">{fromSite?.site}</span>
                         <ArrowLeft className="h-4 w-4 rotate-180" />
@@ -363,7 +370,7 @@ export default function NewManpowerTransferPage() {
             </div>
           </AppCard.Header>
 
-          {!formData.toSiteId ? (
+          {!toSiteIdRaw ? (
             <AppCard.Content>
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="p-4 bg-muted rounded-full mb-4">
@@ -426,7 +433,7 @@ export default function NewManpowerTransferPage() {
             </AppButton>
             <AppButton 
               onClick={handleSubmit}
-              disabled={creating || selectedManpower.length === 0 || !formData.fromSiteId || !formData.toSiteId}
+              disabled={creating || selectedManpower.length === 0 || !fromSiteIdRaw || !toSiteIdRaw}
               isLoading={creating}
               className="min-w-[140px]"
             >

@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
       outwardChallanDate: true,
       fromSite: { select: { site: true } },
       outwardDeliveryChallanDetails: {
-        select: { itemId: true, challanQty: true },
+        select: { itemId: true, receivedQty: true },
       },
     },
     orderBy: [{ outwardChallanDate: "asc" }, { id: "asc" }],
@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
     for (const d of x.outwardDeliveryChallanDetails || []) {
       const itemId = Number(d.itemId);
       if (!Number.isFinite(itemId)) continue;
-      const qty = Number(d.challanQty ?? 0);
+      const qty = Number(d.receivedQty ?? 0);
       perItem.set(itemId, (perItem.get(itemId) || 0) + qty);
     }
     receivedLotItemQtyMaps.push(perItem);
@@ -205,7 +205,7 @@ export async function GET(req: NextRequest) {
       outwardChallanDate: true,
       toSite: { select: { site: true } },
       outwardDeliveryChallanDetails: {
-        select: { itemId: true, challanQty: true },
+        select: { itemId: true, receivedQty: true },
       },
     },
     orderBy: [{ outwardChallanDate: "asc" }, { id: "asc" }],
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
     for (const d of x.outwardDeliveryChallanDetails || []) {
       const itemId = Number(d.itemId);
       if (!Number.isFinite(itemId)) continue;
-      const qty = Number(d.challanQty ?? 0);
+      const qty = Number(d.receivedQty ?? 0);
       perItem.set(itemId, (perItem.get(itemId) || 0) + qty);
     }
     transferredLotItemQtyMaps.push(perItem);
@@ -243,32 +243,44 @@ export async function GET(req: NextRequest) {
   wsData.push([`Generated On: ${formatDdMmYyyyTime(new Date())}`]);
   wsData.push([]);
 
-  const receivedHeaderCols = receivedLots.flatMap((_, i) => [
-    `Lot ${i + 1} Date`,
-    `Lot ${i + 1} Qty`,
-    `Lot ${i + 1} Source`,
-  ]);
-  const transferredHeaderCols = transferredLots.flatMap((_, i) => [
-    `Lot ${i + 1} Date`,
-    `Lot ${i + 1} Qty`,
-    `Lot ${i + 1} Destination`,
-  ]);
-
-  const header = [
+  const headerRow1 = [
     "Sr No",
     "Material Name",
     "Unit",
     "Closing Qty",
     "Overall Qty",
-    ...receivedHeaderCols,
-    "Received Total",
-    ...transferredHeaderCols,
-    "Transferred Total",
-    "Total Received",
-    "Bal to be sent",
   ];
+  const headerRow2 = ["", "", "", "", ""];
 
-  wsData.push(header);
+  if (receivedLots.length > 0) {
+    headerRow1.push("Received lots");
+    for (let i = 0; i < receivedLots.length * 3; i++) {
+        headerRow1.push("");
+    }
+    
+    receivedLots.forEach((l, i) => {
+      headerRow2.push(`Lot ${i + 1} Date`, `Lot ${i + 1} Qty`, `Lot ${i + 1} Source`);
+    });
+    headerRow2.push("Total");
+  }
+
+  if (transferredLots.length > 0) {
+    headerRow1.push("Transferred Lots");
+    for (let i = 0; i < transferredLots.length * 3; i++) {
+        headerRow1.push("");
+    }
+    
+    transferredLots.forEach((l, i) => {
+      headerRow2.push(`Lot ${i + 1} Date`, `Lot ${i + 1} Qty`, `Lot ${i + 1} Destination`);
+    });
+    headerRow2.push("Total");
+  }
+
+  headerRow1.push("Total Received", "Bal to be sent");
+  headerRow2.push("", "");
+
+  wsData.push(headerRow1);
+  wsData.push(headerRow2);
 
   for (let idx = 0; idx < itemIds.length; idx++) {
     const itemId = itemIds[idx];
@@ -285,7 +297,7 @@ export async function GET(req: NextRequest) {
 
     const receivedCells = receivedLots.flatMap((lot, li) => {
       const qty = Number(receivedLotItemQtyMaps[li]?.get(itemId) || 0);
-      return [lot.date, qty ? Number(fmt2(qty)) : "", lot.source];
+      return qty > 0 ? [lot.date, Number(fmt2(qty)), lot.source] : ["", "", ""];
     });
     const receivedTotal = receivedLotItemQtyMaps
       .map((m) => Number(m.get(itemId) || 0))
@@ -293,7 +305,7 @@ export async function GET(req: NextRequest) {
 
     const transferredCells = transferredLots.flatMap((lot, li) => {
       const qty = Number(transferredLotItemQtyMaps[li]?.get(itemId) || 0);
-      return [lot.date, qty ? Number(fmt2(qty)) : "", lot.destination];
+      return qty > 0 ? [lot.date, Number(fmt2(qty)), lot.destination] : ["", "", ""];
     });
     const transferredTotal = transferredLotItemQtyMaps
       .map((m) => Number(m.get(itemId) || 0))
@@ -332,12 +344,43 @@ export async function GET(req: NextRequest) {
   } as any;
 
   const titleRowIdx = 0;
-  const headerRowIdx = 5;
-  const lastCol = header.length - 1;
+  const headerRowIdx1 = 5;
+  const headerRowIdx2 = 6;
+  const lastCol = headerRow1.length - 1;
 
   if (!ws["!merges"]) ws["!merges"] = [];
   const merges = ws["!merges"] as any[];
   merges.push({ s: { r: titleRowIdx, c: 0 }, e: { r: titleRowIdx, c: lastCol } });
+
+  // Merge Row 1 to Row 2 for the first 5 columns:
+  for(let c = 0; c <= 4; c++) {
+    merges.push({ s: { r: headerRowIdx1, c }, e: { r: headerRowIdx2, c } });
+  }
+
+  let colOffset = 5;
+  if (receivedLots.length > 0) {
+    merges.push({
+      s: { r: headerRowIdx1, c: colOffset },
+      e: { r: headerRowIdx1, c: colOffset + receivedLots.length * 3 }
+    });
+    // Removed Row 2 "Lot i" merges since we now explicitly print "Date, Qty, Source"
+    colOffset += receivedLots.length * 3;
+    colOffset += 1;
+  }
+
+  if (transferredLots.length > 0) {
+    merges.push({
+      s: { r: headerRowIdx1, c: colOffset },
+      e: { r: headerRowIdx1, c: colOffset + transferredLots.length * 3 }
+    });
+    // Removed Row 2 "Lot i" merges since we now explicitly print "Date, Qty, Destination"
+    colOffset += transferredLots.length * 3;
+    colOffset += 1;
+  }
+
+  merges.push({ s: { r: headerRowIdx1, c: colOffset }, e: { r: headerRowIdx2, c: colOffset } });
+  colOffset += 1;
+  merges.push({ s: { r: headerRowIdx1, c: colOffset }, e: { r: headerRowIdx2, c: colOffset } });
 
   for (let c = 0; c <= lastCol; c++) {
     const cellRef = XLSX.utils.encode_cell({ r: titleRowIdx, c });
@@ -351,13 +394,16 @@ export async function GET(req: NextRequest) {
   }
 
   for (let c = 0; c <= lastCol; c++) {
-    const cellRef = XLSX.utils.encode_cell({ r: headerRowIdx, c });
-    const cell = (ws as any)[cellRef];
-    if (!cell) continue;
-    cell.s = { ...(cell.s || {}), ...blueHeader } as any;
+    const cellRef1 = XLSX.utils.encode_cell({ r: headerRowIdx1, c });
+    const cell1 = (ws as any)[cellRef1];
+    if (cell1) cell1.s = { ...(cell1.s || {}), ...blueHeader } as any;
+
+    const cellRef2 = XLSX.utils.encode_cell({ r: headerRowIdx2, c });
+    const cell2 = (ws as any)[cellRef2];
+    if (cell2) cell2.s = { ...(cell2.s || {}), ...blueHeader } as any;
   }
 
-  for (let r = headerRowIdx + 1; r < wsData.length; r++) {
+  for (let r = headerRowIdx2 + 1; r < wsData.length; r++) {
     for (let c = 0; c <= lastCol; c++) {
       const cellRef = XLSX.utils.encode_cell({ r, c });
       const cell = (ws as any)[cellRef];
@@ -366,7 +412,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  ws["!cols"] = header.map((h) => {
+  ws["!cols"] = headerRow1.map((h) => {
     const s = String(h || "");
     const w = Math.min(40, Math.max(12, Math.ceil(s.length * 0.9)));
     return { wch: w };

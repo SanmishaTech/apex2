@@ -77,18 +77,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
   }
 
-  const budgets = await (prisma as any).siteBudget.findMany({
+  const budgets = await prisma.overallSiteBudget.findMany({
     where: { boqId },
     orderBy: [{ id: "asc" }],
     select: {
       id: true,
-      siteBudgetDetails: {
+      overallSiteBudgetDetails: {
         select: {
           BoqItemId: true,
-          siteBudgetItems: {
+          overallSiteBudgetItems: {
             select: {
               itemId: true,
-              item: { select: { itemCode: true, item: true } },
+              item: { select: { itemCode: true, item: true, unit: { select: { unitName: true } } } },
               budgetQty: true,
             },
             orderBy: { id: "asc" },
@@ -99,21 +99,27 @@ export async function GET(req: NextRequest) {
   });
 
   const budgetItemLabelById = new Map<number, string>();
+  const budgetItemUnitById = new Map<number, string>();
   const qtyByBoqItemIdByBudgetItemId = new Map<number, Map<number, number>>();
   const totalQtyByBudgetItemId = new Map<number, number>();
 
   for (const b of budgets || []) {
-    for (const d of (b.siteBudgetDetails || []) as any[]) {
+    for (const d of (b.overallSiteBudgetDetails || []) as any[]) {
       const boqItemId = Number(d.BoqItemId);
       if (!Number.isFinite(boqItemId) || boqItemId <= 0) continue;
 
-      for (const it of (d.siteBudgetItems || []) as any[]) {
+      for (const it of (d.overallSiteBudgetItems || []) as any[]) {
         const budgetItemId = Number(it.itemId);
         if (!Number.isFinite(budgetItemId) || budgetItemId <= 0) continue;
 
         const label = `${it.item?.itemCode ?? ""}${it.item?.item ? " - " + it.item.item : ""}`.trim();
         if (label && !budgetItemLabelById.has(budgetItemId)) {
           budgetItemLabelById.set(budgetItemId, label);
+        }
+
+        const unitName = (it as any).item?.unit?.unitName || "";
+        if (!budgetItemUnitById.has(budgetItemId)) {
+          budgetItemUnitById.set(budgetItemId, unitName);
         }
 
         const qty = Number(it.budgetQty || 0);
@@ -134,7 +140,7 @@ export async function GET(req: NextRequest) {
   });
 
   const wsData: any[][] = [];
-  wsData.push(["Budget Report"]);
+  wsData.push(["Overall Budget Report"]);
   wsData.push([
     `BOQ: ${boq.boqNo ?? "-"}${boq.workName ? " - " + safeLabel(boq.workName) : ""}`,
   ]);
@@ -181,10 +187,13 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < 10; i++) wsData.push([]);
 
   const secondHeaderRowIndex = wsData.length;
-  wsData.push(["Item", "Total Qty"]);
-  for (const id of budgetItemIds) {
+  wsData.push(["Sr No", "Item Name", "Unit", "Total Qty"]);
+  for (let i = 0; i < budgetItemIds.length; i++) {
+    const id = budgetItemIds[i];
     wsData.push([
+      i + 1,
       budgetItemLabelById.get(id) || String(id),
+      budgetItemUnitById.get(id) || "",
       Number(fmt2(Number(totalQtyByBudgetItemId.get(id) || 0))),
     ]);
   }
@@ -239,7 +248,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Style second table header
-  for (let c = 0; c <= 1; c++) {
+  for (let c = 0; c <= 3; c++) {
     const cellRef = XLSX.utils.encode_cell({ r: secondHeaderRowIndex, c });
     const cell = (ws as any)[cellRef];
     if (!cell) continue;
@@ -275,7 +284,7 @@ export async function GET(req: NextRequest) {
   const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer", cellStyles: true });
 
   const today = new Date().toISOString().slice(0, 10);
-  const fileName = `site-budget-report-B${boqId}-${today}.xlsx`;
+  const fileName = `overall-budget-report-B${boqId}-${today}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,
