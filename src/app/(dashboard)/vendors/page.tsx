@@ -56,6 +56,38 @@ type VendorsResponse = {
 
 export default function VendorsPage() {
   const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const sp = new URLSearchParams();
+      if (search) sp.set("search", search);
+      if (sort) sp.set("sort", sort);
+      if (order) sp.set("order", order);
+
+      const url = `/api/vendors/export?${sp.toString()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        toast.error(`Export failed (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `vendors_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to export vendors");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -253,6 +285,19 @@ export default function VendorsPage() {
           >
             Filter
           </AppButton>
+          {can(PERMISSIONS.EXPORT_VENDORS) && (
+            <AppButton
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              iconName="Download"
+              className="min-w-[84px] text-foreground"
+              disabled={exporting}
+              type="button"
+            >
+              Export
+            </AppButton>
+          )}
           {search && (
             <AppButton
               variant="secondary"

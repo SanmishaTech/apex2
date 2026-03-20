@@ -92,6 +92,42 @@ export default function PurchaseOrdersPage() {
   const { pushWithScrollSave } = useScrollRestoration("purchase-orders-list");
   const { can } = usePermissions();
   const { user } = useCurrentUser();
+  const [exporting, setExporting] = useState(false);
+  
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const sp = new URLSearchParams();
+      if (search) sp.set("search", search);
+      if (site) sp.set("site", site);
+      if (vendor) sp.set("vendor", vendor);
+      if (approvalStatus) sp.set("approvalStatus", approvalStatus);
+      if (poStatus) sp.set("poStatus", poStatus);
+      if (sort) sp.set("sort", sort);
+      if (order) sp.set("order", order);
+
+      const url = `/api/purchase-orders/export?${sp.toString()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        toast.error(`Export failed (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `purchase_orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to export purchase orders");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const [qp, setQp] = useQueryParamsState({
     page: 1,
     perPage: 10,
@@ -647,18 +683,35 @@ export default function PurchaseOrdersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Purchase Orders</h1>
 
-        {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) && (
-          <AppCard.Action>
-            <AppButton
-              size="sm"
-              iconName="Plus"
-              type="button"
-              onClick={() => pushWithScrollSave("/purchase-orders/new")}
-            >
-              Add
-            </AppButton>
-          </AppCard.Action>
-        )}
+        <div className="flex items-center gap-2">
+          {can(PERMISSIONS.EXPORT_PURCHASE_ORDERS) && (
+            <AppCard.Action>
+              <AppButton
+                variant="outline"
+                size="sm"
+                iconName="Download"
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                Export
+              </AppButton>
+            </AppCard.Action>
+          )}
+
+          {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) && (
+            <AppCard.Action>
+              <AppButton
+                size="sm"
+                iconName="Plus"
+                type="button"
+                onClick={() => pushWithScrollSave("/purchase-orders/new")}
+              >
+                Add
+              </AppButton>
+            </AppCard.Action>
+          )}
+        </div>
       </div>
 
       <AppCard>
