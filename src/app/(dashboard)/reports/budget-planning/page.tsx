@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, Fragment } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Form } from "@/components/ui/form";
@@ -235,17 +235,27 @@ export default function BudgetPlanningReportPage() {
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Site</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Item Name</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Unit</th>
-                      <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Month</th>
-                      <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Week</th>
-                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Budget Qty</th>
-                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Budget Rate</th>
-                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Budget Value</th>
+                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">Total Req. Qty</th>
+                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Received</th>
+                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">Balance To Be Sent</th>
+                      {reportData?.meta?.selectedMonths?.map((m: string) => (
+                        <Fragment key={m}>
+                          <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">{m} Qty</th>
+                          <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">{m} Amount</th>
+                        </Fragment>
+                      ))}
+                      {reportData?.meta?.selectedWeeks?.map((w: string) => (
+                        <Fragment key={w}>
+                          <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">{w} Qty</th>
+                          <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">{w} Amount</th>
+                        </Fragment>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="p-4 text-center text-muted-foreground border border-slate-300 dark:border-slate-700">
+                        <td colSpan={20} className="p-4 text-center text-muted-foreground border border-slate-300 dark:border-slate-700">
                           No records found matching filters.
                         </td>
                       </tr>
@@ -255,13 +265,23 @@ export default function BudgetPlanningReportPage() {
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{i + 1}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{row.zone}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{row.site}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3 max-w-sm truncate" title={row.itemName}>{row.itemName}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 max-w-sm" title={row.itemName}>{row.itemName}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{row.unit}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3">{row.month}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3">{row.week}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-medium">{fmt(row.budgetQty)}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.budgetRate)}</td>
-                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-bold text-emerald-700 dark:text-emerald-400">{fmt(row.budgetValue)}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-medium">{fmt(row.totalReqQty)}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{fmt(row.receivedQty)}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-bold text-slate-900 dark:text-slate-100">{fmt(row.balance)}</td>
+                          {reportData?.meta?.selectedMonths?.map((m: string) => (
+                            <Fragment key={m}>
+                              <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.monthProps[m]?.qty || 0)}</td>
+                              <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.monthProps[m]?.amt || 0)}</td>
+                            </Fragment>
+                          ))}
+                          {reportData?.meta?.selectedWeeks?.map((w: string) => (
+                            <Fragment key={w}>
+                              <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.weekProps[w]?.qty || 0)}</td>
+                              <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.weekProps[w]?.amt || 0)}</td>
+                            </Fragment>
+                          ))}
                         </tr>
                       ))
                     )}

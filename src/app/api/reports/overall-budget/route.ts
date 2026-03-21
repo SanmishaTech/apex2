@@ -4,7 +4,7 @@ import { guardApiPermissions } from "@/lib/access-guard";
 import { PERMISSIONS } from "@/config/roles";
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_SITE_BUDGETS]);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.VIEW_OVERALL_BUDGET_REPORT]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;
@@ -119,6 +119,16 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  const siteItems = await prisma.siteItem.findMany({
+    where: { 
+      siteId: boq.site?.id || 0,
+      itemId: { in: budgetItemIds }
+    }
+  });
+
+  const closingQtyMap: Record<number, number> = {};
+  siteItems.forEach((si: any) => closingQtyMap[si.itemId] = Number(si.closingStock || 0));
+
   return NextResponse.json({
     meta: {
       boqNo: boq.boqNo,
@@ -128,6 +138,7 @@ export async function GET(req: NextRequest) {
     budgetItemIds,
     budgetItemLabels: budgetItemLabelById,
     budgetItemUnits: budgetItemUnitById,
+    closingQtyMap,
     rows,
     totals: totalQtyByBudgetItemId
   });

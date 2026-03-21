@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
 
   // Transferred lots = outgoing ODC from this site
   const outgoingOdcLotsRaw = await prisma.outwardDeliveryChallan.findMany({
-    where: { fromSiteId: siteId },
+    where: { fromSiteId: siteId, isAccepted: true },
     select: {
       id: true,
       outwardChallanDate: true,
@@ -297,7 +297,7 @@ export async function GET(req: NextRequest) {
 
     const receivedCells = receivedLots.flatMap((lot, li) => {
       const qty = Number(receivedLotItemQtyMaps[li]?.get(itemId) || 0);
-      return qty > 0 ? [lot.date, Number(fmt2(qty)), lot.source] : ["", "", ""];
+      return receivedLotItemQtyMaps[li]?.has(itemId) ? [lot.date, Number(fmt2(qty)), lot.source] : ["", "", ""];
     });
     const receivedTotal = receivedLotItemQtyMaps
       .map((m) => Number(m.get(itemId) || 0))
@@ -305,7 +305,7 @@ export async function GET(req: NextRequest) {
 
     const transferredCells = transferredLots.flatMap((lot, li) => {
       const qty = Number(transferredLotItemQtyMaps[li]?.get(itemId) || 0);
-      return qty > 0 ? [lot.date, Number(fmt2(qty)), lot.destination] : ["", "", ""];
+      return transferredLotItemQtyMaps[li]?.has(itemId) ? [lot.date, Number(fmt2(qty)), lot.destination] : ["", "", ""];
     });
     const transferredTotal = transferredLotItemQtyMaps
       .map((m) => Number(m.get(itemId) || 0))

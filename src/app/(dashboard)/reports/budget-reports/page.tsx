@@ -26,6 +26,7 @@ type OverallBudgetQueryResponse = {
   budgetItemIds: number[];
   budgetItemLabels: Record<number, string>;
   budgetItemUnits: Record<number, string>;
+  closingQtyMap: Record<number, number>;
   rows: Array<{
     activityId: string;
     boqItemName: string;
@@ -40,7 +41,7 @@ const fmt = (n: number) => formatNumber(Number(n) || 0, { minimumFractionDigits:
 
 export default function OverallBudgetReportPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_SITE_BUDGETS)) {
+  if (!can(PERMISSIONS.VIEW_OVERALL_BUDGET_REPORT)) {
     return (
       <div className="text-muted-foreground">
         You do not have access to Overall Budget reports.
@@ -248,6 +249,7 @@ export default function OverallBudgetReportPage() {
                           <th className="border border-sky-600 dark:border-sky-800 text-left p-3 font-medium">Item Name</th>
                           <th className="border border-sky-600 dark:border-sky-800 text-left p-3 font-medium">Unit</th>
                           <th className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">Total Qty</th>
+                          <th className="border border-sky-600 dark:border-sky-800 text-right p-3 font-medium">Closing Qty</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -257,6 +259,9 @@ export default function OverallBudgetReportPage() {
                             <td className="border border-slate-300 dark:border-slate-700 p-3">{budgetItemLabels[id] || id}</td>
                             <td className="border border-slate-300 dark:border-slate-700 p-3">{reportData?.budgetItemUnits?.[id] || ""}</td>
                             <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-bold">{totals[id] ? fmt(totals[id]) : "0.00"}</td>
+                            <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                              {reportData?.closingQtyMap?.[id] ? fmt(reportData.closingQtyMap[id]) : "0.00"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
