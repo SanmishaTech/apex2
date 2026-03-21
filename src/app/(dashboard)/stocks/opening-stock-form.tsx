@@ -70,9 +70,9 @@ const batchSchema = z
     batchNumber: z.string().min(1, "Batch number is required"),
     expiryDate: z
       .string()
-      .optional()
+      .min(1, "Expiry date is required")
       .refine(
-        (val) => !val || /^\d{4}-\d{2}$/.test(val),
+        (val) => /^\d{4}-\d{2}$/.test(val),
         "Expiry date must be in YYYY-MM format"
       ),
     openingQty: z
@@ -304,7 +304,7 @@ function ExpiryBatchesEditor({
           <thead>
             <tr>
               <th className="text-left p-2 text-sm">Batch Number *</th>
-              <th className="text-left p-2 text-sm">Expiry Date</th>
+              <th className="text-left p-2 text-sm">Expiry Date *</th>
               <th className="text-left p-2 text-sm">Opening Qty *</th>
               <th className="text-left p-2 text-sm">Batch Opening Rate *</th>
               <th className="text-left p-2 text-sm">Opening Value *</th>
