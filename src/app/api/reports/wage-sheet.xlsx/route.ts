@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     
     // Process each site
     wageData.data.forEach((siteGroup: any, siteIdx: number) => {
-      const wsName = siteGroup.siteName.slice(0, 31); // Excel sheet name limit
+      const wsName = (siteGroup.siteName || `Site${siteIdx + 1}`).replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31); // Excel sheet name limit, strip invalid chars
       const sheetData: any[][] = [];
       
       // Column headers (uppercase for emphasis)
@@ -106,8 +106,8 @@ export async function GET(req: NextRequest) {
           "WORKING DAYS",
           "OT",
           "ACTUAL WAGES",
+          "FOOD CHARGES",
           "IDLE DAYS",
-          "IDLE WAGES",
           "TOTAL WAGES"
         );
       }
@@ -159,14 +159,15 @@ export async function GET(req: NextRequest) {
               }
             });
             
-            // Add summary values
+            // Add summary values (totalWages = totalWages - foodCharges)
+            const netTotalWages = Number(worker.totalWages || 0) - Number(worker.foodCharges || 0);
             row.push(
               worker.workingDays?.toFixed(2) || "0.00",
               worker.totalOT?.toFixed(2) || "0.00",
               worker.actualWages?.toFixed(2) || "0.00",
+              worker.foodCharges?.toFixed(2) || "0.00",
               (Number(worker.idleDays || 0) + Number(worker.idleOT || 0)).toFixed(2),
-              worker.idleWages?.toFixed(2) || "0.00",
-              worker.totalWages?.toFixed(2) || "0.00"
+              netTotalWages.toFixed(2)
             );
             
             sheetData.push(row);
@@ -182,18 +183,18 @@ export async function GET(req: NextRequest) {
             workingDays: acc.workingDays + Number(w.workingDays || 0),
             ot: acc.ot + Number(w.totalOT || 0),
             actualWages: acc.actualWages + Number(w.actualWages || 0),
+            foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
             idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
-            idleWages: acc.idleWages + Number(w.idleWages || 0),
             totalWages: acc.totalWages + Number(w.totalWages || 0)
-          }), { workingDays: 0, ot: 0, actualWages: 0, idleDays: 0, idleWages: 0, totalWages: 0 });
+          }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWages: 0 });
           
           supplierTotal.push(
             totals.workingDays.toFixed(2),
             totals.ot.toFixed(2),
             totals.actualWages.toFixed(2),
+            totals.foodCharges.toFixed(2),
             totals.idleDays.toFixed(2),
-            totals.idleWages.toFixed(2),
-            totals.totalWages.toFixed(2)
+            (totals.totalWages - totals.foodCharges).toFixed(2)
           );
           
           sheetData.push(supplierTotal);
@@ -247,18 +248,18 @@ export async function GET(req: NextRequest) {
           workingDays: acc.workingDays + Number(w.workingDays || 0),
           ot: acc.ot + Number(w.totalOT || 0),
           actualWages: acc.actualWages + Number(w.actualWages || 0),
+          foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
           idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
-          idleWages: acc.idleWages + Number(w.idleWages || 0),
           totalWages: acc.totalWages + Number(w.totalWages || 0)
-        }), { workingDays: 0, ot: 0, actualWages: 0, idleDays: 0, idleWages: 0, totalWages: 0 });
+        }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWages: 0 });
         
         grandTotal.push(
           totals.workingDays.toFixed(2),
           totals.ot.toFixed(2),
           totals.actualWages.toFixed(2),
+          totals.foodCharges.toFixed(2),
           totals.idleDays.toFixed(2),
-          totals.idleWages.toFixed(2),
-          totals.totalWages.toFixed(2)
+          (totals.totalWages - totals.foodCharges).toFixed(2)
         );
       } else {
         const totals = siteGroup.workers.reduce((acc: any, w: any) => ({
@@ -312,6 +313,7 @@ export async function GET(req: NextRequest) {
           { wch: 12 }, // Working Days
           { wch: 8 },  // OT
           { wch: 12 }, // Actual Wages
+          { wch: 14 }, // Food Charges
           { wch: 10 }, // Idle Days
           { wch: 12 }, // Idle Wages
           { wch: 12 }  // Total Wages
@@ -376,13 +378,13 @@ export async function GET(req: NextRequest) {
     const columns = [[
       "Site ID", "Site", "Manpower", "Supplier",
       "Working Days", "OT", "Idle", "Wage", "Gross",
-      "HRA", "PF", "ESIC", "PT", "MLWF", "Total",
+      "Food Charges", "HRA", "PF", "ESIC", "PT", "MLWF", "Total",
     ]];
     const dataRows = rows.map((r) => [
       r.siteId, r.siteName || "",
       r.manpowerName || "", r.supplier || "",
       r.workingDays, r.ot, r.idle, r.wages, r.grossWages,
-      r.hra, r.pf, r.esic, r.pt, r.mlwf, r.total,
+      r.foodCharges, r.hra, r.pf, r.esic, r.pt, r.mlwf, r.total,
     ]);
 
     const sheetData = [...header, [""], ...columns, ...dataRows];

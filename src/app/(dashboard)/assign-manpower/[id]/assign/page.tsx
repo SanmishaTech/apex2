@@ -27,6 +27,7 @@ type AssignDraft = {
   skillSet?: string | null;
   wage?: number | string | null;
   minWage?: number | string | null;
+  foodCharges?: number | string | null;
   esic?: boolean | null;
   pf?: boolean | null;
   pt?: boolean | null;
@@ -112,6 +113,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
           skillSet: row.skillSet ?? undefined,
           wage: row.wage ?? undefined,
           minWage: row.minWage ?? undefined,
+          foodCharges: row.foodCharges ?? undefined,
           esic: asBool(row.esic),
           pf: row.pf ?? false,
           pt: asBool(row.pt),
@@ -141,6 +143,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
             skillSet: row.skillSet ?? undefined,
             wage: row.wage ?? undefined,
             minWage: row.minWage ?? undefined,
+            foodCharges: row.foodCharges ?? undefined,
             esic: asBool(row.esic),
             pf: row.pf ?? false,
             pt: asBool(row.pt),
@@ -223,6 +226,12 @@ export default function AssignManpowerPage({ params }: PageProps) {
       )
     },
     {
+      key: 'foodCharges', header: 'Food Charges', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
+        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String(selected[r.id]?.foodCharges ?? r.foodCharges ?? '')}
+          onChange={(e) => setField(r.id, 'foodCharges', e.currentTarget.value)} />
+      )
+    },
+    {
       key: 'pf', header: 'PF', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
         <input type='checkbox' checked={selected[r.id]?.pf ?? r.pf ?? false} onChange={(e) => setField(r.id, 'pf', e.currentTarget.checked)} />
       )
@@ -252,12 +261,13 @@ export default function AssignManpowerPage({ params }: PageProps) {
   const sortState: SortState = { field: sort, order };
 
   async function handleAssign() {
-    const items: AssignManpowerRequestItem[] = Object.values(selected).map(({ manpowerId, category, skillSet, wage, minWage, esic, pf, pt, hra, mlwf, present }) => ({
+    const items: AssignManpowerRequestItem[] = Object.values(selected).map(({ manpowerId, category, skillSet, wage, minWage, foodCharges, esic, pf, pt, hra, mlwf, present }) => ({
       manpowerId,
       category,
       skillSet,
       wage,
       minWage,
+      foodCharges,
       esic: typeof esic === 'boolean' ? (esic ? 1 : null) : (esic as any),
       pf: pf ?? null,
       pt: typeof pt === 'boolean' ? (pt ? 1 : null) : (pt as any),

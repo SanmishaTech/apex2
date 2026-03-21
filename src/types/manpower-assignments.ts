@@ -11,6 +11,7 @@ export interface AssignedManpowerItem {
   skillSet?: string | null;
   wage?: string | null; // Prisma Decimal serialized to string
   minWage?: string | null; // Prisma Decimal serialized to string
+  foodCharges?: string | null; // Prisma Decimal serialized to string
   esic?: string | null; // Prisma Decimal serialized to string
   pf?: boolean;
   pt?: string | null; // Prisma Decimal serialized to string
@@ -30,6 +31,7 @@ export interface AssignManpowerRequestItem {
   skillSet?: string | null;
   wage?: number | string | null;
   minWage?: number | string | null;
+  foodCharges?: number | string | null;
   esic?: number | string | null;
   pf?: boolean | null;
   pt?: number | string | null;

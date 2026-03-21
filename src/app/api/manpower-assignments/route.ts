@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
             isPresent: true,
             wage: true,
             minWage: true,
+            ...({ foodCharges: true } as any),
             pf: true,
             esic: true,
             pt: true,
@@ -137,6 +138,7 @@ export async function GET(req: NextRequest) {
               assignedAt: sm?.assignedDate ?? null,
               wage: sm?.wage ?? null,
               minWage: sm?.minWage ?? null,
+              foodCharges: sm?.foodCharges ?? null,
               pf: sm?.pf ?? false,
               esic: sm?.esic ?? false,
               pt: sm?.pt ?? false,
@@ -200,6 +202,7 @@ export async function POST(req: NextRequest) {
             skillsetId,
             wage: asNonNegativeDecimal(i.wage) as any,
             minWage: asNonNegativeDecimal(i.minWage) as any,
+            foodCharges: asNonNegativeDecimal(i.foodCharges) as any,
             pf: !!i.pf,
             esic: !!i.esic,
             pt: !!i.pt,
@@ -261,6 +264,7 @@ export async function PATCH(req: NextRequest) {
         }
         if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
         if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
+        if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
         if (i.pf !== undefined) data.pf = !!i.pf;
         if (i.esic !== undefined) data.esic = !!i.esic;
         if (i.pt !== undefined) data.pt = !!i.pt;
