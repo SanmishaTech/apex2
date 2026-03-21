@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
                 categoryId: true,
                 pf: true,
                 esic: true,
+                ...({ foodCharges: true } as any),
                 category: { select: { categoryName: true } },
                 skillset: { select: { skillsetName: true } },
               },
@@ -112,6 +113,7 @@ export async function GET(req: NextRequest) {
                     categoryId: true,
                     pf: true,
                     esic: true,
+                    ...({ foodCharges: true } as any),
                     category: { select: { categoryName: true } },
                     skillset: { select: { skillsetName: true } },
                   },
@@ -156,8 +158,8 @@ export async function GET(req: NextRequest) {
 
     for (const detail of paySlipDetails) {
       const siteId = detail.siteId;
-      const manpowerId = detail.paySlip.manpowerId;
-      const manpower = detail.paySlip.manpower;
+      const manpowerId = (detail as any).paySlip.manpowerId;
+      const manpower = (detail as any).paySlip.manpower;
 
       const siteManpowerForThisSite = (manpower as any)?.siteManpower || null;
 
@@ -166,7 +168,7 @@ export async function GET(req: NextRequest) {
       if (!siteGroups.has(siteId)) {
         siteGroups.set(siteId, {
           siteId,
-          siteName: detail.site?.site || "",
+          siteName: (detail as any).site?.site || "",
           workers: [],
         });
       }
@@ -231,12 +233,11 @@ export async function GET(req: NextRequest) {
         idleDays: Number(detail.idle || 0),
         idleOT: 0,
         wageRate: Number(detail.wages || 0),
+        foodCharges: Number(siteManpowerForThisSite?.foodCharges || 0),
         grossWage,
         actualWages: Number(detail.total || 0),
-        idleWages: Number(detail.wages || 0) * Number(detail.idle || 0),
-        totalWages:
-          Number(detail.total || 0) +
-          Number(detail.wages || 0) * Number(detail.idle || 0),
+        idleWages: 0,
+        totalWages: Number(detail.total || 0),
         hra,
         pf: pfAmount,
         esic: esicAmount,

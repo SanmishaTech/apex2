@@ -1120,6 +1120,8 @@ model SiteManpower {
   skillsetId   Int?
   wage         Decimal? @db.Decimal(10, 2) 
   minWage      Decimal? @db.Decimal(10, 2) 
+  foodCharges  Decimal? @db.Decimal(10, 2) 
+
   pf           Boolean  @default(false)
   esic          Boolean  @default(false)
   hra           Boolean  @default(false)

@@ -63,6 +63,7 @@ export async function GET(
             skillset: { select: { id: true, skillsetName: true } },
             wage: true,
             minWage: true,
+            ...({ foodCharges: true } as any),
             pf: true,
             esic: true,
             hra: true,
@@ -112,6 +113,8 @@ export async function PATCH(
     }
     if (body.wage !== undefined) assignmentData.wage = asNonNegativeDecimal(body.wage) as any;
     if (body.minWage !== undefined) assignmentData.minWage = asNonNegativeDecimal(body.minWage) as any;
+    if (body.foodCharges !== undefined) assignmentData.foodCharges = asNonNegativeDecimal(body.foodCharges) as any;
+    if (body.foodCharges !== undefined) assignmentData.foodCharges = asNonNegativeDecimal(body.foodCharges) as any;
     if (body.pf !== undefined) assignmentData.pf = !!body.pf;
     if (body.esic !== undefined) assignmentData.esic = !!body.esic;
     if (body.hra !== undefined) assignmentData.hra = !!body.hra;

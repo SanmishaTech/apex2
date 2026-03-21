@@ -209,7 +209,6 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     where: {
       manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
       siteId: { in: siteIds.length ? siteIds : [0] },
-      isPresent: true,
     },
     select: {
       manpowerId: true,
