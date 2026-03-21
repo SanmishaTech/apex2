@@ -353,6 +353,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/reports/boq-targets",
     permissions: [PERMISSIONS.READ_BOQS],
   },
+  {
+    prefix: "/reports/stock-report",
+    permissions: [PERMISSIONS.VIEW_STOCK_REPORT],
+  },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -935,6 +939,18 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/employee-attendances/my-sites",
     methods: {
       GET: [],
+    },
+  },
+  {
+    prefix: "/api/reports/stock-report",
+    methods: {
+      GET: [PERMISSIONS.VIEW_STOCK_REPORT],
+    },
+  },
+  {
+    prefix: "/api/reports/stock-report-excel",
+    methods: {
+      GET: [PERMISSIONS.VIEW_STOCK_REPORT],
     },
   },
   // add more API rules here
