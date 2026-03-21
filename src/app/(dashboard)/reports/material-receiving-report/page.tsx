@@ -64,7 +64,7 @@ type MaterialReceivingReportResponse = {
 
 export default function MaterialReceivingReportPage() {
   const { can } = usePermissions();
-  if (!can(PERMISSIONS.READ_SITE_BUDGETS)) {
+  if (!can(PERMISSIONS.VIEW_MATERIAL_RECEIVING_REPORT)) {
     return (
       <div className="text-muted-foreground">
         You do not have access to Material Receiving Report.
@@ -424,7 +424,7 @@ export default function MaterialReceivingReportPage() {
                         </td>
 
                         {receivedLots.map((l, li) => {
-                          const hasQty = Boolean(r.receivedLotQty?.[li]);
+                          const hasQty = r.receivedLotQty?.[li] !== null && r.receivedLotQty?.[li] !== undefined;
                           return (
                             <Fragment key={`r-${r.itemId}-${l.id}`}>
                               <td
@@ -453,7 +453,7 @@ export default function MaterialReceivingReportPage() {
                         </td>
 
                         {transferredLots.map((l, li) => {
-                          const hasQty = Boolean(r.transferredLotQty?.[li]);
+                          const hasQty = r.transferredLotQty?.[li] !== null && r.transferredLotQty?.[li] !== undefined;
                           return (
                             <Fragment key={`t-${r.itemId}-${l.id}`}>
                               <td

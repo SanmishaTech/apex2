@@ -4,7 +4,7 @@ import { guardApiPermissions } from "@/lib/access-guard";
 import { PERMISSIONS } from "@/config/roles";
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_SITE_BUDGETS]);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.VIEW_BUDGET_PLANNING_REPORT]);
   if (!auth.ok) return auth.response;
 
   // Retrieve distinct months and weeks actively defined within Budget bounds

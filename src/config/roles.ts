@@ -380,6 +380,11 @@ export const PERMISSIONS = {
   // Employee Attendance report (photo+geo)
   VIEW_EMPLOYEE_ATTENDANCE: "VIEW:EMPLOYEE_ATTENDANCE",
 
+  // Custom Dashboards
+  VIEW_OVERALL_BUDGET_REPORT: "VIEW:OVERALL_BUDGET_REPORT",
+  VIEW_MATERIAL_RECEIVING_REPORT: "VIEW:MATERIAL_RECEIVING_REPORT",
+  VIEW_BUDGET_PLANNING_REPORT: "VIEW:BUDGET_PLANNING_REPORT",
+
   // satrt
   VIEW_ROLES: "VIEW:ROLES",
   EDIT_ROLES_PERMISSIONS: "EDIT:ROLES_PERMISSIONS",
@@ -584,6 +589,15 @@ export const PERMISSIONS = {
     key: "employee_attendance",
     label: "Employee Attendance",
     permissions: [PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE],
+  },
+  {
+    key: "dashboard_reports",
+    label: "Dashboard Reports",
+    permissions: [
+      PERMISSIONS.VIEW_OVERALL_BUDGET_REPORT,
+      PERMISSIONS.VIEW_MATERIAL_RECEIVING_REPORT,
+      PERMISSIONS.VIEW_BUDGET_PLANNING_REPORT,
+    ],
   },
   {
     key: "units",

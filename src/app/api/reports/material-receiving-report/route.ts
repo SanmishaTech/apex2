@@ -25,9 +25,9 @@ type Row = {
   closingQty: number;
   overallQty: number;
   overallQtyExists: boolean;
-  receivedLotQty: number[];
+  receivedLotQty: (number | null)[];
   receivedTotal: number;
-  transferredLotQty: number[];
+  transferredLotQty: (number | null)[];
   transferredTotal: number;
   totalReceived: number;
   balToBeSent: number;
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
   });
 
   const outgoingOdcLotsRaw = await prisma.outwardDeliveryChallan.findMany({
-    where: { fromSiteId: siteId },
+    where: { fromSiteId: siteId, isAccepted: true },
     select: {
       id: true,
       outwardChallanDate: true,
@@ -259,17 +259,14 @@ export async function GET(req: NextRequest) {
     const overallQty = overallQtyExists ? Number(overallQtyByItemId.get(itemId) || 0) : 0;
 
     const receivedLotQty = receivedLotItemQtyMaps.map((m) =>
-      Number(m.get(itemId) || 0)
+      m.has(itemId) ? Number(m.get(itemId) || 0) : null
     );
-    const receivedTotal = receivedLotQty.reduce((a, b) => a + Number(b || 0), 0);
+    const receivedTotal = receivedLotQty.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
 
     const transferredLotQty = transferredLotItemQtyMaps.map((m) =>
-      Number(m.get(itemId) || 0)
+      m.has(itemId) ? Number(m.get(itemId) || 0) : null
     );
-    const transferredTotal = transferredLotQty.reduce(
-      (a, b) => a + Number(b || 0),
-      0
-    );
+    const transferredTotal = transferredLotQty.reduce<number>((a, b) => (a || 0) + (b || 0), 0);
 
     const totalReceived = receivedTotal - transferredTotal;
     const balToBeSent = overallQty - totalReceived;

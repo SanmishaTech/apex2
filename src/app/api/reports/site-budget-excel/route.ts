@@ -42,7 +42,7 @@ function safeLabel(s: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await guardApiPermissions(req, [PERMISSIONS.READ_SITE_BUDGETS]);
+  const auth = await guardApiPermissions(req, [PERMISSIONS.VIEW_OVERALL_BUDGET_REPORT]);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;
@@ -187,7 +187,17 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < 10; i++) wsData.push([]);
 
   const secondHeaderRowIndex = wsData.length;
-  wsData.push(["Sr No", "Item Name", "Unit", "Total Qty"]);
+  const siteItems = await prisma.siteItem.findMany({
+    where: { 
+      siteId: boq.site?.id || 0,
+      itemId: { in: budgetItemIds }
+    }
+  });
+
+  const closingQtyMap = new Map<number, number>();
+  siteItems.forEach((si: any) => closingQtyMap.set(si.itemId, Number(si.closingStock || 0)));
+
+  wsData.push(["Sr No", "Item Name", "Unit", "Total Qty", "Closing Qty"]);
   for (let i = 0; i < budgetItemIds.length; i++) {
     const id = budgetItemIds[i];
     wsData.push([
@@ -195,6 +205,7 @@ export async function GET(req: NextRequest) {
       budgetItemLabelById.get(id) || String(id),
       budgetItemUnitById.get(id) || "",
       Number(fmt2(Number(totalQtyByBudgetItemId.get(id) || 0))),
+      Number(fmt2(closingQtyMap.get(id) || 0)),
     ]);
   }
 
