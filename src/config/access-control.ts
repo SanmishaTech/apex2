@@ -357,6 +357,9 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/reports/stock-report",
     permissions: [PERMISSIONS.VIEW_STOCK_REPORT],
   },
+  { prefix: "/lead-periods/new", permissions: [PERMISSIONS.CREATE_LEAD_PERIODS] },
+  { prefix: "/lead-periods/", permissions: [PERMISSIONS.EDIT_LEAD_PERIODS] },
+  { prefix: "/lead-periods", permissions: [PERMISSIONS.VIEW_LEAD_PERIODS] },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -803,6 +806,23 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_ASSETS],
       PATCH: [PERMISSIONS.EDIT_ASSETS],
       DELETE: [PERMISSIONS.DELETE_ASSETS],
+    },
+  },
+  {
+    prefix: "/api/lead-periods",
+    methods: {
+      GET: [PERMISSIONS.READ_LEAD_PERIODS],
+      POST: [PERMISSIONS.CREATE_LEAD_PERIODS],
+      PATCH: [PERMISSIONS.EDIT_LEAD_PERIODS],
+      DELETE: [PERMISSIONS.DELETE_LEAD_PERIODS],
+    },
+  },
+  {
+    prefix: "/api/lead-periods/",
+    methods: {
+      GET: [PERMISSIONS.READ_LEAD_PERIODS],
+      PATCH: [PERMISSIONS.EDIT_LEAD_PERIODS],
+      DELETE: [PERMISSIONS.DELETE_LEAD_PERIODS],
     },
   },
   {

@@ -149,6 +149,29 @@ export default function StockReportPage() {
   const expiryColumns = report?.expiryColumns || [];
   const summaries = report?.summaries || [];
 
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}`;
+
+  function getExpiryClasses(expiryDate: string) {
+    if (!expiryDate || expiryDate === "—") return "";
+    if (expiryDate < currentMonth) return "bg-red-600 text-white font-bold";
+    if (expiryDate === currentMonth || expiryDate === nextMonth) return "bg-yellow-400 text-black font-bold";
+    return "";
+  }
+
+  const grandTotals = useMemo(() => {
+    return summaries.reduce(
+      (acc, s) => ({
+        good: acc.good + s.good,
+        expired: acc.expired + s.expired,
+        total: acc.total + s.total,
+      }),
+      { good: 0, expired: 0, total: 0 }
+    );
+  }, [summaries]);
+
   return (
     <div className="space-y-4 p-4">
       <Form {...form}>
@@ -279,9 +302,14 @@ export default function StockReportPage() {
                           <td className="p-2 border border-slate-300 dark:border-slate-700 text-right font-semibold">
                             {formatNumber(row.totalValue, { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="p-2 border border-slate-300 dark:border-slate-700">{row.expiryRange}</td>
+                          <td className={`p-2 border border-slate-300 dark:border-slate-700 ${getExpiryClasses(row.expiryRange.split(" - ")[0])}`}>
+                            {row.expiryRange}
+                          </td>
                           {expiryColumns.map(col => (
-                            <td key={col.value} className="p-2 border border-slate-300 dark:border-slate-700 text-right">
+                            <td 
+                              key={col.value} 
+                              className={`p-2 border border-slate-300 dark:border-slate-700 text-right ${row.expiries[col.value] ? getExpiryClasses(col.value) : ""}`}
+                            >
                               {row.expiries[col.value] ? formatNumber(row.expiries[col.value], { minimumFractionDigits: 2 }) : "—"}
                             </td>
                           ))}
@@ -320,24 +348,39 @@ export default function StockReportPage() {
                         <td colSpan={5} className="p-8 text-center text-muted-foreground">No data.</td>
                       </tr>
                     ) : (
-                      summaries.map((s, idx) => (
-                        <tr 
-                          key={idx} 
-                          className={idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"}
-                        >
-                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-center">{idx + 1}</td>
-                          <td className="p-2 border border-slate-300 dark:border-slate-700 font-semibold">{s.site}</td>
+                      <>
+                        {summaries.map((s, idx) => (
+                          <tr 
+                            key={idx} 
+                            className={idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"}
+                          >
+                            <td className="p-2 border border-slate-300 dark:border-slate-700 text-center">{idx + 1}</td>
+                            <td className="p-2 border border-slate-300 dark:border-slate-700 font-semibold">{s.site}</td>
+                            <td className="p-2 border border-slate-300 dark:border-slate-700 text-right">
+                              {formatNumber(s.good, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-2 border border-slate-300 dark:border-slate-700 text-right text-red-600 font-medium">
+                              {formatNumber(s.expired, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-2 border border-slate-300 dark:border-slate-700 text-right font-bold text-sky-700 dark:text-sky-400">
+                              {formatNumber(s.total, { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-sky-50 dark:bg-sky-950/30 font-bold border-t-2 border-slate-400 text-[11px]">
+                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-center"></td>
+                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-right">Grand Total:</td>
                           <td className="p-2 border border-slate-300 dark:border-slate-700 text-right">
-                            {formatNumber(s.good, { minimumFractionDigits: 2 })}
+                            {formatNumber(grandTotals.good, { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-right text-red-600 font-medium">
-                            {formatNumber(s.expired, { minimumFractionDigits: 2 })}
+                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-right text-red-600">
+                            {formatNumber(grandTotals.expired, { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-right font-bold text-sky-700 dark:text-sky-400">
-                            {formatNumber(s.total, { minimumFractionDigits: 2 })}
+                          <td className="p-2 border border-slate-300 dark:border-slate-700 text-right text-sky-700 dark:text-sky-400">
+                            {formatNumber(grandTotals.total, { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-                      ))
+                      </>
                     )}
                   </tbody>
                 </table>
