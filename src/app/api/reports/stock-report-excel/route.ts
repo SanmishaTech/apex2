@@ -158,6 +158,20 @@ export async function GET(req: NextRequest) {
     ]);
   });
 
+  if (summaries.length > 0) {
+    const grandGood = summaries.reduce((acc, s) => acc + s.good, 0);
+    const grandExpired = summaries.reduce((acc, s) => acc + s.expired, 0);
+    const grandTotal = summaries.reduce((acc, s) => acc + s.total, 0);
+
+    aoa.push([
+      "",
+      "Grand Total",
+      grandGood,
+      grandExpired,
+      grandTotal,
+    ]);
+  }
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   

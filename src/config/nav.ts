@@ -423,6 +423,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_PAYMENT_TERMS,
       },
+       {
+        title: "Lead Periods",
+        href: "/lead-periods",
+        icon: FileText,
+        permission: PERMISSIONS.VIEW_LEAD_PERIODS,
+      },
       {
         title: "Overall Budget",
         href: "/overall-site-budgets",
@@ -619,6 +625,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.VIEW_STOCK_REPORT,
       },
+     
     ],
   },
 

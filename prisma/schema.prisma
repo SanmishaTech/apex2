@@ -109,6 +109,9 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   overallSiteBudgetCommercialApprovals OverallSiteBudget[] @relation("OverallSiteBudgetCommercialApprovalBy")
   overallSiteBudgetProjectApprovals OverallSiteBudget[] @relation("OverallSiteBudgetProjectApprovalBy")
   employeeAttendances  EmployeeAttendance[]
+
+  leadPeriodCreated LeadPeriod[] @relation("LeadPeriodCreated")
+  leadPeriodUpdated LeadPeriod[] @relation("LeadPeriodUpdated")
   @@map("users")
 }
 
@@ -367,6 +370,7 @@ model Site {
   siteManpowers     SiteManpower[]
   siteManpowerLogs SiteManpowerLog[]
   siteItemBatches  SiteItemBatch[]
+  leadPeriods LeadPeriod[]
 
   overallSiteBudgets           OverallSiteBudget[]
 
@@ -756,6 +760,7 @@ model Item {
     stockAdjustmentDetail   StockAdjustmentDetail[]
     siteBudgetItems SiteBudgetItem[]
     siteItemBatches  SiteItemBatch[]
+    leadPeriodDetails LeadPeriodDetail[]
     overallSiteBudgetItems OverallSiteBudgetItem[]
 
   @@index([itemCode])
@@ -2997,4 +3002,43 @@ model OverallSiteBudgetItem {
   
   @@map("overall_site_budget_items")
 }
-// DO NOT PUSH CODE YET. solve remainning qty first.
+
+
+//Lead Period
+model LeadPeriod {
+  id             Int      @id @default(autoincrement())
+  siteId         Int      @unique
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  createdById      Int
+  updatedById      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdBy User @relation("LeadPeriodCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("LeadPeriodUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  leadPeriodDetails LeadPeriodDetail[]
+
+  @@index([siteId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("lead_periods")
+}
+
+model LeadPeriodDetail {
+  id             Int      @id @default(autoincrement())
+  leadPeriodId         Int
+  leadPeriod           LeadPeriod     @relation(fields: [leadPeriodId], references: [id], onDelete: Restrict)
+  itemId         Int
+  item        Item    @relation(fields: [itemId], references: [id], onDelete:Restrict)
+  period      Int
+
+ 
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([leadPeriodId])
+  @@index([itemId])
+  @@unique([leadPeriodId, itemId])
+  @@map("lead_period_details")
+}
