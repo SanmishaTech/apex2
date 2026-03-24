@@ -235,6 +235,8 @@ export default function BudgetPlanningReportPage() {
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Site</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Item Name</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-left p-3 font-medium">Unit</th>
+                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Rate</th>
+                      <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Closing Qty</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">Total Req. Qty</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium">Received</th>
                       <th className="border border-emerald-500 dark:border-emerald-800 text-right p-3 font-medium whitespace-nowrap">Balance To Be Sent</th>
@@ -267,6 +269,8 @@ export default function BudgetPlanningReportPage() {
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{row.site}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3 max-w-sm" title={row.itemName}>{row.itemName}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3">{row.unit}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right">{fmt(row.budgetRate)}</td>
+                          <td className="border border-slate-300 dark:border-slate-700 p-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{fmt(row.closingQty)}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-medium">{fmt(row.totalReqQty)}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{fmt(row.receivedQty)}</td>
                           <td className="border border-slate-300 dark:border-slate-700 p-3 text-right font-bold text-slate-900 dark:text-slate-100">{fmt(row.balance)}</td>

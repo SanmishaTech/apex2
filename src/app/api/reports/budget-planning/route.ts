@@ -33,12 +33,21 @@ export async function GET(req: NextRequest) {
         include: {
           overallSiteBudgetItems: {
             where: itemFilterIds.length > 0 ? { itemId: { in: itemFilterIds } } : undefined,
-            include: { item: { select: { id: true, item: true, itemCode: true, unit: { select: { unitName: true } } } } }
+            include: { 
+              item: { select: { id: true, item: true, itemCode: true, unit: { select: { unitName: true } } } } 
+            },
           }
         }
       }
     }
   });
+
+  // Since overallSiteBudgetItems is not selected with budgetValue/Rate above in the original include,
+  // we actually need to make sure they are included. 
+  // Wait, let me check the previous view_file output again.
+  // Original code at 34: overallSiteBudgetItems: { where: ..., include: { item: { select: { ... } } } } 
+  // It didn't specify fields for overallSiteBudgetItems, so it selects ALL fields (including budgetRate, budgetValue).
+  // I will just use them.
 
   const rowMap = new Map<string, any>(); 
 
@@ -53,6 +62,8 @@ export async function GET(req: NextRequest) {
         itemName: `${item?.itemCode ?? ""}${item?.item ? " - " + item.item : ""}`.trim() || "-",
         unit: item?.unit?.unitName || "-",
         totalReqQty: 0,
+        totalReqValue: 0,
+        closingQty: 0,
         receivedQty: 0,
         monthProps: {} as Record<string, { qty: number, amt: number }>,
         weekProps: {} as Record<string, { qty: number, amt: number }>
@@ -62,17 +73,27 @@ export async function GET(req: NextRequest) {
   };
 
   const validSiteIdsSet = new Set<number>();
-
   for (const b of overallBudgets) {
-    if (!b.boq?.site) continue;
-    validSiteIdsSet.add(b.boq.site.id);
+    if (b.boq?.site?.id) validSiteIdsSet.add(b.boq.site.id);
     for (const d of b.overallSiteBudgetDetails || []) {
       for (const it of d.overallSiteBudgetItems || []) {
         if (!it.item) continue;
         const row = getOrCreateRow(b.boq.site, it.item);
         row.totalReqQty += Number(it.budgetQty || 0);
+        row.totalReqValue += Number(it.budgetValue || 0);
       }
     }
+  }
+
+  // Also include sites from filters even if they don't have budgets
+  if (siteIds.length > 0) {
+    siteIds.forEach(id => validSiteIdsSet.add(id));
+  } else if (zoneFilter) {
+    const sitesInZone = await prisma.site.findMany({
+      where: { zoneId: zoneFilter },
+      select: { id: true }
+    });
+    sitesInZone.forEach(s => validSiteIdsSet.add(s.id));
   }
 
   const validSiteIds = Array.from(validSiteIdsSet);
@@ -175,10 +196,27 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+
+    const siteItems = await prisma.siteItem.findMany({
+      where: {
+        siteId: { in: validSiteIds },
+        itemId: itemFilterIds.length > 0 ? { in: itemFilterIds } : undefined
+      },
+      include: {
+        site: { select: { id: true, site: true, zone: { select: { zoneName: true } } } },
+        item: { select: { id: true, item: true, itemCode: true, unit: { select: { unitName: true } } } }
+      }
+    });
+
+    for (const si of siteItems) {
+      const row = getOrCreateRow(si.site, si.item);
+      row.closingQty = Number(si.closingStock || 0);
+    }
   }
 
   const outputRows = Array.from(rowMap.values()).map(r => ({
     ...r,
+    budgetRate: r.totalReqQty > 0 ? r.totalReqValue / r.totalReqQty : 0,
     balance: Math.max(0, r.totalReqQty - r.receivedQty)
   })).sort((a, b) => a.site.localeCompare(b.site) || a.itemName.localeCompare(b.itemName));
 
