@@ -76,7 +76,7 @@ export default function DashboardLayout({
 								className='absolute inset-0 bg-background/80 backdrop-blur-sm'
 								onClick={() => setMobileOpen(false)}
 							/>
-							<div className='relative z-50 w-64 border-r bg-background'>
+							<div className='relative z-50 w-64 h-full border-r bg-background'>
 								<Sidebar mobile onNavigate={() => setMobileOpen(false)} />
 							</div>
 						</div>

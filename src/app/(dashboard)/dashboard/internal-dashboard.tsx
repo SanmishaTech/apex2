@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, CheckCircle2 } from "lucide-react";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { DataTable, type Column } from "@/components/common/data-table";
@@ -264,56 +264,80 @@ export default function InternalDashboard() {
 
   return (
     <div className="p-4 space-y-4">
-      {hasEmployee && (!inMarked || !outMarked) && (
+      {hasEmployee && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {!inMarked && (
-            <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-background p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
+          <div className="relative rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-background p-4 shadow-sm overflow-hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
                   <div className="text-sm font-semibold text-foreground">
                     Office IN
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Capture photo + location to mark entry.
-                  </div>
+                  {inMarked && (
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                      <span className="text-[10px] font-medium text-emerald-700">
+                        {new Date(todayData!.data!.in!.time).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center">
-                  <LogIn className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Capture photo + location to mark entry.
                 </div>
               </div>
-              <div className="mt-4">
-                <AppButton className="w-full" onClick={() => goMark("IN")}>
-                  Mark IN
-                </AppButton>
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center">
+                <LogIn className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
-          )}
+            <div className="mt-4">
+              <AppButton className="w-full" onClick={() => goMark("IN")}>
+                Mark IN
+              </AppButton>
+            </div>
+          </div>
 
-          {!outMarked && (
-            <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-background p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
+          <div className="relative rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-background p-4 shadow-sm overflow-hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
                   <div className="text-sm font-semibold text-foreground">
                     Office OUT
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Capture photo + location to mark exit.
-                  </div>
+                  {outMarked && (
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">
+                      <CheckCircle2 className="h-3 w-3 text-rose-600" />
+                      <span className="text-[10px] font-medium text-rose-700">
+                        {new Date(todayData!.data!.out!.time).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 flex items-center justify-center">
-                  <LogOut className="h-5 w-5 text-rose-700 dark:text-rose-300" />
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Capture photo + location to mark exit.
                 </div>
               </div>
-              <div className="mt-4">
-                <AppButton
-                  className="w-full"
-                  onClick={() => goMark("OUT")}
-                >
-                  Mark OUT
-                </AppButton>
+              <div className="h-10 w-10 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 flex items-center justify-center">
+                <LogOut className="h-5 w-5 text-rose-700 dark:text-rose-300" />
               </div>
             </div>
-          )}
+            <div className="mt-4">
+              <AppButton
+                className="w-full"
+                onClick={() => goMark("OUT")}
+              >
+                Mark OUT
+              </AppButton>
+            </div>
+          </div>
         </div>
       )}
 

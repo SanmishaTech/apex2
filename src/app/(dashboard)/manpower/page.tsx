@@ -105,11 +105,25 @@ export default function ManpowerPage() {
       key: 'firstName', header: 'Name', sortable: true, accessor: (r) => `${r.firstName}${r.middleName ? ' ' + r.middleName : ''} ${r.lastName}`,
       className: 'whitespace-nowrap', cellClassName: 'font-medium whitespace-nowrap',
     },
+    { key: 'category', header: 'Category', sortable: false, accessor: (r) => r.category || '-', className: 'whitespace-nowrap' },
+    { key: 'aadharNo', header: 'Aadhar No', sortable: false, accessor: (r) => r.aadharNo || '-', className: 'whitespace-nowrap' },
     { key: 'currentSiteName', header: 'Site', sortable: false, accessor: (r) => r.currentSiteName || '-', className: 'whitespace-nowrap' },
     { key: 'manpowerSupplier', header: 'Supplier', sortable: false, accessor: (r) => r.manpowerSupplier?.supplierName || '-', className: 'whitespace-nowrap' },
     { key: 'mobileNumber', header: 'Mobile', sortable: false, className: 'whitespace-nowrap' },
     { key: 'wage', header: 'Wage', sortable: true, className: 'text-right whitespace-nowrap', cellClassName: 'text-right tabular-nums whitespace-nowrap' },
-    { key: 'createdAt', header: 'Created', sortable: true, className: 'whitespace-nowrap' },
+    { 
+      key: 'createdAt', 
+      header: 'Created', 
+      sortable: true, 
+      className: 'whitespace-nowrap',
+      accessor: (r) => {
+        const d = new Date(r.createdAt);
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+    },
   ];
 
   const sortState: SortState = { field: sort, order };
@@ -264,7 +278,15 @@ export default function ManpowerPage() {
           {/* {can(PERMISSIONS.EDIT_MANPOWER) && (
             <AppButton variant='outline' size='sm' onClick={() => setUploadDialogOpen(true)} iconName='Upload' className='min-w-[84px]'>Upload</AppButton>
           )} */}
-          <AppButton variant='outline' size='sm' onClick={handleExport} iconName='Download' className='min-w-[84px]'>Export</AppButton>
+          <AppButton 
+            variant='outline' 
+            size='sm' 
+            onClick={handleExport} 
+            iconName='Download' 
+            className='min-w-[84px] text-black border-black/30 hover:bg-black/5 dark:text-inherit dark:border-inherit'
+          >
+            Export
+          </AppButton>
           {search && (
             <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-[84px]'>Reset</AppButton>
           )}

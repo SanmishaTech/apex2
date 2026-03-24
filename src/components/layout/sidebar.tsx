@@ -322,7 +322,7 @@ export function Sidebar({
 
   const baseClasses = `${
     mobile ? "flex" : "hidden md:flex"
-  } w-64 flex-col border-r bg-gradient-to-b from-background to-background/80 backdrop-blur-sm shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] relative`;
+  } w-64 h-full flex-col border-r bg-gradient-to-b from-background to-background/80 backdrop-blur-sm shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] relative`;
   const positionClasses = fixed ? "fixed inset-y-0 left-0 z-40" : "shrink-0";
   return (
     <aside className={cn(baseClasses, positionClasses, className)}>

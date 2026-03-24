@@ -357,6 +357,7 @@ export async function GET(
           igstPercent: true,
           igstAmt: true,
           amount: true,
+          remark: true,
           item: {
             select: {
               item: true,
@@ -628,7 +629,7 @@ export async function GET(
     return [
       (index + 1).toString(),
       [
-        detail.item?.item ?? "",
+        `${detail.item?.item ?? ""}${detail.remark ? ` (${detail.remark})` : ""}`,
         detail.item?.description ? String(detail.item.description) : "",
       ]
         .filter(Boolean)
