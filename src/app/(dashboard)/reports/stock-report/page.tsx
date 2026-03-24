@@ -34,6 +34,7 @@ type StockReportRow = {
   unitName: string;
   totalQty: number;
   totalValue: number;
+  nextLotOrderDate?: string | null;
   expiryRange: string;
   expiries: Record<string, number>;
 };
@@ -161,6 +162,20 @@ export default function StockReportPage() {
     return "";
   }
 
+  function getNextLotDateClasses(dateStr: string | null | undefined) {
+    if (!dateStr || dateStr === "—" || dateStr === "<Asset>") return "";
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fiveDaysFromNow = new Date(today);
+    fiveDaysFromNow.setDate(today.getDate() + 5);
+    
+    if (d >= today && d <= fiveDaysFromNow) {
+      return "bg-blue-600 text-white font-bold";
+    }
+    return "";
+  }
+
   const grandTotals = useMemo(() => {
     return summaries.reduce(
       (acc, s) => ({
@@ -260,6 +275,7 @@ export default function StockReportPage() {
                       <th className="p-2 text-right font-medium border border-sky-600 dark:border-sky-800">Qty</th>
                       <th className="p-2 text-left font-medium border border-sky-600 dark:border-sky-800">Unit</th>
                       <th className="p-2 text-right font-medium border border-sky-600 dark:border-sky-800">Amount</th>
+                      <th className="p-2 text-left font-medium border border-sky-600 dark:border-sky-800 min-w-[120px]">Next lot order date</th>
                       <th className="p-2 text-left font-medium border border-sky-600 dark:border-sky-800">Expiry Range</th>
                       {expiryColumns.map(col => (
                         <th key={col.value} className="p-2 text-right font-medium border border-sky-600 dark:border-sky-800 min-w-[50px]">
@@ -271,13 +287,13 @@ export default function StockReportPage() {
                   <tbody>
                     {reportLoading ? (
                       <tr>
-                        <td colSpan={7 + expiryColumns.length} className="p-8 text-center text-muted-foreground animate-pulse">
+                        <td colSpan={8 + expiryColumns.length} className="p-8 text-center text-muted-foreground animate-pulse">
                           Loading...
                         </td>
                       </tr>
                     ) : rows.length === 0 ? (
                       <tr>
-                        <td colSpan={7 + expiryColumns.length} className="p-8 text-center text-muted-foreground">
+                        <td colSpan={8 + expiryColumns.length} className="p-8 text-center text-muted-foreground">
                           No data.
                         </td>
                       </tr>
@@ -301,6 +317,9 @@ export default function StockReportPage() {
                           <td className="p-2 border border-slate-300 dark:border-slate-700 text-muted-foreground">{row.unitName}</td>
                           <td className="p-2 border border-slate-300 dark:border-slate-700 text-right font-semibold">
                             {formatNumber(row.totalValue, { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className={`p-2 border border-slate-300 dark:border-slate-700 text-left ${getNextLotDateClasses(row.nextLotOrderDate)}`}>
+                            {row.nextLotOrderDate ? row.nextLotOrderDate : "—"}
                           </td>
                           <td className={`p-2 border border-slate-300 dark:border-slate-700 ${getExpiryClasses(row.expiryRange.split(" - ")[0])}`}>
                             {row.expiryRange}

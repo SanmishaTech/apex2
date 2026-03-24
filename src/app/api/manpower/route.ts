@@ -66,9 +66,17 @@ export async function GET(req: NextRequest) {
 
   // Text search
   if (search) {
+    const parts = search.split(/\s+/).filter(Boolean);
+    const nameConditions = parts.map((p) => ({
+      OR: [
+        { firstName: { contains: p } },
+        { middleName: { contains: p } },
+        { lastName: { contains: p } },
+      ],
+    }));
+
     where.OR = [
-      { firstName: { contains: search } },
-      { lastName: { contains: search } },
+      { AND: nameConditions },
       { mobileNumber: { contains: search } },
       { panNumber: { contains: search } },
       { aadharNo: { contains: search } },

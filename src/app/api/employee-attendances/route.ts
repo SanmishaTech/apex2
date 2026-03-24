@@ -112,7 +112,19 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      return BadRequest("Attendance is already marked");
+      const updated = await prisma.employeeAttendance.update({
+        where: { id: existing.id },
+        data: {
+          siteId: parsed.siteId,
+          time: now,
+          imageUrl,
+          latitude: new Prisma.Decimal(parsed.latitude),
+          longitude: new Prisma.Decimal(parsed.longitude),
+          accuracy: new Prisma.Decimal(parsed.accuracy),
+          createdById: auth.user.id,
+        },
+      });
+      return Success({ data: updated }, 200);
     }
 
     const attendance = await prisma.employeeAttendance.create({
