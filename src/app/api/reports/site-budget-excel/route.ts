@@ -90,6 +90,8 @@ export async function GET(req: NextRequest) {
               itemId: true,
               item: { select: { itemCode: true, item: true, unit: { select: { unitName: true } } } },
               budgetQty: true,
+              budgetRate: true,
+              budgetValue: true,
             },
             orderBy: { id: "asc" },
           },
@@ -102,6 +104,7 @@ export async function GET(req: NextRequest) {
   const budgetItemUnitById = new Map<number, string>();
   const qtyByBoqItemIdByBudgetItemId = new Map<number, Map<number, number>>();
   const totalQtyByBudgetItemId = new Map<number, number>();
+  const totalValueByBudgetItemId = new Map<number, number>();
 
   for (const b of budgets || []) {
     for (const d of (b.overallSiteBudgetDetails || []) as any[]) {
@@ -123,14 +126,25 @@ export async function GET(req: NextRequest) {
         }
 
         const qty = Number(it.budgetQty || 0);
+        const value = Number(it.budgetValue || 0);
+
         if (!qtyByBoqItemIdByBudgetItemId.has(boqItemId)) {
           qtyByBoqItemIdByBudgetItemId.set(boqItemId, new Map());
         }
         const m = qtyByBoqItemIdByBudgetItemId.get(boqItemId)!;
         m.set(budgetItemId, (m.get(budgetItemId) || 0) + qty);
+        
         totalQtyByBudgetItemId.set(budgetItemId, (totalQtyByBudgetItemId.get(budgetItemId) || 0) + qty);
+        totalValueByBudgetItemId.set(budgetItemId, (totalValueByBudgetItemId.get(budgetItemId) || 0) + value);
       }
     }
+  }
+
+  const averageRatesMap = new Map<number, number>();
+  for (const id of Array.from(totalQtyByBudgetItemId.keys())) {
+    const q = totalQtyByBudgetItemId.get(id) || 0;
+    const v = totalValueByBudgetItemId.get(id) || 0;
+    averageRatesMap.set(id, q > 0 ? v / q : 0);
   }
 
   const budgetItemIds = Array.from(budgetItemLabelById.keys()).sort((a, b) => {
@@ -197,7 +211,7 @@ export async function GET(req: NextRequest) {
   const closingQtyMap = new Map<number, number>();
   siteItems.forEach((si: any) => closingQtyMap.set(si.itemId, Number(si.closingStock || 0)));
 
-  wsData.push(["Sr No", "Item Name", "Unit", "Total Qty", "Closing Qty"]);
+  wsData.push(["Sr No", "Item Name", "Unit", "Total Qty", "Average Rate", "Total Amount", "Closing Qty"]);
   for (let i = 0; i < budgetItemIds.length; i++) {
     const id = budgetItemIds[i];
     wsData.push([
@@ -205,6 +219,8 @@ export async function GET(req: NextRequest) {
       budgetItemLabelById.get(id) || String(id),
       budgetItemUnitById.get(id) || "",
       Number(fmt2(Number(totalQtyByBudgetItemId.get(id) || 0))),
+      Number(fmt2(Number(averageRatesMap.get(id) || 0))),
+      Number(fmt2(Number(totalValueByBudgetItemId.get(id) || 0))),
       Number(fmt2(closingQtyMap.get(id) || 0)),
     ]);
   }
@@ -259,7 +275,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Style second table header
-  for (let c = 0; c <= 3; c++) {
+  for (let c = 0; c <= 6; c++) {
     const cellRef = XLSX.utils.encode_cell({ r: secondHeaderRowIndex, c });
     const cell = (ws as any)[cellRef];
     if (!cell) continue;
