@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
               itemId: true,
               item: { select: { itemCode: true, item: true, unit: { select: { unitName: true } } } },
               budgetQty: true,
+              budgetRate: true,
+              budgetValue: true,
             },
             orderBy: { id: "asc" },
           },
@@ -64,6 +66,7 @@ export async function GET(req: NextRequest) {
   const budgetItemUnitById: Record<number, string> = {};
   const qtyByBoqItemIdByBudgetItemId = new Map<number, Map<number, number>>();
   const totalQtyByBudgetItemId: Record<number, number> = {};
+  const totalValueByBudgetItemId: Record<number, number> = {};
 
   for (const b of budgets || []) {
     for (const d of (b.overallSiteBudgetDetails || []) as any[]) {
@@ -85,14 +88,25 @@ export async function GET(req: NextRequest) {
         }
 
         const qty = Number(it.budgetQty || 0);
+        const value = Number(it.budgetValue || 0);
+
         if (!qtyByBoqItemIdByBudgetItemId.has(boqItemId)) {
           qtyByBoqItemIdByBudgetItemId.set(boqItemId, new Map());
         }
         const m = qtyByBoqItemIdByBudgetItemId.get(boqItemId)!;
         m.set(budgetItemId, (m.get(budgetItemId) || 0) + qty);
+        
         totalQtyByBudgetItemId[budgetItemId] = (totalQtyByBudgetItemId[budgetItemId] || 0) + qty;
+        totalValueByBudgetItemId[budgetItemId] = (totalValueByBudgetItemId[budgetItemId] || 0) + value;
       }
     }
+  }
+
+  const averageRateByBudgetItemId: Record<number, number> = {};
+  for (const id of Object.keys(totalQtyByBudgetItemId).map(Number)) {
+    const q = totalQtyByBudgetItemId[id] || 0;
+    const v = totalValueByBudgetItemId[id] || 0;
+    averageRateByBudgetItemId[id] = q > 0 ? v / q : 0;
   }
 
   const budgetItemIds = Object.keys(budgetItemLabelById).map(Number).sort((a, b) => {
@@ -139,6 +153,8 @@ export async function GET(req: NextRequest) {
     budgetItemLabels: budgetItemLabelById,
     budgetItemUnits: budgetItemUnitById,
     closingQtyMap,
+    averageRates: averageRateByBudgetItemId,
+    totalAmounts: totalValueByBudgetItemId,
     rows,
     totals: totalQtyByBudgetItemId
   });

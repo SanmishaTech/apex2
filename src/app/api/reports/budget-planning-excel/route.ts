@@ -81,6 +81,8 @@ export async function GET(req: NextRequest) {
         itemName: `${item?.itemCode ?? ""}${item?.item ? " - " + item.item : ""}`.trim() || "-",
         unit: item?.unit?.unitName || "-",
         totalReqQty: 0,
+        totalReqValue: 0,
+        closingQty: 0,
         receivedQty: 0,
         monthProps: {} as Record<string, { qty: number, amt: number }>,
         weekProps: {} as Record<string, { qty: number, amt: number }>
@@ -99,14 +101,25 @@ export async function GET(req: NextRequest) {
         if (!it.item) continue;
         const row = getOrCreateRow(b.boq.site, it.item);
         row.totalReqQty += Number(it.budgetQty || 0);
+        row.totalReqValue += Number(it.budgetValue || 0);
       }
     }
+  }
+
+  if (siteIds.length > 0) {
+    siteIds.forEach(id => validSiteIdsSet.add(id));
+  } else if (zoneFilter) {
+    const sitesInZone = await prisma.site.findMany({
+      where: { zoneId: zoneFilter },
+      select: { id: true }
+    });
+    sitesInZone.forEach(s => validSiteIdsSet.add(s.id));
   }
 
   const validSiteIds = Array.from(validSiteIdsSet);
 
   if (validSiteIds.length > 0) {
-    const [inwardLots, outwardLots] = await Promise.all([
+    const [inwardLots, outwardLots, siteItems] = await Promise.all([
       prisma.inwardDeliveryChallan.findMany({
         where: { siteId: { in: validSiteIds } },
         select: {
@@ -124,8 +137,23 @@ export async function GET(req: NextRequest) {
             select: { itemId: true, receivedQty: true }
           }
         }
+      }),
+      prisma.siteItem.findMany({
+        where: {
+          siteId: { in: validSiteIds },
+          itemId: itemFilterIds.length > 0 ? { in: itemFilterIds } : undefined
+        },
+        include: {
+          site: { select: { id: true, site: true, zone: { select: { zoneName: true } } } },
+          item: { select: { id: true, item: true, itemCode: true, unit: { select: { unitName: true } } } }
+        }
       })
     ]);
+
+    for (const si of siteItems) {
+      const row = getOrCreateRow(si.site, si.item);
+      row.closingQty = Number(si.closingStock || 0);
+    }
 
     for (const lot of inwardLots) {
       for (const d of lot.inwardDeliveryChallanDetails || []) {
@@ -207,6 +235,7 @@ export async function GET(req: NextRequest) {
 
   const outputRows = Array.from(rowMap.values()).map(r => ({
     ...r,
+    budgetRate: r.totalReqQty > 0 ? r.totalReqValue / r.totalReqQty : 0,
     balance: Math.max(0, r.totalReqQty - r.receivedQty)
   })).sort((a, b) => a.site.localeCompare(b.site) || a.itemName.localeCompare(b.itemName));
 
@@ -227,7 +256,7 @@ export async function GET(req: NextRequest) {
   wsData.push([`Generated On: ${formatDdMmYyyyTime(new Date())}`]);
   wsData.push([]);
 
-  const colHeaders = ["Sr No", "Zone", "Site", "Item Name", "Unit", "Total Req. Qty", "Received", "Balance To Be Sent"];
+  const colHeaders = ["Sr No", "Zone", "Site", "Item Name", "Unit", "Rate", "Closing Qty", "Total Req. Qty", "Received", "Balance To Be Sent"];
   
   for (const m of selectedMonths) {
     colHeaders.push(`${m} Qty`);
@@ -247,6 +276,8 @@ export async function GET(req: NextRequest) {
       row.site,
       row.itemName,
       row.unit,
+      Number(fmt2(row.budgetRate)),
+      Number(fmt2(row.closingQty)),
       Number(fmt2(row.totalReqQty)),
       Number(fmt2(row.receivedQty)),
       Number(fmt2(row.balance))
@@ -290,6 +321,8 @@ export async function GET(req: NextRequest) {
     { wch: 30 }, // Site
     { wch: 40 }, // Item Name
     { wch: 10 }, // Unit
+    { wch: 12 }, // Rate
+    { wch: 15 }, // Closing Qty
     { wch: 15 }, // Total Req
     { wch: 15 }, // Received
     { wch: 15 }, // Balance
