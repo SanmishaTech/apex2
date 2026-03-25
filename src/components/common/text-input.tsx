@@ -19,6 +19,7 @@ export interface TextInputProps {
 	description?: string;
 	placeholder?: string;
 	disabled?: boolean;
+	readOnly?: boolean;
 	autoComplete?: string;
 	className?: string;
 	required?: boolean;
@@ -49,6 +50,7 @@ export function TextInput({
 	description,
 	placeholder,
 	disabled,
+	readOnly,
 	autoComplete,
 	className,
 	required,
@@ -100,6 +102,7 @@ export function TextInput({
 								placeholder={placeholder}
 								autoComplete={autoComplete}
 								disabled={disabled}
+								readOnly={readOnly}
 								inputMode={inputMode}
 								min={min}
 								max={max}

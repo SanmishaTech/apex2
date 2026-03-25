@@ -112,6 +112,10 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
 
   leadPeriodCreated LeadPeriod[] @relation("LeadPeriodCreated")
   leadPeriodUpdated LeadPeriod[] @relation("LeadPeriodUpdated")
+
+  subContractorCreated SubContractor[] @relation("SubContractorCreated")
+  subContractorUpdated SubContractor[] @relation("SubContractorUpdated")
+  
   @@map("users")
 }
 
@@ -215,6 +219,7 @@ model City {
   billingAddresses BillingAddress[]
   vendors          Vendor[]
   siteDeliveryAddresses SiteDeliveryAddress[]
+  subContractors   SubContractor[]
 
   @@map("cities")
 }
@@ -606,6 +611,7 @@ model State {
   billingAddresses BillingAddress[]
   vendors          Vendor[]
   siteDeliveryAddresses SiteDeliveryAddress[]
+  subContractors   SubContractor[]
 
   @@map("states")
 }
@@ -3042,3 +3048,69 @@ model LeadPeriodDetail {
   @@unique([leadPeriodId, itemId])
   @@map("lead_period_details")
 }
+
+
+model SubContractor {
+  id                Int       @id @default(autoincrement())
+
+  code              String   @unique
+  name              String    
+  contactPerson     String?   
+
+  addressLine1      String?   
+  addressLine2      String?   
+  pinCode           String? 
+
+  stateId           Int?
+  state             State?    @relation(fields: [stateId], references: [id], onDelete: Restrict)
+
+  cityId            Int?
+  city              City?     @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  
+
+  // Banking
+  bankName          String?   
+  branchName        String?   
+  branchCode        String?   
+  accountNumber     String?   
+  ifscCode          String?   
+
+  // Compliance (India-focused)
+  panNumber String? @unique   
+  gstNumber String? @unique
+  cinNumber         String?   
+
+  // Legacy tax (optional)
+  vatTinNumber      String?   @db.VarChar(30)
+  cstTinNumber      String?   @db.VarChar(30)
+
+  // Audit
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  createdById       Int
+  updatedById       Int
+
+  createdBy User @relation("SubContractorCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("SubContractorUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+ // Contact
+  subContractorContacts            SubContractorContact[]
+  @@index([name])
+  @@index([code])
+  @@map("sub_contractors")
+}
+
+model SubContractorContact {
+  id            Int      @id @default(autoincrement())
+  subContractorId Int
+  subContractor SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Cascade)
+  contactPersonName         String
+  mobile         String?
+  email         String?
+
+  @@index([subContractorId])
+  @@map("sub_contractor_contacts")
+}
+

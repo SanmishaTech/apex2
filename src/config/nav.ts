@@ -100,6 +100,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_SITES,
       },
       {
+        title: "Sub Contractors",
+        href: "/sub-contractors",
+        icon: Building,
+        permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
+      },
+      {
         title: "Departments",
         href: "/departments",
         icon: Briefcase,

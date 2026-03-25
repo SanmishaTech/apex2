@@ -357,9 +357,11 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/reports/stock-report",
     permissions: [PERMISSIONS.VIEW_STOCK_REPORT],
   },
-  { prefix: "/lead-periods/new", permissions: [PERMISSIONS.CREATE_LEAD_PERIODS] },
-  { prefix: "/lead-periods/", permissions: [PERMISSIONS.EDIT_LEAD_PERIODS] },
   { prefix: "/lead-periods", permissions: [PERMISSIONS.VIEW_LEAD_PERIODS] },
+  // SubContractors
+  { prefix: "/sub-contractors/new", permissions: [PERMISSIONS.CREATE_SUB_CONTRACTORS] },
+  { prefix: "/sub-contractors/", permissions: [PERMISSIONS.VIEW_SUB_CONTRACTORS] },
+  { prefix: "/sub-contractors", permissions: [PERMISSIONS.VIEW_SUB_CONTRACTORS] },
 
   // add more page rules here (place more specific prefixes first)
 ];
@@ -971,6 +973,23 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/stock-report-excel",
     methods: {
       GET: [PERMISSIONS.VIEW_STOCK_REPORT],
+    },
+  },
+  {
+    prefix: "/api/sub-contractors",
+    methods: {
+      GET: [PERMISSIONS.READ_SUB_CONTRACTORS],
+      POST: [PERMISSIONS.CREATE_SUB_CONTRACTORS],
+      PATCH: [PERMISSIONS.EDIT_SUB_CONTRACTORS],
+      DELETE: [PERMISSIONS.DELETE_SUB_CONTRACTORS],
+    },
+  },
+  {
+    prefix: "/api/sub-contractors/",
+    methods: {
+      GET: [PERMISSIONS.READ_SUB_CONTRACTORS],
+      PATCH: [PERMISSIONS.EDIT_SUB_CONTRACTORS],
+      DELETE: [PERMISSIONS.DELETE_SUB_CONTRACTORS],
     },
   },
   // add more API rules here
