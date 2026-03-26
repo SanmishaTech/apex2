@@ -9,7 +9,7 @@ import { toast } from "@/lib/toast";
 
 export default function EditSubContractorPage() {
   const params = useParams();
-  const id = params.id;
+  const id = params?.id as string | undefined;
 
   const { data, error, isLoading, mutate } = useSWR(
     id ? `/api/sub-contractors/${id}` : null,

@@ -76,7 +76,7 @@ export default function IndentViewPage() {
   const router = useRouter();
 
   const { data, isLoading, error } = useSWR<Indent>(
-    params?.id ? `/api/indents/${params.id}` : null,
+    params?.id ? `/api/indents/${params?.id}` : null,
     apiGet
   );
 

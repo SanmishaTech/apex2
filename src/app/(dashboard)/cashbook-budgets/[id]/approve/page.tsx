@@ -47,7 +47,7 @@ export default function ApproveCashbookBudgetPage() {
   
   const { data, isLoading, error, mutate } = useSWR<CashbookBudgetData>(
     params?.id && can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2)
-      ? `/api/cashbook-budgets/${params.id}`
+      ? `/api/cashbook-budgets/${params?.id}`
       : null,
     apiGet
   );

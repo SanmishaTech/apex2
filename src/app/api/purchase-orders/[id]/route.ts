@@ -548,13 +548,13 @@ export async function PATCH(
             updateData.isApproved1 = true;
             updateData.approved1ById = auth.user.id;
             updateData.approved1At = now;
-            // Auto-approve Level 2 when total amount <= 100000 OR when PD has L2 permission
+            // Auto-approve Level 2 when total amount <= 500000 OR when PD has L2 permission
             const totalForDecision =
               typeof (poData as any).amount === "number"
                 ? Number((poData as any).amount)
                 : Number(current.amount || 0);
             if (
-              totalForDecision <= 100000 ||
+              totalForDecision <= 500000 ||
               (auth.user.role === ROLES.PROJECT_DIRECTOR &&
                 has(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2))
             ) {

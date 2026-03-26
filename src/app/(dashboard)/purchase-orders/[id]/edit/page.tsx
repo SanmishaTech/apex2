@@ -14,7 +14,7 @@ import type { PurchaseOrder } from "@/types/purchase-orders";
 export default function EditPurchaseOrderPage() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
-  const idRaw = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const idRaw = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const id = idRaw ? parseInt(idRaw, 10) : null;
 
   // Build redirect URL with preserved query parameters

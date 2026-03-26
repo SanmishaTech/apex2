@@ -99,12 +99,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Warehouse,
         permission: PERMISSIONS.VIEW_SITES,
       },
-      {
-        title: "Sub Contractors",
-        href: "/sub-contractors",
-        icon: Building,
-        permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
-      },
+      // {
+      //   title: "Sub Contractors",
+      //   href: "/sub-contractors",
+      //   icon: Building,
+      //   permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
+      // },
       {
         title: "Departments",
         href: "/departments",
@@ -429,7 +429,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_PAYMENT_TERMS,
       },
-       {
+      {
         title: "Lead Periods",
         href: "/lead-periods",
         icon: FileText,
@@ -447,7 +447,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_SITE_BUDGETS,
       },
-    
+
       {
         type: "group",
         title: "Reports",
@@ -507,8 +507,8 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.READ_BOQ_BILLS,
       },
-      
-    
+
+
       {
         type: "group",
         title: "Reports",
@@ -547,14 +547,14 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Folder,
         permission: PERMISSIONS.READ_DAILY_PROGRESSES,
       },
-    
-        {
+
+      {
         title: "Work Done",
         href: "/boqs/work-done",
         icon: FileText,
         permission: PERMISSIONS.READ_BOQS,
       },
-        {
+      {
         type: "group",
         title: "Reports",
         icon: FileText,
@@ -631,7 +631,7 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.VIEW_STOCK_REPORT,
       },
-     
+
     ],
   },
 
