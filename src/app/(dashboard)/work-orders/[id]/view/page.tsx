@@ -71,7 +71,7 @@ function formatAddressLine(addr?: any) {
 export default function WorkOrderViewPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params?.id ? parseInt(params.id as string, 10) : null;
+  const id = params?.id ? parseInt(params?.id as string, 10) : null;
 
   const { data, error, isLoading } = useSWR<any>(
     id ? `/api/work-orders/${id}` : null,

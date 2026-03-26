@@ -138,7 +138,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 export default function PurchaseOrderViewPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params?.id ? parseInt(params.id as string, 10) : null;
+  const id = params?.id ? parseInt(params?.id as string, 10) : null;
 
   const { data, error, isLoading } = useSWR<PurchaseOrder>(
     id ? `/api/purchase-orders/${id}` : null,

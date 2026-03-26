@@ -12,7 +12,7 @@ import type { Indent } from "@/types/indents";
 export default function EditIndentPage() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
-  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const id = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const [initialData, setInitialData] = useState<IndentFormInitialData | null>(
     null
   );

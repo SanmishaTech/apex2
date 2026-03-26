@@ -115,6 +115,13 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
 
   subContractorCreated SubContractor[] @relation("SubContractorCreated")
   subContractorUpdated SubContractor[] @relation("SubContractorUpdated")
+
+  subContractorWorkOrderCreated SubContractorWorkOrder[] @relation("SubContractorWorkOrderCreated")
+  subContractorWorkOrderUpdated SubContractorWorkOrder[] @relation("SubContractorWorkOrderUpdated")
+  subContractorWorkOrderApproved1 SubContractorWorkOrder[] @relation("SubContractorWorkOrderApproved1By")
+  subContractorWorkOrderApproved2 SubContractorWorkOrder[] @relation("SubContractorWorkOrderApproved2By")
+  subContractorWorkOrderSuspended SubContractorWorkOrder[] @relation("SubContractorWorkOrderSuspendedBy")
+  subContractorWorkOrderCompleted SubContractorWorkOrder[] @relation("SubContractorWorkOrderCompletedBy")
   
   @@map("users")
 }
@@ -378,7 +385,7 @@ model Site {
   leadPeriods LeadPeriod[]
 
   overallSiteBudgets           OverallSiteBudget[]
-
+  subContractorWorkOrders      SubContractorWorkOrder[]
 
   @@index([site])
   @@index([shortName])
@@ -641,7 +648,7 @@ model Unit {
   boqItems    BoqItem[]
   items       Item[]
   workOrderDetails  WorkOrderDetail[]
-
+  subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
   @@map("units")
 }
 
@@ -801,7 +808,7 @@ model BillingAddress {
 
    purchaseOrders PurchaseOrder[]
     workOrders WorkOrder[]
-
+    subContractorWorkOrders SubContractorWorkOrder[]
   @@index([companyName])
   @@map("billing_addresses")
 }
@@ -847,7 +854,7 @@ model Vendor {
   purchaseOrders PurchaseOrder[]
     workOrders WorkOrder[]
     inwardDeliveryChallans InwardDeliveryChallan[]
-
+    subContractorWorkOrders SubContractorWorkOrder[]
   @@index([vendorName])
   @@index([email])
   @@index([gstNumber])
@@ -930,6 +937,7 @@ model Boq {
   siteBudgets SiteBudget[]
   overallSiteBudgets           OverallSiteBudget[]
   workOrders                    WorkOrder[]
+  subContractorWorkOrders       SubContractorWorkOrder[]
 
   @@index([siteId])
   @@index([boqNo])
@@ -960,6 +968,7 @@ model BoqItem {
   boqTargetDetails  BoqTargetDetail[]
   siteBudgetDetails SiteBudgetDetail[]
   overallSiteBudgetDetails OverallSiteBudgetDetail[]
+  subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
   @@index([boqId])
   @@index([unitId])
   @@map("boq_items")
@@ -1215,7 +1224,7 @@ model PaymentTerm {
   purchaseOrders PurchaseOrder[]
   poPaymentTerms POPaymentTerm[]
   woPaymentTerms WOPaymentTerm[]
-
+  subContractorWorkOrderPaymentTerms SubContractorWorkOrderPaymentTerm[]
   @@index([paymentTerm])
   @@map("payment_terms")
 }
@@ -3094,9 +3103,10 @@ model SubContractor {
 
   createdBy User @relation("SubContractorCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SubContractorUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-
+   
  // Contact
   subContractorContacts            SubContractorContact[]
+  subContractorWorkOrders          SubContractorWorkOrder[]
   @@index([name])
   @@index([code])
   @@map("sub_contractors")
@@ -3114,3 +3124,136 @@ model SubContractorContact {
   @@map("sub_contractor_contacts")
 }
 
+model SubContractorWorkOrder {
+  id                    Int       @id @default(autoincrement())
+
+  siteId                Int
+  boqId                 Int
+  subContractorId       Int
+  billingAddressId      Int
+  vendorId              Int
+  subContractor         SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Restrict)
+  site                  Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boq                   Boq           @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  billingAddress        BillingAddress @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  vendor                Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  workOrderNo           String  
+  workOrderDate         DateTime @db.Date
+
+  typeOfWorkOrder       String   @db.VarChar(50)
+
+  quotationNo           String?   @db.VarChar(100)
+  quotationDate         DateTime? @db.Date
+
+  paymentTermsInDays    Int?
+  deliveryDate          DateTime? @db.Date
+
+  note                  String?   @db.VarChar(255)
+  terms                 String?   @db.Text
+  deliverySchedule      String?   @db.Text
+
+  totalAmount                Decimal  @db.Decimal(12, 2)
+
+
+  totalCgst                  Decimal?  @db.Decimal(10, 2)
+  totalSgst                  Decimal?  @db.Decimal(10, 2)
+  totalIgst                  Decimal?  @db.Decimal(10, 2)
+
+ 
+  amountInWords         String   @db.VarChar(255)
+
+  isApproved1           Boolean  @default(false)
+  approved1ById             Int?
+  approved1At     DateTime?
+
+  isApproved2           Boolean  @default(false)
+  approved2ById             Int?
+  approved2At     DateTime?
+
+  status                String   @db.VarChar(10)
+
+
+  isSuspended           Boolean  @default(false)
+  suspendedById           Int?
+  suspendedDatetime     DateTime?
+
+  isCompleted            Boolean?  @default(false)
+  completedById           Int?
+  completedDatetime     DateTime?
+
+  approved1By User? @relation("SubContractorWorkOrderApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved2By User? @relation("SubContractorWorkOrderApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  suspendedBy User? @relation("SubContractorWorkOrderSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
+  completedBy User? @relation("SubContractorWorkOrderCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdById      Int
+  updatedById      Int
+
+  createdBy User @relation("SubContractorWorkOrderCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("SubContractorWorkOrderUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
+  // Relation
+  subContractorWorkOrderPaymentTerms SubContractorWorkOrderPaymentTerm[]
+  @@map("sub_contractor_work_orders")
+}
+
+model SubContractorWorkOrderPaymentTerm {
+  id          Int      @id @default(autoincrement())
+  subContractorWorkOrderId      Int
+  paymentTermId Int  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subContractorWorkOrder SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete:Restrict)
+  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+
+
+  @@index([subContractorWorkOrderId])
+  @@index([paymentTermId])
+  @@unique([subContractorWorkOrderId, paymentTermId])
+  @@map("sub_contractor_work_order_payment_terms")
+}
+
+
+
+model SubContractorWorkOrderDetail {
+  id                Int      @id @default(autoincrement())
+
+  subContractorWorkOrderId      Int
+  subContractorWorkOrder        SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
+  boqItemId       Int?
+  BoqItem         BoqItem? @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+
+  item              String?  @db.VarChar(255)
+  sacCode           String? 
+
+  unitId            Int
+  unit              Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  qty               Decimal  @db.Decimal(12, 2)
+  orderedQty        Decimal  @db.Decimal(12, 2)
+  approved1Qty      Decimal  @db.Decimal(12, 2)
+  approved2Qty      Decimal  @db.Decimal(12, 2)
+
+  rate              Decimal? @default(0.00) @db.Decimal(10, 2)
+
+  cgst              Decimal? @default(0.00) @db.Decimal(10, 2)
+  cgstAmt           Decimal? @default(0.00) @db.Decimal(10, 2)
+
+  sgst              Decimal? @default(0.00) @db.Decimal(10, 2)
+  sgstAmt           Decimal? @default(0.00) @db.Decimal(10, 2)
+
+  igst              Decimal? @default(0.00) @db.Decimal(10, 2)
+  igstAmt           Decimal? @default(0.00) @db.Decimal(10, 2)
+
+  amount            Decimal? @default(0.00) @db.Decimal(12, 2)
+
+  particulars       String?  @db.Text
+
+  
+
+  @@map("sub_contractor_work_order_details")
+}

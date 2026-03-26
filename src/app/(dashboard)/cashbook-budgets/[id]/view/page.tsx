@@ -48,7 +48,7 @@ export default function ViewCashbookBudgetPage() {
   const params = useParams<{ id: string }>();
 
   const { data, isLoading, error } = useSWR<CashbookBudgetData>(
-    params?.id ? `/api/cashbook-budgets/${params.id}` : null,
+    params?.id ? `/api/cashbook-budgets/${params?.id}` : null,
     apiGet
   );
 

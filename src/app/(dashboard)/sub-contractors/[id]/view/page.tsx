@@ -27,7 +27,7 @@ function Field({ label, value }: { label: string; value?: string | number | null
 export default function SubContractorViewPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params?.id ? parseInt(params.id as string, 10) : null;
+  const id = params?.id ? parseInt(params?.id as string, 10) : null;
 
   const { data, error, isLoading } = useSWR<SubContractor>(
     id ? `/api/sub-contractors/${id}` : null,
