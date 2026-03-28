@@ -9,8 +9,9 @@ import { z } from "zod";
 import { PERMISSIONS, ROLES } from "@/config/roles";
 
 const workOrderItemSchema = z.object({
+  isBoqItem: z.boolean().default(false),
   boqItemId: z.coerce.number().optional().nullable(),
-  item: z.string().optional().nullable(),
+  item: z.string().min(1, "Item is required"),
   sacCode: z.string().nullable().optional(),
   unitId: z.coerce.number().min(1, "Unit is required"),
   qty: z.coerce
@@ -19,7 +20,7 @@ const workOrderItemSchema = z.object({
     .max(9999999999.9999, "Quantity must be <= 9,999,999,999.9999"),
   rate: z.coerce
     .number()
-    .min(0, "Rate must be non-negative")
+    .min(0.0001, "Rate must be greater than 0")
     .max(9999999999.99, "Rate must be <= 9,999,999,999.99"),
   cgst: z.coerce
     .number()
@@ -40,6 +41,8 @@ const workOrderItemSchema = z.object({
   sgstAmt: z.coerce.number(),
   igstAmt: z.coerce.number(),
   amount: z.coerce.number(),
+  executedQty: z.coerce.number().default(0),
+  executedAmount: z.coerce.number().default(0),
   particulars: z.string().nullable().optional(),
 });
 
@@ -59,12 +62,22 @@ const createSchema = z.object({
   terms: z.string().optional().nullable(),
   deliverySchedule: z.string().optional().nullable(),
   amountInWords: z.string().min(1, "Amount in words is required"),
-  paymentTermIds: z.array(z.coerce.number()).optional().default([]),
-  workOrderItems: z.array(workOrderItemSchema).min(1, "At least one item is required"),
+  paymentTermIds: z.array(z.coerce.number()).min(1, "At least one payment term is required"),
+  workOrderItems: z.array(workOrderItemSchema).min(1, "At least one item is required").superRefine((items, ctx) => {
+    items.forEach((it, i) => {
+      if (it.isBoqItem && (!it.boqItemId || it.boqItemId === 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Activity is required for BOQ items', path: [i, 'boqItemId'] });
+      }
+      if (!it.item || String(it.item).trim().length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Item is required', path: [i, 'item'] });
+      }
+    });
+  }),
   totalAmount: z.coerce.number(),
   totalCgst: z.coerce.number().optional().nullable(),
   totalSgst: z.coerce.number().optional().nullable(),
   totalIgst: z.coerce.number().optional().nullable(),
+  status: z.string().optional(),
 });
 
 const COMPANY_CODE = "DCTPL";
@@ -161,20 +174,17 @@ export async function GET(req: NextRequest) {
     }
 
     if (siteFilter) {
-      const siteId = parseInt(siteFilter);
-      if (!isNaN(siteId)) {
-        if (!isPrivileged && assignedSiteIds && !assignedSiteIds.includes(siteId)) {
-          return Success({ data: [], meta: { page, perPage, total: 0, totalPages: 1 } });
-        }
-        where.siteId = siteId;
+      if (!isPrivileged && assignedSiteIds && assignedSiteIds.length > 0) {
+        where.site = { site: { contains: siteFilter }, id: { in: assignedSiteIds } };
+      } else {
+        where.site = { site: { contains: siteFilter } };
       }
     } else if (!isPrivileged && assignedSiteIds && assignedSiteIds.length > 0) {
       where.siteId = { in: assignedSiteIds };
     }
 
     if (subContractorFilter) {
-      const scId = parseInt(subContractorFilter);
-      if (!isNaN(scId)) where.subContractorId = scId;
+      where.subContractor = { name: { contains: subContractorFilter } };
     }
 
     if (statusFilter) where.status = statusFilter;
@@ -245,17 +255,17 @@ export async function POST(req: NextRequest) {
           totalSgst: parsedData.totalSgst,
           totalIgst: parsedData.totalIgst,
           amountInWords: parsedData.amountInWords,
-          status: "DRAFT",
+          status: parsedData.status ?? "DRAFT",
           createdById: auth.user.id,
           updatedById: auth.user.id,
           subContractorWorkOrderDetails: {
             create: parsedData.workOrderItems.map((item) => ({
+              isBoqItem: item.isBoqItem,
               boqItemId: item.boqItemId,
               item: item.item,
               sacCode: item.sacCode,
               unitId: item.unitId,
               qty: item.qty,
-              orderedQty: item.qty,
               approved1Qty: item.qty,
               approved2Qty: item.qty,
               rate: item.rate,
@@ -266,6 +276,8 @@ export async function POST(req: NextRequest) {
               igst: item.igst,
               igstAmt: item.igstAmt,
               amount: item.amount,
+              executedQty: item.executedQty,
+              executedAmount: item.executedAmount,
               particulars: item.particulars,
             })),
           },
