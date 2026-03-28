@@ -7,12 +7,13 @@ import { z } from "zod";
 
 const workOrderItemSchema = z.object({
   id: z.number().optional(),
+  isBoqItem: z.boolean().default(false),
   boqItemId: z.coerce.number().optional().nullable(),
-  item: z.string().optional().nullable(),
+  item: z.string().min(1, "Item is required"),
   sacCode: z.string().nullable().optional(),
   unitId: z.coerce.number().min(1, "Unit is required"),
-  qty: z.coerce.number().min(0.0001),
-  rate: z.coerce.number().min(0),
+  qty: z.coerce.number().min(0.0001, "Quantity must be greater than 0"),
+  rate: z.coerce.number().min(0.0001, "Rate must be greater than 0"),
   cgst: z.coerce.number().default(0),
   sgst: z.coerce.number().default(0),
   igst: z.coerce.number().default(0),
@@ -20,6 +21,8 @@ const workOrderItemSchema = z.object({
   sgstAmt: z.coerce.number(),
   igstAmt: z.coerce.number(),
   amount: z.coerce.number(),
+  executedQty: z.coerce.number().default(0),
+  executedAmount: z.coerce.number().default(0),
   particulars: z.string().nullable().optional(),
 });
 
@@ -34,8 +37,19 @@ const updateSchema = z.object({
   terms: z.string().optional().nullable(),
   deliverySchedule: z.string().optional().nullable(),
   amountInWords: z.string().optional(),
-  paymentTermIds: z.array(z.coerce.number()).optional(),
-  workOrderItems: z.array(workOrderItemSchema).optional(),
+  paymentTermIds: z.array(z.coerce.number()).optional().superRefine((arr, ctx) => {
+    if (Array.isArray(arr) && arr.length === 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'At least one payment term is required' });
+  }),
+  workOrderItems: z.array(workOrderItemSchema).optional().superRefine((items, ctx) => {
+    (items || []).forEach((it, i) => {
+      if (it.isBoqItem && (!it.boqItemId || it.boqItemId === 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Activity is required for BOQ items', path: [i, 'boqItemId'] });
+      }
+      if (!it.item || String(it.item).trim().length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Item is required', path: [i, 'item'] });
+      }
+    });
+  }),
   totalAmount: z.coerce.number().optional(),
   totalCgst: z.coerce.number().optional().nullable(),
   totalSgst: z.coerce.number().optional().nullable(),
@@ -158,12 +172,12 @@ export async function PATCH(
         await tx.subContractorWorkOrderDetail.createMany({
           data: workOrderItems.map((item) => ({
             subContractorWorkOrderId: id,
+            isBoqItem: item.isBoqItem,
             boqItemId: item.boqItemId,
             item: item.item,
             sacCode: item.sacCode,
             unitId: item.unitId,
             qty: item.qty,
-            orderedQty: item.qty,
             approved1Qty: item.qty,
             approved2Qty: item.qty,
             rate: item.rate,
@@ -174,6 +188,8 @@ export async function PATCH(
             igst: item.igst,
             igstAmt: item.igstAmt,
             amount: item.amount,
+            executedQty: item.executedQty,
+            executedAmount: item.executedAmount,
             particulars: item.particulars,
           })),
         });

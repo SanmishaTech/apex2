@@ -100,12 +100,6 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_SITES,
       },
       {
-        title: "Sub Contractors",
-        href: "/sub-contractors",
-        icon: Building,
-        permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
-      },
-      {
         title: "Departments",
         href: "/departments",
         icon: Briefcase,
@@ -375,12 +369,6 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
       },
       {
-        title: "SubContractor Work Orders",
-        href: "/sub-contractor-work-orders",
-        icon: FileText,
-        permission: PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS,
-      },
-      {
         title: "Work Order Bills",
         href: "/work-order-bills",
         icon: FileText,
@@ -638,6 +626,26 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_STOCK_REPORT,
       },
 
+    ],
+  },
+
+  {
+    type: "group",
+    title: "Sub Contractor Billing",
+    icon: Building,
+    children: [
+      {
+        title: "Sub Contractors",
+        href: "/sub-contractors",
+        icon: Building,
+        permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
+      },
+      {
+        title: "SubContractor Work Orders",
+        href: "/sub-contractor-work-orders",
+        icon: FileText,
+        permission: PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS,
+      },
     ],
   },
 

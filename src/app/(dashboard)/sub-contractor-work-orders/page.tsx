@@ -188,11 +188,7 @@ export default function SubContractorWorkOrdersPage() {
       header: "Site",
       accessor: (row) => row.site?.site || "—",
     },
-    {
-      key: "subContractor",
-      header: "SubContractor",
-      accessor: (row) => row.subContractor?.name || "—",
-    },
+    // removed SubContractor column per UI request
     {
       key: "totalAmount",
       header: "Amount",
@@ -209,6 +205,16 @@ export default function SubContractorWorkOrdersPage() {
       key: "createdBy",
       header: "Created By",
       accessor: (row) => <UserBadge name={row.createdBy?.name} className="bg-sky-600" />,
+    },
+    {
+      key: "approved1By",
+      header: "Approved 1 By",
+      accessor: (row) => <UserBadge name={row.approved1By?.name} className="bg-amber-600" />,
+    },
+    {
+      key: "approved2By",
+      header: "Approved 2 By",
+      accessor: (row) => <UserBadge name={row.approved2By?.name} className="bg-emerald-600" />,
     },
     {
       key: "actions",
@@ -253,11 +259,15 @@ export default function SubContractorWorkOrdersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">SubContractor Work Orders</h1>
-        {can(PERMISSIONS.CREATE_SUB_CONTRACTOR_WORK_ORDERS) && (
-          <AppButton iconName="Plus" onClick={() => pushWithScrollSave("/sub-contractor-work-orders/new")}>
-            Add Work Order
-          </AppButton>
-        )}
+        <div className="flex items-center gap-2">
+          {can(PERMISSIONS.CREATE_SUB_CONTRACTOR_WORK_ORDERS) && (
+            <AppCard.Action>
+              <AppButton size="sm" iconName="Plus" onClick={() => pushWithScrollSave("/sub-contractor-work-orders/new")}>
+                Add Work Order
+              </AppButton>
+            </AppCard.Action>
+          )}
+        </div>
       </div>
 
       <AppCard>
@@ -269,31 +279,33 @@ export default function SubContractorWorkOrdersPage() {
                 placeholder="WO No, Note..."
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
               />
-              <AppSelect
+              <NonFormTextInput
                 label="Site"
-                value={siteDraft || "__all"}
-                onValueChange={(v) => setSiteDraft(v === "__all" ? "" : v)}
-              >
-                <AppSelect.Item value="__all">All Sites</AppSelect.Item>
-                {sites.map((s: any) => (
-                  <AppSelect.Item key={s.id} value={s.id.toString()}>{s.site}</AppSelect.Item>
-                ))}
-              </AppSelect>
-              <AppSelect
+                placeholder="Search site..."
+                value={siteDraft}
+                onChange={(e) => setSiteDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+              />
+              <NonFormTextInput
                 label="SubContractor"
-                value={subContractorDraft || "__all"}
-                onValueChange={(v) => setSubContractorDraft(v === "__all" ? "" : v)}
-              >
-                <AppSelect.Item value="__all">All SubContractors</AppSelect.Item>
-                {subContractors.map((sc: any) => (
-                  <AppSelect.Item key={sc.id} value={sc.id.toString()}>{sc.name}</AppSelect.Item>
-                ))}
-              </AppSelect>
+                placeholder="Search subcontractor..."
+                value={subContractorDraft}
+                onChange={(e) => setSubContractorDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+              />
               <div className="flex items-end gap-2">
                 <AppButton className="flex-1" onClick={applyFilters}>Filter</AppButton>
                 <AppButton
                   variant="outline"
+                  className="text-black dark:text-white"
                   onClick={() => {
                     setSearchDraft("");
                     setSiteDraft("");
