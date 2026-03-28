@@ -9,6 +9,7 @@ export type PaginateParams<TSelect extends object | undefined, TWhere extends ob
   perPage?: number;
   maxPerPage?: number;
   select?: TSelect;
+  include?: any;
 };
 
 export type PaginatedResult<T> = {
@@ -38,6 +39,7 @@ export async function paginate<TSelect extends object | undefined, TWhere extend
       skip: (page - 1) * perPage,
       take: perPage,
       select: params.select,
+      include: params.include,
     }),
   ]);
   return {

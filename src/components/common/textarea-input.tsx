@@ -17,6 +17,7 @@ export interface TextareaInputProps {
 	rows?: number;
 	maxLength?: number;
 	required?: boolean;
+	disabled?: boolean;
 	className?: string;
 	itemClassName?: string;
 	span?: number;
@@ -32,6 +33,7 @@ export function TextareaInput({
 	rows = 4,
 	maxLength,
 	required,
+	disabled,
 	className,
 	itemClassName,
 	span,
@@ -63,6 +65,7 @@ export function TextareaInput({
 							rows={rows}
 							className={cn(className)}
 							maxLength={maxLength}
+							disabled={disabled}
 							{...field}
 							value={field.value ?? ''}
 						/>

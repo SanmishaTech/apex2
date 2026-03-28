@@ -99,12 +99,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: Warehouse,
         permission: PERMISSIONS.VIEW_SITES,
       },
-      // {
-      //   title: "Sub Contractors",
-      //   href: "/sub-contractors",
-      //   icon: Building,
-      //   permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
-      // },
+      {
+        title: "Sub Contractors",
+        href: "/sub-contractors",
+        icon: Building,
+        permission: PERMISSIONS.VIEW_SUB_CONTRACTORS,
+      },
       {
         title: "Departments",
         href: "/departments",
@@ -373,6 +373,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/purchase-orders",
         icon: FileText,
         permission: PERMISSIONS.READ_PURCHASE_ORDERS,
+      },
+      {
+        title: "SubContractor Work Orders",
+        href: "/sub-contractor-work-orders",
+        icon: FileText,
+        permission: PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS,
       },
       {
         title: "Work Order Bills",
