@@ -1,12 +1,12 @@
 // Base types for related models
-interface User {
+export interface User {
   id: number;
   name: string | null;
   email: string;
   role: string;
 }
 
-interface Site {
+export interface Site {
   id: number;
   site: string;
   siteCode?: string | null;
@@ -25,7 +25,7 @@ interface Site {
   siteDeliveryAddresses?: SiteDeliveryAddress[];
 }
 
-interface Vendor {
+export interface Vendor {
   id: number;
   vendorName: string;
   gstNumber?: string | null;
@@ -34,7 +34,7 @@ interface Vendor {
   email?: string | null;
 }
 
-interface BillingAddress {
+export interface BillingAddress {
   id: number;
   companyName: string;
   addressLine1: string;
@@ -51,24 +51,26 @@ interface BillingAddress {
   gstNumber?: string | null;
 }
 
-interface PaymentTerm {
+export interface PaymentTerm {
   id: number;
   paymentTerm: string;
   days: number;
   description?: string;
 }
 
-interface Item {
+export interface Unit {
+  id: number;
+  unitName: string;
+}
+
+export interface Item {
   id: number;
   itemCode: string;
   item: string;
-  unit?: {
-    id: number;
-    unitName: string;
-  } | null;
+  unit?: Unit | null;
 }
 
-interface SiteDeliveryAddress {
+export interface SiteDeliveryAddress {
   id: number;
   siteId: number;
   addressLine1?: string | null;
