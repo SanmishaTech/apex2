@@ -8,15 +8,16 @@ import { SubContractorWorkOrder } from "@/types/sub-contractor-work-orders";
 
 export default function Approve1SubContractorWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data, isLoading } = useSWR<{ data: SubContractorWorkOrder }>(`/api/sub-contractor-work-orders/${id}`, apiGet);
+  const { data, isLoading } = useSWR<any>(`/api/sub-contractor-work-orders/${id}`, apiGet);
 
   if (isLoading) return <div className="p-8 text-center">Loading...</div>;
-  if (!data?.data) return <div className="p-8 text-center">Work order not found</div>;
+  const swo = data?.data ?? data;
+  if (!swo) return <div className="p-8 text-center">Work order not found</div>;
 
   return (
     <SubContractorWorkOrderForm
       mode="approval1"
-      initial={data.data}
+      initial={swo}
     />
   );
 }
