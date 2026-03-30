@@ -94,6 +94,7 @@ const formSchema = z.object({
   subContractorId: z.preprocess((val) => (val === "" || val === undefined || val === null) ? 0 : Number(val), z.number().min(1, "SubContractor is required")),
   vendorId: z.preprocess((val) => (val === "" || val === undefined || val === null) ? 0 : Number(val), z.number().min(1, "Vendor is required")),
   billingAddressId: z.preprocess((val) => (val === "" || val === undefined || val === null) ? 0 : Number(val), z.number().min(1, "Billing Address is required")),
+  deliveryAddressId: z.preprocess((val) => (val === "" || val === undefined || val === null) ? 0 : Number(val), z.number().min(1, "Delivery Address is required")),
   workOrderDate: z.string().min(1, "Date is required"),
   typeOfWorkOrder: z.string().min(1, "Type is required"),
   quotationNo: z.string().optional().nullable(),
@@ -161,6 +162,16 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
       siteId: undefined,
       vendorId: undefined,
       billingAddressId: undefined,
+  deliveryAddressId: undefined,
+  // Default Terms & Conditions text for create
+  terms: `
+<Important Features
+1. "GENERAL TERMS & CONDITIONS OF CONTRACT" (ANNEXURE 1) forms an integral part of this work order.
+2. Retention money @ 5% Shall be recovered on prorata basis from each running & final bill. All accumulated retention amount shall be released after 12 months from the date of final bill certification including satisfactorily completion of work.
+3. All RA bills shall be prepared by the contractor in the printed form prescribed by Dynasoure Concrete Treatment Pvt. Ltd. after the joint measurements are recorded in the Measurement Book. 
+4. The contractor shall ensure safety of his workers and others at site of work and shall be responsible for any consequence arising out of execution of the Repair and maintenance work. You shall depute one full time supervisor at site all the time when work is in progress.
+5. Any modifications/corrections due to faulty workmanship, suggested by the site in-charge will be made good by the Contractor without any additional charges to us (Dynasoure Concrete Treatment Pvt. Ltd.).>
+`,
       subContractorId: undefined,
       status: "DRAFT",
     };
@@ -236,6 +247,8 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
   // Note: GET /api/boqs/:id returns the BOQ object directly (not wrapped in { data: ... })
   const { data: boqDetail } = useSWR<any>(boqIdValue ? `/api/boqs/${boqIdValue}` : null, apiGet);
   const boqItems = boqDetail?.items || [];
+
+  const { data: siteDetail } = useSWR<any>(siteIdValue ? `/api/sites/${siteIdValue}` : null, apiGet);
 
   // Recompute executedAmount when qty/rate/taxes/amount change so executedAmount stays in sync
   useEffect(() => {
@@ -433,6 +446,27 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                 <div>
                   <FormField
                     control={form.control}
+                    name="deliveryAddressId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="text-sm font-medium">Delivery Address</label>
+                        <FormControl>
+                          <AppCombobox
+                            value={field.value ? field.value.toString() : ""}
+                            onValueChange={(val) => field.onChange(val ? parseInt(val) : 0)}
+                            options={siteDetail?.siteDeliveryAddresses?.map((ba: any) => ({ label: formatBillingAddressLabel(ba), value: ba.id.toString() })) || []}
+                            placeholder={siteIdValue ? "Select Delivery Address" : "Select Site first"}
+                            disabled={isReadOnly || isApprovalMode || !siteIdValue}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div>
+                  <FormField
+                    control={form.control}
                     name="typeOfWorkOrder"
                     render={({ field }) => (
                       <FormItem>
@@ -496,7 +530,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
           </AppCard.Header>
           <AppCard.Content>
             <div className="w-full overflow-x-auto rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900">
-              <table className="w-full border-collapse bg-transparent text-[11px] min-w-[800px]">
+              <table className="w-full border-collapse bg-transparent text-[11px] min-w-200">
                 <thead>
                   <tr className="bg-slate-50/60 dark:bg-slate-950/30 border-b border-slate-200 dark:border-slate-700">
                     {!isReadOnly && !isApprovalMode && <th className="w-10 px-2 py-2 text-center border-r border-slate-200 dark:border-slate-700"></th>}
@@ -524,7 +558,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                               control={form.control}
                               name={`workOrderItems.${index}.isBoqItem`}
                               render={({ field: isBoqField }) => (
-                                <FormItem className="flex items-center gap-2 space-y-0 mt-1.5 min-w-[80px]">
+                                <FormItem className="flex items-center gap-2 space-y-0 mt-1.5 min-w-20">
                                   <FormControl>
                                     <Checkbox checked={isBoqField.value} onCheckedChange={isBoqField.onChange} disabled={isReadOnly || isApprovalMode} />
                                   </FormControl>
@@ -627,7 +661,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                                   <FormControl>
                                     <Input type="text" className="h-7 text-[11px] text-right" disabled={isReadOnly || isApprovalMode} value={typeof field.value === 'string' ? field.value : field.value?.toString() || ""} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) { field.onChange(v); form.setValue(`workOrderItems.${index}.cgst`, v as any, { shouldDirty: true, shouldValidate: true }); } }} />
                                   </FormControl>
-                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-[14px]">
+                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-3.5">
                                     {totals.calculatedItems[index]?.cgstAmt > 0 ? `₹${totals.calculatedItems[index].cgstAmt.toFixed(2)}` : ""}
                                   </div>
                                 </FormItem>
@@ -640,7 +674,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                                   <FormControl>
                                     <Input type="text" className="h-7 text-[11px] text-right" disabled={isReadOnly || isApprovalMode} value={typeof field.value === 'string' ? field.value : field.value?.toString() || ""} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) { field.onChange(v); form.setValue(`workOrderItems.${index}.sgst`, v as any, { shouldDirty: true, shouldValidate: true }); } }} />
                                   </FormControl>
-                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-[14px]">
+                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-3.5">
                                     {totals.calculatedItems[index]?.sgstAmt > 0 ? `₹${totals.calculatedItems[index].sgstAmt.toFixed(2)}` : ""}
                                   </div>
                                 </FormItem>
@@ -653,7 +687,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                                   <FormControl>
                                     <Input type="text" className="h-7 text-[11px] text-right" disabled={isReadOnly || isApprovalMode} value={typeof field.value === 'string' ? field.value : field.value?.toString() || ""} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*(?:\.\d{0,2})?$/.test(v)) { field.onChange(v); form.setValue(`workOrderItems.${index}.igst`, v as any, { shouldDirty: true, shouldValidate: true }); } }} />
                                   </FormControl>
-                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-[14px]">
+                                  <div className="text-[9px] text-muted-foreground mt-0.5 text-right font-medium min-h-3.5">
                                     {totals.calculatedItems[index]?.igstAmt > 0 ? `₹${totals.calculatedItems[index].igstAmt.toFixed(2)}` : ""}
                                   </div>
                                 </FormItem>
@@ -712,7 +746,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
                                 </FormItem>
                               )} />
                             </div>
-                            <div className="flex-[4]"></div>
+                            <div className="flex-4"></div>
                           </div>
                         </td>
                       </tr>

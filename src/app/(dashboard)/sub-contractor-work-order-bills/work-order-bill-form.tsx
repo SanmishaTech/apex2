@@ -45,6 +45,10 @@ export interface SubContractorWorkOrderBillFormInitialData {
   chequeDate?: string | null;
   utrNo?: string | null;
   bankName?: string | null;
+  rtgsDate?: string | null;
+  neftDate?: string | null;
+  transactionNo?: string | null;
+  transactionDate?: string | null;
   deductionTax?: number;
   status?: "PAID" | "UNPAID" | "PARTIALLY_PAID";
 }
@@ -83,12 +87,16 @@ export function SubContractorWorkOrderBillForm({
     paidAmount: z.coerce.number().min(0, "Must be non-negative").default(0),
     dueAmount: z.coerce.number().default(0),
     dueDate: z.string().min(1, "Due date is required"),
-    paymentDate: z.string().nullable().optional(),
-    paymentMode: z.enum(["CASH", "UPI", "BANK"]),
+  paymentDate: z.string().nullable().optional(),
+  paymentMode: z.enum(["CASH", "UPI", "CHEQUE", "RTGS", "NEFT", "NET_BANKING"]),
     chequeNo: z.string().nullable().optional(),
     chequeDate: z.string().nullable().optional(),
     utrNo: z.string().nullable().optional(),
     bankName: z.string().nullable().optional(),
+    rtgsDate: z.string().nullable().optional(),
+    neftDate: z.string().nullable().optional(),
+    transactionNo: z.string().nullable().optional(),
+    transactionDate: z.string().nullable().optional(),
     deductionTax: z.coerce.number().min(0).default(0),
     status: z.enum(["PAID", "UNPAID", "PARTIALLY_PAID"]),
     remarks: z.string().optional(),
@@ -103,12 +111,13 @@ export function SubContractorWorkOrderBillForm({
       });
     }
 
-    if (values.paymentMode === "BANK") {
+    // For cheque payments require cheque details and bank name
+    if (values.paymentMode === "CHEQUE") {
       if (!values.bankName || !values.bankName.trim()) {
         ctx.addIssue({
           path: ["bankName"],
           code: z.ZodIssueCode.custom,
-          message: "Bank name is required for bank payments",
+          message: "Bank name is required for cheque payments",
         });
       }
 
@@ -116,7 +125,7 @@ export function SubContractorWorkOrderBillForm({
         ctx.addIssue({
           path: ["chequeNo"],
           code: z.ZodIssueCode.custom,
-          message: "Cheque number is required for bank payments",
+          message: "Cheque number is required for cheque payments",
         });
       }
 
@@ -124,8 +133,46 @@ export function SubContractorWorkOrderBillForm({
         ctx.addIssue({
           path: ["chequeDate"],
           code: z.ZodIssueCode.custom,
-          message: "Cheque date is required for bank payments",
+          message: "Cheque date is required for cheque payments",
         });
+      }
+    }
+    // For NEFT payments require utr, bank name and neft date
+    if (values.paymentMode === "NEFT") {
+      if (!values.utrNo || !values.utrNo.trim()) {
+        ctx.addIssue({ path: ["utrNo"], code: z.ZodIssueCode.custom, message: "UTR No. is required for NEFT payments" });
+      }
+      if (!values.bankName || !values.bankName.trim()) {
+        ctx.addIssue({ path: ["bankName"], code: z.ZodIssueCode.custom, message: "Bank name is required for NEFT payments" });
+      }
+      if (!values.neftDate || !values.neftDate.trim()) {
+        ctx.addIssue({ path: ["neftDate"], code: z.ZodIssueCode.custom, message: "NEFT date is required for NEFT payments" });
+      }
+    }
+
+    // For RTGS payments require utr, bank name and rtgs date
+    if (values.paymentMode === "RTGS") {
+      if (!values.utrNo || !values.utrNo.trim()) {
+        ctx.addIssue({ path: ["utrNo"], code: z.ZodIssueCode.custom, message: "UTR No. is required for RTGS payments" });
+      }
+      if (!values.bankName || !values.bankName.trim()) {
+        ctx.addIssue({ path: ["bankName"], code: z.ZodIssueCode.custom, message: "Bank name is required for RTGS payments" });
+      }
+      if (!values.rtgsDate || !values.rtgsDate.trim()) {
+        ctx.addIssue({ path: ["rtgsDate"], code: z.ZodIssueCode.custom, message: "RTGS date is required for RTGS payments" });
+      }
+    }
+
+    // For Net Banking require transaction date, transaction number and bank name
+    if (values.paymentMode === "NET_BANKING") {
+      if (!values.transactionNo || !values.transactionNo.trim()) {
+        ctx.addIssue({ path: ["transactionNo"], code: z.ZodIssueCode.custom, message: "Transaction number is required for Net Banking" });
+      }
+      if (!values.transactionDate || !values.transactionDate.trim()) {
+        ctx.addIssue({ path: ["transactionDate"], code: z.ZodIssueCode.custom, message: "Transaction date is required for Net Banking" });
+      }
+      if (!values.bankName || !values.bankName.trim()) {
+        ctx.addIssue({ path: ["bankName"], code: z.ZodIssueCode.custom, message: "Bank name is required for Net Banking" });
       }
     }
   });
@@ -152,7 +199,11 @@ export function SubContractorWorkOrderBillForm({
       chequeNo: initial?.chequeNo ?? null,
       chequeDate: initial?.chequeDate ?? null,
       utrNo: initial?.utrNo ?? null,
-      bankName: initial?.bankName ?? null,
+    bankName: initial?.bankName ?? null,
+    rtgsDate: initial?.rtgsDate ?? null,
+    neftDate: initial?.neftDate ?? null,
+    transactionNo: initial?.transactionNo ?? null,
+    transactionDate: initial?.transactionDate ?? null,
       deductionTax: initial?.deductionTax ?? 0,
       status: initial?.status ?? "UNPAID",
       remarks: undefined,
@@ -211,13 +262,17 @@ export function SubContractorWorkOrderBillForm({
     try {
       let res;
       if (mode === "create") {
-        const pm = formData.paymentMode;
-        const normalized = {
-          chequeNo: pm === "BANK" ? formData.chequeNo ?? null : null,
-          chequeDate: pm === "BANK" ? formData.chequeDate ?? null : null,
-          bankName: pm === "BANK" ? formData.bankName ?? null : null,
-          utrNo: pm === "UPI" ? formData.utrNo ?? null : null,
-        };
+          const pm = formData.paymentMode;
+          const normalized = {
+              chequeNo: pm === "CHEQUE" ? formData.chequeNo ?? null : null,
+              chequeDate: pm === "CHEQUE" ? formData.chequeDate ?? null : null,
+              bankName: ["CHEQUE", "RTGS", "NEFT", "NET_BANKING"].includes(pm) ? formData.bankName ?? null : null,
+              utrNo: ["UPI", "NEFT", "RTGS"].includes(pm) ? formData.utrNo ?? null : null,
+              rtgsDate: pm === "RTGS" ? formData.rtgsDate ?? null : null,
+              neftDate: pm === "NEFT" ? formData.neftDate ?? null : null,
+              transactionNo: pm === "NET_BANKING" ? formData.transactionNo ?? null : null,
+              transactionDate: pm === "NET_BANKING" ? formData.transactionDate ?? null : null,
+            };
         const computedDue =
           (formData.billAmount ?? 0) -
           (formData.paidAmount ?? 0) -
@@ -263,10 +318,14 @@ export function SubContractorWorkOrderBillForm({
       } else if (mode === "edit" && initial?.id) {
         const pm = formData.paymentMode;
         const normalized = {
-          chequeNo: pm === "BANK" ? formData.chequeNo ?? null : null,
-          chequeDate: pm === "BANK" ? formData.chequeDate ?? null : null,
-          bankName: pm === "BANK" ? formData.bankName ?? null : null,
-          utrNo: pm === "UPI" ? formData.utrNo ?? null : null,
+          chequeNo: pm === "CHEQUE" ? formData.chequeNo ?? null : null,
+          chequeDate: pm === "CHEQUE" ? formData.chequeDate ?? null : null,
+          bankName: ["CHEQUE", "RTGS", "NEFT", "NET_BANKING"].includes(pm) ? formData.bankName ?? null : null,
+          utrNo: ["UPI", "NEFT", "RTGS"].includes(pm) ? formData.utrNo ?? null : null,
+          rtgsDate: pm === "RTGS" ? formData.rtgsDate ?? null : null,
+          neftDate: pm === "NEFT" ? formData.neftDate ?? null : null,
+          transactionNo: pm === "NET_BANKING" ? formData.transactionNo ?? null : null,
+          transactionDate: pm === "NET_BANKING" ? formData.transactionDate ?? null : null,
         };
         const computedDue =
           (formData.billAmount ?? 0) -
@@ -363,17 +422,52 @@ export function SubContractorWorkOrderBillForm({
                   <AppSelect
                     value={paymentMode}
                     onValueChange={(v) => {
+                      // Clear or preserve fields depending on selection
                       if (v === "CASH") {
                         form.setValue("bankName", null, { shouldValidate: true });
                         form.setValue("chequeNo", null, { shouldValidate: true });
                         form.setValue("chequeDate", null, { shouldValidate: true });
                         form.setValue("utrNo", null, { shouldValidate: true });
+                        form.setValue("rtgsDate", null, { shouldValidate: true });
+                        form.setValue("neftDate", null, { shouldValidate: true });
+                        form.setValue("transactionNo", null, { shouldValidate: true });
+                        form.setValue("transactionDate", null, { shouldValidate: true });
                       } else if (v === "UPI") {
+                        // UPI requires UTR only
                         form.setValue("bankName", null, { shouldValidate: true });
                         form.setValue("chequeNo", null, { shouldValidate: true });
                         form.setValue("chequeDate", null, { shouldValidate: true });
-                      } else if (v === "BANK") {
+                        form.setValue("rtgsDate", null, { shouldValidate: true });
+                        form.setValue("neftDate", null, { shouldValidate: true });
+                        form.setValue("transactionNo", null, { shouldValidate: true });
+                        form.setValue("transactionDate", null, { shouldValidate: true });
+                      } else if (v === "CHEQUE") {
+                        // keep bank/cheque fields; clear utr and other transfer fields
                         form.setValue("utrNo", null, { shouldValidate: true });
+                        form.setValue("rtgsDate", null, { shouldValidate: true });
+                        form.setValue("neftDate", null, { shouldValidate: true });
+                        form.setValue("transactionNo", null, { shouldValidate: true });
+                        form.setValue("transactionDate", null, { shouldValidate: true });
+                      } else if (v === "RTGS") {
+                        // RTGS needs utr, bankName and rtgsDate
+                        form.setValue("chequeNo", null, { shouldValidate: true });
+                        form.setValue("chequeDate", null, { shouldValidate: true });
+                        form.setValue("neftDate", null, { shouldValidate: true });
+                        form.setValue("transactionNo", null, { shouldValidate: true });
+                        form.setValue("transactionDate", null, { shouldValidate: true });
+                      } else if (v === "NEFT") {
+                        // NEFT needs utr, bankName and neftDate
+                        form.setValue("chequeNo", null, { shouldValidate: true });
+                        form.setValue("chequeDate", null, { shouldValidate: true });
+                        form.setValue("rtgsDate", null, { shouldValidate: true });
+                        form.setValue("transactionNo", null, { shouldValidate: true });
+                        form.setValue("transactionDate", null, { shouldValidate: true });
+                      } else if (v === "NET_BANKING") {
+                        // Net banking needs transaction fields and bankName
+                        form.setValue("chequeNo", null, { shouldValidate: true });
+                        form.setValue("chequeDate", null, { shouldValidate: true });
+                        form.setValue("rtgsDate", null, { shouldValidate: true });
+                        form.setValue("neftDate", null, { shouldValidate: true });
                       }
                       form.setValue("paymentMode", v as any, { shouldValidate: true });
                     }}
@@ -381,21 +475,57 @@ export function SubContractorWorkOrderBillForm({
                   >
                     <AppSelect.Item value="CASH">Cash</AppSelect.Item>
                     <AppSelect.Item value="UPI">UPI</AppSelect.Item>
-                    <AppSelect.Item value="BANK">Bank</AppSelect.Item>
+                    <AppSelect.Item value="CHEQUE">Cheque</AppSelect.Item>
+                    <AppSelect.Item value="RTGS">RTGS</AppSelect.Item>
+                    <AppSelect.Item value="NEFT">NEFT</AppSelect.Item>
+                    <AppSelect.Item value="NET_BANKING">Net Banking</AppSelect.Item>
                   </AppSelect>
                 </div>
               </FormRow>
 
-              {paymentMode === "BANK" && (
+              {paymentMode === "CHEQUE" && (
                 <FormRow cols={3} from="md">
                   <TextInput control={control} name="bankName" label="Bank Name" />
                   <TextInput control={control} name="chequeNo" label="Cheque No." />
                   <TextInput control={control} name="chequeDate" label="Cheque Date" type="date" />
                 </FormRow>
               )}
+
               {paymentMode === "UPI" && (
                 <FormRow cols={1}>
                   <TextInput control={control} name="utrNo" label="UTR No." />
+                </FormRow>
+              )}
+
+              {paymentMode === "CHEQUE" && (
+                <FormRow cols={3} from="md">
+                  <TextInput control={control} name="bankName" label="Bank Name" />
+                  <TextInput control={control} name="chequeNo" label="Cheque No." />
+                  <TextInput control={control} name="chequeDate" label="Cheque Date" type="date" />
+                </FormRow>
+              )}
+
+              {paymentMode === "RTGS" && (
+                <FormRow cols={3} from="md">
+                  <TextInput control={control} name="utrNo" label="UTR No." />
+                  <TextInput control={control} name="bankName" label="Bank Name" />
+                  <TextInput control={control} name="rtgsDate" label="RTGS Date" type="date" />
+                </FormRow>
+              )}
+
+              {paymentMode === "NEFT" && (
+                <FormRow cols={3} from="md">
+                  <TextInput control={control} name="utrNo" label="UTR No." />
+                  <TextInput control={control} name="bankName" label="Bank Name" />
+                  <TextInput control={control} name="neftDate" label="NEFT Date" type="date" />
+                </FormRow>
+              )}
+
+              {paymentMode === "NET_BANKING" && (
+                <FormRow cols={3} from="md">
+                  <TextInput control={control} name="transactionDate" label="Transaction Date" type="date" />
+                  <TextInput control={control} name="transactionNo" label="Transaction No." />
+                  <TextInput control={control} name="bankName" label="Bank Name" />
                 </FormRow>
               )}
 

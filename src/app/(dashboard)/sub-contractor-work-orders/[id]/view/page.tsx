@@ -1,10 +1,14 @@
 "use client";
 
-import { use } from "react";
 import useSWR from "swr";
 import { apiGet } from "@/lib/api-client";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { toast } from "@/lib/toast";
 import { AppCard } from "@/components/common/app-card";
+import { AppButton } from "@/components/common/app-button";
 import { FormSection, FormRow } from "@/components/common/app-form";
+import { useParams } from "next/navigation";
 
 function UserBadge({ name, className }: { name?: string | null; className: string }) {
   if (!name) return <span className="text-muted-foreground">—</span>;
@@ -23,9 +27,11 @@ function formatDateDmy(date?: string | Date | null) {
   return d.toLocaleDateString("en-GB");
 }
 
-export default function ViewSubContractorWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const { data, isLoading } = useSWR<any>(`/api/sub-contractor-work-orders/${id}`, apiGet);
+export default function ViewSubContractorWorkOrderPage() {
+  const params = useParams();
+  const id = params?.id;
+  const { can } = usePermissions();
+  const { data, isLoading } = useSWR<any>(id ? `/api/sub-contractor-work-orders/${id}` : null, apiGet);
 
   if (isLoading) return <div className="p-8 text-center">Loading...</div>;
 
@@ -36,6 +42,41 @@ export default function ViewSubContractorWorkOrderPage({ params }: { params: Pro
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">View SubContractor Work Order</h1>
       <AppCard>
+        <AppCard.Header>
+          <div className="flex items-center justify-between">
+            <div>
+              <AppCard.Title>SubContractor Work Order View</AppCard.Title>
+            </div>
+            <div className="flex items-center gap-2">
+              <AppButton
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/sub-contractor-work-orders/${swo.id}/print`);
+                    if (!res.ok) throw new Error("Failed to download PDF");
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `sub-contractor-work-order-${swo.workOrderNo || swo.id}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  } catch (e: any) {
+                    console.error(e);
+                    toast.error(e?.message || "Failed to download PDF");
+                  }
+                }}
+                className="print:hidden"
+                variant="secondary"
+                iconName="Printer"
+                disabled={isLoading || !swo || !can(PERMISSIONS.PRINT_SUB_CONTRACTOR_WORK_ORDERS)}
+              >
+                Print
+              </AppButton>
+            </div>
+          </div>
+        </AppCard.Header>
         <AppCard.Content>
           <FormSection title="General Information">
             <FormRow cols={3}>

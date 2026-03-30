@@ -26,6 +26,8 @@ type SubContractorWorkOrder = {
   subContractor?: { id: number; name: string } | null;
   amount: number;
   approvalStatus?: string;
+  status?: string;
+  isApproved2?: boolean;
   createdAt: string;
 };
 
@@ -148,7 +150,8 @@ export default function SubContractorWorkOrderBillsPage() {
         </FilterBar>
         <DataTable
           columns={columns}
-          data={(data?.data || []).filter((wo) => wo.approvalStatus === "APPROVED_LEVEL_2")}
+          // show only Approved Level 2 items - accept either status string or boolean flag
+          data={(data?.data || []).filter((wo) => wo.status === "APPROVED_LEVEL_2" || wo.approvalStatus === "APPROVED_LEVEL_2" || wo.isApproved2 === true)}
           loading={isLoading}
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
