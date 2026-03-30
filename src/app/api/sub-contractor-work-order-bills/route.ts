@@ -116,6 +116,9 @@ export async function POST(req: NextRequest) {
     const created = await prisma.subContractorWorkOrderBill.create({
       // cast to any to avoid strict Prisma TypeScript mismatch for optional relation fields (createdById/updatedById)
       data: {
+        // ensure required audit fields are set from the authenticated user
+        createdById: auth.user.id,
+        updatedById: auth.user.id,
         subContractorWorkOrderId: data.subContractorWorkOrderId,
         billNo: data.billNo,
         billDate: data.billDate,

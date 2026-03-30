@@ -52,6 +52,7 @@ const createSchema = z.object({
   subContractorId: z.coerce.number().min(1, "SubContractor is required"),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
+  deliveryAddressId: z.coerce.number().min(1, "Delivery Address is required"),
   workOrderDate: z.string().transform((val) => new Date(val)),
   typeOfWorkOrder: z.string().min(1, "Type of Work Order is required"),
   quotationNo: z.string().optional().nullable(),
@@ -285,6 +286,7 @@ export async function POST(req: NextRequest) {
               paymentTermId: ptId,
             })),
           },
+          deliveryAddressId: parsedData.deliveryAddressId,
         },
         include: {
           subContractorWorkOrderDetails: true,

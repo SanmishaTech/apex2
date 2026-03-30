@@ -231,6 +231,30 @@ export default function SubContractorWorkOrdersPage() {
             <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}/view`)}>
               <FileText className="mr-2 h-4 w-4" /> View
             </DropdownMenuItem>
+            {can(PERMISSIONS.PRINT_SUB_CONTRACTOR_WORK_ORDERS) && (
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/sub-contractor-work-orders/${row.id}/print`);
+                    if (!res.ok) throw new Error("Failed to download PDF");
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `sub-contractor-work-order-${row.workOrderNo || row.id}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("Failed to download PDF");
+                  }
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" /> Print
+              </DropdownMenuItem>
+            )}
             {/* Show Edit only until approved level 1 is done */}
             {row.status !== "APPROVED_LEVEL_1" && row.status !== "APPROVED_LEVEL_2" && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}`)}>
@@ -342,7 +366,7 @@ export default function SubContractorWorkOrdersPage() {
       <AppCard>
         <DataTable
           columns={columns}
-          data={data?.data || []}
+          data={(data?.data || [])}
           loading={isLoading}
           sort={{ field: sort, order }}
           onSortChange={(next) => setQp({ sort: next.field, order: next.order })}

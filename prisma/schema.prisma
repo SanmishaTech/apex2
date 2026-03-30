@@ -1828,6 +1828,7 @@ model SiteDeliveryAddress {
 
   purchaseOrders PurchaseOrder[]
   workOrders WorkOrder[]
+  subContractorWorkOrders SubContractorWorkOrder[]
 
   @@index([siteId])
   @@index([stateId])
@@ -3133,11 +3134,13 @@ model SubContractorWorkOrder {
   boqId                 Int
   subContractorId       Int
   billingAddressId      Int
+  deliveryAddressId      Int
   vendorId              Int
   subContractor         SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Restrict)
   site                  Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
   boq                   Boq           @relation(fields: [boqId], references: [id], onDelete: Restrict)
   billingAddress        BillingAddress @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  deliveryAddress       SiteDeliveryAddress @relation(fields: [deliveryAddressId], references: [id], onDelete: Restrict)
   vendor                Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   workOrderNo           String  
   workOrderDate         DateTime @db.Date
