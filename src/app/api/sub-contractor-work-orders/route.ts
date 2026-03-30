@@ -80,7 +80,7 @@ const createSchema = z.object({
   status: z.string().optional(),
 });
 
-const COMPANY_CODE = "DCTPL";
+const COMPANY_CODE = "SWO";
 
 function normalizeYear(year: number): number {
   if (!Number.isFinite(year)) {
@@ -119,7 +119,8 @@ async function generateSWONumber(
   if (!site || !site.siteCode) {
     throw new Error("Invalid site or missing site code");
   }
-  const prefix = `${COMPANY_CODE}/${financialYearLabel}/${site.siteCode}/SWO/`;
+  // Build prefix as SWO/<FY>/<SITE>/ so final number becomes SWO/<FY>/<SITE>/<sequence>
+  const prefix = `${COMPANY_CODE}/${financialYearLabel}/${site.siteCode}/`;
   const latest = await tx.subContractorWorkOrder.findFirst({
     where: {
       workOrderDate: { gte: startDate, lte: endDate },
@@ -266,8 +267,6 @@ export async function POST(req: NextRequest) {
               sacCode: item.sacCode,
               unitId: item.unitId,
               qty: item.qty,
-              approved1Qty: item.qty,
-              approved2Qty: item.qty,
               rate: item.rate,
               cgst: item.cgst,
               cgstAmt: item.cgstAmt,

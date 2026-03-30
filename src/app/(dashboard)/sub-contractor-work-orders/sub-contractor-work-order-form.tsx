@@ -56,17 +56,36 @@ const itemSchema = z.object({
   sacCode: z.string().optional().nullable(),
   unitId: z.preprocess((val) => (val === "" || val === undefined || val === null) ? 0 : Number(val), z.number().min(1, "Unit is required")),
   qty: optionalDecimal().transform((v) => v === null ? v : Number(v)).refine((v) => typeof v === 'number' && v > 0, { message: 'Quantity must be greater than 0' }),
-  approved1Qty: optionalDecimal(),
-  approved2Qty: optionalDecimal(),
+  // removed approved1Qty / approved2Qty (DB columns removed)
   rate: optionalDecimal().transform((v) => v === null ? v : Number(v)).refine((v) => typeof v === 'number' && v > 0, { message: 'Rate must be greater than 0' }),
   cgst: optionalDecimal(),
   sgst: optionalDecimal(),
   igst: optionalDecimal(),
-  // Derived
-  cgstAmt: z.number().optional(),
-  sgstAmt: z.number().optional(),
-  igstAmt: z.number().optional(),
-  amount: z.number().optional(),
+  // Derived - coerce strings to numbers if present (some APIs return numbers as strings)
+  cgstAmt: z.preprocess((val) => {
+    if (val === "" || val === undefined || val === null) return undefined;
+    if (typeof val === 'number') return val;
+    const n = Number(val);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().optional()),
+  sgstAmt: z.preprocess((val) => {
+    if (val === "" || val === undefined || val === null) return undefined;
+    if (typeof val === 'number') return val;
+    const n = Number(val);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().optional()),
+  igstAmt: z.preprocess((val) => {
+    if (val === "" || val === undefined || val === null) return undefined;
+    if (typeof val === 'number') return val;
+    const n = Number(val);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().optional()),
+  amount: z.preprocess((val) => {
+    if (val === "" || val === undefined || val === null) return undefined;
+    if (typeof val === 'number') return val;
+    const n = Number(val);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().optional()),
 });
 
 const formSchema = z.object({
@@ -121,17 +140,22 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
         deliveryDate: initial.deliveryDate ? format(new Date(initial.deliveryDate), "yyyy-MM-dd") : "",
         paymentTermIds: initial.subContractorWorkOrderPaymentTerms?.map((p: any) => p.paymentTermId) || [],
         workOrderItems: initial.subContractorWorkOrderDetails?.map((d: any) => ({
+          // ensure numeric fields are present and have correct types for the form
+          // Note: AppSelect expects string values for options, so store unitId as string here
           ...d,
-          approved1Qty: d.approved1Qty ?? d.qty,
-          approved2Qty: d.approved2Qty ?? d.approved1Qty ?? d.qty,
+          unitId: d.unitId != null ? String(d.unitId) : "",
+          qty: d.qty ?? 0,
+          rate: d.rate ?? 0,
+          executedQty: d.executedQty ?? 0,
+          executedAmount: d.executedAmount ?? null,
         })) || [],
         status: initial.status ?? undefined,
       };
     }
-    return {
+      return {
       workOrderDate: format(new Date(), "yyyy-MM-dd"),
       typeOfWorkOrder: "Lumpsum",
-  workOrderItems: [{ isBoqItem: false, unitId: 0, item: "", qty: 0, rate: 0, executedQty: 0, executedAmount: null }],
+  workOrderItems: [{ isBoqItem: false, unitId: "", item: "", qty: 0, rate: 0, executedQty: 0, executedAmount: null }],
       paymentTermIds: [],
       boqId: undefined,
       siteId: undefined,
@@ -175,8 +199,8 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
       const _sgst = typeof item.sgst === 'string' && item.sgst === '' ? 0 : Number(item.sgst || 0);
       const _igst = typeof item.igst === 'string' && item.igst === '' ? 0 : Number(item.igst || 0);
 
-      // Use approved quantity if in approval mode, otherwise use qty
-      const effectiveQty = isApproval2 ? Number(item.approved2Qty ?? 0) : isApproval1 ? Number(item.approved1Qty ?? 0) : _qty;
+  // Use qty (approvedQty fields were removed from schema)
+  const effectiveQty = _qty;
       const base = effectiveQty * _rate;
       const c = (base * _cgst) / 100;
       const s = (base * _sgst) / 100;
@@ -239,6 +263,7 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
   }, [totals.calculatedItems, watchedItems]);
 
   const onSubmit = async (data: FormData) => {
+    console.log("Submitting SWO form", { mode, isApproval1, isApproval2, data });
     setIsSubmitting(true);
     try {
       const payload: any = {
@@ -270,9 +295,28 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
     }
   };
 
+  const onError = (errors: any) => {
+    // Log react-hook-form validation errors
+    console.error("Form validation errors (react-hook-form):", errors);
+
+    // Also run the zod schema directly to surface any zod-specific parsing issues
+    try {
+      const parsed = formSchema.safeParse(form.getValues());
+      if (!parsed.success) {
+        console.error("Zod validation errors:", parsed.error.format(), parsed.error.errors);
+      }
+    } catch (zerr) {
+      console.error("Error running zod.safeParse:", zerr);
+    }
+
+    // Show a toast so user knows to check console
+    toast.error("Validation failed. See console for details.");
+    setIsSubmitting(false);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
         <AppCard>
           <AppCard.Header>
             <AppCard.Title>{mode === "create" ? "New" : isApprovalMode ? "Approve" : isView ? "View" : "Edit"} SubContractor Work Order</AppCard.Title>

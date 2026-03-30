@@ -81,9 +81,7 @@ export interface SubContractorWorkOrderDetail {
   sacCode?: string | null;
   unitId: number;
   qty: number;
-  orderedQty: number;
-  approved1Qty: number;
-  approved2Qty: number;
+  // orderedQty, approved1Qty and approved2Qty columns removed from DB; no longer present
   rate?: number | null;
   cgst?: number | null;
   cgstAmt?: number | null;

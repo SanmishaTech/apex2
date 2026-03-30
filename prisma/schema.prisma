@@ -123,6 +123,8 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   subContractorWorkOrderSuspended SubContractorWorkOrder[] @relation("SubContractorWorkOrderSuspendedBy")
   subContractorWorkOrderCompleted SubContractorWorkOrder[] @relation("SubContractorWorkOrderCompletedBy")
   
+  subContractorWorkOrderBillsCreated SubContractorWorkOrderBill[] @relation("SWOBillCreated")
+  subContractorWorkOrderBillsUpdated SubContractorWorkOrderBill[] @relation("SWOBillUpdated")
   @@map("users")
 }
 
@@ -3170,7 +3172,7 @@ model SubContractorWorkOrder {
   approved2ById             Int?
   approved2At     DateTime?
 
-  status                String   @db.VarChar(10)
+  status                String  
 
 
   isSuspended           Boolean  @default(false)
@@ -3197,6 +3199,7 @@ model SubContractorWorkOrder {
   subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
   // Relation
   subContractorWorkOrderPaymentTerms SubContractorWorkOrderPaymentTerm[]
+  subContractorWorkOrderBills SubContractorWorkOrderBill[]
   @@map("sub_contractor_work_orders")
 }
 
@@ -3236,8 +3239,7 @@ model SubContractorWorkOrderDetail {
   qty               Decimal  @db.Decimal(10, 2)
   executedQty       Decimal  @db.Decimal(10, 2)
   executedAmount    Decimal @db.Decimal(12, 2)
-  approved1Qty      Decimal? @db.Decimal(10, 2)
-  approved2Qty      Decimal? @db.Decimal(10, 2)
+  
 
   rate              Decimal @db.Decimal(10, 2)
 
@@ -3255,3 +3257,57 @@ model SubContractorWorkOrderDetail {
 
   @@map("sub_contractor_work_order_details")
 }
+
+
+enum SubContractorWorkOrderBillStatus {
+  PAID
+  UNPAID
+  PARTIALLY_PAID
+}
+
+enum SubContractorWorkOrderBillPaymentMode {
+  CASH 
+  UPI 
+  CHEQUE 
+  RTGS 
+  NEFT 
+  NET_BANKING 
+}
+
+model SubContractorWorkOrderBill {
+  id              Int      @id @default(autoincrement())
+  subContractorWorkOrderId Int
+  subContractorWorkOrder SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
+  billNo          String  
+  billDate        DateTime  @db.Date
+  billAmount      Decimal    @db.Decimal(12, 2)
+  paidAmount      Decimal?    @db.Decimal(12, 2) 
+  dueDate         DateTime   @db.Date
+  paymentDate     DateTime?   @db.Date
+  paymentMode     SubContractorWorkOrderBillPaymentMode  
+  chequeNo        String?   @db.VarChar(200)  
+  chequeDate      DateTime?    @db.Date
+  utrNo           String?   @db.VarChar(200) 
+   rtgsDate                  DateTime?  @db.Date
+  neftDate                  DateTime?  @db.Date
+  bankName        String?   @db.VarChar(100) 
+   transactionNo             String?   @db.VarChar(200)
+  transactionDate           DateTime?  @db.Date
+  deductionTax    Decimal?    @db.Decimal(10, 2) 
+  dueAmount    Decimal    @db.Decimal(10, 2) 
+  status         SubContractorWorkOrderBillStatus
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  createdById      Int
+  updatedById      Int
+
+  createdBy User @relation("SWOBillCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("SWOBillUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([subContractorWorkOrderId])
+  
+  @@map("sub_contractor_work_order_bills")
+}
+
