@@ -116,21 +116,30 @@ export async function PATCH(
       });
       if (!current) throw new Error("Work order not found");
 
-      const { workOrderItems, paymentTermIds, statusAction, remarks, ...baseData } = updateData;
+  const { workOrderItems, paymentTermIds, statusAction, remarks, ...baseData } = updateData;
 
       const dataToUpdate: any = { ...baseData };
       const now = new Date();
 
       if (statusAction) {
         const permSet = new Set((auth.user.permissions || []) as string[]);
+        // Prevent the creator from approving their own work order
+        const isCreator = current.createdById === auth.user.id;
+
         if (statusAction === "approve1") {
           if (!permSet.has(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L1)) throw new Error("No L1 permission");
+          if (isCreator) throw new Error("Creator cannot approve the work order");
+          if (current.isApproved1) throw new Error("Work order already approved at level 1");
           dataToUpdate.status = "APPROVED_LEVEL_1";
           dataToUpdate.isApproved1 = true;
           dataToUpdate.approved1ById = auth.user.id;
           dataToUpdate.approved1At = now;
         } else if (statusAction === "approve2") {
           if (!permSet.has(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2)) throw new Error("No L2 permission");
+          if (isCreator) throw new Error("Creator cannot approve the work order");
+          if (!current.isApproved1) throw new Error("Work order must be approved at level 1 before level 2");
+          if (current.approved1ById === auth.user.id) throw new Error("User who performed approve1 cannot perform approve2");
+          if (current.isApproved2) throw new Error("Work order already approved at level 2");
           dataToUpdate.status = "APPROVED_LEVEL_2";
           dataToUpdate.isApproved2 = true;
           dataToUpdate.approved2ById = auth.user.id;
@@ -155,6 +164,12 @@ export async function PATCH(
 
       dataToUpdate.updatedById = auth.user.id;
 
+      // If this is a normal update (not a statusAction) and approval level 1 is already done, block edits
+      const isNormalUpdate = !statusAction;
+      if (isNormalUpdate && current.isApproved1) {
+        throw new Error("Cannot edit work order after approval level 1");
+      }
+
       const updated = await tx.subContractorWorkOrder.update({
         where: { id },
         data: dataToUpdate,
@@ -178,8 +193,6 @@ export async function PATCH(
             sacCode: item.sacCode,
             unitId: item.unitId,
             qty: item.qty,
-            approved1Qty: item.qty,
-            approved2Qty: item.qty,
             rate: item.rate,
             cgst: item.cgst,
             cgstAmt: item.cgstAmt,

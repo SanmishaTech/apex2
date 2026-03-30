@@ -231,9 +231,12 @@ export default function SubContractorWorkOrdersPage() {
             <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}/view`)}>
               <FileText className="mr-2 h-4 w-4" /> View
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}`)}>
-              <FileText className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
+            {/* Show Edit only until approved level 1 is done */}
+            {row.status !== "APPROVED_LEVEL_1" && row.status !== "APPROVED_LEVEL_2" && (
+              <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}`)}>
+                <FileText className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
             {can(PERMISSIONS.DELETE_SUB_CONTRACTOR_WORK_ORDERS) && row.status === "DRAFT" && (
               <DropdownMenuItem
                 className="text-destructive"
@@ -253,12 +256,12 @@ export default function SubContractorWorkOrdersPage() {
               </DropdownMenuItem>
             )}
             {/* Approval actions: show approve1/approve2 navigation similar to purchase orders */}
-            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L1) && row.status !== "APPROVED_LEVEL_1" && row.status !== "APPROVED_LEVEL_2" && (
+            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L1) && row.status !== "APPROVED_LEVEL_1" && row.status !== "APPROVED_LEVEL_2" && row.createdById !== user?.id && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}/approve1`)}>
                 <FileText className="mr-2 h-4 w-4" /> Approve 1
               </DropdownMenuItem>
             )}
-            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2) && row.status === "APPROVED_LEVEL_1" && (
+            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2) && row.status === "APPROVED_LEVEL_1" && row.createdById !== user?.id && row.approved1ById !== user?.id && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}/approve2`)}>
                 <FileText className="mr-2 h-4 w-4" /> Approve 2
               </DropdownMenuItem>

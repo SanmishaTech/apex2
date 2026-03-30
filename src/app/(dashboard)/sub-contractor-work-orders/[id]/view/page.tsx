@@ -25,12 +25,12 @@ function formatDateDmy(date?: string | Date | null) {
 
 export default function ViewSubContractorWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data, isLoading } = useSWR<{ data: SubContractorWorkOrder }>(`/api/sub-contractor-work-orders/${id}`, apiGet);
+  const { data, isLoading } = useSWR<any>(`/api/sub-contractor-work-orders/${id}`, apiGet);
 
   if (isLoading) return <div className="p-8 text-center">Loading...</div>;
-  if (!data?.data) return <div className="p-8 text-center">Work order not found</div>;
 
-  const swo = data.data;
+  const swo: SubContractorWorkOrder | undefined = data?.data ?? data;
+  if (!swo) return <div className="p-8 text-center">Work order not found</div>;
 
   return (
     <div className="space-y-6">
