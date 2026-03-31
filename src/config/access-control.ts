@@ -135,6 +135,21 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     permissions: [PERMISSIONS.VIEW_PURCHASE_ORDERS],
   },
 
+  // sales-invoices
+  {
+    prefix: "/sales-invoices/new",
+    permissions: [PERMISSIONS.CREATE_SALES_INVOICES],
+  },
+  // Allow viewing subpages (e.g., view, edit) without requiring EDIT rights
+  {
+    prefix: "/sales-invoices/",
+    permissions: [PERMISSIONS.READ_SALES_INVOICES],
+  },
+  {
+    prefix: "/sales-invoices",
+    permissions: [PERMISSIONS.VIEW_SALES_INVOICES],
+  },
+
   // Work Orders
   {
     prefix: "/work-orders/new",
@@ -668,6 +683,25 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       // Let the handler enforce granular permissions (approve1/approve2/suspend/complete)
       PATCH: [],
       // DELETE: [PERMISSIONS.DELETE_PURCHASE_ORDERS],
+    },
+  },
+  {
+    prefix: "/api/sales-invoices",
+    methods: {
+      GET: [PERMISSIONS.READ_SALES_INVOICES],
+      POST: [PERMISSIONS.CREATE_SALES_INVOICES],
+      // Let the handler enforce granular permissions (authorize)
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_SALES_INVOICES],
+    },
+  },
+  {
+    // Subroutes like /api/sales-invoices/:id and /api/sales-invoices/:id/print
+    prefix: "/api/sales-invoices/",
+    methods: {
+      GET: [PERMISSIONS.READ_SALES_INVOICES],
+      PATCH: [],
+      DELETE: [PERMISSIONS.DELETE_SALES_INVOICES],
     },
   },
   {

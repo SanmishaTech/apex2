@@ -92,7 +92,7 @@ export function AppCombobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value || '__empty'}
-                  value={option.label}
+                  value={option.value}
                   keywords={[option.value, option.label]}
                   onSelect={() => {
                     onValueChange?.(option.value)

@@ -501,7 +501,12 @@ export const NAV_ITEMS: NavItem[] = [
         icon: FileText,
         permission: PERMISSIONS.READ_BOQ_BILLS,
       },
-
+      {
+        title: "Sales Invoices",
+        href: "/sales-invoices",
+        icon: Receipt,
+        permission: PERMISSIONS.READ_SALES_INVOICES,
+      },
 
       {
         type: "group",
