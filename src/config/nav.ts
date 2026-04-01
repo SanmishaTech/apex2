@@ -652,6 +652,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS,
       },
       {
+        title: "Sub Contractor Invoices",
+        href: "/sub-contractor-invoices",
+        icon: Receipt,
+        permission: PERMISSIONS.READ_SUB_CONTRACTOR_INVOICES,
+      },
+      {
         title: "Sub Contractor WO Bills",
         href: "/sub-contractor-work-order-bills",
         icon: FileText,
