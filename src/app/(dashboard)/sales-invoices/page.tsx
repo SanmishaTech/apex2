@@ -452,36 +452,26 @@ export default function SalesInvoicesPage() {
                   </AppButton>
                 )}
               </div>
-              <AppSelect
+              <NonFormTextInput
                 label="Site"
-                value={siteDraft || "__none"}
-                onValueChange={(v) => setSiteDraft(v === "__none" ? "" : v)}
-                placeholder="All Sites"
-                triggerClassName="h-9"
-                className="min-w-0"
-              >
-                <AppSelect.Item value="__none">All Sites</AppSelect.Item>
-                {sites.map((s) => (
-                  <AppSelect.Item key={s.id} value={s.id.toString()}>
-                    {s.site}
-                  </AppSelect.Item>
-                ))}
-              </AppSelect>
-              <AppSelect
+                placeholder="Site..."
+                value={siteDraft}
+                onChange={(e) => setSiteDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+                containerClassName="min-w-0"
+              />
+              <NonFormTextInput
                 label="BOQ"
-                value={boqDraft || "__none"}
-                onValueChange={(v) => setBoqDraft(v === "__none" ? "" : v)}
-                placeholder="All BOQs"
-                triggerClassName="h-9"
-                className="min-w-0"
-              >
-                <AppSelect.Item value="__none">All BOQs</AppSelect.Item>
-                {boqs.map((b) => (
-                  <AppSelect.Item key={b.id} value={b.id.toString()}>
-                    {b.workName}
-                  </AppSelect.Item>
-                ))}
-              </AppSelect>
+                placeholder="BOQ..."
+                value={boqDraft}
+                onChange={(e) => setBoqDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+                containerClassName="min-w-0"
+              />
               <AppSelect
                 label="Status"
                 value={authorizedDraft || "__none"}
@@ -558,15 +548,17 @@ export default function SalesInvoicesPage() {
                         </>
                       )}
 
-                      {!isAuthorized && can(PERMISSIONS.AUTHORIZE_SALES_INVOICES) && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            pushWithScrollSave(`/sales-invoices/${invoice.id}/authorize`)
-                          }
-                        >
-                          Authorize
-                        </DropdownMenuItem>
-                      )}
+                      {!isAuthorized &&
+                        can(PERMISSIONS.AUTHORIZE_SALES_INVOICES) &&
+                        invoice.createdById !== user?.id && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              pushWithScrollSave(`/sales-invoices/${invoice.id}/authorize`)
+                            }
+                          >
+                            Authorize
+                          </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 );

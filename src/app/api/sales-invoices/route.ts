@@ -371,7 +371,7 @@ export async function POST(req: NextRequest) {
 
       const invoiceData: any = {
         invoiceNumber,
-        revision: "01",
+        revision: "00",
         invoiceDate: parsedData.invoiceDate,
         fromDate: parsedData.fromDate,
         toDate: parsedData.toDate,
@@ -448,9 +448,32 @@ export async function POST(req: NextRequest) {
         amount: detail.amount,
       }));
 
-      await tx.salesInvoiceDetail.createMany({
-        data: detailsData,
-      });
+      // Create invoice details one-by-one so we can capture the generated IDs
+      const createdDetails: any[] = [];
+
+      for (const detail of detailsData) {
+        const created = await tx.salesInvoiceDetail.create({
+          data: detail,
+          select: {
+            id: true,
+            boqItemId: true,
+            particulars: true,
+            totalBoqQty: true,
+            invoiceQty: true,
+            rate: true,
+            discount: true,
+            discountAmount: true,
+            cgst: true,
+            cgstAmt: true,
+            sgst: true,
+            sgstAmt: true,
+            igst: true,
+            igstAmt: true,
+            amount: true,
+          },
+        });
+        createdDetails.push(created);
+      }
 
       // Fetch user name for log
       const user = await tx.user.findUnique({
@@ -483,28 +506,31 @@ export async function POST(req: NextRequest) {
       });
 
       // Create detail logs
-      const detailLogsData = detailsData.map((detail) => ({
+      // Build detail log data using the real created detail IDs
+      const detailLogsData = createdDetails.map((created) => ({
         salesInvoiceLogId: salesInvoiceLog.id,
-        salesInvoiceDetailId: 0, // Will be populated after detail creation
-        boqItemId: detail.boqItemId,
-        particulars: detail.particulars ?? "",
-        totalBoqQty: detail.totalBoqQty,
-        invoiceQty: detail.invoiceQty,
-        rate: detail.rate,
-        discount: detail.discount,
-        discountAmount: detail.discountAmount,
-        cgst: detail.cgst,
-        cgstAmt: detail.cgstAmt,
-        sgst: detail.sgst,
-        sgstAmt: detail.sgstAmt,
-        igst: detail.igst,
-        igstAmt: detail.igstAmt,
-        amount: detail.amount,
+        salesInvoiceDetailId: created.id,
+        boqItemId: created.boqItemId,
+        particulars: created.particulars ?? "",
+        totalBoqQty: created.totalBoqQty,
+        invoiceQty: created.invoiceQty,
+        rate: created.rate,
+        discount: created.discount,
+        discountAmount: created.discountAmount,
+        cgst: created.cgst,
+        cgstAmt: created.cgstAmt,
+        sgst: created.sgst,
+        sgstAmt: created.sgstAmt,
+        igst: created.igst,
+        igstAmt: created.igstAmt,
+        amount: created.amount,
       }));
 
-      await tx.salesInvoiceDetailLog.createMany({
-        data: detailLogsData,
-      });
+      if (detailLogsData.length > 0) {
+        await tx.salesInvoiceDetailLog.createMany({
+          data: detailLogsData,
+        });
+      }
 
       // Fetch the created invoice with details
       const invoiceWithDetails = await tx.salesInvoice.findUnique({

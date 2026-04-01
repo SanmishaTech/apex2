@@ -233,13 +233,16 @@ export function SalesInvoiceForm({
   const sites = sitesData?.data ?? [];
   const billingAddresses = billingAddressesData?.data ?? [];
 
-  // Get effective data
+
+  // Get effective data (API may return either the object directly or a { data } wrapper)
   const effectiveData = useMemo(() => {
-    if (!isCreate && invoiceData?.data) {
-      return invoiceData.data;
+    if (!isCreate && invoiceData) {
+      return (invoiceData as any).data ?? invoiceData;
     }
     return initial;
   }, [isCreate, invoiceData, initial]);
+
+  // (removed debug logs)
 
   // Watch siteId for BOQ filtering
   // NOTE: `form` is initialized after `defaultValues` (below) to avoid reset timing issues.
@@ -348,11 +351,53 @@ export function SalesInvoiceForm({
   );
   const boqItems: BoqItem[] = boqDetail?.items || [];
 
+  const boqsForSelect = useMemo(() => {
+    const arr = boqs.map((b) => ({ value: String(b.id), label: b.workName }));
+    if (effectiveData?.boq && !arr.find((a) => a.value === String(effectiveData.boq.id))) {
+      arr.unshift({ value: String(effectiveData.boq.id), label: effectiveData.boq.workName });
+    }
+    return arr;
+  }, [boqs, effectiveData]);
+
+  const boqItemsForSelect = useMemo(() => {
+    // Map currently loaded boqItems; if empty but effectiveData has details, include those items so activity shows
+    const arr = (boqItems || []).map((b) => ({ value: String(b.id), label: b.activityId }));
+    // include any selected items from invoice details that aren't present
+    const detailItems = (effectiveData?.salesInvoiceDetails || []).map((d: any) => d.boqItem).filter(Boolean);
+    for (const di of detailItems) {
+      if (!arr.find((a) => a.value === String(di.id))) {
+        arr.unshift({ value: String(di.id), label: di.activityId || di.item || String(di.id) });
+      }
+    }
+    return arr;
+  }, [boqItems, effectiveData]);
+
+  // Defensive: ensure option lists include the invoice's own selected items so the Combobox can show them
+  const sitesForSelect = useMemo(() => {
+    const arr = sites.map((s) => ({ value: String(s.id), label: s.site }));
+    if (effectiveData?.site && !arr.find((a) => a.value === String(effectiveData.site.id))) {
+      arr.unshift({ value: String(effectiveData.site.id), label: effectiveData.site.site });
+    }
+    return arr;
+  }, [sites, effectiveData]);
+
+  const billingAddressesForSelect = useMemo(() => {
+    const arr = billingAddresses.map((a) => ({ value: String(a.id), label: formatBillingAddressLabel(a) }));
+    if (
+      effectiveData?.billingAddress &&
+      !arr.find((a) => a.value === String(effectiveData.billingAddress.id))
+    ) {
+      arr.unshift({ value: String(effectiveData.billingAddress.id), label: formatBillingAddressLabel(effectiveData.billingAddress) });
+    }
+    return arr;
+  }, [billingAddresses, effectiveData]);
+
+  // (removed debug logs)
+
   // When effectiveData becomes available (edit/view/authorize), reset form values so fields show loaded data.
   useEffect(() => {
-    if (effectiveData) {
-      form.reset(defaultValues);
-    }
+    // Always reset whenever computed defaultValues change (mirrors PurchaseOrderForm behavior)
+    form.reset(defaultValues);
   }, [effectiveData, defaultValues, form]);
 
   // Refetch BOQ items when BOQ changes in create mode
@@ -466,14 +511,25 @@ export function SalesInvoiceForm({
         totalAmount,
         salesInvoiceDetails: data.salesInvoiceDetails.map((detail, index) => {
           const computed = computedItems[index];
-          return {
-            ...detail,
+          // Normalize fields: send numbers or nulls (no empty strings)
+          const norm = {
+            boqItemId: typeof detail.boqItemId === "string" ? parseInt(detail.boqItemId, 10) : detail.boqItemId,
+            particulars: detail.particulars ?? "",
+            totalBoqQty: toNumber(detail.totalBoqQty as any),
+            invoiceQty: toNumber(detail.invoiceQty as any),
+            rate: toNumber(detail.rate as any),
+            discount: detail.discount === "" || detail.discount == null ? null : toNumber(detail.discount as any),
             discountAmount: computed.discountAmount,
+            cgst: detail.cgst === "" || detail.cgst == null ? null : toNumber(detail.cgst as any),
             cgstAmt: computed.cgstAmt,
+            sgst: detail.sgst === "" || detail.sgst == null ? null : toNumber(detail.sgst as any),
             sgstAmt: computed.sgstAmt,
+            igst: detail.igst === "" || detail.igst == null ? null : toNumber(detail.igst as any),
             igstAmt: computed.igstAmt,
             amount: computed.amount,
-          };
+          } as any;
+
+          return norm;
         }),
       };
 
@@ -601,14 +657,14 @@ export function SalesInvoiceForm({
                       <label className="text-sm font-medium">Site</label>
                       <FormControl>
                         <AppCombobox
-                          value={field.value ? String(field.value) : ""}
+                          value={field.value && field.value > 0 ? String(field.value) : "__none"}
                           onValueChange={(value) => {
-                            const next = value ? parseInt(value, 10) : 0;
+                            const next = value === "__none" ? 0 : parseInt(value, 10);
                             field.onChange(next);
                             // Clear BOQ when site changes
                             form.setValue("boqId", 0);
                           }}
-                          options={sites.map((site) => ({ value: String(site.id), label: site.site }))}
+                          options={[{ value: "__none", label: "Select site" }, ...sitesForSelect]}
                           placeholder="Select site"
                           searchPlaceholder="Search site..."
                           emptyText="No site found."
@@ -628,12 +684,12 @@ export function SalesInvoiceForm({
                       <label className="text-sm font-medium">BOQ</label>
                       <FormControl>
                         <AppCombobox
-                          value={field.value ? String(field.value) : ""}
+                          value={field.value && field.value > 0 ? String(field.value) : "__none"}
                           onValueChange={(value) => {
-                            const next = value ? parseInt(value, 10) : 0;
+                            const next = value === "__none" ? 0 : parseInt(value, 10);
                             field.onChange(next);
                           }}
-                          options={watchedSiteId ? boqs.map((boq) => ({ value: String(boq.id), label: boq.workName })) : []}
+                          options={watchedSiteId ? [{ value: "__none", label: "Select BOQ" }, ...boqsForSelect] : [{ value: "__none", label: "Select site first" }]}
                           placeholder={watchedSiteId ? "Select BOQ" : "Select site first"}
                           searchPlaceholder="Search BOQ..."
                           emptyText="No BOQ found."
@@ -653,12 +709,12 @@ export function SalesInvoiceForm({
                       <label className="text-sm font-medium">Billing Address</label>
                       <FormControl>
                         <AppCombobox
-                          value={field.value ? String(field.value) : ""}
+                          value={field.value && field.value > 0 ? String(field.value) : "__none"}
                           onValueChange={(value) => {
-                            const next = value ? parseInt(value, 10) : 0;
+                            const next = value === "__none" ? 0 : parseInt(value, 10);
                             field.onChange(next);
                           }}
-                          options={billingAddresses.map((addr) => ({ value: String(addr.id), label: formatBillingAddressLabel(addr) }))}
+                          options={[{ value: "__none", label: "Select billing address" }, ...billingAddressesForSelect]}
                           placeholder="Select billing address"
                           searchPlaceholder="Search address..."
                           emptyText="No address found."
@@ -722,9 +778,9 @@ export function SalesInvoiceForm({
                                         <label className="text-[10px] font-medium leading-none">Activity</label>
                                         <FormControl>
                                           <AppCombobox
-                                            value={boqField.value ? String(boqField.value) : ""}
+                                            value={boqField.value && boqField.value > 0 ? String(boqField.value) : "__none"}
                                             onValueChange={(val) => {
-                                              const parsed = val ? parseInt(val, 10) : 0;
+                                              const parsed = val === "__none" ? 0 : parseInt(val, 10);
                                               boqField.onChange(parsed);
                                               const selectedItem = boqItems.find((it: BoqItem) => it.id === parsed);
                                               if (selectedItem) {
@@ -733,7 +789,7 @@ export function SalesInvoiceForm({
                                                 form.setValue(`salesInvoiceDetails.${index}.totalBoqQty`, selectedItem.qty);
                                               }
                                             }}
-                                            options={watchedBoqId ? boqItems.map((b: BoqItem) => ({ value: String(b.id), label: b.activityId })) : []}
+                                            options={watchedBoqId ? [{ value: "__none", label: "Select Activity" }, ...boqItemsForSelect] : [{ value: "__none", label: "Select BOQ first" }]}
                                             placeholder={watchedBoqId ? "Select Activity" : "Select BOQ first"}
                                             searchPlaceholder="Search activity..."
                                             emptyText="No activity found."
@@ -963,20 +1019,7 @@ export function SalesInvoiceForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      append({
-                        boqItemId: 0,
-                        particulars: "",
-                        totalBoqQty: 0,
-                        invoiceQty: 0,
-                        rate: 0,
-                        discount: 0,
-                        cgst: 0,
-                        sgst: 0,
-                        igst: 0,
-                        amount: 0,
-                      })
-                    }
+                    onClick={addItem}
                     className="text-black dark:text-white"
                   >
                     <Plus className="mr-2 h-4 w-4" /> Add Item

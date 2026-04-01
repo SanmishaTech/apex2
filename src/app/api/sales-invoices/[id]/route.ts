@@ -608,7 +608,7 @@ export async function DELETE(
           logType: "DELETE",
           boqId: invoice.boqId,
           invoiceNumber: invoice.invoiceNumber,
-          revision: "01",
+          revision: "00",
           invoiceDate: invoice.invoiceDate,
           fromDate: invoice.fromDate,
           toDate: invoice.toDate,
