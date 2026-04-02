@@ -60,7 +60,7 @@ const createSchema = z.object({
   lwf: z.coerce.number().min(0, "LWF must be non-negative").default(0),
   otherDeductions: z.coerce.number().min(0, "Other Deductions must be non-negative").default(0),
   netPayable: z.coerce.number().min(0, "Net Payable must be non-negative"),
-  status: z.enum(["PENDING", "APPROVED", "PAID"]).default("PENDING"),
+  status: z.enum(["PENDING", "PAID"]).default("PENDING"),
   invoiceItems: z.array(invoiceItemSchema).min(1, "At least one item is required"),
 });
 
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
           lwf: parsedData.lwf,
           otherDeductions: parsedData.otherDeductions,
           netPayable: parsedData.netPayable,
-          status: "PENDING",
+          status: parsedData.status,
           isAuthorized: false,
           createdById: auth.user.id,
           updatedById: auth.user.id,
@@ -319,7 +319,7 @@ export async function POST(req: NextRequest) {
         select: { name: true },
       });
 
-      await tx.subContractorInvoiceLog.create({
+      const log = await tx.subContractorInvoiceLog.create({
         data: {
           subContractorInvoiceId: invoice.id,
           siteId: invoice.siteId,
@@ -340,6 +340,28 @@ export async function POST(req: NextRequest) {
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
+      });
+
+      // Create detail logs
+      await tx.subContractorInvoiceDetailLog.createMany({
+        data: invoice.subContractorInvoiceDetails.map((d: any) => ({
+          subContractorInvoiceLogId: log.id,
+          subContractorInvoiceDetailId: d.id,
+          subContractorWorkOrderDetailId: d.subContractorWorkOrderDetailId,
+          particulars: d.particulars,
+          workOrderQty: d.workOrderQty,
+          currentBillQty: d.currentBillQty,
+          rate: d.rate,
+          discountPercent: d.discountPercent,
+          discountAmount: d.discountAmount,
+          cgstPercent: d.cgstPercent,
+          sgstpercent: d.sgstpercent,
+          igstPercent: d.igstPercent,
+          cgstAmt: d.cgstAmt,
+          sgstAmt: d.sgstAmt,
+          igstAmt: d.igstAmt,
+          totalLineAmount: d.totalLineAmount,
+        })),
       });
 
       return invoice;

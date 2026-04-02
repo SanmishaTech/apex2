@@ -58,12 +58,10 @@ type SubContractorWorkOrder = {
 
 type SubContractorWorkOrdersResponse = {
   data: SubContractorWorkOrder[];
-  meta: {
-    page: number;
-    perPage: number;
-    total: number;
-    totalPages: number;
-  };
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
 };
 
 export default function SubContractorWorkOrdersPage() {
@@ -373,9 +371,12 @@ export default function SubContractorWorkOrdersPage() {
         />
         <div className="p-4 border-t">
           <Pagination
-            page={page}
-            totalPages={data?.meta?.totalPages || 1}
+            page={data?.page || page}
+            perPage={data?.perPage || perPage}
+            totalPages={data?.totalPages || 1}
             onPageChange={(p) => setQp({ page: p })}
+            onPerPageChange={(pp) => setQp({ perPage: pp, page: 1 })}
+            showPageNumbers
           />
         </div>
       </AppCard>

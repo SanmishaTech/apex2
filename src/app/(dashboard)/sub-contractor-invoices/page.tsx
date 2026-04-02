@@ -50,6 +50,7 @@ type SubContractorInvoice = {
   isAuthorized: boolean;
   createdById: number;
   createdBy?: { id: number; name: string };
+  authorizedById?: number;
   authorizedBy?: { id: number; name: string };
   createdAt: string;
   updatedAt: string;
@@ -60,12 +61,10 @@ type SubContractorInvoice = {
 
 type SubContractorInvoicesResponse = {
   data: SubContractorInvoice[];
-  meta: {
-    page: number;
-    perPage: number;
-    total: number;
-    totalPages: number;
-  };
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
 };
 
 export default function SubContractorInvoicesPage() {
@@ -112,12 +111,8 @@ export default function SubContractorInvoicesPage() {
   }
 
   function StatusBadge({ status, isAuthorized }: { status: string; isAuthorized: boolean }) {
-    const label = status === "PENDING" ? "Pending" : status === "APPROVED" ? "Approved" : "Paid";
-    const cls = status === "PAID"
-      ? "bg-emerald-600"
-      : status === "APPROVED"
-        ? "bg-sky-600"
-        : "bg-amber-600";
+    const label = status === "PENDING" ? "Pending" : "Paid";
+    const cls = status === "PAID" ? "bg-emerald-600" : "bg-amber-600";
     return (
       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${cls}`}>
         {label}
@@ -225,6 +220,11 @@ export default function SubContractorInvoicesPage() {
       accessor: (row) => <UserBadge name={row.createdBy?.name} className="bg-sky-600" />,
     },
     {
+      key: "authorizedBy",
+      header: "Authorized By",
+      accessor: (row) => <UserBadge name={row.authorizedBy?.name} className="bg-pink-700" />,
+    },
+    {
       key: "actions",
       header: "",
       className: "w-10",
@@ -239,32 +239,32 @@ export default function SubContractorInvoicesPage() {
             <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-invoices/${row.id}/view`)}>
               <FileText className="mr-2 h-4 w-4" /> View
             </DropdownMenuItem>
-            
-            {/* Show Edit only for pending invoices */}
-            {row.status === "PENDING" && can(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES) && (
+
+            {/* Always show Edit unless authorized */}
+            {!row.isAuthorized && can(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES) && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-invoices/${row.id}`)}>
                 <FileText className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
             )}
 
-            {/* Authorize action */}
-            {can(PERMISSIONS.AUTHORIZE_SUB_CONTRACTOR_INVOICES) && 
-             row.status === "PENDING" && 
-             !row.isAuthorized && 
-             row.createdById !== user?.id && (
-              <DropdownMenuItem onClick={() => handleAuthorize(row.id)}>
-                <CheckCircle className="mr-2 h-4 w-4" /> Authorize
-              </DropdownMenuItem>
-            )}
+            {/* Authorize action - Navigate to authorize page */}
+            {can(PERMISSIONS.AUTHORIZE_SUB_CONTRACTOR_INVOICES) &&
+              !row.isAuthorized &&
+              row.createdById !== user?.id && (
+                <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-invoices/${row.id}/authorize`)}>
+                  <CheckCircle className="mr-2 h-4 w-4" /> Authorize
+                </DropdownMenuItem>
+              )}
 
-            {/* Mark as Paid action */}
-            {can(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES) && 
-             row.status === "APPROVED" && 
-             row.isAuthorized && (
-              <DropdownMenuItem onClick={() => handleMarkPaid(row.id)}>
-                <DollarSign className="mr-2 h-4 w-4" /> Mark as Paid
-              </DropdownMenuItem>
-            )}
+            {/* Mark as Paid action - for authorized pending invoices */}
+            {can(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES) &&
+              row.status === "PENDING" &&
+              row.isAuthorized &&
+              row.authorizedById !== user?.id && (
+                <DropdownMenuItem onClick={() => handleMarkPaid(row.id)}>
+                  <DollarSign className="mr-2 h-4 w-4" /> Mark as Paid
+                </DropdownMenuItem>
+              )}
 
             {/* Print action */}
             {can(PERMISSIONS.PRINT_SUB_CONTRACTOR_INVOICES) && (
@@ -292,27 +292,26 @@ export default function SubContractorInvoicesPage() {
               </DropdownMenuItem>
             )}
 
-            {/* Delete action - only for pending non-authorized invoices */}
-            {can(PERMISSIONS.DELETE_SUB_CONTRACTOR_INVOICES) && 
-             row.status === "PENDING" && 
-             !row.isAuthorized && (
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={async () => {
-                  if (confirm("Are you sure you want to delete this invoice?")) {
-                    try {
-                      await apiDelete(`/api/sub-contractor-invoices/${row.id}`);
-                      toast.success("Invoice deleted");
-                      mutate();
-                    } catch (e: any) {
-                      toast.error(e.message || "Failed to delete");
+            {/* Delete action - only for non-authorized invoices */}
+            {can(PERMISSIONS.DELETE_SUB_CONTRACTOR_INVOICES) &&
+              !row.isAuthorized && (
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to delete this invoice?")) {
+                      try {
+                        await apiDelete(`/api/sub-contractor-invoices/${row.id}`);
+                        toast.success("Invoice deleted");
+                        mutate();
+                      } catch (e: any) {
+                        toast.error(e.message || "Failed to delete");
+                      }
                     }
-                  }
-                }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            )}
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -364,7 +363,6 @@ export default function SubContractorInvoicesPage() {
               >
                 <AppSelect.Item value="__none">All Statuses</AppSelect.Item>
                 <AppSelect.Item value="PENDING">Pending</AppSelect.Item>
-                <AppSelect.Item value="APPROVED">Approved</AppSelect.Item>
                 <AppSelect.Item value="PAID">Paid</AppSelect.Item>
               </AppSelect>
               <div className="flex items-end gap-2">
@@ -397,9 +395,12 @@ export default function SubContractorInvoicesPage() {
         />
         <div className="p-4 border-t">
           <Pagination
-            page={page}
-            totalPages={data?.meta?.totalPages || 1}
+            page={data?.page || page}
+            perPage={data?.perPage || perPage}
+            totalPages={data?.totalPages || 1}
             onPageChange={(p) => setQp({ page: p })}
+            onPerPageChange={(pp) => setQp({ perPage: pp, page: 1 })}
+            showPageNumbers
           />
         </div>
       </AppCard>

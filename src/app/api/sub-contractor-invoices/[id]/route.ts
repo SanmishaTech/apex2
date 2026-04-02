@@ -28,15 +28,15 @@ const updateSchema = z.object({
   subcontractorWorkOrderId: z.coerce.number().min(1, "Work Order is required").optional(),
   invoiceNumber: z.string().min(1, "Invoice Number is required").optional(),
   invoiceDate: z.string().transform((val) => new Date(val)).optional(),
-  fromDate: z.string().optional().nullable().transform((val) => (val ? new Date(val) : null)),
-  toDate: z.string().optional().nullable().transform((val) => (val ? new Date(val) : null)),
+  fromDate: z.string().optional().nullable().transform((val) => (val === undefined ? undefined : (val ? new Date(val) : null))),
+  toDate: z.string().optional().nullable().transform((val) => (val === undefined ? undefined : (val ? new Date(val) : null))),
   grossAmount: z.coerce.number().min(0, "Gross Amount must be non-negative").optional(),
   retentionAmount: z.coerce.number().min(0).optional(),
   tds: z.coerce.number().min(0).optional(),
   lwf: z.coerce.number().min(0).optional(),
   otherDeductions: z.coerce.number().min(0).optional(),
   netPayable: z.coerce.number().min(0).optional(),
-  status: z.enum(["PENDING", "APPROVED", "PAID"]).optional(),
+  status: z.enum(["PENDING", "PAID"]).optional(),
   isAuthorized: z.boolean().optional(),
   invoiceItems: z.array(invoiceItemSchema).optional(),
   statusAction: z.enum(["authorize", "markPaid"]).optional(),
@@ -130,8 +130,8 @@ export async function PATCH(
           if (current.isAuthorized) throw new Error("Invoice already authorized");
           
           dataToUpdate.isAuthorized = true;
-          dataToUpdate.status = "APPROVED";
           dataToUpdate.authorizedById = auth.user.id;
+          dataToUpdate.authorizedAt = new Date();
         } else if (statusAction === "markPaid") {
           if (!permSet.has(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES)) {
             throw new Error("No permission to mark as paid");
@@ -142,11 +142,6 @@ export async function PATCH(
       }
 
       dataToUpdate.updatedById = auth.user.id;
-
-      // Block edits if already paid
-      if (current.status === "PAID" && !statusAction) {
-        throw new Error("Cannot edit invoice after payment");
-      }
 
       // If already authorized, only allow status changes
       if (current.isAuthorized && !statusAction && Object.keys(dataToUpdate).length > 0) {
@@ -204,7 +199,7 @@ export async function PATCH(
         select: { name: true },
       });
 
-      await tx.subContractorInvoiceLog.create({
+      const log = await tx.subContractorInvoiceLog.create({
         data: {
           subContractorInvoiceId: updated.id,
           siteId: updated.siteId,
@@ -225,6 +220,33 @@ export async function PATCH(
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
+      });
+
+      // Fetch final details after update to log them
+      const finalDetails = await tx.subContractorInvoiceDetail.findMany({
+        where: { subContractorInvoiceId: updated.id },
+      });
+
+      // Create detail logs
+      await tx.subContractorInvoiceDetailLog.createMany({
+        data: finalDetails.map((d: any) => ({
+          subContractorInvoiceLogId: log.id,
+          subContractorInvoiceDetailId: d.id,
+          subContractorWorkOrderDetailId: d.subContractorWorkOrderDetailId,
+          particulars: d.particulars,
+          workOrderQty: d.workOrderQty,
+          currentBillQty: d.currentBillQty,
+          rate: d.rate,
+          discountPercent: d.discountPercent,
+          discountAmount: d.discountAmount,
+          cgstPercent: d.cgstPercent,
+          sgstpercent: d.sgstpercent,
+          igstPercent: d.igstPercent,
+          cgstAmt: d.cgstAmt,
+          sgstAmt: d.sgstAmt,
+          igstAmt: d.igstAmt,
+          totalLineAmount: d.totalLineAmount,
+        })),
       });
 
       return updated;
@@ -262,7 +284,11 @@ export async function DELETE(
 
       if (!current) throw new Error("Invoice not found");
       if (current.isAuthorized) throw new Error("Cannot delete authorized invoice");
-      if (current.status === "PAID") throw new Error("Cannot delete paid invoice");
+
+      // Fetch details before delete for logging
+      const details = await tx.subContractorInvoiceDetail.findMany({
+        where: { subContractorInvoiceId: id },
+      });
 
       // Delete invoice details
       await tx.subContractorInvoiceDetail.deleteMany({
@@ -276,7 +302,7 @@ export async function DELETE(
         select: { name: true },
       });
 
-      await tx.subContractorInvoiceLog.create({
+      const log = await tx.subContractorInvoiceLog.create({
         data: {
           subContractorInvoiceId: current.id,
           siteId: current.siteId,
@@ -297,6 +323,28 @@ export async function DELETE(
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
+      });
+
+      // Create detail logs
+      await tx.subContractorInvoiceDetailLog.createMany({
+        data: details.map((d: any) => ({
+          subContractorInvoiceLogId: log.id,
+          subContractorInvoiceDetailId: d.id,
+          subContractorWorkOrderDetailId: d.subContractorWorkOrderDetailId,
+          particulars: d.particulars,
+          workOrderQty: d.workOrderQty,
+          currentBillQty: d.currentBillQty,
+          rate: d.rate,
+          discountPercent: d.discountPercent,
+          discountAmount: d.discountAmount,
+          cgstPercent: d.cgstPercent,
+          sgstpercent: d.sgstpercent,
+          igstPercent: d.igstPercent,
+          cgstAmt: d.cgstAmt,
+          sgstAmt: d.sgstAmt,
+          igstAmt: d.igstAmt,
+          totalLineAmount: d.totalLineAmount,
+        })),
       });
 
       // Delete the invoice

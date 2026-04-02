@@ -164,14 +164,12 @@ export function SubContractorWorkOrderForm({ mode, initial }: Props) {
       billingAddressId: undefined,
   deliveryAddressId: undefined,
   // Default Terms & Conditions text for create
-  terms: `
-<Important Features
+  terms: `Important Features:
 1. "GENERAL TERMS & CONDITIONS OF CONTRACT" (ANNEXURE 1) forms an integral part of this work order.
 2. Retention money @ 5% Shall be recovered on prorata basis from each running & final bill. All accumulated retention amount shall be released after 12 months from the date of final bill certification including satisfactorily completion of work.
 3. All RA bills shall be prepared by the contractor in the printed form prescribed by Dynasoure Concrete Treatment Pvt. Ltd. after the joint measurements are recorded in the Measurement Book. 
 4. The contractor shall ensure safety of his workers and others at site of work and shall be responsible for any consequence arising out of execution of the Repair and maintenance work. You shall depute one full time supervisor at site all the time when work is in progress.
-5. Any modifications/corrections due to faulty workmanship, suggested by the site in-charge will be made good by the Contractor without any additional charges to us (Dynasoure Concrete Treatment Pvt. Ltd.).>
-`,
+5. Any modifications/corrections due to faulty workmanship, suggested by the site in-charge will be made good by the Contractor without any additional charges to us (Dynasoure Concrete Treatment Pvt. Ltd.).`,
       subContractorId: undefined,
       status: "DRAFT",
     };
