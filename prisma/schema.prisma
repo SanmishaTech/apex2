@@ -1987,6 +1987,8 @@ model PurchaseOrder {
   transitInsuranceStatus  String?   @db.VarChar(20)
   transitInsuranceAmount  String?   @db.VarChar(50)
   amountInWords           String?   @db.VarChar(255)
+  purchaseOrderfilePath   String?   @db.VarChar(500)
+  isApproved2Printed      Boolean   @default(false)
   approvalStatus POApprovalStatus @default(DRAFT)
   poStatus            POStatus    @default(OPEN) 
   isApproved1             Boolean  @default(false)
@@ -3474,7 +3476,6 @@ model SalesInvoiceDetailLog {
 
 enum SubcontractorInvoiceStatus {
   PENDING
-  APPROVED
   PAID
 }
 
@@ -3519,7 +3520,7 @@ model SubContractorInvoice {
   
   authorizedById Int?
   authorizedBy User? @relation("SubContractorInvoiceAuthorized", fields: [authorizedById], references: [id], onDelete: Restrict)
-  
+  authorizedAt  DateTime? 
   subContractorInvoiceDetails SubContractorInvoiceDetail[]
   @@index([siteId])
   @@index([subcontractorWorkOrderId])
@@ -3574,7 +3575,7 @@ model SubContractorInvoiceLog {
   // Link to the specific Work Order you issued to the sub
   subcontractorWorkOrderId Int
   
-  invoiceNumber      String   @unique // The invoice number provided by the subcontractor
+  invoiceNumber      String    // The invoice number provided by the subcontractor
   invoiceDate        DateTime @db.Date
   
   // Period for which they are billing (e.g., Month of Oct)
@@ -3610,7 +3611,7 @@ model SubContractorInvoiceDetailLog {
   id                       Int      @id @default(autoincrement())
   subContractorInvoiceLogId   Int
   subContractorWorkOrderDetailId         Int
-
+  subContractorInvoiceDetailId           Int
   particulars              String   @db.Text
   
   // Work Progress Tracking

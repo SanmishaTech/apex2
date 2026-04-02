@@ -109,7 +109,7 @@ type InvoiceFormInitialData = {
   invoiceItems?: InvoiceItem[];
 };
 
-export type InvoiceFormMode = "create" | "edit" | "view";
+export type InvoiceFormMode = "create" | "edit" | "view" | "authorize";
 
 export interface SubContractorInvoiceFormProps {
   mode: InvoiceFormMode;
@@ -122,9 +122,9 @@ export interface SubContractorInvoiceFormProps {
 const invoiceItemSchema = z.object({
   subContractorWorkOrderDetailId: z.coerce.number().min(1, "Work Order Item is required"),
   particulars: z.string().min(1, "Particulars are required"),
-  workOrderQty: z.coerce.number().min(0),
+  workOrderQty: z.coerce.number().min(0, "Work Order Qty must be a valid number"),
   currentBillQty: z.coerce.number().min(0.0001, "Current Bill Qty must be greater than 0"),
-  rate: z.coerce.number().min(0),
+  rate: z.coerce.number().min(0.0001, "Rate must be greater than 0"),
   discountPercent: z.coerce.number().min(0).max(100).default(0),
   discountAmount: z.coerce.number().default(0),
   cgstPercent: z.coerce.number().min(0).max(100).default(0),
@@ -133,13 +133,13 @@ const invoiceItemSchema = z.object({
   cgstAmt: z.coerce.number().default(0),
   sgstAmt: z.coerce.number().default(0),
   igstAmt: z.coerce.number().default(0),
-  totalLineAmount: z.coerce.number(),
+  totalLineAmount: z.coerce.number().default(0),
 });
 
 const createInputSchema = z.object({
   invoiceDate: z.string().min(1, "Invoice date is required"),
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: z.string().min(1, "From date is required"),
+  toDate: z.string().min(1, "To date is required"),
   siteId: z.coerce.number().min(1, "Site is required"),
   subcontractorWorkOrderId: z.coerce.number().min(1, "Work Order is required"),
   invoiceNumber: z.string().min(1, "Invoice Number is required"),
@@ -149,6 +149,7 @@ const createInputSchema = z.object({
   lwf: z.coerce.number().default(0),
   otherDeductions: z.coerce.number().default(0),
   netPayable: z.coerce.number().min(0),
+  status: z.enum(["PENDING", "PAID"]).default("PENDING"),
   invoiceItems: z.array(invoiceItemSchema).min(1, "At least one item is required"),
 });
 
@@ -162,9 +163,10 @@ export function SubContractorInvoiceForm({
   redirectOnSuccess = "/sub-contractor-invoices",
 }: SubContractorInvoiceFormProps) {
   const router = useRouter();
-  const isView = mode === "view";
+  const isView = mode === "view" || mode === "authorize";
   const isEdit = mode === "edit";
   const isCreate = mode === "create";
+  const isAuthorize = mode === "authorize";
 
   const { data: sitesData } = useSWR<{ data: Site[] }>("/api/sites?perPage=1000", apiGet);
   const sites = sitesData?.data || [];
@@ -176,7 +178,7 @@ export function SubContractorInvoiceForm({
   const workOrders = workOrdersData?.data || [];
 
   const { data: existingInvoice } = useSWR(
-    isEdit && id ? `/api/sub-contractor-invoices/${id}` : null,
+    (isEdit || isView || isAuthorize) && id ? `/api/sub-contractor-invoices/${id}` : null,
     apiGet
   );
 
@@ -191,10 +193,11 @@ export function SubContractorInvoiceForm({
       invoiceNumber: "",
       grossAmount: 0,
       retentionAmount: 0,
-      tds: 0,
-      lwf: 0,
-      otherDeductions: 0,
+      tds: undefined as any,
+      lwf: undefined as any,
+      otherDeductions: undefined as any,
       netPayable: 0,
+      status: "PENDING",
       invoiceItems: [],
     },
     mode: "onChange",
@@ -214,7 +217,7 @@ export function SubContractorInvoiceForm({
     selectedWorkOrderId ? `/api/sub-contractor-work-orders/${selectedWorkOrderId}` : null,
     apiGet
   );
-  const selectedWorkOrderFull = (selectedWorkOrderData as any)?.data || null;
+  const selectedWorkOrderFull = (selectedWorkOrderData as any) || null;
 
   const selectedWorkOrder = useMemo(() => {
     // Use the full work order data if available, otherwise fallback to list data
@@ -223,7 +226,8 @@ export function SubContractorInvoiceForm({
 
   // Work order items for select dropdown
   const workOrderItemsForSelect = useMemo(() => {
-    const details = selectedWorkOrderFull?.subContractorWorkOrderDetails || [];
+    if (!selectedWorkOrderFull) return [];
+    const details = selectedWorkOrderFull.subContractorWorkOrderDetails || [];
     return details.map((d: any) => ({ value: String(d.id), label: d.item }));
   }, [selectedWorkOrderFull]);
 
@@ -255,67 +259,33 @@ export function SubContractorInvoiceForm({
     }
   };
 
-  // Computed items for display
-  const computedItems = useMemo(() => {
-    if (!invoiceItems) return [];
-    const workOrderDetails = selectedWorkOrderFull?.subContractorWorkOrderDetails || [];
+  const filteredWorkOrders = useMemo(() => {
+    if (!selectedSiteId) return [];
+    return workOrders.filter((wo) => wo.siteId === selectedSiteId);
+  }, [workOrders, selectedSiteId]);
 
-    return invoiceItems.map((item) => {
-      const workOrderDetail = workOrderDetails.find(
-        (d: any) => d.id === item.subContractorWorkOrderDetailId
-      );
+  // Watch for calculations (like sales invoice form pattern)
+  const watchedItems = form.watch("invoiceItems");
+  const watchedRetention = form.watch("retentionAmount");
+  const watchedTds = form.watch("tds");
+  const watchedLwf = form.watch("lwf");
+  const watchedOther = form.watch("otherDeductions");
 
-      const qty = Number(item.currentBillQty) || 0;
-      const rate = Number(item.rate) || 0;
-      const discountPercent = Number(item.discountPercent) || 0;
+  const toNumber = (value: string | number | undefined): number => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
 
-      const baseAmount = qty * rate;
-      const discountAmount = (baseAmount * discountPercent) / 100;
-      const taxableAmount = baseAmount - discountAmount;
-
-      const cgstPercent = Number(item.cgstPercent) || 0;
-      const sgstPercent = Number(item.sgstpercent) || 0;
-      const igstPercent = Number(item.igstPercent) || 0;
-
-      const cgstAmt = (taxableAmount * cgstPercent) / 100;
-      const sgstAmt = (taxableAmount * sgstPercent) / 100;
-      const igstAmt = (taxableAmount * igstPercent) / 100;
-
-      const totalLineAmount = taxableAmount + cgstAmt + sgstAmt + igstAmt;
-
-      return {
-        ...item,
-        workOrderQty: workOrderDetail ? Number(workOrderDetail.qty) : item.workOrderQty,
-        discountAmount,
-        cgstAmt,
-        sgstAmt,
-        igstAmt,
-        totalLineAmount,
-      };
-    });
-  }, [invoiceItems, selectedWorkOrderFull]);
-
-  // Item totals
-  const itemTotals = useMemo(() => {
-    return computedItems.reduce(
-      (acc, item) => ({
-        amount: acc.amount + (item.totalLineAmount || 0),
-        cgstAmt: acc.cgstAmt + (item.cgstAmt || 0),
-        sgstAmt: acc.sgstAmt + (item.sgstAmt || 0),
-        igstAmt: acc.igstAmt + (item.igstAmt || 0),
-        discountAmount: acc.discountAmount + (item.discountAmount || 0),
-        taxableAmount: acc.taxableAmount + ((item.totalLineAmount || 0) - (item.cgstAmt || 0) - (item.sgstAmt || 0) - (item.igstAmt || 0)),
-      }),
-      {
-        amount: 0,
-        cgstAmt: 0,
-        sgstAmt: 0,
-        igstAmt: 0,
-        discountAmount: 0,
-        taxableAmount: 0,
-      }
-    );
-  }, [computedItems]);
+  const roundTo2 = (value: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return parseFloat(value.toFixed(2));
+  };
 
   // Format amount helper
   const formatAmount = (value: number | undefined | null): string => {
@@ -326,150 +296,119 @@ export function SubContractorInvoiceForm({
     });
   };
 
-  // Derived values for totals display
-  const grossAmount = itemTotals.amount;
-  const deductionsTotal = 
-    Number(form.watch("retentionAmount") || 0) + 
-    Number(form.watch("tds") || 0) + 
-    Number(form.watch("lwf") || 0) + 
-    Number(form.watch("otherDeductions") || 0);
-  const netPayable = Math.max(0, grossAmount - deductionsTotal);
+  // Computed items for display (recalculated on every render like sales invoice)
+  const items = watchedItems || [];
+  const workOrderDetails = selectedWorkOrderFull?.subContractorWorkOrderDetails || [];
 
-  const filteredWorkOrders = useMemo(() => {
-    if (!selectedSiteId) return [];
-    return workOrders.filter((wo) => wo.siteId === selectedSiteId);
-  }, [workOrders, selectedSiteId]);
+  const computedItems = items.map((item) => {
+    const workOrderDetail = workOrderDetails.find(
+      (d: any) => d.id === item.subContractorWorkOrderDetailId
+    );
 
-  // Pre-fill work order details when work order is selected
-  useEffect(() => {
-    if (selectedWorkOrderFull && isCreate && fields.length === 0) {
-      const details = selectedWorkOrderFull.subContractorWorkOrderDetails || [];
-      if (details.length > 0) {
-        const items = details.map((detail: any) => ({
-          subContractorWorkOrderDetailId: detail.id,
-          particulars: detail.item,
-          workOrderQty: Number(detail.qty),
-          currentBillQty: 0,
-          rate: Number(detail.rate),
-          discountPercent: 0,
-          discountAmount: 0,
-          cgstPercent: Number(detail.cgst) || 0,
-          sgstpercent: Number(detail.sgst) || 0,
-          igstPercent: Number(detail.igst) || 0,
-          cgstAmt: 0,
-          sgstAmt: 0,
-          igstAmt: 0,
-          totalLineAmount: 0,
-        }));
+    const qty = toNumber(item.currentBillQty);
+    const rate = toNumber(item.rate);
+    const discountPercent = toNumber(item.discountPercent);
 
-        if (items.length > 0) {
-          form.setValue("invoiceItems", items);
-        }
-      }
+    const baseAmount = qty * rate;
+    const discountAmount = roundTo2((baseAmount * discountPercent) / 100);
+    const taxableAmount = roundTo2(baseAmount - discountAmount);
+
+    const cgstPercent = toNumber(item.cgstPercent);
+    const sgstPercent = toNumber(item.sgstpercent);
+    const igstPercent = toNumber(item.igstPercent);
+
+    const cgstAmt = roundTo2((taxableAmount * cgstPercent) / 100);
+    const sgstAmt = roundTo2((taxableAmount * sgstPercent) / 100);
+    const igstAmt = roundTo2((taxableAmount * igstPercent) / 100);
+
+    const totalLineAmount = roundTo2(taxableAmount + cgstAmt + sgstAmt + igstAmt);
+
+    return {
+      ...item,
+      workOrderQty: workOrderDetail ? Number(workOrderDetail.qty) : toNumber(item.workOrderQty),
+      discountAmount,
+      cgstAmt,
+      sgstAmt,
+      igstAmt,
+      taxableAmount,
+      totalLineAmount,
+    };
+  });
+
+  // Item totals (computed directly like sales invoice)
+  const itemTotals = computedItems.reduce(
+    (acc, item) => ({
+      amount: roundTo2(acc.amount + item.totalLineAmount),
+      cgstAmt: roundTo2(acc.cgstAmt + item.cgstAmt),
+      sgstAmt: roundTo2(acc.sgstAmt + item.sgstAmt),
+      igstAmt: roundTo2(acc.igstAmt + item.igstAmt),
+      discountAmount: roundTo2(acc.discountAmount + item.discountAmount),
+      taxableAmount: roundTo2(acc.taxableAmount + item.taxableAmount),
+    }),
+    {
+      amount: 0,
+      cgstAmt: 0,
+      sgstAmt: 0,
+      igstAmt: 0,
+      discountAmount: 0,
+      taxableAmount: 0,
     }
-  }, [selectedWorkOrderFull, isCreate, form, fields.length]);
+  );
 
-  // Calculate amounts when items change
+  // Derived values for totals display (computed directly)
+  const grossAmount = itemTotals.amount;
+  const deductionsTotal = roundTo2(
+    toNumber(watchedRetention) + toNumber(watchedTds) + toNumber(watchedLwf) + toNumber(watchedOther)
+  );
+  const netPayable = Math.max(0, roundTo2(grossAmount - deductionsTotal));
+
+  // Update form values for submission when computed values change
   useEffect(() => {
-    if (!invoiceItems || invoiceItems.length === 0) return;
-
-    const workOrderDetails = selectedWorkOrderFull?.subContractorWorkOrderDetails || [];
-
-    let grossAmount = 0;
-    const updatedItems = invoiceItems.map((item, idx) => {
-      const workOrderDetail = workOrderDetails.find(
-        (d: any) => d.id === item.subContractorWorkOrderDetailId
-      );
-
-      const qty = Number(item.currentBillQty) || 0;
-      const rate = Number(item.rate) || 0;
-      const discountPercent = Number(item.discountPercent) || 0;
-
-      const baseAmount = qty * rate;
-      const discountAmount = (baseAmount * discountPercent) / 100;
-      const taxableAmount = baseAmount - discountAmount;
-
-      const cgstPercent = Number(item.cgstPercent) || 0;
-      const sgstPercent = Number(item.sgstpercent) || 0;
-      const igstPercent = Number(item.igstPercent) || 0;
-
-      const cgstAmt = (taxableAmount * cgstPercent) / 100;
-      const sgstAmt = (taxableAmount * sgstPercent) / 100;
-      const igstAmt = (taxableAmount * igstPercent) / 100;
-
-      const totalLineAmount = taxableAmount + cgstAmt + sgstAmt + igstAmt;
-
-      grossAmount += totalLineAmount;
-
-      return {
-        ...item,
-        workOrderQty: workOrderDetail ? Number(workOrderDetail.qty) : item.workOrderQty,
-        discountAmount,
-        cgstAmt,
-        sgstAmt,
-        igstAmt,
-        totalLineAmount,
-      };
-    });
-
-    // Update form values if calculated amounts changed
     const currentGross = form.getValues("grossAmount");
     if (Math.abs(currentGross - grossAmount) > 0.01) {
-      form.setValue("grossAmount", grossAmount);
-
-      const retentionAmount = Number(form.getValues("retentionAmount")) || 0;
-      const tds = Number(form.getValues("tds")) || 0;
-      const lwf = Number(form.getValues("lwf")) || 0;
-      const otherDeductions = Number(form.getValues("otherDeductions")) || 0;
-
-      const netPayable = grossAmount - retentionAmount - tds - lwf - otherDeductions;
-      form.setValue("netPayable", Math.max(0, netPayable));
-
-      // Update individual items if their calculated values changed
-      updatedItems.forEach((item, idx) => {
-        const currentItem = invoiceItems[idx];
-        if (currentItem) {
-          if (Math.abs((currentItem.totalLineAmount || 0) - item.totalLineAmount) > 0.01) {
-            form.setValue(`invoiceItems.${idx}.totalLineAmount`, item.totalLineAmount);
-          }
-          if (Math.abs((currentItem.discountAmount || 0) - item.discountAmount) > 0.01) {
-            form.setValue(`invoiceItems.${idx}.discountAmount`, item.discountAmount);
-          }
-          if (Math.abs((currentItem.cgstAmt || 0) - item.cgstAmt) > 0.01) {
-            form.setValue(`invoiceItems.${idx}.cgstAmt`, item.cgstAmt);
-          }
-          if (Math.abs((currentItem.sgstAmt || 0) - item.sgstAmt) > 0.01) {
-            form.setValue(`invoiceItems.${idx}.sgstAmt`, item.sgstAmt);
-          }
-          if (Math.abs((currentItem.igstAmt || 0) - item.igstAmt) > 0.01) {
-            form.setValue(`invoiceItems.${idx}.igstAmt`, item.igstAmt);
-          }
-        }
-      });
+      form.setValue("grossAmount", grossAmount, { shouldValidate: false });
     }
-  }, [invoiceItems, selectedWorkOrderFull, form]);
+    const currentNet = form.getValues("netPayable");
+    if (Math.abs(currentNet - netPayable) > 0.01) {
+      form.setValue("netPayable", netPayable, { shouldValidate: false });
+    }
 
-  // Calculate net payable when deductions change
+    // Sync calculated item values (gst, discount, totalLineAmount) back to form
+    const currentItems = form.getValues("invoiceItems");
+    let changed = false;
+    const newItems = currentItems.map((item, idx) => {
+      const comp = computedItems[idx];
+      if (!comp) return item;
+      
+      const hasChanged = 
+        Math.abs(item.discountAmount - comp.discountAmount) > 0.01 ||
+        Math.abs(item.cgstAmt - comp.cgstAmt) > 0.01 ||
+        Math.abs(item.sgstAmt - comp.sgstAmt) > 0.01 ||
+        Math.abs(item.igstAmt - comp.igstAmt) > 0.01 ||
+        Math.abs(item.totalLineAmount - comp.totalLineAmount) > 0.01;
+
+      if (hasChanged) {
+        changed = true;
+        return {
+          ...item,
+          discountAmount: comp.discountAmount,
+          cgstAmt: comp.cgstAmt,
+          sgstAmt: comp.sgstAmt,
+          igstAmt: comp.igstAmt,
+          totalLineAmount: comp.totalLineAmount,
+        };
+      }
+      return item;
+    });
+
+    if (changed) {
+      form.setValue("invoiceItems", newItems, { shouldValidate: false });
+    }
+  }, [grossAmount, netPayable, computedItems, form]);
+
+  // Load existing data when editing, viewing, or authorizing
   useEffect(() => {
-    const grossAmount = Number(form.getValues("grossAmount")) || 0;
-    const retentionAmount = Number(form.getValues("retentionAmount")) || 0;
-    const tds = Number(form.getValues("tds")) || 0;
-    const lwf = Number(form.getValues("lwf")) || 0;
-    const otherDeductions = Number(form.getValues("otherDeductions")) || 0;
-
-    const netPayable = grossAmount - retentionAmount - tds - lwf - otherDeductions;
-    form.setValue("netPayable", Math.max(0, netPayable));
-  }, [
-    form.watch("grossAmount"),
-    form.watch("retentionAmount"),
-    form.watch("tds"),
-    form.watch("lwf"),
-    form.watch("otherDeductions"),
-  ]);
-
-  // Load existing data when editing
-  useEffect(() => {
-    if (isEdit && existingInvoice) {
+    if ((isEdit || isView || isAuthorize) && existingInvoice) {
       const invoice = existingInvoice as any;
       form.reset({
         invoiceDate: format(new Date(invoice.invoiceDate), "yyyy-MM-dd"),
@@ -484,6 +423,7 @@ export function SubContractorInvoiceForm({
         lwf: Number(invoice.lwf) || 0,
         otherDeductions: Number(invoice.otherDeductions) || 0,
         netPayable: Number(invoice.netPayable) || 0,
+        status: invoice.status || "PENDING",
         invoiceItems: invoice.subContractorInvoiceDetails?.map((item: any) => ({
           id: item.id,
           subContractorWorkOrderDetailId: item.subContractorWorkOrderDetailId,
@@ -503,39 +443,61 @@ export function SubContractorInvoiceForm({
         })) || [],
       });
     }
-  }, [isEdit, existingInvoice, form]);
+  }, [isEdit, isView, isAuthorize, existingInvoice, form]);
 
-  const handleSubmit = form.handleSubmit(async (data) => {
-    try {
-      const payload = {
-        ...data,
-        invoiceDate: new Date(data.invoiceDate).toISOString(),
-        fromDate: data.fromDate ? new Date(data.fromDate).toISOString() : null,
-        toDate: data.toDate ? new Date(data.toDate).toISOString() : null,
-      };
+  const handleSubmit = form.handleSubmit(
+    async (data) => {
+      try {
+        const payload = {
+          ...data,
+          invoiceDate: new Date(data.invoiceDate).toISOString(),
+          fromDate: data.fromDate ? new Date(data.fromDate).toISOString() : null,
+          toDate: data.toDate ? new Date(data.toDate).toISOString() : null,
+          // Merge computed total amounts into the payload items
+          invoiceItems: data.invoiceItems.map((item, idx) => {
+            const comp = computedItems[idx];
+            if (!comp) return item;
+            return {
+              ...item,
+              discountAmount: comp.discountAmount,
+              cgstAmt: comp.cgstAmt,
+              sgstAmt: comp.sgstAmt,
+              igstAmt: comp.igstAmt,
+              totalLineAmount: comp.totalLineAmount,
+            };
+          }),
+        };
 
-      if (isCreate) {
-        await apiPost("/api/sub-contractor-invoices", payload);
-        toast.success("Invoice created successfully");
-      } else if (isEdit && id) {
-        await apiPatch(`/api/sub-contractor-invoices/${id}`, payload);
-        toast.success("Invoice updated successfully");
+        if (isCreate) {
+          await apiPost("/api/sub-contractor-invoices", payload);
+          toast.success("Invoice created successfully");
+        } else if (isEdit && id) {
+          await apiPatch(`/api/sub-contractor-invoices/${id}`, payload);
+          toast.success("Invoice updated successfully");
+        }
+
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push(redirectOnSuccess);
+        }
+      } catch (e: any) {
+        console.error("Submit error:", e);
+        toast.error(e.message || "Failed to save invoice");
       }
-
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push(redirectOnSuccess);
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save invoice");
+    },
+    (errors) => {
+      console.error("Zod validation errors:", JSON.stringify(errors, null, 2));
+      toast.error("Please fix the form errors before submitting");
     }
-  });
+  );
 
-  const onError = (errors: any) => {
-    console.log("Form errors:", errors);
-    toast.error("Please fix the form errors before submitting");
-  };
+  // Add one empty item by default for create mode
+  useEffect(() => {
+    if (isCreate && fields.length === 0) {
+      addItem();
+    }
+  }, [isCreate, fields.length, addItem]);
 
   return (
     <div className="space-y-6">
@@ -545,13 +507,13 @@ export function SubContractorInvoiceForm({
             <ArrowLeft className="h-4 w-4" />
           </AppButton>
           <h1 className="text-2xl font-bold">
-            {isCreate ? "New Sub Contractor Invoice" : isEdit ? "Edit Invoice" : "View Invoice"}
+            {isCreate ? "New Sub Contractor Invoice" : isEdit ? "Edit Invoice" : isAuthorize ? "Authorize Invoice" : "View Invoice"}
           </h1>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={handleSubmit} onError={onError} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <AppCard>
             <AppCard.Header>
               <AppCard.Title>Invoice Details</AppCard.Title>
@@ -638,6 +600,29 @@ export function SubContractorInvoiceForm({
                       disabled={isView}
                     />
                   </div>
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <FormControl>
+                          <AppCombobox
+                            value={field.value}
+                            onValueChange={(val) => field.onChange(val)}
+                            disabled={isView}
+                            options={[
+                              { value: "PENDING", label: "Pending" },
+                              { value: "PAID", label: "Paid" },
+                            ]}
+                            placeholder="Select status"
+                            emptyText="No status options"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </FormRow>
               </FormSection>
             </AppCard.Content>
@@ -672,9 +657,16 @@ export function SubContractorInvoiceForm({
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => remove(index)}
-                                  className="text-destructive h-7 w-7 mt-2"
-                                  title="Remove Item"
+                                  onClick={() => {
+                                    if (fields.length > 1) {
+                                      remove(index);
+                                    } else {
+                                      toast.error("At least one item is required");
+                                    }
+                                  }}
+                                  disabled={fields.length <= 1}
+                                  className="text-destructive h-7 w-7 mt-2 disabled:opacity-30"
+                                  title={fields.length <= 1 ? "At least one item required" : "Remove Item"}
                                 >
                                   <Minus className="h-4 w-4" />
                                 </Button>
@@ -1102,6 +1094,32 @@ export function SubContractorInvoiceForm({
               </AppButton>
               <AppButton type="submit" iconName="Save">
                 {isCreate ? "Create Invoice" : "Update Invoice"}
+              </AppButton>
+            </div>
+          )}
+          {isAuthorize && (
+            <div className="flex items-center justify-end gap-4">
+              <AppButton
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/sub-contractor-invoices")}
+                className="text-black dark:text-white"
+              >
+                Cancel
+              </AppButton>
+              <AppButton 
+                type="button" 
+                onClick={async () => {
+                  try {
+                    await apiPatch(`/api/sub-contractor-invoices/${id}`, { statusAction: "authorize" });
+                    toast.success("Invoice authorized successfully");
+                    router.push("/sub-contractor-invoices");
+                  } catch (e: any) {
+                    toast.error(e.message || "Failed to authorize invoice");
+                  }
+                }}
+              >
+                Authorize Invoice
               </AppButton>
             </div>
           )}
