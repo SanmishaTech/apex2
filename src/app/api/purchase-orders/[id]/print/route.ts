@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 import { guardApiAccess } from "@/lib/access-guard";
 import { BadRequest, NotFound } from "@/lib/api-response";
 import jsPDF from "jspdf";
@@ -235,6 +236,9 @@ export async function GET(
       totalIgstAmount: true,
       poStatus: true,
       approvalStatus: true,
+      isApproved2: true,
+      isApproved2Printed: true,
+      purchaseOrderfilePath: true,
       purchaseOrderIndent: {
         select: {
           indent: {
@@ -381,6 +385,23 @@ export async function GET(
 
   if (!purchaseOrder) {
     return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
+  }
+
+  // If already approved 2 and already printed, return saved file
+  if (purchaseOrder.isApproved2 && purchaseOrder.isApproved2Printed && purchaseOrder.purchaseOrderfilePath) {
+    try {
+      const fullPath = path.join(process.cwd(), purchaseOrder.purchaseOrderfilePath);
+      const fileContent = await fs.readFile(fullPath);
+      return new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="purchase-order-${purchaseOrder.purchaseOrderNo}.pdf"`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to read saved PO PDF, regenerating...", e);
+    }
   }
 
   const indentNos = Array.from(
@@ -1054,6 +1075,25 @@ export async function GET(
   }
 
   const pdfBytes = doc.output("arraybuffer");
+  const buffer = Buffer.from(pdfBytes);
+
+  // Save to disk
+  const uploadDir = path.join(process.cwd(), "uploads", "purchase-orders");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filename = `po-${id}-${crypto.randomUUID()}.pdf`;
+  const relativePath = path.join("uploads", "purchase-orders", filename);
+  const fullPath = path.join(process.cwd(), relativePath);
+  await fs.writeFile(fullPath, buffer);
+
+  // Update DB
+  await prisma.purchaseOrder.update({
+    where: { id },
+    data: {
+      purchaseOrderfilePath: relativePath,
+      isApproved2Printed: purchaseOrder.isApproved2 ? true : false,
+    },
+  });
+
   return new NextResponse(pdfBytes, {
     status: 200,
     headers: {
