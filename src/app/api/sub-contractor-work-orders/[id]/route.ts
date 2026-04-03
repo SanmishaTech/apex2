@@ -65,6 +65,11 @@ export async function GET(
   const auth = await guardApiAccess(req);
   if (!auth.ok) return auth.response;
 
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS)) {
+    return BadRequest("Missing permission to read sub contractor work orders");
+  }
+
   try {
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid ID");
@@ -159,6 +164,11 @@ export async function PATCH(
         } else if (statusAction === "unsuspend") {
           dataToUpdate.isSuspended = false;
           dataToUpdate.status = current.isApproved2 ? "APPROVED_LEVEL_2" : current.isApproved1 ? "APPROVED_LEVEL_1" : "DRAFT";
+        }
+      } else {
+        const permSet = new Set((auth.user.permissions || []) as string[]);
+        if (!permSet.has(PERMISSIONS.EDIT_SUB_CONTRACTOR_WORK_ORDERS)) {
+          throw new Error("No edit permission");
         }
       }
 

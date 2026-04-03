@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { PERMISSIONS } from "@/config/roles";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -47,6 +48,11 @@ export async function GET(
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.READ_SUB_CONTRACTORS)) {
+    return BadRequest("Missing permission to read sub contractors");
+  }
+
   try {
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid sub-contractor ID");
@@ -74,6 +80,11 @@ export async function PATCH(
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
+
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.EDIT_SUB_CONTRACTORS)) {
+    return BadRequest("Missing permission to edit sub contractors");
+  }
 
   try {
     const id = parseInt((await context.params).id);
@@ -177,6 +188,11 @@ export async function DELETE(
 ) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
+
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.DELETE_SUB_CONTRACTORS)) {
+    return BadRequest("Missing permission to delete sub contractors");
+  }
 
   try {
     const id = parseInt((await context.params).id);

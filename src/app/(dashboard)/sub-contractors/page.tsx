@@ -66,12 +66,12 @@ export default function SubContractorsPage() {
     return `/api/sub-contractors?${sp.toString()}`;
   }, [page, perPage, search, sort, order]);
 
+  const { can } = usePermissions();
+
   const { data, error, isLoading, mutate } = useSWR<SubContractorsResponse>(
-    query,
+    can(PERMISSIONS.READ_SUB_CONTRACTORS) ? query : null,
     apiGet
   );
-
-  const { can } = usePermissions();
 
   if (error) {
     toast.error((error as Error).message || "Failed to load sub contractors");
@@ -214,6 +214,7 @@ export default function SubContractorsPage() {
           columns={columns}
           data={data?.data || []}
           loading={isLoading}
+          emptyMessage={can(PERMISSIONS.READ_SUB_CONTRACTORS) ? "No sub contractors found" : "No permission to read sub contractors"}
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}

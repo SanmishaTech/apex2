@@ -262,6 +262,9 @@ export default function WageSheetPage() {
         "Designation",
         "UNA No",
         "ESIC No",
+        "Account No",
+        "IFSC",
+        "Bank",
       ];
 
       // Add Rate column for company mode
@@ -288,16 +291,18 @@ export default function WageSheetPage() {
           "PT",
           "LWF",
           "Total Deduction",
+          "Total Working Days",
           "Net Wages"
         );
       } else {
-        // Company rates columns
+        // Company rates columns (add Total Working Days before final Total Wages)
         headers.push(
           "Working Days",
           "OT",
           "Actual Wages",
           "Food Charges",
           "Idle Days",
+          "Total Working Days",
           "Total Wages"
         );
       }
@@ -341,6 +346,10 @@ export default function WageSheetPage() {
         totalFoodCharges = 0,
         totalIdleDays = 0,
         totalTotalWages = 0;
+      // combined working days (workingDays + OT) for company summary column
+      let totalWorkingDaysCombined = 0;
+      // for govt mode we also need combined total working days
+      let totalWorkingDaysGovCombined = 0;
       let supplierTotals: any = null;
       let workerIndex = 1;
 
@@ -348,7 +357,7 @@ export default function WageSheetPage() {
         if (item.isSupplierHeader) {
           // Add supplier totals for previous group if exists
           if (supplierTotals && mode === "company") {
-            const supplierTotalRow: any[] = ["", "Total", "", "", "", ""];
+            const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
             for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
             supplierTotalRow.push(
               supplierTotals.workingDays.toFixed(2),
@@ -363,18 +372,19 @@ export default function WageSheetPage() {
 
           // Add supplier header row as a regular row with merged cells
           const supplierHeaderRow = new Array(
-            6 + daysInMonth + (mode === "govt" ? 10 : 5)
+            9 + daysInMonth + (mode === "govt" ? 11 : 7)
           ).fill("");
           supplierHeaderRow[1] = item.supplierName; // Put supplier name in second column
           body.push(supplierHeaderRow);
 
-          // Reset supplier totals
+          // Reset supplier totals (include combined working days)
           supplierTotals = {
             workingDays: 0,
             ot: 0,
             actualWages: 0,
             foodCharges: 0,
             idleDays: 0,
+            totalWorkingDays: 0,
             totalWages: 0,
           };
           return;
@@ -387,6 +397,9 @@ export default function WageSheetPage() {
           worker.designation || "-",
           worker.unaNo || "-",
           worker.esicNo || "-",
+          worker.accountNumber || "-",
+          worker.ifscCode || "-",
+          worker.bankName || "-",
         ];
 
         // Add Rate or Skill Set based on mode
@@ -408,6 +421,9 @@ export default function WageSheetPage() {
 
         // Add summary values based on mode
         if (mode === "govt") {
+          const workerTotalWorkingDays = (
+            Number(worker.totalDays || 0) + Number(worker.totalOT || 0)
+          );
           row.push(
             worker.totalDays.toFixed(0),
             worker.wageRate.toFixed(2),
@@ -418,23 +434,50 @@ export default function WageSheetPage() {
             worker.pt.toFixed(2),
             worker.lwf.toFixed(2),
             worker.totalDeduction.toFixed(2),
+            workerTotalWorkingDays.toFixed(2),
             worker.payable.toFixed(2)
           );
+          // accumulate govt combined days
+          totalWorkingDaysGovCombined += workerTotalWorkingDays;
         } else {
           // Company rates columns
+          const idleDaysCombined =
+            Number(worker.idleDays || 0) + Number(worker.idleOT || 0);
+          const workerTotalWorkingDays =
+            Number(worker.workingDays || 0) + Number(worker.totalOT || 0);
           row.push(
             worker.workingDays?.toFixed(2) || "0.00",
             worker.totalOT?.toFixed(2) || "0.00",
             worker.actualWages?.toFixed(2) || "0.00",
             worker.foodCharges?.toFixed(2) || "0.00",
-            (Number(worker.idleDays || 0) + Number(worker.idleOT || 0)).toFixed(2),
+            idleDaysCombined.toFixed(2),
+            workerTotalWorkingDays.toFixed(2),
             (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0)).toFixed(2)
           );
+          // Update totals based on mode
+          totalWorkingDays += Number(worker.workingDays || 0);
+          totalOT += Number(worker.totalOT || 0);
+          totalWorkingDaysCombined += workerTotalWorkingDays;
+          totalActualWages += Number(worker.actualWages || 0);
+          totalFoodCharges += Number(worker.foodCharges || 0);
+          totalIdleDays += idleDaysCombined;
+          totalTotalWages += Number(worker.totalWages || 0);
+
+          // Update supplier totals
+          if (supplierTotals) {
+            supplierTotals.workingDays += Number(worker.workingDays || 0);
+            supplierTotals.ot += Number(worker.totalOT || 0);
+            supplierTotals.actualWages += Number(worker.actualWages || 0);
+            supplierTotals.foodCharges += Number(worker.foodCharges || 0);
+            supplierTotals.idleDays += idleDaysCombined;
+            supplierTotals.totalWorkingDays += workerTotalWorkingDays;
+            supplierTotals.totalWages += Number(worker.totalWages || 0);
+          }
         }
 
         body.push(row);
 
-        // Update totals based on mode
+        // Update totals for govt mode (company totals were updated earlier)
         if (mode === "govt") {
           totalGross += worker.grossWage || 0;
           totalHra += worker.hra || 0;
@@ -444,48 +487,29 @@ export default function WageSheetPage() {
           totalLwf += worker.lwf || 0;
           totalDeduction += worker.totalDeduction || 0;
           totalPayable += worker.payable || 0;
-        } else {
-          // Company mode totals
-          totalWorkingDays += Number(worker.workingDays || 0);
-          totalOT += Number(worker.totalOT || 0);
-          totalActualWages += Number(worker.actualWages || 0);
-          totalFoodCharges += Number(worker.foodCharges || 0);
-          totalIdleDays +=
-            Number(worker.idleDays || 0) + Number(worker.idleOT || 0);
-          totalTotalWages += Number(worker.totalWages || 0);
-
-          // Update supplier totals
-          if (supplierTotals) {
-            supplierTotals.workingDays += Number(worker.workingDays || 0);
-            supplierTotals.ot += Number(worker.totalOT || 0);
-            supplierTotals.actualWages += Number(worker.actualWages || 0);
-            supplierTotals.foodCharges += Number(worker.foodCharges || 0);
-            supplierTotals.idleDays +=
-              Number(worker.idleDays || 0) + Number(worker.idleOT || 0);
-            supplierTotals.totalWages += Number(worker.totalWages || 0);
-          }
         }
       });
 
       // Add final supplier totals for company mode
-      if (supplierTotals && mode === "company") {
-        const supplierTotalRow: any[] = ["", "Total", "", "", "", ""];
-        for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
-        supplierTotalRow.push(
-          supplierTotals.workingDays.toFixed(2),
-          supplierTotals.ot.toFixed(2),
-          supplierTotals.actualWages.toFixed(2),
-          supplierTotals.foodCharges.toFixed(2),
-          supplierTotals.idleDays.toFixed(2),
-          (supplierTotals.totalWages - supplierTotals.foodCharges).toFixed(2)
-        );
-        body.push(supplierTotalRow);
-      }
+          if (supplierTotals && mode === "company") {
+            const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
+            for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
+            supplierTotalRow.push(
+              supplierTotals.workingDays.toFixed(2),
+              supplierTotals.ot.toFixed(2),
+              supplierTotals.actualWages.toFixed(2),
+              supplierTotals.foodCharges.toFixed(2),
+              supplierTotals.idleDays.toFixed(2),
+              supplierTotals.totalWorkingDays.toFixed(2),
+              (supplierTotals.totalWages - supplierTotals.foodCharges).toFixed(2)
+            );
+            body.push(supplierTotalRow);
+          }
 
       // Skip the separate Total row for company mode as we have supplier totals
       if (mode === "govt") {
         // Add Total row for govt mode
-        const totalRow: any[] = ["", "Total", "", "", "", ""];
+        const totalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
         for (let i = 0; i < daysInMonth; i++) totalRow.push("");
         totalRow.push(
           "",
@@ -497,13 +521,14 @@ export default function WageSheetPage() {
           totalPt.toFixed(2),
           totalLwf.toFixed(2),
           totalDeduction.toFixed(2),
+          totalWorkingDaysGovCombined.toFixed(2),
           totalPayable.toFixed(2)
         );
         body.push(totalRow);
       }
 
       // Add Grand Total row
-      const grandTotalRow: any[] = ["", "Grand Total", "", "", "", ""];
+      const grandTotalRow: any[] = ["", "Grand Total", "", "", "", "", "", "", ""];
       for (let i = 0; i < daysInMonth; i++) grandTotalRow.push("");
 
       if (mode === "govt") {
@@ -517,16 +542,18 @@ export default function WageSheetPage() {
           totalPt.toFixed(2),
           totalLwf.toFixed(2),
           totalDeduction.toFixed(2),
+          totalWorkingDaysGovCombined.toFixed(2),
           totalPayable.toFixed(2)
         );
       } else {
-        // Company mode grand totals
+        // Company mode grand totals (include combined working days)
         grandTotalRow.push(
           totalWorkingDays.toFixed(2),
           totalOT.toFixed(2),
           totalActualWages.toFixed(2),
           totalFoodCharges.toFixed(2),
           totalIdleDays.toFixed(2),
+          totalWorkingDaysCombined.toFixed(2),
           (totalTotalWages - totalFoodCharges).toFixed(2)
         );
       }
@@ -539,16 +566,19 @@ export default function WageSheetPage() {
         2: { cellWidth: 18 }, // Designation
         3: { cellWidth: 15 }, // UNA No
         4: { cellWidth: 15 }, // ESIC No
-        5: { cellWidth: 18 }, // Skill Set
+        5: { cellWidth: 20 }, // Account No
+        6: { cellWidth: 15 }, // IFSC
+        7: { cellWidth: 20 }, // Bank
+        8: { cellWidth: 18 }, // Skill Set
       };
 
       // Day columns - very narrow
-      for (let i = 6; i < 6 + daysInMonth; i++) {
+      for (let i = 9; i < 9 + daysInMonth; i++) {
         columnStyles[i] = { cellWidth: 5, halign: "center" };
       }
 
       // Summary columns
-      const summaryStart = 6 + daysInMonth;
+      const summaryStart = 9 + daysInMonth;
 
       if (mode === "govt") {
         columnStyles[summaryStart] = { cellWidth: 12 }; // Total Days
@@ -560,7 +590,8 @@ export default function WageSheetPage() {
         columnStyles[summaryStart + 6] = { cellWidth: 10 }; // PT
         columnStyles[summaryStart + 7] = { cellWidth: 10 }; // LWF
         columnStyles[summaryStart + 8] = { cellWidth: 16 }; // Total Deduction
-        columnStyles[summaryStart + 9] = { cellWidth: 16 }; // Payable
+        columnStyles[summaryStart + 9] = { cellWidth: 16 }; // Total Working Days
+        columnStyles[summaryStart + 10] = { cellWidth: 16 }; // Payable
       } else {
         // Company mode column widths
         columnStyles[summaryStart] = { cellWidth: 16 }; // Working Days
@@ -568,7 +599,7 @@ export default function WageSheetPage() {
         columnStyles[summaryStart + 2] = { cellWidth: 18 }; // Actual Wages
         columnStyles[summaryStart + 3] = { cellWidth: 18 }; // Food Charges
         columnStyles[summaryStart + 4] = { cellWidth: 14 }; // Idle Days
-        columnStyles[summaryStart + 5] = { cellWidth: 16 }; // Idle Wages
+        columnStyles[summaryStart + 5] = { cellWidth: 16 }; // Total Working Days
         columnStyles[summaryStart + 6] = { cellWidth: 18 }; // Total Wages
       }
 
@@ -779,6 +810,9 @@ export default function WageSheetPage() {
                     <tr>
                       <th className="p-2 text-left">Manpower</th>
                       <th className="p-2 text-left">Supplier</th>
+                      <th className="p-2 text-left">Account Number</th>
+                      <th className="p-2 text-left">IFSC Code</th>
+                      <th className="p-2 text-left">Bank Name</th>
                       <th className="p-2 text-right">Days</th>
                       {mode !== "govt" ? (
                         <>
@@ -803,6 +837,9 @@ export default function WageSheetPage() {
                       <tr key={idx} className="border-t">
                         <td className="p-2">{r.manpowerName}</td>
                         <td className="p-2">{r.supplier ?? ""}</td>
+                        <td className="p-2">{r.accountNumber}</td>
+                        <td className="p-2">{r.ifscCode}</td>
+                        <td className="p-2">{r.bankName}</td>
                         <td className="p-2 text-right">
                           {Number(r.workingDays).toFixed(2)}
                         </td>

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
+import { PERMISSIONS } from "@/config/roles";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
 
@@ -88,6 +89,11 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
+
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.READ_SUB_CONTRACTORS)) {
+    return BadRequest("Missing permission to read sub contractors");
+  }
 
   try {
     const { searchParams } = new URL(req.url);
@@ -180,6 +186,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
+
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.CREATE_SUB_CONTRACTORS)) {
+    return BadRequest("Missing permission to create sub contractors");
+  }
 
   try {
     const data = await req.json();

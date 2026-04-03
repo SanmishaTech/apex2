@@ -113,21 +113,23 @@ export async function GET(request: NextRequest) {
     const headerLine = [
       "Site".padEnd(16),
       "Manpower".padEnd(18),
-      "Supplier".padEnd(16),
-      "Days".padStart(6),
-      "Wage".padStart(10),
-      "Gross".padStart(10),
-      "HRA".padStart(8),
-      "PF".padStart(8),
-      "ESIC".padStart(8),
-      "PT".padStart(8),
-      "MLWF".padStart(8),
+      "Supplier".padEnd(14),
+      "Days".padStart(5),
+      "Wage".padStart(9),
+      "Gross".padStart(9),
+      "HRA".padStart(7),
+      "PF".padStart(7),
+      "ESIC".padStart(7),
+      "PT".padStart(7),
+      "MLWF".padStart(7),
+      "Tot Days".padStart(8),
       "Total".padStart(10),
     ].join(" ");
     lines.push(headerLine);
     lines.push("".padEnd(headerLine.length, "-"));
 
-    let sumDays = 0, sumGross = 0, sumHra = 0, sumPf = 0, sumEsic = 0, sumPt = 0, sumMlwf = 0, sumTotal = 0;
+    let sumDays = 0, sumGross = 0, sumHra = 0, sumPf = 0, sumEsic = 0, sumPt = 0, sumMlwf = 0;
+    let sumTotalWorkingDays = 0, sumTotal = 0;
     for (const r of rows) {
       sumDays += Number(r.workingDays || 0);
       sumGross += Number(r.grossWages || 0);
@@ -136,19 +138,21 @@ export async function GET(request: NextRequest) {
       sumEsic += Number(r.esic || 0);
       sumPt += Number(r.pt || 0);
       sumMlwf += Number(r.mlwf || 0);
+      sumTotalWorkingDays += (Number(r.workingDays || 0) + Number(r.ot || 0));
       sumTotal += Number(r.total || 0);
       const line = [
         String(r.siteName || '').slice(0, 16).padEnd(16),
         String(r.manpowerName || '').slice(0, 18).padEnd(18),
-        String(r.supplier || '').slice(0, 16).padEnd(16),
-        Number(r.workingDays || 0).toFixed(2).padStart(6),
-        Number(r.wages || 0).toFixed(2).padStart(10),
-        Number(r.grossWages || 0).toFixed(2).padStart(10),
-        Number(r.hra || 0).toFixed(2).padStart(8),
-        Number(r.pf || 0).toFixed(2).padStart(8),
-        Number(r.esic || 0).toFixed(2).padStart(8),
-        Number(r.pt || 0).toFixed(2).padStart(8),
-        Number(r.mlwf || 0).toFixed(2).padStart(8),
+        String(r.supplier || '').slice(0, 14).padEnd(14),
+        Number(r.workingDays || 0).toFixed(2).padStart(5),
+        Number(r.wages || 0).toFixed(2).padStart(9),
+        Number(r.grossWages || 0).toFixed(2).padStart(9),
+        Number(r.hra || 0).toFixed(2).padStart(7),
+        Number(r.pf || 0).toFixed(2).padStart(7),
+        Number(r.esic || 0).toFixed(2).padStart(7),
+        Number(r.pt || 0).toFixed(2).padStart(7),
+        Number(r.mlwf || 0).toFixed(2).padStart(7),
+        (Number(r.workingDays || 0) + Number(r.ot || 0)).toFixed(2).padStart(8),
         Number(r.total || 0).toFixed(2).padStart(10),
       ].join(" ");
       lines.push(line);
@@ -156,15 +160,16 @@ export async function GET(request: NextRequest) {
 
     lines.push("".padEnd(headerLine.length, "-"));
     const totals = [
-      "TOTALS".padEnd(50),
-      sumDays.toFixed(2).padStart(6),
-      "".padStart(10),
-      sumGross.toFixed(2).padStart(10),
-      sumHra.toFixed(2).padStart(8),
-      sumPf.toFixed(2).padStart(8),
-      sumEsic.toFixed(2).padStart(8),
-      sumPt.toFixed(2).padStart(8),
-      sumMlwf.toFixed(2).padStart(8),
+      "TOTALS".padEnd(48),
+      sumDays.toFixed(2).padStart(5),
+      "".padStart(9),
+      sumGross.toFixed(2).padStart(9),
+      sumHra.toFixed(2).padStart(7),
+      sumPf.toFixed(2).padStart(7),
+      sumEsic.toFixed(2).padStart(7),
+      sumPt.toFixed(2).padStart(7),
+      sumMlwf.toFixed(2).padStart(7),
+      sumTotalWorkingDays.toFixed(2).padStart(8),
       sumTotal.toFixed(2).padStart(10),
     ].join(" ");
     lines.push(totals);

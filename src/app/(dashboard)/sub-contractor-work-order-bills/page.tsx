@@ -94,7 +94,10 @@ export default function SubContractorWorkOrderBillsPage() {
     return `/api/sub-contractor-work-orders?${sp.toString()}`;
   }, [page, perPage, search, site, subContractor, sort, order]);
 
-  const { data, error, isLoading } = useSWR<SubContractorWorkOrdersResponse>(query, apiGet);
+  const { data, error, isLoading } = useSWR<SubContractorWorkOrdersResponse>(
+    can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDER_BILLS) ? query : null,
+    apiGet
+  );
 
   if (error) {
     toast.error((error as Error).message || "Failed to load sub contractor work orders");
@@ -151,8 +154,13 @@ export default function SubContractorWorkOrderBillsPage() {
         <DataTable
           columns={columns}
           // show only Approved Level 2 items - accept either status string or boolean flag
-          data={(data?.data || []).filter((wo) => wo.status === "APPROVED_LEVEL_2" || wo.approvalStatus === "APPROVED_LEVEL_2" || wo.isApproved2 === true)}
+          data={can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDER_BILLS) ? (data?.data || []).filter((wo) => wo.status === "APPROVED_LEVEL_2" || wo.approvalStatus === "APPROVED_LEVEL_2" || wo.isApproved2 === true) : []}
           loading={isLoading}
+          emptyMessage={
+            can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDER_BILLS)
+              ? "No work orders found"
+              : "No permission to read subcontractor work order bills"
+          }
           sort={sortState}
           onSortChange={(s) => toggleSort(s.field)}
           stickyColumns={1}
