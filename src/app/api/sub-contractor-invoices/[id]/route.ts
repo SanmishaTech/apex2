@@ -51,6 +51,11 @@ export async function GET(
   const auth = await guardApiAccess(req);
   if (!auth.ok) return auth.response;
 
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.READ_SUB_CONTRACTOR_INVOICES)) {
+    return BadRequest("Missing permission to read sub contractor invoices");
+  }
+
   try {
     const id = parseInt((await context.params).id);
     if (isNaN(id)) return BadRequest("Invalid ID");
@@ -138,6 +143,11 @@ export async function PATCH(
           }
           if (!current.isAuthorized) throw new Error("Invoice must be authorized before marking as paid");
           dataToUpdate.status = "PAID";
+        }
+      } else {
+        const permSet = new Set((auth.user.permissions || []) as string[]);
+        if (!permSet.has(PERMISSIONS.EDIT_SUB_CONTRACTOR_INVOICES)) {
+          throw new Error("No edit permission");
         }
       }
 

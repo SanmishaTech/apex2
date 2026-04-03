@@ -149,16 +149,18 @@ export default function SubContractorWorkOrdersPage() {
   }
 
   const { data, isLoading, mutate } = useSWR<SubContractorWorkOrdersResponse>(
-    `/api/sub-contractor-work-orders?${new URLSearchParams({
-      page: page.toString(),
-      perPage: perPage.toString(),
-      search,
-      site,
-      subContractor,
-      status,
-      sort,
-      order,
-    })}`,
+    can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS)
+      ? `/api/sub-contractor-work-orders?${new URLSearchParams({
+          page: page.toString(),
+          perPage: perPage.toString(),
+          search,
+          site,
+          subContractor,
+          status,
+          sort,
+          order,
+        })}`
+      : null,
     apiGet
   );
 
@@ -364,8 +366,13 @@ export default function SubContractorWorkOrdersPage() {
       <AppCard>
         <DataTable
           columns={columns}
-          data={(data?.data || [])}
+          data={can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS) ? (data?.data || []) : []}
           loading={isLoading}
+          emptyMessage={
+            can(PERMISSIONS.READ_SUB_CONTRACTOR_WORK_ORDERS)
+              ? "No work orders found"
+              : "No permission to read subcontractor work orders"
+          }
           sort={{ field: sort, order }}
           onSortChange={(next) => setQp({ sort: next.field, order: next.order })}
         />

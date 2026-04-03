@@ -129,6 +129,11 @@ export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (!auth.ok) return auth.response;
 
+  const permSet = new Set((auth.user.permissions || []) as string[]);
+  if (!permSet.has(PERMISSIONS.READ_SUB_CONTRACTOR_INVOICES)) {
+    return BadRequest("Missing permission to read sub contractor invoices");
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);

@@ -95,7 +95,16 @@ export async function GET(req: NextRequest) {
     },
     include: {
       site: true,
-      paySlip: { include: { manpower: { include: { manpowerSupplier: true, siteManpower: { select: { ...({ foodCharges: true } as any) } } } } } },
+      paySlip: {
+        include: {
+          manpower: {
+            include: {
+              manpowerSupplier: true,
+              siteManpower: { select: { ...({ foodCharges: true } as any) } },
+            },
+          },
+        },
+      },
     },
     orderBy: [{ siteId: "asc" }, { paySlipId: "asc" }],
   });
@@ -111,6 +120,9 @@ export async function GET(req: NextRequest) {
       manpowerId: (d as any).paySlip.manpowerId,
       manpowerName: `${(d as any).paySlip.manpower?.firstName ?? ""} ${(d as any).paySlip.manpower?.lastName ?? ""}`.trim(),
       supplier: (d as any).paySlip.manpower?.manpowerSupplier?.supplierName ?? null,
+      accountNumber: (d as any).paySlip.manpower?.accountNumber ?? null,
+      ifscCode: (d as any).paySlip.manpower?.ifscCode ?? null,
+      bankName: (d as any).paySlip.manpower?.bank ?? null,
       workingDays: Number(d.workingDays ?? 0),
       ot: otValue,
       idle: Number(d.idle ?? 0),

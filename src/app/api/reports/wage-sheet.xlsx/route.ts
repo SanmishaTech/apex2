@@ -79,6 +79,9 @@ export async function GET(req: NextRequest) {
         "DESIGNATION",
         "UNA NO",
         "ESIC NO",
+        "ACCOUNT NUMBER",
+        "IFSC CODE",
+        "BANK NAME",
         mode === 'company' ? "RATE" : "SKILL SET"
       ];
       
@@ -99,6 +102,7 @@ export async function GET(req: NextRequest) {
           "PT",
           "MLWF",
           "TOTAL DEDUCTION",
+          "TOTAL WORKING DAYS",
           "NET WAGES"
         );
       } else {
@@ -108,6 +112,7 @@ export async function GET(req: NextRequest) {
           "ACTUAL WAGES",
           "FOOD CHARGES",
           "IDLE DAYS",
+          "TOTAL WORKING DAYS",
           "TOTAL WAGES"
         );
       }
@@ -140,6 +145,9 @@ export async function GET(req: NextRequest) {
               worker.designation || "",
               worker.unaNo || "",
               worker.esicNo || "",
+              worker.accountNumber || "",
+              worker.ifscCode || "",
+              worker.bankName || "",
               worker.wageRate?.toFixed(2) || ""
             ];
             
@@ -167,6 +175,7 @@ export async function GET(req: NextRequest) {
               worker.actualWages?.toFixed(2) || "0.00",
               worker.foodCharges?.toFixed(2) || "0.00",
               (Number(worker.idleDays || 0) + Number(worker.idleOT || 0)).toFixed(2),
+              (Number(worker.workingDays || 0) + Number(worker.totalOT || 0)).toFixed(2),
               netTotalWages.toFixed(2)
             );
             
@@ -175,7 +184,7 @@ export async function GET(req: NextRequest) {
           
           // Add supplier total row
           const supplierTotal = ["", "Total"];
-          const fixedCols = 7; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, RATE/SKILL SET
+          const fixedCols = 10; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, ACCOUNT NO, IFSC, BANK, RATE/SKILL SET
           const padCount = (fixedCols - 2) + daysInMonth;
           for (let i = 0; i < padCount; i++) supplierTotal.push("");
           
@@ -185,8 +194,9 @@ export async function GET(req: NextRequest) {
             actualWages: acc.actualWages + Number(w.actualWages || 0),
             foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
             idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
+            totalWorkingDays: acc.totalWorkingDays + Number(w.workingDays || 0) + Number(w.totalOT || 0),
             totalWages: acc.totalWages + Number(w.totalWages || 0)
-          }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWages: 0 });
+          }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
           
           supplierTotal.push(
             totals.workingDays.toFixed(2),
@@ -194,6 +204,7 @@ export async function GET(req: NextRequest) {
             totals.actualWages.toFixed(2),
             totals.foodCharges.toFixed(2),
             totals.idleDays.toFixed(2),
+            totals.totalWorkingDays.toFixed(2),
             (totals.totalWages - totals.foodCharges).toFixed(2)
           );
           
@@ -210,6 +221,9 @@ export async function GET(req: NextRequest) {
             worker.designation || "",
             worker.unaNo || "",
             worker.esicNo || "",
+            worker.accountNumber || "",
+            worker.ifscCode || "",
+            worker.bankName || "",
             worker.skillSet || ""
           ];
           
@@ -230,6 +244,7 @@ export async function GET(req: NextRequest) {
             worker.pt?.toFixed(2) || "0.00",
             worker.lwf?.toFixed(2) || "0.00",
             worker.totalDeduction?.toFixed(2) || "0.00",
+            (Number(worker.totalDays || 0) + Number(worker.totalOT || 0)).toFixed(2),
             worker.payable?.toFixed(2) || "0.00"
           );
           
@@ -239,7 +254,7 @@ export async function GET(req: NextRequest) {
       
       // Add Grand Total row
       const grandTotal = ["", "Grand Total"];
-      const fixedCols = 7; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, RATE/SKILL SET
+      const fixedCols = 10; // SR.NO, NAME, MANPOWER SUPPLIER, DESIGNATION, UNA NO, ESIC NO, ACCOUNT NO, IFSC, BANK, RATE/SKILL SET
       const padCount = (fixedCols - 2) + daysInMonth;
       for (let i = 0; i < padCount; i++) grandTotal.push("");
       
@@ -250,8 +265,9 @@ export async function GET(req: NextRequest) {
           actualWages: acc.actualWages + Number(w.actualWages || 0),
           foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
           idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
+          totalWorkingDays: acc.totalWorkingDays + Number(w.workingDays || 0) + Number(w.totalOT || 0),
           totalWages: acc.totalWages + Number(w.totalWages || 0)
-        }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWages: 0 });
+        }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
         
         grandTotal.push(
           totals.workingDays.toFixed(2),
@@ -259,6 +275,7 @@ export async function GET(req: NextRequest) {
           totals.actualWages.toFixed(2),
           totals.foodCharges.toFixed(2),
           totals.idleDays.toFixed(2),
+          totals.totalWorkingDays.toFixed(2),
           (totals.totalWages - totals.foodCharges).toFixed(2)
         );
       } else {
@@ -270,8 +287,9 @@ export async function GET(req: NextRequest) {
           pt: acc.pt + Number(w.pt || 0),
           lwf: acc.lwf + Number(w.lwf || 0),
           deduction: acc.deduction + Number(w.totalDeduction || 0),
+          totalWorkingDays: acc.totalWorkingDays + Number(w.totalDays || 0) + Number(w.totalOT || 0),
           payable: acc.payable + Number(w.payable || 0)
-        }), { gross: 0, hra: 0, pf: 0, esic: 0, pt: 0, lwf: 0, deduction: 0, payable: 0 });
+        }), { gross: 0, hra: 0, pf: 0, esic: 0, pt: 0, lwf: 0, deduction: 0, totalWorkingDays: 0, payable: 0 });
         
         grandTotal.push(
           "", "",
@@ -282,6 +300,7 @@ export async function GET(req: NextRequest) {
           totals.pt.toFixed(2),
           totals.lwf.toFixed(2),
           totals.deduction.toFixed(2),
+          totals.totalWorkingDays.toFixed(2),
           totals.payable.toFixed(2)
         );
       }
@@ -299,6 +318,9 @@ export async function GET(req: NextRequest) {
         { wch: 15 }, // Designation
         { wch: 12 }, // UNA No
         { wch: 12 }, // ESIC No
+        { wch: 20 }, // Account No
+        { wch: 15 }, // IFSC Code
+        { wch: 20 }, // Bank Name
         { wch: 12 }, // Rate/Skill Set
       ];
       
@@ -315,7 +337,7 @@ export async function GET(req: NextRequest) {
           { wch: 12 }, // Actual Wages
           { wch: 14 }, // Food Charges
           { wch: 10 }, // Idle Days
-          { wch: 12 }, // Idle Wages
+          { wch: 16 }, // Total Working Days
           { wch: 12 }  // Total Wages
         );
       } else {
@@ -329,6 +351,7 @@ export async function GET(req: NextRequest) {
           { wch: 8 },  // PT
           { wch: 8 },  // MLWF
           { wch: 14 }, // Total Deduction
+          { wch: 16 }, // Total Working Days
           { wch: 12 }  // Net Wages
         );
       }
@@ -354,7 +377,7 @@ export async function GET(req: NextRequest) {
     const protocol = req.headers.get('x-forwarded-proto') || 'http';
     const baseUrl = `${protocol}://${host}`;
     
-    const base = `${baseUrl}/api/reports/wage-sheet?period=${encodeURIComponent(period)}${mode ? `&mode=${encodeURIComponent(mode)}` : ""}${siteId ? `&siteId=${encodeURIComponent(siteId)}` : ""}`;
+    const base = `${baseUrl}/api/reports/wage-sheet?period=${encodeURIComponent(period)}${mode ? `&mode=${encodeURIComponent(mode)}` : ""}${siteId ? `&siteId=${encodeURIComponent(siteId)}` : ""}${siteIds ? `&siteIds=${encodeURIComponent(siteIds)}` : ""}`;
     
     // Pass authentication headers
     const headers = new Headers();
@@ -377,14 +400,16 @@ export async function GET(req: NextRequest) {
     ];
     const columns = [[
       "Site ID", "Site", "Manpower", "Supplier",
+      "Account No", "IFSC", "Bank",
       "Working Days", "OT", "Idle", "Wage", "Gross",
-      "Food Charges", "HRA", "PF", "ESIC", "PT", "MLWF", "Total",
+      "Food Charges", "HRA", "PF", "ESIC", "PT", "MLWF", "Deduction", "Tot Work Days", "Total",
     ]];
     const dataRows = rows.map((r) => [
       r.siteId, r.siteName || "",
       r.manpowerName || "", r.supplier || "",
+      r.accountNumber || "", r.ifscCode || "", r.bankName || "",
       r.workingDays, r.ot, r.idle, r.wages, r.grossWages,
-      r.foodCharges, r.hra, r.pf, r.esic, r.pt, r.mlwf, r.total,
+      r.foodCharges, r.hra, r.pf, r.esic, r.pt, r.mlwf, (r.hra + r.pf + r.esic + r.pt + r.mlwf), (r.workingDays + r.ot), r.total,
     ]);
 
     const sheetData = [...header, [""], ...columns, ...dataRows];
