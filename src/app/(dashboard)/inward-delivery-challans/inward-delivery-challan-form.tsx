@@ -413,13 +413,13 @@ export default function InwardDeliveryChallanForm({
     }
   }, [initial]);
 
-  const { data: sitesData } = useSWR<any>("/api/sites?perPage=100", apiGet);
-  const { data: vendorsData } = useSWR<any>("/api/vendors?perPage=100", apiGet);
+  const { data: sitesData } = useSWR<any>("/api/sites/options", apiGet);
+  const { data: vendorsData } = useSWR<any>("/api/vendors?perPage=10000", apiGet);
   const siteIdVal = form.watch("siteId");
   const purchaseOrderIdVal = form.watch("purchaseOrderId");
   const { data: posData } = useSWR<any>(
     siteIdVal
-      ? `/api/purchase-orders?perPage=1000&site=${siteIdVal}&approved2=true`
+      ? `/api/purchase-orders?perPage=10000&site=${siteIdVal}&approved2=true`
       : null,
     apiGet
   );
@@ -461,8 +461,20 @@ export default function InwardDeliveryChallanForm({
     const vId = selected?.vendorId ?? selected?.vendor?.id;
     if (vId) {
       form.setValue("vendorId", String(vId), { shouldValidate: true });
+      form.clearErrors("vendorId");
     }
   }, [purchaseOrderIdVal, posData?.data]);
+
+  // Robust fallback: auto-select vendor from poDetail (direct fetch)
+  useEffect(() => {
+    if (poDetail) {
+      const vId = poDetail.vendorId ?? poDetail.vendor?.id;
+      if (vId) {
+        form.setValue("vendorId", String(vId), { shouldValidate: true });
+        form.clearErrors("vendorId");
+      }
+    }
+  }, [poDetail]);
 
   const poDetailsRows: any[] = Array.isArray(poDetail?.purchaseOrderDetails)
     ? (poDetail.purchaseOrderDetails as any[])

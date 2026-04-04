@@ -195,16 +195,12 @@ async function generatePONumber(
 
   const latestPO = await tx.purchaseOrder.findFirst({
     where: {
-      purchaseOrderDate: {
-        gte: startDate,
-        lte: endDate,
-      },
       purchaseOrderNo: {
         startsWith: prefix,
       },
     },
     orderBy: {
-      purchaseOrderNo: "desc",
+      id: "desc",
     },
     select: {
       purchaseOrderNo: true,
@@ -229,7 +225,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(
-      100,
+      10000,
       Math.max(1, Number(searchParams.get("perPage")) || 10)
     );
     const search = searchParams.get("search")?.trim() || "";
@@ -454,10 +450,11 @@ export async function POST(req: NextRequest) {
       const primaryPaymentTermId: number | null =
         paymentTermIds.length > 0 ? Number(paymentTermIds[0]) : null;
 
-      // Generate financial year-based PO number within the transaction
+      // Generate financial year-based PO number within the transaction.
+      // Use server current date for numbering (do not rely on user-supplied purchaseOrderDate).
       const purchaseOrderNo = await generatePONumber(
         tx,
-        parsedData.purchaseOrderDate,
+        new Date(),
         { siteId: parsedData.siteId }
       );
 

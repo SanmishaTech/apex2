@@ -1962,7 +1962,7 @@ model PurchaseOrder {
   billingAddress    BillingAddress                @relation( fields: [billingAddressId], references: [id], onDelete:Restrict)
   vendorId                Int
   vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
-  purchaseOrderNo         String   @db.VarChar(30)  @unique
+  purchaseOrderNo         String   @db.VarChar(100)  @unique
   purchaseOrderDate       DateTime    @db.Date() 
   quotationNo             String?   @db.VarChar(100)
   quotationDate           DateTime?   @db.Date() 

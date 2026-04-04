@@ -40,7 +40,7 @@ export function Pagination({
   onPerPageChange,
   className,
   size = "sm",
-  showPageNumbers = false,
+  showPageNumbers = true,
   maxButtons = 5,
   disabled = false,
   compact = false,

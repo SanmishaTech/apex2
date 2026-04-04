@@ -179,6 +179,8 @@ export default function AttendancesPage() {
           totalPages={data?.meta?.totalPages || 1}
           onPageChange={(p) => setQp({ page: p })}
           onPerPageChange={(pp) => setQp({ page: 1, perPage: pp })}
+          showPageNumbers
+          maxButtons={5}
         />
       </AppCard.Content>
     </AppCard>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 // UI Components
 import { AppCard } from "@/components/common/app-card";
@@ -400,7 +400,20 @@ export default function EditAttendancePage() {
                 type="date"
                 value={fromDate}
                 max={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  if (toDate && newDate) {
+                    const d1 = new Date(newDate);
+                    const d2 = new Date(toDate);
+                    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    if (diffDays > 2) {
+                      toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
+                      return;
+                    }
+                  }
+                  setFromDate(newDate);
+                }}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -414,7 +427,21 @@ export default function EditAttendancePage() {
                 type="date"
                 value={toDate}
                 min={fromDate || undefined}
-                onChange={(e) => setToDate(e.target.value)}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  if (fromDate && newDate) {
+                    const d1 = new Date(fromDate);
+                    const d2 = new Date(newDate);
+                    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    if (diffDays > 2) {
+                      toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
+                      return;
+                    }
+                  }
+                  setToDate(newDate);
+                }}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -510,11 +537,10 @@ export default function EditAttendancePage() {
                             return (
                               <tr
                                 key={uniqueKey}
-                                className={`hover:bg-muted/30 transition-colors ${
-                                  isNewEntry
-                                    ? "bg-blue-50/50 dark:bg-blue-950/20"
-                                    : ""
-                                }`}
+                                className={`hover:bg-muted/30 transition-colors ${isNewEntry
+                                  ? "bg-blue-50/50 dark:bg-blue-950/20"
+                                  : ""
+                                  }`}
                               >
                                 <td className="px-4 py-3 text-sm text-foreground">
                                   {idx + 1}
