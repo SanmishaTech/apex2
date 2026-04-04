@@ -175,25 +175,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (logo) {
     try {
       // place larger logo at top-right
-      const logoW = 60;
-      const logoH = 25;
+      const logoW = 55;
+      const logoH = 22;
       const logoX = pageWidth - margin - logoW;
-      const logoY = 8;
+      const logoY = 10;
       doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoW, logoH);
     } catch (e) {}
   }
 
-  // Title
+  // Title - positioned below logo with padding
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Sub Contractor Work Order", pageWidth / 2, 18, { align: "center" } as any);
+  doc.text("Sub Contractor Work Order", pageWidth / 2, 38, { align: "center" } as any);
 
   // set global smaller font for print
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
 
   // We'll render vendor / WO details using a 2-column table below
-  let y = 28;
+  let y = 45;
   // Two-column table after heading: vendor / title & WO details  (2 rows)
   const vendorTextLines = [] as string[];
   vendorTextLines.push('To,');
@@ -259,14 +259,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const intro = `Dear Sir/Madam :\nWe are pleased to confirm our work order against your Quotation. You are requested to execute the following items as per terms and conditions attached. Please quote work order no in challan,invoice and related correspondence.`;
   // wrap text manually to fit page width
   const maxTextWidth = pageWidth - margin * 2;
-  const lines = (doc as any).splitTextToSize(intro, maxTextWidth - 2);
-  const introStartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 28;
+  const lines = (doc as any).splitTextToSize(intro, maxTextWidth - 4);
+  
+  // Ensure intro starts after the header table with proper spacing
+  const headerTableEndY = (doc as any).lastAutoTable?.finalY || y + 50;
+  const introStartY = headerTableEndY + 8;
+  
   doc.setFontSize(9);
   doc.text(lines, margin, introStartY);
 
-  // move startY below intro
-  let itemsStartY = (doc as any).lastAutoTable?.finalY || introStartY + lines.length * 4;
-  itemsStartY += 6;
+  // move startY below intro with padding
+  let itemsStartY = introStartY + lines.length * 3.5 + 6;
 
   // Build items table with tax sub-columns: CGST(% / Amt), SGST(% / Amt), IGST(% / Amt)
   const details = swo.subContractorWorkOrderDetails || [];
@@ -310,64 +313,49 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     tableWidth: pageWidth - margin * 2,
     head: [
       [
-        'Sr.No',
-        'Activity ID',
-        'Description',
-        '',
-        'Qty',
-        'Unit',
-        'Rate',
-        { content: 'CGST', colSpan: 2, styles: { halign: 'center' } },
-        { content: 'SGST', colSpan: 2, styles: { halign: 'center' } },
-        { content: 'IGST', colSpan: 2, styles: { halign: 'center' } },
-        'Amount',
+        { content: 'Sr.\nNo', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Activity\nID', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Description', rowSpan: 2, styles: { halign: 'left', valign: 'middle', fontSize: 7 } },
+        { content: 'SAC\nCode', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Qty', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Unit', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Rate', rowSpan: 2, styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
+        { content: 'CGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'SGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'IGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Amount', rowSpan: 2, styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
       ],
       [
-        '',
-        '',
-        '',
-        'SAC CODE',
-        '',
-        '',
-        '',
-        '%', 'Amount',
-        '%', 'Amount',
-        '%', 'Amount',
-        '',
+        '', '', '', '', '', '', '',
+        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
+        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
+        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
+        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
+        ''
       ],
     ],
     body: itemsBody,
-    styles: { fontSize: 8, textColor: 0, lineColor: 0 },
-    // use only black/white for headers (no gray fill)
-    headStyles: { fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold' },
+    styles: { fontSize: 7, textColor: 0, lineColor: 0, cellPadding: 1 },
+    headStyles: { fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', lineWidth: 0.2, halign: 'center', valign: 'middle' },
     theme: 'grid',
     margin: { left: margin, right: margin },
     columnStyles: {
-      2: { cellWidth: 70 }, // Description wider
-      3: { cellWidth: 20 }, // SAC column narrow
-      6: { halign: 'right' },
-      7: { halign: 'right' },
-      8: { halign: 'right' },
-      9: { halign: 'right' },
-      10: { halign: 'right' },
-      11: { halign: 'right' },
-      12: { halign: 'right' },
-      13: { halign: 'right' },
-    },
-    didDrawCell: function (data: any) {
-      // rotate SAC header vertically
-      if (data.section === 'head' && data.column.index === 3) {
-        const cell = data.cell;
-        const centerX = cell.x + cell.width / 2;
-        const centerY = cell.y + cell.height / 2;
-        (doc as any).saveGraphicsState();
-        (doc as any).setFont('helvetica', 'bold');
-        (doc as any).setFontSize(8);
-        (doc as any).setTextColor(0);
-        // draw rotated text
-        (doc as any).text('SAC\nCODE', centerX, centerY, { align: 'center', baseline: 'middle', angle: 90 } as any);
-        (doc as any).restoreGraphicsState();
-      }
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 12, halign: 'center' },
+      2: { cellWidth: 50, halign: 'left' },
+      3: { cellWidth: 14, halign: 'center' },
+      4: { cellWidth: 12, halign: 'right' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 14, halign: 'right' },
+      7: { cellWidth: 10, halign: 'center' },
+      8: { cellWidth: 14, halign: 'right' },
+      9: { cellWidth: 10, halign: 'center' },
+      10: { cellWidth: 14, halign: 'right' },
+      11: { cellWidth: 10, halign: 'center' },
+      12: { cellWidth: 14, halign: 'right' },
+      13: { cellWidth: 16, halign: 'right' },
     },
   });
 
