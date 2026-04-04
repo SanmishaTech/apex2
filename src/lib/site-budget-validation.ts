@@ -32,16 +32,18 @@ export async function validateSiteBoqBudgetQtyForItems(params: {
   if (!Number.isFinite(boqId) || boqId <= 0) return [];
   if (uniqueItemIds.length === 0) return [];
 
+  const siteIdNum = Number(siteId);
+  const whereForSite = {
+    siteBudget: {
+      siteId: siteIdNum,
+    },
+  };
+
   const budgetRows = await (tx as any).siteBudgetItem.groupBy({
     by: ["itemId"],
     where: {
       itemId: { in: uniqueItemIds },
-      siteBudgetDetail: {
-        siteBudget: {
-          siteId,
-          boqId,
-        },
-      },
+      ...whereForSite,
     },
     _sum: {
       budgetQty: true,

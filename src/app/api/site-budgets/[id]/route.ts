@@ -30,48 +30,27 @@ export async function GET(
         toDate: true,
         createdAt: true,
         updatedAt: true,
-        siteBudgetDetails: {
+        siteBudgetItems: {
           select: {
             id: true,
             SiteBudgetId: true,
-            BoqItemId: true,
-            boqItem: {
+            itemId: true,
+            item: {
               select: {
                 id: true,
-                activityId: true,
-                clientSrNo: true,
                 item: true,
+                itemCode: true,
                 unit: { select: { unitName: true } },
-                qty: true,
-                rate: true,
-                amount: true,
-                isGroup: true,
               },
             },
-            siteBudgetItems: {
-              select: {
-                id: true,
-                SiteBudgetDetailId: true,
-                itemId: true,
-                item: {
-                  select: {
-                    id: true,
-                    item: true,
-                    itemCode: true,
-                    unit: { select: { unitName: true } },
-                  },
-                },
-                budgetQty: true,
-                budgetRate: true,
-                purchaseRate: true,
-                budgetValue: true,
-              },
-              orderBy: { itemId: "asc" },
-            },
+            budgetQty: true,
+            budgetRate: true,
+            purchaseRate: true,
+            budgetValue: true,
           },
-          orderBy: { BoqItemId: "asc" },
+          orderBy: { itemId: "asc" },
         },
-      }
+      },
     });
 
     if (!siteBudget) return NotFound('Site budget not found');
@@ -92,19 +71,11 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     if (isNaN(id)) return Error("Invalid site budget ID", 400);
 
     await (prisma as any).$transaction(async (tx: any) => {
-      const details = await tx.siteBudgetDetail.findMany({
+      // Delete all site budget items first
+      await tx.siteBudgetItem.deleteMany({
         where: { SiteBudgetId: id },
-        select: { id: true },
       });
-      const detailIds = (details || []).map((d: any) => Number(d.id));
-      if (detailIds.length) {
-        await tx.siteBudgetItem.deleteMany({
-          where: { SiteBudgetDetailId: { in: detailIds } },
-        });
-        await tx.siteBudgetDetail.deleteMany({
-          where: { id: { in: detailIds } },
-        });
-      }
+      // Then delete the site budget
       await tx.siteBudget.delete({ where: { id } });
     });
 

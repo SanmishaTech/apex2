@@ -21,10 +21,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   try {
     const whereForSite = {
-      siteBudgetDetail: {
-        siteBudget: {
-          siteId: siteIdNum,
-        },
+      siteBudget: {
+        siteId: siteIdNum,
       },
     };
 
