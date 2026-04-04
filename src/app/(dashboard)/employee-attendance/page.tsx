@@ -9,7 +9,6 @@ import { useRef } from "react";
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { AppSelect } from "@/components/common/app-select";
-import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { apiGet, apiUpload } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
@@ -37,7 +36,6 @@ export default function EmployeeAttendancePage() {
   const [showWebcam, setShowWebcam] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const sitesQuery = useMemo(() => "/api/employee-attendances/my-sites", []);
 
@@ -343,7 +341,8 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    setConfirmOpen(true);
+    // Skip confirmation and submit directly
+    await doSubmitAttendance();
   };
 
   const sites = sitesData?.data || [];
@@ -489,18 +488,6 @@ export default function EmployeeAttendancePage() {
             )}
           </div>
         </div>
-
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title="Confirm attendance?"
-          description="This action cannot be reversed. Do you want to continue?"
-          confirmText={submitting ? "Saving..." : "Yes, mark attendance"}
-          cancelText="Cancel"
-          disabled={submitting}
-          confirmButtonClassName="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onConfirm={doSubmitAttendance}
-        />
       </AppCard.Content>
     </AppCard>
   );

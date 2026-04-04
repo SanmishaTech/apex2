@@ -151,30 +151,33 @@ function ensureSpace(
   return currentY;
 }
 
-// Try to load a logo image from public/ with reasonable fallbacks
-async function loadLogoDataUrl(): Promise<{
+// Try to load a logo image from a file path
+async function loadLogoDataUrl(logoPath?: string | null): Promise<{
   dataUrl: string;
   format: "PNG" | "JPEG";
 } | null> {
-  const candidates = [path.join("images", "DCTPL-logo.png")]; // check png/jpg
-  for (const name of candidates) {
-    try {
-      const p = path.join(process.cwd(), "public", name);
-      const buf = await fs.readFile(p);
-      const isPng = name.toLowerCase().endsWith(".png");
-      const fmt = isPng
-        ? "PNG"
-        : name.toLowerCase().endsWith(".jpg") ||
-          name.toLowerCase().endsWith(".jpeg")
-        ? "JPEG"
-        : "PNG";
-      const dataUrl = `data:image/${
-        isPng ? "png" : "jpeg"
-      };base64,${buf.toString("base64")}`;
-      return { dataUrl, format: fmt as "PNG" | "JPEG" };
-    } catch {}
+  // Only load if logoPath is provided
+  if (!logoPath) {
+    return null;
   }
-  return null;
+
+  try {
+    const p = path.join(process.cwd(), logoPath);
+    const buf = await fs.readFile(p);
+    const isPng = logoPath.toLowerCase().endsWith(".png");
+    const fmt = isPng
+      ? "PNG"
+      : logoPath.toLowerCase().endsWith(".jpg") ||
+        logoPath.toLowerCase().endsWith(".jpeg")
+      ? "JPEG"
+      : "PNG";
+    const dataUrl = `data:image/${
+      isPng ? "png" : "jpeg"
+    };base64,${buf.toString("base64")}`;
+    return { dataUrl, format: fmt as "PNG" | "JPEG" };
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(
@@ -279,6 +282,7 @@ export async function GET(
               companyName: true,
               contactPerson: true,
               contactNo: true,
+              logoUrl: true,
             },
           },
         },
@@ -428,12 +432,13 @@ export async function GET(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(headingFontSize);
-  // Place the company logo from public/ (fallbacks supported) - top-right with larger sizing
+  // Place the company logo from site's company - top-right with larger sizing
   const logoHeight = 22;
   const logoWidth = 78;
   const logoY = margin;
   try {
-    const logo = await loadLogoDataUrl();
+    const companyLogoUrl = (purchaseOrder.site as any)?.company?.logoUrl;
+    const logo = await loadLogoDataUrl(companyLogoUrl);
     if (logo) {
       const logoX = pageWidth - margin - logoWidth;
       doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
@@ -506,7 +511,7 @@ export async function GET(
   const poHeaderLines = [
     { text: "INLAND PURCHASE ORDER", bold: true },
     { text: `P O Number : ${safeText(purchaseOrder.purchaseOrderNo)}` },
-    { text: `Purchase Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
+    { text: `Purchase Order Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
     { text: `Delivery Date : ${formatDateSafe(purchaseOrder.deliveryDate)}` },
     { text: `Indent No : ${safeText(indentNoLabel)}` },
