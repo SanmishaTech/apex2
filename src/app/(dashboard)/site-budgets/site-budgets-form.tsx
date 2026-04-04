@@ -29,18 +29,14 @@ export interface SiteBudgetsFormInitialData {
   week?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
-  siteBudgetDetails?: Array<{
+  siteBudgetItems?: Array<{
     id?: number;
     SiteBudgetId?: number;
-    BoqItemId: number;
-    siteBudgetItems?: Array<{
-      id?: number;
-      itemId: number;
-      budgetQty: string | number | null;
-      budgetRate: string | number | null;
-      purchaseRate?: string | number | null;
-      budgetValue?: string | number | null;
-    }>;
+    itemId: number;
+    budgetQty: string | number | null;
+    budgetRate: string | number | null;
+    purchaseRate?: string | number | null;
+    budgetValue?: string | number | null;
   }>;
 }
 
@@ -68,14 +64,7 @@ const inputSchema = z
     fromDate: z.string().min(1, "From date is required"),
     toDate: z.string().min(1, "To date is required"),
     applyOverallBudgetValidation: z.boolean().optional().default(false),
-    details: z
-      .array(
-        z.object({
-          boqItemId: z.string().min(1),
-          items: z.array(budgetItemSchema).optional().default([]),
-        })
-      )
-      .default([]),
+    items: z.array(budgetItemSchema).optional().default([]),
   })
   .refine(
     (data) => {
@@ -102,15 +91,12 @@ function toSubmitPayload(data: RawFormValues) {
     fromDate: data.fromDate,
     toDate: data.toDate,
     applyOverallBudgetValidation: Boolean(data.applyOverallBudgetValidation),
-    details: (data.details || []).map((d) => ({
-      boqItemId: parseInt(d.boqItemId),
-      items: (d.items || []).map((it) => ({
-        itemId: parseInt(it.itemId),
-        budgetQty: Number(it.budgetQty),
-        budgetRate: Number(it.budgetRate),
-        purchaseRate: Number(it.purchaseRate),
-        budgetValue: Number(it.budgetQty) * Number(it.budgetRate),
-      })),
+    items: (data.items || []).map((it) => ({
+      itemId: parseInt(it.itemId),
+      budgetQty: Number(it.budgetQty),
+      budgetRate: Number(it.budgetRate),
+      purchaseRate: Number(it.purchaseRate),
+      budgetValue: Number(it.budgetQty) * Number(it.budgetRate),
     })),
   };
 }
@@ -208,16 +194,12 @@ function ReadonlyField({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function BudgetItemsEditor({
-  detailIndex,
-  boqItemId,
   form,
   itemOptions,
   itemMetaById,
   overallBudgetViolationsByItemId,
   disabled,
 }: {
-  detailIndex: number;
-  boqItemId: number;
   form: any;
   itemOptions: Array<{ value: string; label: string }>;
   itemMetaById: Map<string, { unitName: string }>;
@@ -234,10 +216,10 @@ function BudgetItemsEditor({
   const { control } = form;
   const { fields, append, remove } = useFieldArray({
     control,
-    name: `details.${detailIndex}.items` as any,
+    name: "items" as any,
   });
 
-  const watchedItems = useWatch({ control, name: `details.${detailIndex}.items` as any });
+  const watchedItems = useWatch({ control, name: "items" as any });
 
   function toNumber(v: unknown): number {
     if (v == null) return 0;
@@ -297,7 +279,7 @@ function BudgetItemsEditor({
                   <div className="col-span-4">
                     <ComboboxInput
                       control={control}
-                      name={`details.${detailIndex}.items.${itemIndex}.itemId`}
+                      name={`items.${itemIndex}.itemId`}
                       required
                       options={itemOptions}
                       placeholder="Select Item"
@@ -308,7 +290,7 @@ function BudgetItemsEditor({
                   <div className="col-span-2">
                     <TextInput
                       control={control}
-                      name={`details.${detailIndex}.items.${itemIndex}.budgetQty`}
+                      name={`items.${itemIndex}.budgetQty`}
                       type="text"
                       inputMode="decimal"
                       onValueChange={sanitizeDecimalInput}
@@ -331,7 +313,7 @@ function BudgetItemsEditor({
                   <div className="col-span-2">
                     <TextInput
                       control={control}
-                      name={`details.${detailIndex}.items.${itemIndex}.budgetRate`}
+                      name={`items.${itemIndex}.budgetRate`}
                       type="text"
                       inputMode="decimal"
                       onValueChange={sanitizeDecimalInput}
@@ -354,7 +336,7 @@ function BudgetItemsEditor({
                   <div className="col-span-2">
                     <TextInput
                       control={control}
-                      name={`details.${detailIndex}.items.${itemIndex}.purchaseRate`}
+                      name={`items.${itemIndex}.purchaseRate`}
                       type="text"
                       inputMode="decimal"
                       onValueChange={sanitizeDecimalInput}
@@ -458,22 +440,17 @@ export function SiteBudgetsForm({
   const [prevSiteId, setPrevSiteId] = useState<string>("");
   const [showOverallBudgetValidationToggle, setShowOverallBudgetValidationToggle] =
     useState(false);
-  const [overallBudgetViolationsByBoqItemId, setOverallBudgetViolationsByBoqItemId] =
+  const [overallBudgetViolationsByItemId, setOverallBudgetViolationsByItemId] =
     useState<
       Map<
         number,
-        Map<
-          number,
-          {
-            budgetQty?: { used: number; overall: number };
-            budgetRate?: { used: number; overall: number };
-            budgetValue?: { used: number; overall: number };
-          }
-        >
+        {
+          budgetQty?: { used: number; overall: number };
+          budgetRate?: { used: number; overall: number };
+          budgetValue?: { used: number; overall: number };
+        }
       >
-    >(
-      new Map()
-    );
+    >(new Map());
 
   const { data: sitesData } = useSWR<SitesResponse>(
     "/api/sites?perPage=100",
@@ -495,20 +472,17 @@ export function SiteBudgetsForm({
       fromDate: initial?.fromDate || "",
       toDate: initial?.toDate || "",
       applyOverallBudgetValidation: true,
-      details: (initial?.siteBudgetDetails || []).map((d) => ({
-        boqItemId: String(d.BoqItemId),
-        items: (d.siteBudgetItems || []).map((it) => ({
-          itemId: String(it.itemId),
-          budgetQty: it.budgetQty == null ? "" : String(it.budgetQty),
-          budgetRate: it.budgetRate == null ? "" : String(it.budgetRate),
-          purchaseRate: (it as any).purchaseRate == null ? "" : String((it as any).purchaseRate),
-        })),
+      items: (initial?.siteBudgetItems || []).map((it) => ({
+        itemId: String(it.itemId),
+        budgetQty: it.budgetQty == null ? "" : String(it.budgetQty),
+        budgetRate: it.budgetRate == null ? "" : String(it.budgetRate),
+        purchaseRate: (it as any).purchaseRate == null ? "" : String((it as any).purchaseRate),
       })),
     },
   });
 
   const { control, handleSubmit } = form;
-  const { replace } = useFieldArray({ control, name: "details" });
+  const { replace: replaceItems } = useFieldArray({ control, name: "items" });
 
   const selectedSiteId = form.watch("siteId");
   const selectedBoqId = form.watch("boqId");
@@ -539,29 +513,7 @@ export function SiteBudgetsForm({
     if (!selectedBoqId) return null;
     return `/api/boqs/${selectedBoqId}`;
   }, [selectedBoqId]);
-  const { data: boqDetail } = useSWR<any>(boqDetailUrl, apiGet);
-
-  const boqItems: any[] = useMemo(
-    () => (Array.isArray(boqDetail?.items) ? boqDetail.items : []),
-    [boqDetail?.items]
-  );
-
-  const itemsById = useMemo(() => {
-    const map = new Map<number, any>();
-    boqItems.forEach((it) => map.set(Number(it.id), it));
-    return map;
-  }, [boqItems]);
-
-  const detailsWatch = useWatch({ control, name: "details" });
-  const computedRows = useMemo(() => {
-    return (detailsWatch || []).map((d) => {
-      const id = Number(d?.boqItemId);
-      const item = itemsById.get(id);
-      const unitName = item?.unit?.unitName || "—";
-      const isGroup = Boolean(item?.isGroup);
-      return { boqItemId: id, item, unitName, isGroup };
-    });
-  }, [detailsWatch, itemsById]);
+  useSWR<any>(boqDetailUrl, apiGet);
 
   const { data: itemsData } = useSWR<any>("/api/items?perPage=1000", apiGet);
   const itemOptions = (itemsData?.data || []).map((it: any) => ({
@@ -582,22 +534,22 @@ export function SiteBudgetsForm({
       setPrevSiteId("");
       form.setValue("boqId", "", { shouldDirty: true, shouldValidate: false });
       form.setValue("overallSiteBudgetId", "", { shouldDirty: true, shouldValidate: false });
-      replace([]);
+      replaceItems([]);
       return;
     }
 
     if (prevSiteId && prevSiteId !== selectedSiteId) {
       form.setValue("boqId", "", { shouldDirty: true, shouldValidate: false });
       form.setValue("overallSiteBudgetId", "", { shouldDirty: true, shouldValidate: false });
-      replace([]);
+      replaceItems([]);
     }
 
     if (prevSiteId !== selectedSiteId) setPrevSiteId(selectedSiteId);
-  }, [selectedSiteId, prevSiteId, form, replace]);
+  }, [selectedSiteId, prevSiteId, form, replaceItems]);
 
   useEffect(() => {
     if (!applyOverallBudgetValidation) {
-      setOverallBudgetViolationsByBoqItemId(new Map());
+      setOverallBudgetViolationsByItemId(new Map());
     }
   }, [applyOverallBudgetValidation]);
 
@@ -615,53 +567,10 @@ export function SiteBudgetsForm({
     }
   }, [selectedMonth, selectedWeek, weekOptions, form]);
 
-  useEffect(() => {
-    const current = (form.getValues("details") || []) as RawFormValues["details"];
-    if (!selectedBoqId) {
-      if (current.length) replace([]);
-      return;
-    }
-
-    if (!Array.isArray(boqItems) || boqItems.length === 0) return;
-
-    const itemsByBoqItemId = new Map<string, any[]>();
-    current.forEach((d) => {
-      if (!d?.boqItemId) return;
-      itemsByBoqItemId.set(String(d.boqItemId), d.items || []);
-    });
-
-    if (!current.length && Array.isArray(initial?.siteBudgetDetails)) {
-      initial.siteBudgetDetails.forEach((d) => {
-        const k = String(d.BoqItemId);
-        const rows = (d.siteBudgetItems || []).map((it) => ({
-          itemId: String(it.itemId),
-          budgetQty: it.budgetQty == null ? "" : String(it.budgetQty),
-          budgetRate: it.budgetRate == null ? "" : String(it.budgetRate),
-          purchaseRate: (it as any).purchaseRate == null ? "" : String((it as any).purchaseRate),
-        }));
-        itemsByBoqItemId.set(k, rows);
-      });
-    }
-
-    const next = boqItems.map((it: any) => {
-      const key = String(it.id);
-      return {
-        boqItemId: key,
-        items: itemsByBoqItemId.get(key) || [],
-      };
-    });
-
-    const isSame =
-      current.length === next.length &&
-      current.every((d, i) => String(d?.boqItemId) === String((next[i] as any)?.boqItemId));
-
-    if (!isSame) replace(next as any);
-  }, [selectedBoqId, boqItems, replace, form, initial?.siteBudgetDetails]);
-
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
     try {
-      setOverallBudgetViolationsByBoqItemId(new Map());
+      setOverallBudgetViolationsByItemId(new Map());
       const payload = toSubmitPayload(data);
       if (isCreate) {
         const res = await apiPost("/api/site-budgets", payload);
@@ -681,25 +590,19 @@ export function SiteBudgetsForm({
         const violations = Array.isArray(e?.data?.violations) ? e.data.violations : [];
         const next = new Map<
           number,
-          Map<
-            number,
-            {
-              budgetQty?: { used: number; overall: number };
-              budgetRate?: { used: number; overall: number };
-              budgetValue?: { used: number; overall: number };
-            }
-          >
+          {
+            budgetQty?: { used: number; overall: number };
+            budgetRate?: { used: number; overall: number };
+            budgetValue?: { used: number; overall: number };
+          }
         >();
         for (const v of violations) {
-          const boqItemId = Number(v?.boqItemId || 0);
           const itemId = Number(v?.itemId || 0);
-          if (!(boqItemId > 0 && itemId > 0)) continue;
-          if (!next.has(boqItemId)) next.set(boqItemId, new Map());
-
-          const current = next.get(boqItemId)!.get(itemId) || {};
+          if (!(itemId > 0)) continue;
+          const current = next.get(itemId) || {};
           const field = String(v?.field || "");
           if (field === "budgetQty") {
-            next.get(boqItemId)!.set(itemId, {
+            next.set(itemId, {
               ...current,
               budgetQty: {
                 used: Number(v?.usedValue || 0),
@@ -707,7 +610,7 @@ export function SiteBudgetsForm({
               },
             });
           } else if (field === "budgetRate") {
-            next.get(boqItemId)!.set(itemId, {
+            next.set(itemId, {
               ...current,
               budgetRate: {
                 used: Number(v?.incomingValue || 0),
@@ -715,7 +618,7 @@ export function SiteBudgetsForm({
               },
             });
           } else if (field === "budgetValue") {
-            next.get(boqItemId)!.set(itemId, {
+            next.set(itemId, {
               ...current,
               budgetValue: {
                 used: Number(v?.usedValue || 0),
@@ -724,7 +627,7 @@ export function SiteBudgetsForm({
             });
           }
         }
-        setOverallBudgetViolationsByBoqItemId(next);
+        setOverallBudgetViolationsByItemId(next);
 
         toast.error("Budget Validation Error");
         return;
@@ -895,49 +798,14 @@ export function SiteBudgetsForm({
               </FormRow>
             </FormSection>
 
-            <FormSection legend="BOQ Items">
+            <FormSection legend="Budget Items">
               <div className="flex flex-col gap-4">
-                {computedRows.map((row, idx) => (
-                  <div key={row.boqItemId} className="rounded-md border border-border bg-card">
-                    <div className="flex flex-col gap-1 p-3 border-b bg-muted/20 text-xs">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div>
-                          <div className="text-[11px] text-muted-foreground">Activity ID</div>
-                          <div className="font-medium text-xs">{row.item?.activityId || "—"}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[11px] text-muted-foreground">BOQ Qty</div>
-                          <div className="font-mono text-xs">{Number(row.item?.qty || 0).toFixed(2)}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-                        <div className="min-w-0 w-auto">
-                          <div className="text-[11px] text-muted-foreground">Item</div>
-                          <div className="font-medium text-xs whitespace-normal break-words">{row.item?.item || "—"}</div>
-                        </div>
-                        <div className="md:text-right">
-                          <div className="text-[11px] text-muted-foreground">Unit</div>
-                          <div className="text-xs">{row.unitName}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-3">
-                      <BudgetItemsEditor
-                        detailIndex={idx}
-                        boqItemId={row.boqItemId}
-                        form={form}
-                        itemOptions={itemOptions}
-                        itemMetaById={itemMetaById}
-                        overallBudgetViolationsByItemId={overallBudgetViolationsByBoqItemId.get(
-                          Number(row.boqItemId)
-                        )}
-                        disabled={Boolean(row.isGroup)}
-                      />
-                    </div>
-                  </div>
-                ))}
+                <BudgetItemsEditor
+                  form={form}
+                  itemOptions={itemOptions}
+                  itemMetaById={itemMetaById}
+                  overallBudgetViolationsByItemId={overallBudgetViolationsByItemId}
+                />
               </div>
             </FormSection>
           </AppCard.Content>

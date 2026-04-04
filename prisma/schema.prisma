@@ -980,7 +980,6 @@ model BoqItem {
   dailyProgressDetails DailyProgressDetail[]
   boqBillDetails BOQBillDetail[]
   boqTargetDetails  BoqTargetDetail[]
-  siteBudgetDetails SiteBudgetDetail[]
   overallSiteBudgetDetails OverallSiteBudgetDetail[]
   subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
   salesInvoiceDetails SalesInvoiceDetail[]
@@ -2903,7 +2902,7 @@ model SiteBudget {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  siteBudgetDetails  SiteBudgetDetail[]
+  siteBudgetItems  SiteBudgetItem[]
 
   createdBy User @relation("SiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
@@ -2921,27 +2920,12 @@ model SiteBudget {
   @@map("site_budgets")
 }
 
-model SiteBudgetDetail {
-  id             Int      @id @default(autoincrement())
-  SiteBudgetId          Int
-  siteBudget            SiteBudget      @relation(fields: [SiteBudgetId], references: [id], onDelete: Restrict)
-  BoqItemId     Int 
-  boqItem            BoqItem      @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  siteBudgetItems  SiteBudgetItem[]
-
-  @@index([SiteBudgetId])
-  @@index([BoqItemId])
-  
-  @@map("site_budget_details")
-}
 
 model SiteBudgetItem {
   id             Int      @id @default(autoincrement())
-  SiteBudgetDetailId          Int
-  siteBudgetDetail            SiteBudgetDetail      @relation(fields: [SiteBudgetDetailId], references: [id], onDelete: Restrict)
+  SiteBudgetId          Int
+  siteBudget            SiteBudget      @relation(fields: [SiteBudgetId], references: [id], onDelete: Restrict)
   itemId     Int 
   item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
   budgetQty    Decimal? @db.Decimal(12, 2)
@@ -2952,7 +2936,7 @@ model SiteBudgetItem {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@index([SiteBudgetDetailId])
+  @@index([SiteBudgetId])
   @@index([itemId])
   
   @@map("site_budget_items")

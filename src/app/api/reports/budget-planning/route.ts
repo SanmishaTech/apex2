@@ -144,55 +144,54 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const sbWhere: any = { siteId: { in: validSiteIds } };
-    if (selectedMonths.length > 0 && selectedWeeks.length > 0) {
-       sbWhere.OR = [ { month: { in: selectedMonths } }, { week: { in: selectedWeeks } } ];
-    } else if (selectedMonths.length > 0) {
-       sbWhere.month = { in: selectedMonths };
-    } else if (selectedWeeks.length > 0) {
-       sbWhere.week = { in: selectedWeeks };
-    }
-
     if (selectedMonths.length > 0 || selectedWeeks.length > 0) {
-      const siteBudgets = await prisma.siteBudget.findMany({
-        where: sbWhere,
+      const siteBudgetItems = await (prisma as any).siteBudgetItem.findMany({
+        where: {
+          siteBudget: {
+            siteId: { in: validSiteIds },
+            ...(selectedMonths.length > 0 && selectedWeeks.length > 0
+              ? { OR: [{ month: { in: selectedMonths } }, { week: { in: selectedWeeks } }] }
+              : selectedMonths.length > 0
+              ? { month: { in: selectedMonths } }
+              : selectedWeeks.length > 0
+              ? { week: { in: selectedWeeks } }
+              : {})
+          },
+          itemId: itemFilterIds.length > 0 ? { in: itemFilterIds } : undefined
+        },
         select: {
-          siteId: true,
-          month: true,
-          week: true,
-          siteBudgetDetails: {
+          itemId: true,
+          budgetQty: true,
+          budgetValue: true,
+          siteBudget: {
             select: {
-              siteBudgetItems: {
-                where: itemFilterIds.length > 0 ? { itemId: { in: itemFilterIds } } : undefined,
-                select: { itemId: true, budgetQty: true, budgetValue: true }
-              }
+              siteId: true,
+              month: true,
+              week: true
             }
           }
         }
       });
 
-      for (const sb of siteBudgets) {
-        for (const d of sb.siteBudgetDetails || []) {
-          for (const it of d.siteBudgetItems || []) {
-            const itemId = it.itemId;
-            const key = `${sb.siteId}-${itemId}`;
-            if (!rowMap.has(key)) continue;
+      for (const sbi of siteBudgetItems) {
+        const sb = sbi.siteBudget;
+        const itemId = sbi.itemId;
+        const key = `${sb.siteId}-${itemId}`;
+        if (!rowMap.has(key)) continue;
 
-            const row = rowMap.get(key);
-            const qty = Number(it.budgetQty || 0);
-            const amt = Number(it.budgetValue || 0);
+        const row = rowMap.get(key);
+        const qty = Number(sbi.budgetQty || 0);
+        const amt = Number(sbi.budgetValue || 0);
 
-            if (sb.month && selectedMonths.includes(sb.month)) {
-              if (!row.monthProps[sb.month]) row.monthProps[sb.month] = { qty: 0, amt: 0 };
-              row.monthProps[sb.month].qty += qty;
-              row.monthProps[sb.month].amt += amt;
-            }
-            if (sb.week && selectedWeeks.includes(sb.week)) {
-              if (!row.weekProps[sb.week]) row.weekProps[sb.week] = { qty: 0, amt: 0 };
-              row.weekProps[sb.week].qty += qty;
-              row.weekProps[sb.week].amt += amt;
-            }
-          }
+        if (sb.month && selectedMonths.includes(sb.month)) {
+          if (!row.monthProps[sb.month]) row.monthProps[sb.month] = { qty: 0, amt: 0 };
+          row.monthProps[sb.month].qty += qty;
+          row.monthProps[sb.month].amt += amt;
+        }
+        if (sb.week && selectedWeeks.includes(sb.week)) {
+          if (!row.weekProps[sb.week]) row.weekProps[sb.week] = { qty: 0, amt: 0 };
+          row.weekProps[sb.week].qty += qty;
+          row.weekProps[sb.week].amt += amt;
         }
       }
     }

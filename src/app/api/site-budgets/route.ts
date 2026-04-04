@@ -21,15 +21,9 @@ const budgetItemSchema = z.object({
   budgetValue: z.coerce.number().nonnegative().optional(),
 });
 
-const detailSchema = z.object({
-  boqItemId: z.coerce.number().int().positive(),
-  items: z.array(budgetItemSchema).optional().default([]),
-});
-
-type QtyKey = `${number}::${number}`; // boqItemId::itemId
+type QtyKey = `${number}::${number}`; // siteBudgetId::itemId
 
 type OverallBudgetViolation = {
-  boqItemId: number;
   itemId: number;
   field: "budgetQty" | "budgetRate" | "budgetValue";
   existingValue?: number;
@@ -40,14 +34,11 @@ type OverallBudgetViolation = {
 
 async function validateAgainstOverallBudget({
   overallSiteBudgetId,
-  incomingDetails,
+  incomingItems,
   excludeSiteBudgetId,
 }: {
   overallSiteBudgetId: number;
-  incomingDetails: Array<{
-    boqItemId: number;
-    items: Array<{ itemId: number; budgetQty: number; budgetRate: number; budgetValue: number }>;
-  }>;
+  incomingItems: Array<{ itemId: number; budgetQty: number; budgetRate: number; budgetValue: number }>;
   excludeSiteBudgetId?: number;
 }) {
   const overall = await (prisma as any).overallSiteBudget.findUnique({
@@ -73,21 +64,23 @@ async function validateAgainstOverallBudget({
   });
   if (!overall) return { ok: false as const, error: "Overall Site Budget not found" };
 
-  const overallQtyByKey = new Map<QtyKey, number>();
-  const overallRateByKey = new Map<QtyKey, number>();
-  const overallValueByKey = new Map<QtyKey, number>();
-  const labelByKey = new Map<QtyKey, { boqItemLabel: string; itemLabel: string }>();
+  // Build a map of overall budget items by itemId (aggregated across all BOQ items)
+  const overallQtyByItemId = new Map<number, number>();
+  const overallRateByItemId = new Map<number, number>();
+  const overallValueByItemId = new Map<number, number>();
+  const labelByItemId = new Map<number, { itemLabel: string }>();
+  
   for (const d of overall.overallSiteBudgetDetails || []) {
-    const boqItemId = Number(d.BoqItemId);
-    const boqItemLabel = `${d?.boqItem?.activityId || "BOQ"}-${boqItemId}`;
     for (const it of d.overallSiteBudgetItems || []) {
       const itemId = Number(it.itemId);
-      const key: QtyKey = `${boqItemId}::${itemId}`;
-      overallQtyByKey.set(key, Number(it?.budgetQty ?? 0));
-      overallRateByKey.set(key, Number((it as any)?.budgetRate ?? 0));
-      overallValueByKey.set(key, Number((it as any)?.budgetValue ?? 0));
-      labelByKey.set(key, {
-        boqItemLabel,
+      const existingQty = overallQtyByItemId.get(itemId) || 0;
+      const existingRate = overallRateByItemId.get(itemId) || 0;
+      const existingValue = overallValueByItemId.get(itemId) || 0;
+      
+      overallQtyByItemId.set(itemId, existingQty + Number(it?.budgetQty ?? 0));
+      overallRateByItemId.set(itemId, Math.max(existingRate, Number((it as any)?.budgetRate ?? 0)));
+      overallValueByItemId.set(itemId, existingValue + Number((it as any)?.budgetValue ?? 0));
+      labelByItemId.set(itemId, {
         itemLabel: `${it?.item?.itemCode || "ITEM"}-${itemId} ${it?.item?.item || ""}`.trim(),
       });
     }
@@ -95,11 +88,9 @@ async function validateAgainstOverallBudget({
 
   const existingRows = await (prisma as any).siteBudgetItem.findMany({
     where: {
-      siteBudgetDetail: {
-        siteBudget: {
-          overallSiteBudgetId,
-          ...(excludeSiteBudgetId ? { id: { not: excludeSiteBudgetId } } : {}),
-        },
+      siteBudget: {
+        overallSiteBudgetId,
+        ...(excludeSiteBudgetId ? { id: { not: excludeSiteBudgetId } } : {}),
       },
     },
     select: {
@@ -107,63 +98,56 @@ async function validateAgainstOverallBudget({
       budgetQty: true,
       budgetRate: true,
       budgetValue: true,
-      siteBudgetDetail: { select: { BoqItemId: true } },
     },
   });
 
-  const existingQtyByKey = new Map<QtyKey, number>();
-  const existingValueByKey = new Map<QtyKey, number>();
+  const existingQtyByItemId = new Map<number, number>();
+  const existingValueByItemId = new Map<number, number>();
   for (const r of existingRows || []) {
-    const boqItemId = Number(r?.siteBudgetDetail?.BoqItemId);
     const itemId = Number(r?.itemId);
-    const key: QtyKey = `${boqItemId}::${itemId}`;
     const q = Number(r?.budgetQty ?? 0);
-    existingQtyByKey.set(key, Number((existingQtyByKey.get(key) || 0) + (Number.isFinite(q) ? q : 0)));
+    existingQtyByItemId.set(itemId, Number((existingQtyByItemId.get(itemId) || 0) + (Number.isFinite(q) ? q : 0)));
 
     const v = Number((r as any)?.budgetValue ?? 0);
-    existingValueByKey.set(
-      key,
-      Number((existingValueByKey.get(key) || 0) + (Number.isFinite(v) ? v : 0))
+    existingValueByItemId.set(
+      itemId,
+      Number((existingValueByItemId.get(itemId) || 0) + (Number.isFinite(v) ? v : 0))
     );
   }
 
-  const incomingQtyByKey = new Map<QtyKey, number>();
-  const incomingValueByKey = new Map<QtyKey, number>();
-  const incomingMaxRateByKey = new Map<QtyKey, number>();
-  for (const d of incomingDetails || []) {
-    const boqItemId = Number(d.boqItemId);
-    for (const it of d.items || []) {
-      const itemId = Number(it.itemId);
-      const q = Number(it.budgetQty ?? 0);
-      if (!(Number.isFinite(itemId) && itemId > 0)) continue;
-      if (!(Number.isFinite(q) && q >= 0)) continue;
-      const key: QtyKey = `${boqItemId}::${itemId}`;
-      incomingQtyByKey.set(key, Number((incomingQtyByKey.get(key) || 0) + q));
+  const incomingQtyByItemId = new Map<number, number>();
+  const incomingValueByItemId = new Map<number, number>();
+  const incomingMaxRateByItemId = new Map<number, number>();
+  
+  for (const it of incomingItems || []) {
+    const itemId = Number(it.itemId);
+    const q = Number(it.budgetQty ?? 0);
+    if (!(Number.isFinite(itemId) && itemId > 0)) continue;
+    if (!(Number.isFinite(q) && q >= 0)) continue;
+    
+    incomingQtyByItemId.set(itemId, Number((incomingQtyByItemId.get(itemId) || 0) + q));
 
-      const rate = Number((it as any)?.budgetRate ?? 0);
-      if (Number.isFinite(rate) && rate >= 0) {
-        const prev = Number(incomingMaxRateByKey.get(key) || 0);
-        incomingMaxRateByKey.set(key, Math.max(prev, rate));
-      }
+    const rate = Number((it as any)?.budgetRate ?? 0);
+    if (Number.isFinite(rate) && rate >= 0) {
+      const prev = Number(incomingMaxRateByItemId.get(itemId) || 0);
+      incomingMaxRateByItemId.set(itemId, Math.max(prev, rate));
+    }
 
-      const value = Number((it as any)?.budgetValue ?? 0);
-      if (Number.isFinite(value)) {
-        incomingValueByKey.set(key, Number((incomingValueByKey.get(key) || 0) + value));
-      }
+    const value = Number((it as any)?.budgetValue ?? 0);
+    if (Number.isFinite(value)) {
+      incomingValueByItemId.set(itemId, Number((incomingValueByItemId.get(itemId) || 0) + value));
     }
   }
 
   const violations: OverallBudgetViolation[] = [];
 
   // Qty + Value are cumulative (existing + incoming)
-  for (const [key, incQty] of incomingQtyByKey.entries()) {
-    const overallQty = Number(overallQtyByKey.get(key) || 0);
-    const usedQty = Number((existingQtyByKey.get(key) || 0) + incQty);
+  for (const [itemId, incQty] of incomingQtyByItemId.entries()) {
+    const overallQty = Number(overallQtyByItemId.get(itemId) || 0);
+    const usedQty = Number((existingQtyByItemId.get(itemId) || 0) + incQty);
     if (usedQty > overallQty) {
-      const [boqItemIdStr, itemIdStr] = String(key).split("::");
       violations.push({
-        boqItemId: Number(boqItemIdStr) || 0,
-        itemId: Number(itemIdStr) || 0,
+        itemId,
         field: "budgetQty",
         usedValue: usedQty,
         overallValue: overallQty,
@@ -171,14 +155,12 @@ async function validateAgainstOverallBudget({
     }
   }
 
-  for (const [key, incValue] of incomingValueByKey.entries()) {
-    const overallValue = Number(overallValueByKey.get(key) || 0);
-    const usedValue = Number((existingValueByKey.get(key) || 0) + incValue);
+  for (const [itemId, incValue] of incomingValueByItemId.entries()) {
+    const overallValue = Number(overallValueByItemId.get(itemId) || 0);
+    const usedValue = Number((existingValueByItemId.get(itemId) || 0) + incValue);
     if (usedValue > overallValue) {
-      const [boqItemIdStr, itemIdStr] = String(key).split("::");
       violations.push({
-        boqItemId: Number(boqItemIdStr) || 0,
-        itemId: Number(itemIdStr) || 0,
+        itemId,
         field: "budgetValue",
         usedValue,
         overallValue,
@@ -187,13 +169,11 @@ async function validateAgainstOverallBudget({
   }
 
   // Rate is per-current-row (max incoming rate for key must not exceed overall rate)
-  for (const [key, maxRate] of incomingMaxRateByKey.entries()) {
-    const overallRate = Number(overallRateByKey.get(key) || 0);
+  for (const [itemId, maxRate] of incomingMaxRateByItemId.entries()) {
+    const overallRate = Number(overallRateByItemId.get(itemId) || 0);
     if (Number(maxRate) > Number(overallRate)) {
-      const [boqItemIdStr, itemIdStr] = String(key).split("::");
       violations.push({
-        boqItemId: Number(boqItemIdStr) || 0,
-        itemId: Number(itemIdStr) || 0,
+        itemId,
         field: "budgetRate",
         incomingValue: Number(maxRate),
         overallValue: overallRate,
@@ -205,9 +185,8 @@ async function validateAgainstOverallBudget({
     const lines = violations
       .slice(0, 20)
       .map((v) => {
-        const key: QtyKey = `${v.boqItemId}::${v.itemId}`;
-        const labels = labelByKey.get(key);
-        const left = `${labels?.boqItemLabel || v.boqItemId} | ${labels?.itemLabel || v.itemId}`;
+        const labels = labelByItemId.get(v.itemId);
+        const left = `${labels?.itemLabel || v.itemId}`;
         if (v.field === "budgetRate") {
           return `${left}: Rate ${Number(v.incomingValue || 0)} > ${Number(v.overallValue || 0)}`;
         }
@@ -236,7 +215,7 @@ const createSchema = z
     toDate: z
       .string()
       .refine((d) => !Number.isNaN(Date.parse(d)), { message: "Invalid toDate" }),
-    details: z.array(detailSchema).optional().default([]),
+    items: z.array(budgetItemSchema).optional().default([]),
     applyOverallBudgetValidation: z.coerce.boolean().optional().default(false),
   })
   .superRefine((d, ctx) => {
@@ -265,7 +244,7 @@ const updateSchema = z
       .string()
       .refine((d) => !Number.isNaN(Date.parse(d)), { message: "Invalid toDate" })
       .optional(),
-    details: z.array(detailSchema).optional(),
+    items: z.array(budgetItemSchema).optional(),
     applyOverallBudgetValidation: z.coerce.boolean().optional().default(false),
   })
   .superRefine((d, ctx) => {
@@ -434,31 +413,14 @@ export async function POST(req: NextRequest) {
       return ApiError("Site Budget for selected month and week already exists", 400);
     }
 
-    const boqItemIds = Array.from(
-      new Set<number>((parsed.details || []).map((d) => Number(d.boqItemId)))
-    ).filter((v): v is number => Number.isFinite(v) && v > 0);
-
-    if (boqItemIds.length) {
-      const boqItems = await prisma.boqItem.findMany({
-        where: { id: { in: boqItemIds }, boqId: parsed.boqId },
-        select: { id: true },
-      });
-      if (boqItems.length !== boqItemIds.length) {
-        return ApiError("One or more BOQ items are invalid for selected BOQ", 400);
-      }
-    }
-
     if (parsed.applyOverallBudgetValidation) {
       const v = await validateAgainstOverallBudget({
         overallSiteBudgetId: parsed.overallSiteBudgetId,
-        incomingDetails: (parsed.details || []).map((d) => ({
-          boqItemId: Number(d.boqItemId),
-          items: (d.items || []).map((it) => ({
-            itemId: Number(it.itemId),
-            budgetQty: Number(it.budgetQty || 0),
-            budgetRate: Number(it.budgetRate || 0),
-            budgetValue: Number((it as any).budgetValue ?? 0),
-          })),
+        incomingItems: (parsed.items || []).map((it) => ({
+          itemId: Number(it.itemId),
+          budgetQty: Number(it.budgetQty || 0),
+          budgetRate: Number(it.budgetRate || 0),
+          budgetValue: Number((it as any).budgetValue ?? 0),
         })),
       });
       if (!v.ok) {
@@ -473,35 +435,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const detailsCreate = (parsed.details || [])
-      .map((d) => {
-        const itemsCreate = (d.items || [])
-          .map((it) => {
-            const budgetQty = Number(it.budgetQty || 0);
-            const budgetRate = Number(it.budgetRate || 0);
-            const purchaseRate = Number(it.purchaseRate || 0);
-            const budgetValue = Number(
-              it.budgetValue !== undefined && it.budgetValue !== null
-                ? it.budgetValue
-                : budgetQty * budgetRate
-            );
-            return {
-              itemId: Number(it.itemId),
-              budgetQty: budgetQty as any,
-              budgetRate: budgetRate as any,
-              purchaseRate: purchaseRate as any,
-              budgetValue: budgetValue as any,
-            };
-          })
-          .filter((it) => Number.isFinite(Number(it.itemId)) && Number(it.itemId) > 0);
-
-        if (!itemsCreate.length) return null;
+    const itemsCreate = (parsed.items || [])
+      .map((it) => {
+        const budgetQty = Number(it.budgetQty || 0);
+        const budgetRate = Number(it.budgetRate || 0);
+        const purchaseRate = Number(it.purchaseRate || 0);
+        const budgetValue = Number(
+          it.budgetValue !== undefined && it.budgetValue !== null
+            ? it.budgetValue
+            : budgetQty * budgetRate
+        );
         return {
-          BoqItemId: Number(d.boqItemId),
-          siteBudgetItems: { create: itemsCreate as any },
+          itemId: Number(it.itemId),
+          budgetQty: budgetQty as any,
+          budgetRate: budgetRate as any,
+          purchaseRate: purchaseRate as any,
+          budgetValue: budgetValue as any,
         };
       })
-      .filter(Boolean);
+      .filter((it) => Number.isFinite(Number(it.itemId)) && Number(it.itemId) > 0);
 
     const created = await (prisma as any).$transaction(async (tx: any) => {
       const createdBudget = await tx.siteBudget.create({
@@ -515,8 +467,8 @@ export async function POST(req: NextRequest) {
           toDate,
           createdById: (auth as any).user.id,
           updatedById: (auth as any).user.id,
-          ...(detailsCreate.length
-            ? { siteBudgetDetails: { create: detailsCreate as any } }
+          ...(itemsCreate.length
+            ? { siteBudgetItems: { create: itemsCreate as any } }
             : {}),
         },
         select: {
@@ -617,17 +569,14 @@ export async function PATCH(req: NextRequest) {
       return ApiError("Selected Overall Site Budget does not match selected site/BOQ", 400);
     }
 
-    if (parsed.applyOverallBudgetValidation && Array.isArray(parsed.details)) {
+    if (parsed.applyOverallBudgetValidation && Array.isArray(parsed.items)) {
       const v = await validateAgainstOverallBudget({
         overallSiteBudgetId: nextOverallSiteBudgetId,
-        incomingDetails: (parsed.details || []).map((d) => ({
-          boqItemId: Number(d.boqItemId),
-          items: (d.items || []).map((it) => ({
-            itemId: Number(it.itemId),
-            budgetQty: Number(it.budgetQty || 0),
-            budgetRate: Number(it.budgetRate || 0),
-            budgetValue: Number((it as any).budgetValue ?? 0),
-          })),
+        incomingItems: (parsed.items || []).map((it) => ({
+          itemId: Number(it.itemId),
+          budgetQty: Number(it.budgetQty || 0),
+          budgetRate: Number(it.budgetRate || 0),
+          budgetValue: Number((it as any).budgetValue ?? 0),
         })),
         excludeSiteBudgetId: parsed.id,
       });
@@ -640,21 +589,6 @@ export async function PATCH(req: NextRequest) {
           },
           { status: 400 }
         );
-      }
-    }
-
-    if (Array.isArray(parsed.details)) {
-      const boqItemIds = Array.from(
-        new Set<number>((parsed.details || []).map((d) => Number(d.boqItemId)))
-      ).filter((v): v is number => Number.isFinite(v) && v > 0);
-      if (boqItemIds.length) {
-        const boqItems = await prisma.boqItem.findMany({
-          where: { id: { in: boqItemIds }, boqId: nextBoqId },
-          select: { id: true },
-        });
-        if (boqItems.length !== boqItemIds.length) {
-          return ApiError("One or more BOQ items are invalid for selected BOQ", 400);
-        }
       }
     }
 
@@ -676,117 +610,69 @@ export async function PATCH(req: NextRequest) {
         select: { id: true },
       });
 
-      if (Array.isArray(parsed.details)) {
-        const existingDetails = await tx.siteBudgetDetail.findMany({
+      if (Array.isArray(parsed.items)) {
+        // Get existing items for this site budget
+        const existingItems = await tx.siteBudgetItem.findMany({
           where: { SiteBudgetId: parsed.id },
-          select: {
-            id: true,
-            BoqItemId: true,
-            siteBudgetItems: { select: { id: true, itemId: true } },
-          },
+          select: { id: true, itemId: true },
         });
 
-        const detailByBoqItemId = new Map<number, any>();
-        existingDetails.forEach((d: any) => detailByBoqItemId.set(Number(d.BoqItemId), d));
+        const existingItemsByItemId = new Map<number, number>();
+        (existingItems || []).forEach((it: any) => {
+          existingItemsByItemId.set(Number(it.itemId), Number(it.id));
+        });
 
-        const incomingBoqItemIds = new Set<number>();
+        const incomingItemIds = new Set<number>();
 
-        for (const d of parsed.details || []) {
-          const boqItemId = Number(d.boqItemId);
-          incomingBoqItemIds.add(boqItemId);
+        for (const it of parsed.items || []) {
+          const itemId = Number(it.itemId);
+          if (!(Number.isFinite(itemId) && itemId > 0)) continue;
+          incomingItemIds.add(itemId);
 
-          const incomingItems = (d.items || [])
-            .map((it) => ({
-              itemId: Number(it.itemId),
-              budgetQty: Number(it.budgetQty || 0),
-              budgetRate: Number(it.budgetRate || 0),
-              purchaseRate: Number(it.purchaseRate || 0),
-              budgetValue: Number(
-                (it as any).budgetValue !== undefined && (it as any).budgetValue !== null
-                  ? (it as any).budgetValue
-                  : Number(it.budgetQty || 0) * Number(it.budgetRate || 0)
-              ),
-            }))
-            .filter((it) => Number.isFinite(it.itemId) && it.itemId > 0);
+          const budgetQty = Number(it.budgetQty || 0);
+          const budgetRate = Number(it.budgetRate || 0);
+          const purchaseRate = Number(it.purchaseRate || 0);
+          const budgetValue = Number(
+            (it as any).budgetValue !== undefined && (it as any).budgetValue !== null
+              ? (it as any).budgetValue
+              : budgetQty * budgetRate
+          );
 
-          const existingDetail = detailByBoqItemId.get(boqItemId);
-
-          if (!incomingItems.length) {
-            if (existingDetail?.id) {
-              await tx.siteBudgetItem.deleteMany({
-                where: { SiteBudgetDetailId: existingDetail.id },
-              });
-              await tx.siteBudgetDetail.delete({ where: { id: existingDetail.id } });
-            }
-            continue;
-          }
-
-          let detailId = existingDetail?.id as number | undefined;
-          if (!detailId) {
-            const createdDetail = await tx.siteBudgetDetail.create({
+          const existingItemId = existingItemsByItemId.get(itemId);
+          if (existingItemId) {
+            await tx.siteBudgetItem.update({
+              where: { id: existingItemId },
               data: {
-                SiteBudgetId: parsed.id,
-                BoqItemId: boqItemId,
+                budgetQty,
+                budgetRate,
+                purchaseRate,
+                budgetValue,
               },
               select: { id: true },
             });
-            detailId = createdDetail.id;
-          }
-
-          const existingItemsByItemId = new Map<number, number>();
-          (existingDetail?.siteBudgetItems || []).forEach((it: any) =>
-            existingItemsByItemId.set(Number(it.itemId), Number(it.id))
-          );
-
-          const incomingItemIds = new Set<number>();
-          for (const it of incomingItems) {
-            incomingItemIds.add(it.itemId);
-            const budgetValue = Number(it.budgetValue ?? it.budgetQty * it.budgetRate);
-            const existingItemId = existingItemsByItemId.get(it.itemId);
-            if (existingItemId) {
-              await tx.siteBudgetItem.update({
-                where: { id: existingItemId },
-                data: {
-                  budgetQty: it.budgetQty,
-                  budgetRate: it.budgetRate,
-                  purchaseRate: it.purchaseRate,
-                  budgetValue,
-                },
-                select: { id: true },
-              });
-            } else {
-              await tx.siteBudgetItem.create({
-                data: {
-                  SiteBudgetDetailId: detailId,
-                  itemId: it.itemId,
-                  budgetQty: it.budgetQty,
-                  budgetRate: it.budgetRate,
-                  purchaseRate: it.purchaseRate,
-                  budgetValue,
-                },
-                select: { id: true },
-              });
-            }
-          }
-
-          // Remove items not in incoming
-          const toDeleteIds: number[] = [];
-          (existingDetail?.siteBudgetItems || []).forEach((it: any) => {
-            const itemId = Number(it.itemId);
-            if (!incomingItemIds.has(itemId)) toDeleteIds.push(Number(it.id));
-          });
-          if (toDeleteIds.length) {
-            await tx.siteBudgetItem.deleteMany({ where: { id: { in: toDeleteIds } } });
+          } else {
+            await tx.siteBudgetItem.create({
+              data: {
+                SiteBudgetId: parsed.id,
+                itemId,
+                budgetQty,
+                budgetRate,
+                purchaseRate,
+                budgetValue,
+              },
+              select: { id: true },
+            });
           }
         }
 
-        // Remove details not in incoming
-        const extraDetails = existingDetails.filter(
-          (d: any) => !incomingBoqItemIds.has(Number(d.BoqItemId))
-        );
-        for (const d of extraDetails) {
-          await tx.siteBudgetItem.deleteMany({ where: { SiteBudgetDetailId: d.id } });
-          await tx.siteBudgetDetail.delete({ where: { id: d.id } });
+        // Remove items not in incoming
+        const toDeleteIds: number[] = [];
+        (existingItems || []).forEach((it: any) => {
+          const itemId = Number(it.itemId);
+          if (!incomingItemIds.has(itemId)) toDeleteIds.push(Number(it.id));
+        });
+        if (toDeleteIds.length) {
+          await tx.siteBudgetItem.deleteMany({ where: { id: { in: toDeleteIds } } });
         }
       }
 
