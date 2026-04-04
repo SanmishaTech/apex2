@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(
-      100,
+      10000,
       Math.max(1, Number(searchParams.get("perPage")) || 10)
     );
     const search = searchParams.get("search")?.trim() || "";

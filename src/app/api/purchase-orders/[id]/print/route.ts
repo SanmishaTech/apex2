@@ -506,6 +506,7 @@ export async function GET(
   const poHeaderLines = [
     { text: "INLAND PURCHASE ORDER", bold: true },
     { text: `P O Number : ${safeText(purchaseOrder.purchaseOrderNo)}` },
+    { text: `Purchase Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
     { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
     { text: `Delivery Date : ${formatDateSafe(purchaseOrder.deliveryDate)}` },
     { text: `Indent No : ${safeText(indentNoLabel)}` },
