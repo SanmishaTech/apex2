@@ -1,20 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { MapPin, Camera, Save } from "lucide-react";
 import { useRef } from "react";
 
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
-import { AppSelect } from "@/components/common/app-select";
-import { apiGet, apiUpload } from "@/lib/api-client";
+import { apiUpload } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
-
-type SiteDropdownItem = { id: number; site: string; shortName?: string | null };
-type SitesApiResponse = { data: Array<SiteDropdownItem>; meta?: unknown };
 
 export default function EmployeeAttendancePage() {
   const router = useRouter();
@@ -23,7 +18,6 @@ export default function EmployeeAttendancePage() {
   const streamRef = useRef<MediaStream | null>(null);
   const mobileCaptureInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [siteId, setSiteId] = useState<string>("");
   const [attendanceType, setAttendanceType] = useState<"IN" | "OUT" | "">("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -36,13 +30,6 @@ export default function EmployeeAttendancePage() {
   const [showWebcam, setShowWebcam] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const sitesQuery = useMemo(() => "/api/employee-attendances/my-sites", []);
-
-  const { data: sitesData, isLoading: sitesLoading } = useSWR<SitesApiResponse>(
-    sitesQuery,
-    apiGet
-  );
 
   useEffect(() => {
     try {
@@ -263,11 +250,6 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    if (!siteId) {
-      toast.error("Please select a site");
-      return;
-    }
-
     if (!imageFile) {
       toast.error("Please capture an image");
       return;
@@ -286,7 +268,6 @@ export default function EmployeeAttendancePage() {
     setSubmitting(true);
     try {
       const form = new FormData();
-      form.append("siteId", siteId);
       form.append("type", attendanceType);
       form.append("image", imageFile);
       form.append("latitude", String(latitude));
@@ -321,11 +302,6 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    if (!siteId) {
-      toast.error("Please select a site");
-      return;
-    }
-
     if (!imageFile) {
       toast.error("Please capture an image");
       return;
@@ -345,8 +321,6 @@ export default function EmployeeAttendancePage() {
     await doSubmitAttendance();
   };
 
-  const sites = sitesData?.data || [];
-
   return (
     <AppCard>
       <AppCard.Header>
@@ -362,26 +336,6 @@ export default function EmployeeAttendancePage() {
       <AppCard.Content>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">Site</label>
-                <div className="mt-1">
-                  <AppSelect
-                    value={siteId || "__select"}
-                    onValueChange={(v) => setSiteId(v === "__select" ? "" : v)}
-                    placeholder={sitesLoading ? "Loading..." : "Select site"}
-                  >
-                    <AppSelect.Item value="__select">Select site</AppSelect.Item>
-                    {sites.map((s) => (
-                      <AppSelect.Item key={s.id} value={String(s.id)}>
-                        {s.shortName ? `${s.shortName} - ${s.site}` : s.site}
-                      </AppSelect.Item>
-                    ))}
-                  </AppSelect>
-                </div>
-              </div>
-            </div>
-
             {geoError && (
               <div className="text-sm text-red-600">{geoError}</div>
             )}

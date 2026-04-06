@@ -63,7 +63,6 @@ function normalizeImageUrl(url: string | null | undefined): string | null {
 
 type Row = {
   date: string;
-  site: { id: number; name: string; code: string | null };
   employee: { id: number; name: string };
   workHours: number;
   workDuration: string;
@@ -91,53 +90,56 @@ export async function GET(req: NextRequest) {
   if (auth.ok === false) return auth.response;
 
   const sp = req.nextUrl.searchParams;
-  const siteIdRaw = sp.get("siteId");
-  const fromDateRaw = sp.get("fromDate");
-  const toDateRaw = sp.get("toDate");
+  const monthRaw = sp.get("month");
+  const employeeIdRaw = sp.get("employeeId");
 
-  const siteId = siteIdRaw ? Number(siteIdRaw) : NaN;
-  if (!siteIdRaw || Number.isNaN(siteId) || siteId <= 0) {
-    return NextResponse.json({ message: "siteId is required" }, { status: 400 });
-  }
-
-  if (!fromDateRaw || !toDateRaw) {
+  if (!monthRaw) {
     return NextResponse.json(
-      { message: "fromDate and toDate are required" },
+      { message: "month is required" },
       { status: 400 }
     );
   }
 
-  const from = parseYyyyMmDdToUtcDateOnly(fromDateRaw);
-  const to = parseYyyyMmDdToUtcDateOnly(toDateRaw);
-  if (!from || !to) {
+  // Parse month (YYYY-MM) to get start and end dates
+  const monthMatch = monthRaw.match(/^(\d{4})-(\d{2})$/);
+  if (!monthMatch) {
     return NextResponse.json(
-      { message: "Invalid fromDate/toDate. Expected YYYY-MM-DD" },
+      { message: "Invalid month format. Expected YYYY-MM" },
       { status: 400 }
     );
   }
 
-  if (from.getTime() > to.getTime()) {
+  const [, yearStr, monthStr] = monthMatch;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  
+  if (month < 1 || month > 12) {
     return NextResponse.json(
-      { message: "fromDate must be less than or equal to toDate" },
+      { message: "Invalid month. Month must be between 1 and 12" },
       { status: 400 }
     );
   }
 
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: { id: true, site: true, siteCode: true },
-  });
+  // Calculate from date (1st of month) and to date (last day of month)
+  const from = new Date(Date.UTC(year, month - 1, 1));
+  const to = new Date(Date.UTC(year, month, 0)); // Last day of month
 
-  if (!site) {
-    return NextResponse.json({ message: "Site not found" }, { status: 404 });
+  // Build where clause
+  const whereClause: any = {
+    date: { gte: from, lte: to },
+    type: { in: ["IN", "OUT"] },
+  };
+
+  // Add employee filter if provided
+  if (employeeIdRaw) {
+    const employeeId = Number(employeeIdRaw);
+    if (!Number.isNaN(employeeId) && employeeId > 0) {
+      whereClause.employeeId = employeeId;
+    }
   }
 
   const rows = await prisma.employeeAttendance.findMany({
-    where: {
-      siteId,
-      date: { gte: from, lte: to },
-      type: { in: ["IN", "OUT"] },
-    },
+    where: whereClause,
     include: {
       employee: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
@@ -171,11 +173,6 @@ export async function GET(req: NextRequest) {
 
     result.push({
       date: formatDate(base.date),
-      site: {
-        id: site.id,
-        name: site.site,
-        code: site.siteCode ?? null,
-      },
       employee: {
         id: base.employee.id,
         name: base.employee.name,
@@ -210,9 +207,7 @@ export async function GET(req: NextRequest) {
     {
       data: result,
       meta: {
-        siteId,
-        fromDate: fromDateRaw,
-        toDate: toDateRaw,
+        month: monthRaw,
         total: result.length,
       },
     },
