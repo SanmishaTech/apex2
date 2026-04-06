@@ -543,7 +543,6 @@ model EmployeeAttendance {
   employeeId  Int
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict  )
 
-  siteId      Int
 
   type        AttendanceType
   time        DateTime
@@ -561,7 +560,6 @@ model EmployeeAttendance {
   @@index([employeeId, time])
   @@index([date])
   @@index([employeeId])
-  @@index([siteId])
   @@index([type])
   @@map("employee_attendances")
 }

@@ -7,7 +7,6 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
-  siteId: z.coerce.number().int().positive(),
   type: z.enum(["IN", "OUT"]),
   latitude: z
     .union([z.string(), z.number()])
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
 
     const parsed = createSchema.parse({
-      siteId: form.get("siteId"),
       type: form.get("type"),
       latitude: form.get("latitude"),
       longitude: form.get("longitude"),
@@ -115,7 +113,6 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.employeeAttendance.update({
         where: { id: existing.id },
         data: {
-          siteId: parsed.siteId,
           time: now,
           imageUrl,
           latitude: new Prisma.Decimal(parsed.latitude),
@@ -131,7 +128,6 @@ export async function POST(req: NextRequest) {
       data: {
         date: dateObj,
         employeeId: employee.id,
-        siteId: parsed.siteId,
         type: parsed.type,
         time: now,
         imageUrl,
@@ -144,7 +140,6 @@ export async function POST(req: NextRequest) {
         id: true,
         date: true,
         employeeId: true,
-        siteId: true,
         type: true,
         time: true,
         imageUrl: true,

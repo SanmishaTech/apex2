@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import * as XLSX from "xlsx-js-style";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
@@ -12,16 +13,33 @@ import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/config/roles";
 
-type SiteOption = {
+// Helper to fetch image and convert to base64
+async function getImageAsBase64(imageUrl: string | null): Promise<string | null> {
+  if (!imageUrl) return null;
+  try {
+    const fullUrl = imageUrl.startsWith("http") 
+      ? imageUrl 
+      : `${window.location.origin}${imageUrl}`;
+    const response = await fetch(fullUrl);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+type EmployeeOption = {
   id: number;
-  site: string;
-  siteCode?: string | null;
-  shortName?: string | null;
+  name: string;
 };
 
 type ReportRow = {
   date: string;
-  site: { id: number; name: string; code: string | null };
   employee: { id: number; name: string };
   workHours: number;
   workDuration?: string;
@@ -46,7 +64,47 @@ type ReportRow = {
 
 type ReportResponse = {
   data: ReportRow[];
-  meta: { siteId: number; fromDate: string; toDate: string; total: number };
+  meta: { month: string; total: number };
+};
+
+// Generate month options (current year ± 2 years) with current and previous month at top
+const getMonthOptions = () => {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  
+  // Helper to get month label
+  const getLabel = (year: number, month: number) => {
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+  };
+  
+  // Add current month first
+  const currentValue = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+  options.push({ value: currentValue, label: getLabel(currentYear, currentMonth) });
+  
+  // Add previous month second (handle year boundary)
+  const prevDate = new Date(currentYear, currentMonth - 2); // month - 2 because currentMonth is 1-based
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = prevDate.getMonth() + 1;
+  const prevValue = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
+  options.push({ value: prevValue, label: getLabel(prevYear, prevMonth) });
+  
+  // Add all other months (current year ± 2 years), excluding current and previous
+  for (let year = currentYear - 2; year <= currentYear + 2; year++) {
+    for (let month = 1; month <= 12; month++) {
+      const value = `${year}-${String(month).padStart(2, "0")}`;
+      // Skip if already added (current or previous)
+      if (value === currentValue || value === prevValue) continue;
+      options.push({ value, label: getLabel(year, month) });
+    }
+  }
+  
+  // Sort remaining options (after first two) in reverse chronological order
+  const firstTwo = options.slice(0, 2);
+  const rest = options.slice(2).sort((a, b) => b.value.localeCompare(a.value));
+  return [...firstTwo, ...rest];
 };
 
 function AddressCell({
@@ -132,6 +190,7 @@ function ImageCell({ imageUrl }: { imageUrl: string | null }) {
 export default function EmployeeAttendanceReportPage() {
   const { can } = usePermissions();
   const canView = can(PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE);
+  
   if (!canView) {
     return (
       <div className="text-muted-foreground">
@@ -140,28 +199,30 @@ export default function EmployeeAttendanceReportPage() {
     );
   }
 
-  const { data: sitesData, isLoading: sitesLoading } = useSWR<{ data: SiteOption[] }>(
-    "/api/sites?perPage=1000&sort=site&order=asc",
+  const { data: employeesData, isLoading: employeesLoading } = useSWR<{ data: EmployeeOption[] }>(
+    "/api/employees?perPage=1000&sort=name&order=asc",
     apiGet
   );
 
-  const siteOptions = useMemo(() => {
-    const sites = sitesData?.data || [];
-    return sites.map((s) => ({
-      value: String(s.id),
-      label: s.shortName ? `${s.shortName} - ${s.site}` : s.site,
+  const employeeOptions = useMemo(() => {
+    const employees = employeesData?.data || [];
+    return employees.map((e) => ({
+      value: String(e.id),
+      label: e.name,
     }));
-  }, [sitesData]);
+  }, [employeesData]);
 
-  const siteById = useMemo(() => {
-    const m = new Map<string, SiteOption>();
-    (sitesData?.data || []).forEach((s) => m.set(String(s.id), s));
-    return m;
-  }, [sitesData]);
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
-  const [siteId, setSiteId] = useState<string>("");
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  const [employeeId, setEmployeeId] = useState<string>("");
+  const [month, setMonth] = useState<string>("");
+
+  // Initialize with current month
+  useEffect(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    setMonth(currentMonth);
+  }, []);
 
   const [queryUrl, setQueryUrl] = useState<string | null>(null);
 
@@ -173,9 +234,7 @@ export default function EmployeeAttendanceReportPage() {
     }
   }, [error]);
 
-  const selectedSite = siteId ? siteById.get(siteId) : undefined;
-
-  const exportExcel = () => {
+  const exportPDF = async () => {
     if (!canView) {
       toast.error("You do not have permission to export this report");
       return;
@@ -185,124 +244,199 @@ export default function EmployeeAttendanceReportPage() {
       return;
     }
 
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const toAbs = (url: string | null | undefined) => {
-      if (!url) return "";
-      try {
-        return new URL(url, origin || "http://localhost").toString();
-      } catch {
-        return url;
+    toast.loading("Loading images for PDF...", { id: "pdf-export" });
+
+    // Pre-fetch all images
+    const imageCache = new Map<string, string | null>();
+    const imagePromises: Promise<void>[] = [];
+
+    // Sort data alphabetically by employee name, then by date
+    const sortedData = [...reportData.data].sort((a, b) => {
+      // First sort by employee name alphabetically
+      const nameCompare = a.employee.name.localeCompare(b.employee.name);
+      if (nameCompare !== 0) return nameCompare;
+      // Then sort by date chronologically
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    // Pre-fetch all images using sorted data
+    sortedData.forEach((r) => {
+      if (r.in?.imageUrl) {
+        imagePromises.push(
+          getImageAsBase64(r.in.imageUrl).then((data) => {
+            imageCache.set(`in-${r.date}-${r.employee.id}`, data);
+          })
+        );
       }
-    };
+      if (r.out?.imageUrl) {
+        imagePromises.push(
+          getImageAsBase64(r.out.imageUrl).then((data) => {
+            imageCache.set(`out-${r.date}-${r.employee.id}`, data);
+          })
+        );
+      }
+    });
 
-    const formatDdMmYyyy = (yyyyMmDd: string) => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd)) return yyyyMmDd;
-      const [y, m, d] = yyyyMmDd.split("-");
-      return `${d}/${m}/${y}`;
-    };
+    await Promise.all(imagePromises);
+    toast.success("Images loaded, generating PDF...", { id: "pdf-export", duration: 2000 });
 
-    const generatedOn = new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Kolkata",
-    }).format(new Date());
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-    const header = [
+    // DCTPL Company Heading
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("DCTPL", pageWidth / 2, 12, { align: "center" });
+    
+    // Report Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "normal");
+    doc.text("Employee Attendance Report", pageWidth / 2, 19, { align: "center" });
+
+    // Generated timestamp (dd/mm/yyyy hh:mm:ss AM/PM IST)
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+    const formattedTime = `${String(hours).padStart(2, "0")}:${minutes}:${seconds} ${ampm}`;
+    
+    doc.setFontSize(9);
+    doc.text(`Generated on: ${day}/${month}/${year} ${formattedTime} IST`, pageWidth - 14, 25, { align: "right" });
+
+    // Report details
+    doc.setFontSize(10);
+    let y = 32;
+    doc.text(`Month: ${monthOptions.find(m => m.value === month)?.label || month}`, 14, y);
+    y += 5;
+    if (employeeId) {
+      const emp = employeeOptions.find(e => e.value === employeeId);
+      doc.text(`Employee: ${emp?.label || "—"}`, 14, y);
+      y += 5;
+    }
+    y += 3;
+
+    // Build table data using sorted data
+    const headers = [
       "Sr.No",
       "Date",
-      "Site",
       "Employee",
       "Work Duration",
       "Work Day",
       "In Time",
+      "In Image",
       "In Address",
       "Out Time",
+      "Out Image",
       "Out Address",
-      "IN By",
-      "OUT By",
+      "Attendance By",
     ];
 
-    const rows = reportData.data.map((r, idx) => {
-      const inAddr = r.in?.latitude && r.in?.longitude ? `Lat:${r.in.latitude} Lng:${r.in.longitude} Acc:${r.in.accuracy ?? "—"}` : "—";
-      const outAddr = r.out?.latitude && r.out?.longitude ? `Lat:${r.out.latitude} Lng:${r.out.longitude} Acc:${r.out.accuracy ?? "—"}` : "—";
-      return {
-        srNo: idx + 1,
-        date: r.date,
-        site: r.site.name,
-        employee: r.employee.name,
-        workDuration: r.workDuration ?? `${r.workHours.toFixed(2)} hrs`,
-        workDay: r.workDay,
-        inTime: r.in?.time ?? "—",
-        inAddress: inAddr,
-        outTime: r.out?.time ?? "—",
-        outAddress: outAddr,
-        inBy: r.in?.createdByName ?? "—",
-        outBy: r.out?.createdByName ?? "—",
-      };
-    });
-
-    const metaRows = [
-      ["Site", selectedSite?.site ?? ""],
-      ["From Date", fromDate ? formatDdMmYyyy(fromDate) : ""],
-      ["To Date", toDate ? formatDdMmYyyy(toDate) : ""],
-      ["Generated On", generatedOn],
-      [],
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet([...metaRows, header]);
-    XLSX.utils.sheet_add_aoa(
-      ws,
-      rows.map((r) => [
-        r.srNo,
+    const body = sortedData.map((r, idx) => {
+      const inAddr = r.in?.latitude && r.in?.longitude 
+        ? `Lat:${r.in.latitude} Lng:${r.in.longitude} Acc:${r.in.accuracy ?? "—"}` 
+        : "—";
+      const outAddr = r.out?.latitude && r.out?.longitude 
+        ? `Lat:${r.out.latitude} Lng:${r.out.longitude} Acc:${r.out.accuracy ?? "—"}` 
+        : "—";
+      const inBy = r.in?.createdByName ?? "—";
+      const outBy = r.out?.createdByName ?? "—";
+      
+      return [
+        idx + 1,
         r.date,
-        r.site,
-        r.employee,
-        r.workDuration,
+        r.employee.name,
+        r.workDuration ?? `${r.workHours.toFixed(2)} hrs`,
         r.workDay,
-        r.inTime,
-        r.inAddress,
-        r.outTime,
-        r.outAddress,
-        r.inBy,
-        r.outBy,
-      ]),
-      { origin: { r: metaRows.length + 1, c: 0 } }
-    );
-
-    const dataStartRow = metaRows.length + 2;
-    const lastRow = rows.length + (dataStartRow - 1);
-
-    ws["!rows"] = Array.from({ length: lastRow }, (_, idx) => {
-      const oneBased = idx + 1;
-      if (oneBased <= metaRows.length) return { hpt: 16 };
-      if (oneBased === metaRows.length + 1) return { hpt: 18 };
-      if (oneBased === metaRows.length + 2) return { hpt: 18 };
-      return { hpt: 18 };
+        r.in?.time ?? "—",
+        "", // Placeholder for IN image
+        inAddr,
+        r.out?.time ?? "—",
+        "", // Placeholder for OUT image
+        outAddr,
+        `IN: ${inBy} | OUT: ${outBy}`,
+      ];
     });
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    autoTable(doc, {
+      head: [headers],
+      body: body,
+      startY: y,
+      styles: { 
+        fontSize: 7, 
+        cellPadding: 1.5, 
+        minCellHeight: 20,
+      },
+      headStyles: { 
+        fillColor: [66, 139, 202], 
+        fontSize: 8, 
+        textColor: 255,
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+      },
+      theme: "grid",
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { cellWidth: "auto" },
+        2: { cellWidth: "auto" },
+        3: { cellWidth: "auto" },
+        4: { cellWidth: "auto" },
+        5: { cellWidth: "auto" },
+        6: { cellWidth: "auto" },
+        7: { cellWidth: "auto" },
+        8: { cellWidth: "auto" },
+        9: { cellWidth: "auto" },
+        10: { cellWidth: "auto" },
+        11: { cellWidth: "auto" },
+      },
+      margin: 10,
+      didDrawCell: (data: any) => {
+        // Draw images in the In Image (column 6) and Out Image (column 9) cells
+        if (data.section === "body" && (data.column.index === 6 || data.column.index === 9)) {
+          const rowIdx = data.row.index;
+          const row = sortedData[rowIdx];
+          if (!row) return;
 
-    const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([data], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          const isInImage = data.column.index === 6;
+          const imageUrl = isInImage ? row.in?.imageUrl : row.out?.imageUrl;
+          
+          if (imageUrl) {
+            const cacheKey = `${isInImage ? "in" : "out"}-${row.date}-${row.employee.id}`;
+            const base64Image = imageCache.get(cacheKey);
+            
+            if (base64Image) {
+              const cell = data.cell;
+              const imgWidth = 18;
+              const imgHeight = 14;
+              const x = cell.x + (cell.width - imgWidth) / 2;
+              const y = cell.y + (cell.height - imgHeight) / 2;
+              
+              try {
+                doc.addImage(base64Image, "JPEG", x, y, imgWidth, imgHeight);
+              } catch {
+                // If image fails to load, leave empty
+              }
+            }
+          }
+        }
+      },
+      didDrawPage: (data) => {
+        // Add page number at bottom
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        doc.setFontSize(8);
+        doc.text(`Page ${currentPage} of ${pageCount}`, pageWidth - 25, doc.internal.pageSize.getHeight() - 10);
+      },
     });
 
-    const siteName = selectedSite?.site ? selectedSite.site.replace(/\s+/g, "-") : "site";
-    const fname = `employee-attendance-${siteName}-${fromDate || "from"}-${toDate || "to"}.xlsx`;
-    const link = document.createElement("a");
-    const objectUrl = URL.createObjectURL(blob);
-    link.href = objectUrl;
-    link.download = fname;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
+    doc.save(`employee-attendance-${month}.pdf`);
+    toast.success("PDF exported successfully");
   };
 
   const handleSearch = () => {
@@ -310,23 +444,14 @@ export default function EmployeeAttendanceReportPage() {
       toast.error("You do not have permission to view this report");
       return;
     }
-    if (!siteId) {
-      toast.error("Please select a site");
-      return;
-    }
-    if (!fromDate || !toDate) {
-      toast.error("Please select From Date and To Date");
-      return;
-    }
-    if (fromDate > toDate) {
-      toast.error("From Date must be less than or equal to To Date");
+    if (!month) {
+      toast.error("Please select a month");
       return;
     }
 
     const params = new URLSearchParams();
-    params.set("siteId", siteId);
-    params.set("fromDate", fromDate);
-    params.set("toDate", toDate);
+    params.set("month", month);
+    if (employeeId) params.set("employeeId", employeeId);
     setQueryUrl(`/api/reports/employee-attendance?${params.toString()}`);
   };
 
@@ -335,72 +460,60 @@ export default function EmployeeAttendanceReportPage() {
       <AppCard.Header>
         <AppCard.Title>Employee Attendance Report</AppCard.Title>
         <AppCard.Description>
-          Select site and date range, then click Search.
+          Select month and employee, then click Search.
         </AppCard.Description>
       </AppCard.Header>
-
       <AppCard.Content>
         <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium">Site</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+            <div>
+              <label className="text-xs font-medium">Month *</label>
               <div className="mt-1">
                 <AppCombobox
-                  value={siteId || undefined}
-                  onValueChange={(v) => setSiteId(v)}
-                  options={siteOptions}
-                  placeholder={sitesLoading ? "Loading..." : "Select site"}
-                  searchPlaceholder="Search site..."
-                  emptyText="No site found."
+                  value={month || undefined}
+                  onValueChange={(v) => setMonth(v)}
+                  options={monthOptions}
+                  placeholder="Select month"
+                  searchPlaceholder="Search month..."
+                  emptyText="No month found."
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium">From Date</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="mt-1 w-full px-2 py-1.5 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium">To Date</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="mt-1 w-full px-2 py-1.5 border border-input rounded-md bg-background text-foreground focus:ring-ring focus:border-ring text-sm"
-                required
-              />
+              <label className="text-xs font-medium">Employee (Optional)</label>
+              <div className="mt-1">
+                <AppCombobox
+                  value={employeeId || undefined}
+                  onValueChange={(v) => setEmployeeId(v)}
+                  options={employeeOptions}
+                  placeholder={employeesLoading ? "Loading..." : "All Employees"}
+                  searchPlaceholder="Search employee..."
+                  emptyText="No employee found."
+                />
+              </div>
             </div>
 
-            <div className="md:col-span-4 flex justify-end gap-2">
+            <div className="md:col-span-2 flex justify-end gap-2">
               <AppButton type="button" onClick={handleSearch} disabled={isLoading || !canView}>
                 Search
               </AppButton>
               <AppButton
                 type="button"
-                onClick={exportExcel}
+                onClick={exportPDF}
                 disabled={isLoading || !canView || !reportData?.data?.length}
               >
-                Export Excel
+                Export PDF
               </AppButton>
             </div>
           </div>
 
           {isLoading && (
-            <div className="p-6 text-center text-muted-foreground">
-              Loading...
-            </div>
+            <div className="p-6 text-center text-muted-foreground">Loading...</div>
           )}
 
           {!isLoading && queryUrl && reportData && reportData.data.length === 0 && (
-            <div className="p-6 text-center text-muted-foreground">
-              No data found.
-            </div>
+            <div className="p-6 text-center text-muted-foreground">No data found.</div>
           )}
 
           {!isLoading && reportData && reportData.data.length > 0 && (
@@ -410,7 +523,6 @@ export default function EmployeeAttendanceReportPage() {
                   <tr>
                     <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground uppercase tracking-wider border border-border">Sr.No</th>
                     <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground uppercase tracking-wider border border-border">Date</th>
-                    <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground uppercase tracking-wider min-w-[160px] border border-border">Site</th>
                     <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground uppercase tracking-wider min-w-[160px] border border-border">Employee</th>
                     <th className="px-2 py-2 text-center text-[11px] font-semibold text-foreground uppercase tracking-wider bg-sky-50 dark:bg-sky-950/30 border border-border">Work Duration</th>
                     <th className="px-2 py-2 text-center text-[11px] font-semibold text-foreground uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/30 border border-border">Work Day</th>
@@ -428,9 +540,6 @@ export default function EmployeeAttendanceReportPage() {
                     <tr key={`${r.employee.id}-${r.date}`} className="hover:bg-muted/30">
                       <td className="px-2 py-1.5 text-xs text-foreground border border-border">{idx + 1}</td>
                       <td className="px-2 py-1.5 text-xs text-foreground whitespace-nowrap border border-border">{r.date}</td>
-                      <td className="px-2 py-1.5 text-xs text-foreground border border-border">
-                        <div className="font-medium">{r.site.name}</div>
-                      </td>
                       <td className="px-2 py-1.5 text-xs text-foreground font-medium border border-border">{r.employee.name}</td>
                       <td className="px-2 py-1.5 text-xs text-center font-semibold text-sky-700 dark:text-sky-300 bg-sky-50/60 dark:bg-sky-950/20 border border-border whitespace-nowrap">
                         {r.workDuration ?? `${r.workHours.toFixed(2)} hrs`}
