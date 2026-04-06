@@ -1155,6 +1155,7 @@ model SiteManpower {
   wage         Decimal? @db.Decimal(10, 2) 
   minWage      Decimal? @db.Decimal(10, 2) 
   foodCharges  Decimal? @db.Decimal(10, 2) 
+  foodCharges2  Decimal? @db.Decimal(10, 2) 
 
   pf           Boolean  @default(false)
   esic          Boolean  @default(false)

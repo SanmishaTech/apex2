@@ -4,7 +4,7 @@ import { Success, Error as ApiError, BadRequest } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { paginate } from "@/lib/paginate";
 import { z } from "zod";
-import { ROLES } from "@/config/roles";
+import { ROLES, PERMISSIONS } from "@/config/roles";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -194,6 +194,13 @@ export async function GET(req: NextRequest) {
     };
     const where: SiteWhere = {};
 
+    // Check for allSites parameter - allows showing all sites for toSite dropdown
+    // User must have READ_SITES permission to use this
+    const allSitesParam = searchParams.get("allSites");
+    const showAllSites = allSitesParam === "true";
+    const canReadSites = auth.user.permissions?.includes(PERMISSIONS.READ_SITES);
+    const bypassSiteFilter = showAllSites && canReadSites;
+
     if (search) {
       where.OR = [
         { site: { contains: search } },
@@ -248,8 +255,9 @@ export async function GET(req: NextRequest) {
       : { site: "asc" };
 
     // Site-based visibility: only ADMIN can see all; others limited to assigned sites
+    // Exception: if allSites=true and user has READ_SITES permission, show all sites
     const role = auth.user.role;
-    const isPrivileged = role === ROLES.ADMIN;
+    const isPrivileged = role === ROLES.ADMIN || bypassSiteFilter;
     let assignedSiteIds: number[] | null = null;
     if (!isPrivileged) {
       const employee = await prisma.employee.findFirst({

@@ -29,9 +29,8 @@ export default function WageSheetPage() {
   const [mode, setMode] = useState<"company" | "govt" | "all">("govt");
   const [categoryId, setCategoryId] = useState<string>("");
   const [pf, setPf] = useState<string>("");
-  const [exportType, setExportType] = useState<"none" | "excel" | "pdf">(
-    "none"
-  );
+  const [exportType, setExportType] = useState<"none" | "excel" | "pdf">("none");
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -344,6 +343,7 @@ export default function WageSheetPage() {
         totalOT = 0,
         totalActualWages = 0,
         totalFoodCharges = 0,
+        totalFoodCharges2 = 0,
         totalIdleDays = 0,
         totalTotalWages = 0;
       // combined working days (workingDays + OT) for company summary column
@@ -365,7 +365,7 @@ export default function WageSheetPage() {
               supplierTotals.actualWages.toFixed(2),
               supplierTotals.foodCharges.toFixed(2),
               supplierTotals.idleDays.toFixed(2),
-              (supplierTotals.totalWages - supplierTotals.foodCharges).toFixed(2)
+              (supplierTotals.totalWages - supplierTotals.foodCharges - supplierTotals.foodCharges2).toFixed(2)
             );
             body.push(supplierTotalRow);
           }
@@ -383,6 +383,7 @@ export default function WageSheetPage() {
             ot: 0,
             actualWages: 0,
             foodCharges: 0,
+            foodCharges2: 0,
             idleDays: 0,
             totalWorkingDays: 0,
             totalWages: 0,
@@ -452,7 +453,7 @@ export default function WageSheetPage() {
             worker.foodCharges?.toFixed(2) || "0.00",
             idleDaysCombined.toFixed(2),
             workerTotalWorkingDays.toFixed(2),
-            (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0)).toFixed(2)
+            (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0) - Number(worker.foodCharges2 || 0)).toFixed(2)
           );
           // Update totals based on mode
           totalWorkingDays += Number(worker.workingDays || 0);
@@ -460,6 +461,7 @@ export default function WageSheetPage() {
           totalWorkingDaysCombined += workerTotalWorkingDays;
           totalActualWages += Number(worker.actualWages || 0);
           totalFoodCharges += Number(worker.foodCharges || 0);
+          totalFoodCharges2 += Number(worker.foodCharges2 || 0);
           totalIdleDays += idleDaysCombined;
           totalTotalWages += Number(worker.totalWages || 0);
 
@@ -469,6 +471,7 @@ export default function WageSheetPage() {
             supplierTotals.ot += Number(worker.totalOT || 0);
             supplierTotals.actualWages += Number(worker.actualWages || 0);
             supplierTotals.foodCharges += Number(worker.foodCharges || 0);
+            supplierTotals.foodCharges2 += Number(worker.foodCharges2 || 0);
             supplierTotals.idleDays += idleDaysCombined;
             supplierTotals.totalWorkingDays += workerTotalWorkingDays;
             supplierTotals.totalWages += Number(worker.totalWages || 0);
@@ -501,7 +504,7 @@ export default function WageSheetPage() {
               supplierTotals.foodCharges.toFixed(2),
               supplierTotals.idleDays.toFixed(2),
               supplierTotals.totalWorkingDays.toFixed(2),
-              (supplierTotals.totalWages - supplierTotals.foodCharges).toFixed(2)
+              (supplierTotals.totalWages - supplierTotals.foodCharges - supplierTotals.foodCharges2).toFixed(2)
             );
             body.push(supplierTotalRow);
           }
@@ -554,7 +557,7 @@ export default function WageSheetPage() {
           totalFoodCharges.toFixed(2),
           totalIdleDays.toFixed(2),
           totalWorkingDaysCombined.toFixed(2),
-          (totalTotalWages - totalFoodCharges).toFixed(2)
+          (totalTotalWages - totalFoodCharges - totalFoodCharges2).toFixed(2)
         );
       }
       body.push(grandTotalRow);
@@ -664,10 +667,33 @@ export default function WageSheetPage() {
       toast.error("Select a period (MM-YYYY)");
       return;
     }
+    
+    // Update generated timestamp when showing data
+    const now = new Date();
+    const formattedDate = now.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).replace(',', '');
+    setGeneratedAt(formattedDate);
+    
     if (exportType === "excel") {
       exportExcel();
     } else if (exportType === "pdf") {
-      exportPdf();
+      // PDF option removed - fallback to opening in new tab
+      const params = new URLSearchParams();
+      params.set("period", period);
+      const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+      if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
+      params.set("mode", mode);
+      if (categoryId) params.set("categoryId", categoryId);
+      if (pf) params.set("pf", pf);
+      const url = `/reports/wage-sheet?${params.toString()}`;
+      window.open(url, "_blank");
     } else {
       // Open in new tab with current filters
       const params = new URLSearchParams();
@@ -779,7 +805,6 @@ export default function WageSheetPage() {
                 <SelectContent>
                   <SelectItem value="none">---</SelectItem>
                   <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="pdf">PDF</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -818,6 +843,7 @@ export default function WageSheetPage() {
                         <>
                           <th className="p-2 text-right">OT</th>
                           <th className="p-2 text-right">Food Charges</th>
+                          <th className="p-2 text-right">Food Charges 2</th>
                         </>
                       ) : null}
                       <th className="p-2 text-right">Wage</th>
@@ -850,6 +876,9 @@ export default function WageSheetPage() {
                             </td>
                             <td className="p-2 text-right">
                               {Number(r.foodCharges || 0).toFixed(2)}
+                            </td>
+                            <td className="p-2 text-right">
+                              {Number(r.foodCharges2 || 0).toFixed(2)}
                             </td>
                           </>
                         ) : null}
@@ -900,7 +929,10 @@ export default function WageSheetPage() {
                     </>
                   ) : null}
                   {mode === "company" ? (
-                    <th className="p-2 text-right">Food Charges</th>
+                    <>
+                      <th className="p-2 text-right">Food Charges</th>
+                      <th className="p-2 text-right">Food Charges 2</th>
+                    </>
                   ) : null}
                   <th className="p-2 text-right">Gross</th>
                   <th className="p-2 text-right">HRA</th>
@@ -924,7 +956,10 @@ export default function WageSheetPage() {
                       </>
                     ) : null}
                     {mode === "company" ? (
-                      <td className="p-2 text-right">{Number(s.foodCharges || 0).toFixed(2)}</td>
+                      <>
+                        <td className="p-2 text-right">{Number(s.foodCharges || 0).toFixed(2)}</td>
+                        <td className="p-2 text-right">{Number(s.foodCharges2 || 0).toFixed(2)}</td>
+                      </>
                     ) : null}
                     <td className="p-2 text-right">
                       {Number(s.grossWages).toFixed(2)}
