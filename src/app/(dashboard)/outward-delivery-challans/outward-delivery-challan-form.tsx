@@ -292,6 +292,7 @@ export default function OutwardDeliveryChallanForm({
     replace,
   } = useFieldArray({ control, name: "items" });
 
+  // Fetch assigned sites for fromSite dropdown
   const { data: sitesResp } = useSWR<any>("/api/sites/options", apiGet);
   const siteOptions = useMemo(
     () =>
@@ -300,6 +301,17 @@ export default function OutwardDeliveryChallanForm({
         label: s.site,
       })),
     [sitesResp?.data]
+  );
+
+  // Fetch all sites for toSite dropdown (requires READ_SITES permission)
+  const { data: allSitesResp } = useSWR<any>("/api/sites?allSites=true&perPage=1000", apiGet);
+  const allSiteOptions = useMemo(
+    () =>
+      ((allSitesResp?.data as any[]) || []).map((s: any) => ({
+        value: String(s.id),
+        label: s.site,
+      })),
+    [allSitesResp?.data]
   );
   const itemsVal = useWatch({ control, name: "items" }) as any[];
   const fromSiteIdVal = form.watch("fromSiteId");
@@ -629,7 +641,7 @@ export default function OutwardDeliveryChallanForm({
                   control={control}
                   name="toSiteId"
                   label="To Site *"
-                  options={siteOptions}
+                  options={allSiteOptions}
                   placeholder="Select site"
                   required
                 />

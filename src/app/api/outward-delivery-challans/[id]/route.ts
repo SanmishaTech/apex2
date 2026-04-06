@@ -171,6 +171,21 @@ export async function PATCH(
       if (current.createdById === userId)
         return BadRequest("Creator cannot approve");
 
+      // Check if user is assigned to fromSite (or is ADMIN)
+      const isAdmin = (auth as any).user?.role === "Admin";
+      if (!isAdmin) {
+        const employee = await prisma.employee.findFirst({
+          where: { userId },
+          select: { siteEmployees: { select: { siteId: true } } },
+        });
+        const assignedSiteIds = (employee?.siteEmployees || [])
+          .map((s) => s.siteId)
+          .filter((v): v is number => typeof v === "number");
+        if (!assignedSiteIds.includes(current.fromSiteId)) {
+          return BadRequest("You are not assigned to the from site");
+        }
+      }
+
       // Validate and update approved1Qty against challanQty
       const byId = new Map(
         (current.outwardDeliveryChallanDetails || []).map((d) => [d.id, d])
@@ -393,6 +408,21 @@ export async function PATCH(
         return BadRequest("Creator cannot accept");
       if (current.approved1ById === userId)
         return BadRequest("Approver cannot accept");
+
+      // Check if user is assigned to toSite (or is ADMIN)
+      const isAdminAccept = (auth as any).user?.role === "Admin";
+      if (!isAdminAccept) {
+        const employee = await prisma.employee.findFirst({
+          where: { userId },
+          select: { siteEmployees: { select: { siteId: true } } },
+        });
+        const assignedSiteIds = (employee?.siteEmployees || [])
+          .map((s) => s.siteId)
+          .filter((v): v is number => typeof v === "number");
+        if (!assignedSiteIds.includes(current.toSiteId!)) {
+          return BadRequest("You are not assigned to the to site");
+        }
+      }
 
       const byId = new Map(
         (current.outwardDeliveryChallanDetails || []).map((d) => [d.id, d])

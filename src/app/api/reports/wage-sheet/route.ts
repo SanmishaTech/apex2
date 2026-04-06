@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
           manpower: {
             include: {
               manpowerSupplier: true,
-              siteManpower: { select: { ...({ foodCharges: true } as any) } },
+              siteManpower: { select: { ...({ foodCharges: true } as any), ...({ foodCharges2: true } as any) } },
             },
           },
         },
@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
     const otFromAttendance = otByManpowerSite.get(`${(d as any).paySlip.manpowerId}:${d.siteId}`);
     const otValue = mode === "company" ? Number(otFromAttendance || 0) : Number(d.ot ?? 0);
     const foodCharges = Number(((d as any).paySlip.manpower as any)?.siteManpower?.foodCharges ?? 0);
+    const foodCharges2 = Number(((d as any).paySlip.manpower as any)?.siteManpower?.foodCharges2 ?? 0);
     const rawTotal = Number(d.total ?? 0);
     return {
       siteId: d.siteId,
@@ -128,13 +129,14 @@ export async function GET(req: NextRequest) {
       idle: Number(d.idle ?? 0),
       wages: Number(d.wages ?? 0),
       foodCharges,
+      foodCharges2,
       grossWages: Number(d.grossWages ?? 0),
       hra: Number(d.hra ?? 0),
       pf: Number(d.pf ?? 0),
       esic: Number(d.esic ?? 0),
       pt: Number(d.pt ?? 0),
       mlwf: Number(d.mlwf ?? 0),
-      total: mode === "company" ? rawTotal - foodCharges : rawTotal,
+      total: mode === "company" ? rawTotal - foodCharges - foodCharges2 : rawTotal,
     };
   });
 
@@ -142,12 +144,13 @@ export async function GET(req: NextRequest) {
   const bySite: Record<string, any> = {};
   for (const r of rows) {
     const k = String(r.siteId);
-    const s = (bySite[k] ||= { siteId: r.siteId, siteName: r.siteName, workingDays: 0, ot: 0, idle: 0, grossWages: 0, foodCharges: 0, hra: 0, pf: 0, esic: 0, pt: 0, mlwf: 0, total: 0 });
+    const s = (bySite[k] ||= { siteId: r.siteId, siteName: r.siteName, workingDays: 0, ot: 0, idle: 0, grossWages: 0, foodCharges: 0, foodCharges2: 0, hra: 0, pf: 0, esic: 0, pt: 0, mlwf: 0, total: 0 });
     s.workingDays += r.workingDays;
     s.ot += r.ot;
     s.idle += r.idle;
     s.grossWages += r.grossWages;
     s.foodCharges += r.foodCharges;
+    s.foodCharges2 += r.foodCharges2;
     s.hra += r.hra;
     s.pf += r.pf;
     s.esic += r.esic;

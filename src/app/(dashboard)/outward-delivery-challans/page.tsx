@@ -97,6 +97,16 @@ export default function OutwardDeliveryChallansPage() {
   );
   const { can } = usePermissions();
   const { user } = useCurrentUser();
+  const isAdmin = user?.role === "Admin";
+
+  // Fetch user's assigned sites for site-based permission checks
+  const { data: mySites } = useSWR<any>(
+    "/api/sites/options",
+    apiGet
+  );
+  const assignedSiteIds = useMemo(() => {
+    return ((mySites?.data as any[]) || []).map((s) => Number(s.id));
+  }, [mySites?.data]);
 
   if (error) toast.error((error as Error).message || "Failed to load challans");
 
@@ -263,16 +273,27 @@ export default function OutwardDeliveryChallansPage() {
           renderRowActions={(row) => {
             const uid = (user as any)?.id as number | undefined;
             const canView = can(PERMISSIONS.READ_OUTWARD_DELIVERY_CHALLAN);
+            
+            // Check site assignment for approve (must be assigned to fromSite)
+            const fromSiteId = row.fromSite?.id;
+            const canApproveBySite = isAdmin || (fromSiteId && assignedSiteIds.includes(fromSiteId));
             const canApprove =
               can(PERMISSIONS.APPROVE_OUTWARD_DELIVERY_CHALLAN) &&
+              canApproveBySite &&
               !row.isApproved1 &&
               uid !== row.createdById;
+            
+            // Check site assignment for accept (must be assigned to toSite)
+            const toSiteId = row.toSite?.id;
+            const canAcceptBySite = isAdmin || (toSiteId && assignedSiteIds.includes(toSiteId));
             const canAccept =
               can(PERMISSIONS.ACCEPT_OUTWARD_DELIVERY_CHALLAN) &&
+              canAcceptBySite &&
               row.isApproved1 &&
               !row.isAccepted &&
               uid !== row.createdById &&
               uid !== (row.approved1ById ?? undefined);
+            
             const any = canView || canApprove || canAccept;
             if (!any) return null;
 

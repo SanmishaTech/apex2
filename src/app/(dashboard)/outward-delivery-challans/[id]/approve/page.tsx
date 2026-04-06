@@ -16,6 +16,7 @@ import { FormSection } from "@/components/common/app-form";
 import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/config/roles";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const rowSchema = z.object({
   id: z.number(),
@@ -52,12 +53,8 @@ export default function ApproveOutwardDeliveryChallanPage() {
 
   const { can } = usePermissions();
   const allowed = can(PERMISSIONS.APPROVE_OUTWARD_DELIVERY_CHALLAN);
-
-  useEffect(() => {
-    if (allowed) return;
-    toast.error("You do not have permission to approve outward delivery challan");
-    router.replace("/outward-delivery-challans");
-  }, [allowed, router]);
+  const { user } = useCurrentUser();
+  const isAdmin = user?.role === "Admin";
 
   const {
     data: challan,
@@ -69,8 +66,31 @@ export default function ApproveOutwardDeliveryChallanPage() {
     apiGet
   );
 
-  // Closing stock by item at fromSite
+  // Check if user is assigned to fromSite
+  const { data: mySites } = useSWR<any>(
+    allowed ? "/api/sites/options" : null,
+    apiGet
+  );
+  const assignedSiteIds = useMemo(() => {
+    return ((mySites?.data as any[]) || []).map((s) => Number(s.id));
+  }, [mySites?.data]);
+  
   const fromSiteId = challan?.fromSiteId as number | undefined;
+  const canApprove = allowed && (isAdmin || (fromSiteId && assignedSiteIds.includes(fromSiteId)));
+
+  useEffect(() => {
+    if (!allowed) {
+      toast.error("You do not have permission to approve outward delivery challan");
+      router.replace("/outward-delivery-challans");
+      return;
+    }
+    if (challan && !canApprove) {
+      toast.error("You are not assigned to the from site");
+      router.replace(`/outward-delivery-challans/${id}`);
+    }
+  }, [allowed, canApprove, challan, router, id]);
+
+  // Closing stock by item at fromSite
   const { data: siteItemsResp } = useSWR<any>(
     fromSiteId ? `/api/site-items?siteId=${fromSiteId}` : null,
     apiGet

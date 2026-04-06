@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
                 pf: true,
                 esic: true,
                 ...({ foodCharges: true } as any),
+                ...({ foodCharges2: true } as any),
                 category: { select: { categoryName: true } },
                 skillset: { select: { skillsetName: true } },
               },
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
                     pf: true,
                     esic: true,
                     ...({ foodCharges: true } as any),
+                    ...({ foodCharges2: true } as any),
                     category: { select: { categoryName: true } },
                     skillset: { select: { skillsetName: true } },
                   },
@@ -237,6 +239,7 @@ export async function GET(req: NextRequest) {
         idleOT: 0,
         wageRate: Number(detail.wages || 0),
         foodCharges: Number(siteManpowerForThisSite?.foodCharges || 0),
+        foodCharges2: Number(siteManpowerForThisSite?.foodCharges2 || 0),
         grossWage,
         actualWages: Number(detail.total || 0),
         idleWages: 0,
@@ -254,6 +257,12 @@ export async function GET(req: NextRequest) {
     const result = {
       period,
       daysInMonth,
+      mode,
+      filters: {
+        siteIds: resolvedSiteIds.length ? resolvedSiteIds : null,
+        categoryId: categoryId || null,
+        pf: pf || null,
+      },
       data: Array.from(siteGroups.values()),
     };
 

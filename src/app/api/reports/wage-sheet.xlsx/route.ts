@@ -66,10 +66,31 @@ export async function GET(req: NextRequest) {
     // Build Excel with daily attendance columns
     const wb = XLSX.utils.book_new();
     
+    // Get current timestamp in IST (Asia/Kolkata)
+    const now = new Date();
+    const generatedAt = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).replace(',', '');
+    
     // Process each site
     wageData.data.forEach((siteGroup: any, siteIdx: number) => {
-      const wsName = (siteGroup.siteName || `Site${siteIdx + 1}`).replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31); // Excel sheet name limit, strip invalid chars
+      const wsName = (siteGroup.siteName || `Site${siteIdx + 1}`).replace(/[:\\\/?\*\[\]]/g, '').slice(0, 31); // Excel sheet name limit, strip invalid chars
       const sheetData: any[][] = [];
+      
+      // Add filters info at the top
+      sheetData.push([`Site: ${siteGroup.siteName || 'All Sites'}`]);
+      sheetData.push([`Period: ${period || '-'}`]);
+      sheetData.push([`Category: ${categoryId || 'All'}`]);
+      sheetData.push([`PF: ${pf === 'true' ? 'Yes' : pf === 'false' ? 'No' : 'All'}`]);
+      sheetData.push([`Generated At: ${generatedAt}`]);
+      sheetData.push([]); // Empty row for spacing
       
       // Column headers (uppercase for emphasis)
       const headers = [
@@ -111,6 +132,7 @@ export async function GET(req: NextRequest) {
           "OT",
           "ACTUAL WAGES",
           "FOOD CHARGES",
+          "FOOD CHARGES 2",
           "IDLE DAYS",
           "TOTAL WORKING DAYS",
           "TOTAL WAGES"
@@ -167,13 +189,14 @@ export async function GET(req: NextRequest) {
               }
             });
             
-            // Add summary values (totalWages = totalWages - foodCharges)
-            const netTotalWages = Number(worker.totalWages || 0) - Number(worker.foodCharges || 0);
+            // Add summary values (totalWages = totalWages - foodCharges - foodCharges2)
+            const netTotalWages = Number(worker.totalWages || 0) - Number(worker.foodCharges || 0) - Number(worker.foodCharges2 || 0);
             row.push(
               worker.workingDays?.toFixed(2) || "0.00",
               worker.totalOT?.toFixed(2) || "0.00",
               worker.actualWages?.toFixed(2) || "0.00",
               worker.foodCharges?.toFixed(2) || "0.00",
+              worker.foodCharges2?.toFixed(2) || "0.00",
               (Number(worker.idleDays || 0) + Number(worker.idleOT || 0)).toFixed(2),
               (Number(worker.workingDays || 0) + Number(worker.totalOT || 0)).toFixed(2),
               netTotalWages.toFixed(2)
@@ -193,19 +216,21 @@ export async function GET(req: NextRequest) {
             ot: acc.ot + Number(w.totalOT || 0),
             actualWages: acc.actualWages + Number(w.actualWages || 0),
             foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
+            foodCharges2: acc.foodCharges2 + Number(w.foodCharges2 || 0),
             idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
             totalWorkingDays: acc.totalWorkingDays + Number(w.workingDays || 0) + Number(w.totalOT || 0),
             totalWages: acc.totalWages + Number(w.totalWages || 0)
-          }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
+          }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, foodCharges2: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
           
           supplierTotal.push(
             totals.workingDays.toFixed(2),
             totals.ot.toFixed(2),
             totals.actualWages.toFixed(2),
             totals.foodCharges.toFixed(2),
+            totals.foodCharges2.toFixed(2),
             totals.idleDays.toFixed(2),
             totals.totalWorkingDays.toFixed(2),
-            (totals.totalWages - totals.foodCharges).toFixed(2)
+            (totals.totalWages - totals.foodCharges - totals.foodCharges2).toFixed(2)
           );
           
           sheetData.push(supplierTotal);
@@ -244,7 +269,7 @@ export async function GET(req: NextRequest) {
             worker.pt?.toFixed(2) || "0.00",
             worker.lwf?.toFixed(2) || "0.00",
             worker.totalDeduction?.toFixed(2) || "0.00",
-            (Number(worker.totalDays || 0) + Number(worker.totalOT || 0)).toFixed(2),
+            worker.totalDays || 0,
             worker.payable?.toFixed(2) || "0.00"
           );
           
@@ -264,19 +289,21 @@ export async function GET(req: NextRequest) {
           ot: acc.ot + Number(w.totalOT || 0),
           actualWages: acc.actualWages + Number(w.actualWages || 0),
           foodCharges: acc.foodCharges + Number(w.foodCharges || 0),
+          foodCharges2: acc.foodCharges2 + Number(w.foodCharges2 || 0),
           idleDays: acc.idleDays + Number(w.idleDays || 0) + Number(w.idleOT || 0),
           totalWorkingDays: acc.totalWorkingDays + Number(w.workingDays || 0) + Number(w.totalOT || 0),
           totalWages: acc.totalWages + Number(w.totalWages || 0)
-        }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
+        }), { workingDays: 0, ot: 0, actualWages: 0, foodCharges: 0, foodCharges2: 0, idleDays: 0, totalWorkingDays: 0, totalWages: 0 });
         
         grandTotal.push(
           totals.workingDays.toFixed(2),
           totals.ot.toFixed(2),
           totals.actualWages.toFixed(2),
           totals.foodCharges.toFixed(2),
+          totals.foodCharges2.toFixed(2),
           totals.idleDays.toFixed(2),
           totals.totalWorkingDays.toFixed(2),
-          (totals.totalWages - totals.foodCharges).toFixed(2)
+          (totals.totalWages - totals.foodCharges - totals.foodCharges2).toFixed(2)
         );
       } else {
         const totals = siteGroup.workers.reduce((acc: any, w: any) => ({
@@ -287,7 +314,7 @@ export async function GET(req: NextRequest) {
           pt: acc.pt + Number(w.pt || 0),
           lwf: acc.lwf + Number(w.lwf || 0),
           deduction: acc.deduction + Number(w.totalDeduction || 0),
-          totalWorkingDays: acc.totalWorkingDays + Number(w.totalDays || 0) + Number(w.totalOT || 0),
+          totalWorkingDays: acc.totalWorkingDays + Number(w.totalDays || 0),
           payable: acc.payable + Number(w.payable || 0)
         }), { gross: 0, hra: 0, pf: 0, esic: 0, pt: 0, lwf: 0, deduction: 0, totalWorkingDays: 0, payable: 0 });
         
@@ -336,6 +363,7 @@ export async function GET(req: NextRequest) {
           { wch: 8 },  // OT
           { wch: 12 }, // Actual Wages
           { wch: 14 }, // Food Charges
+          { wch: 14 }, // Food Charges 2
           { wch: 10 }, // Idle Days
           { wch: 16 }, // Total Working Days
           { wch: 12 }  // Total Wages
@@ -377,6 +405,19 @@ export async function GET(req: NextRequest) {
     const protocol = req.headers.get('x-forwarded-proto') || 'http';
     const baseUrl = `${protocol}://${host}`;
     
+    // Get current timestamp in IST (Asia/Kolkata)
+    const now = new Date();
+    const generatedAt = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).replace(',', '');
+    
     const base = `${baseUrl}/api/reports/wage-sheet?period=${encodeURIComponent(period)}${mode ? `&mode=${encodeURIComponent(mode)}` : ""}${siteId ? `&siteId=${encodeURIComponent(siteId)}` : ""}${siteIds ? `&siteIds=${encodeURIComponent(siteIds)}` : ""}`;
     
     // Pass authentication headers
@@ -396,20 +437,26 @@ export async function GET(req: NextRequest) {
 
     // Build worksheet
     const header = [
+      ["Site:", siteIds || siteId || "All Sites"],
+      ["Period:", period],
+      ["Category:", categoryId || "All"],
+      ["PF:", pf === "true" ? "Yes" : pf === "false" ? "No" : "All"],
+      ["Generated At:", generatedAt],
+      [],
       ["Period", period, "Mode", mode || "all"],
     ];
     const columns = [[
       "Site ID", "Site", "Manpower", "Supplier",
       "Account No", "IFSC", "Bank",
       "Working Days", "OT", "Idle", "Wage", "Gross",
-      "Food Charges", "HRA", "PF", "ESIC", "PT", "MLWF", "Deduction", "Tot Work Days", "Total",
+      "Food Charges", "Food Charges 2", "HRA", "PF", "ESIC", "PT", "MLWF", "Deduction", "Tot Work Days", "Total",
     ]];
     const dataRows = rows.map((r) => [
       r.siteId, r.siteName || "",
       r.manpowerName || "", r.supplier || "",
       r.accountNumber || "", r.ifscCode || "", r.bankName || "",
       r.workingDays, r.ot, r.idle, r.wages, r.grossWages,
-      r.foodCharges, r.hra, r.pf, r.esic, r.pt, r.mlwf, (r.hra + r.pf + r.esic + r.pt + r.mlwf), (r.workingDays + r.ot), r.total,
+      r.foodCharges, r.foodCharges2, r.hra, r.pf, r.esic, r.pt, r.mlwf, (r.hra + r.pf + r.esic + r.pt + r.mlwf), (r.workingDays + r.ot), r.total,
     ]);
 
     const sheetData = [...header, [""], ...columns, ...dataRows];
