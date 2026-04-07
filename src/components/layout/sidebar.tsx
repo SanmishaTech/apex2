@@ -40,6 +40,7 @@ export function Sidebar({
     if (!user) return [] as NavItem[];
     const permissionSet = new Set((user.permissions || []) as string[]);
     const hasEmployee = user.hasEmployee !== false;
+    const PUBLIC_PERMISSION = "__PUBLIC__";
 
     function filterNavItems(items: NavItem[]): NavItem[] {
       return items
@@ -52,7 +53,7 @@ export function Sidebar({
             if (filteredChildren.length === 0) return null;
             return { ...item, children: filteredChildren } as NavGroupItem;
           }
-          if (!permissionSet.has(item.permission)) return null;
+          if (item.permission !== PUBLIC_PERMISSION && !permissionSet.has(item.permission)) return null;
           if (item.href === "/employee-attendance" && !hasEmployee)
             return null;
           return item;

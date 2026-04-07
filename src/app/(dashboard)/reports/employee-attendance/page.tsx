@@ -17,8 +17,8 @@ import { PERMISSIONS } from "@/config/roles";
 async function getImageAsBase64(imageUrl: string | null): Promise<string | null> {
   if (!imageUrl) return null;
   try {
-    const fullUrl = imageUrl.startsWith("http") 
-      ? imageUrl 
+    const fullUrl = imageUrl.startsWith("http")
+      ? imageUrl
       : `${window.location.origin}${imageUrl}`;
     const response = await fetch(fullUrl);
     if (!response.ok) return null;
@@ -50,6 +50,7 @@ type ReportRow = {
     latitude: string | null;
     longitude: string | null;
     accuracy: string | null;
+    address: string | null;
     createdByName: string | null;
   } | null;
   out: {
@@ -58,6 +59,7 @@ type ReportRow = {
     latitude: string | null;
     longitude: string | null;
     accuracy: string | null;
+    address: string | null;
     createdByName: string | null;
   } | null;
 };
@@ -73,24 +75,24 @@ const getMonthOptions = () => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  
+
   // Helper to get month label
   const getLabel = (year: number, month: number) => {
     const date = new Date(year, month - 1);
     return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
   };
-  
+
   // Add current month first
   const currentValue = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
   options.push({ value: currentValue, label: getLabel(currentYear, currentMonth) });
-  
+
   // Add previous month second (handle year boundary)
   const prevDate = new Date(currentYear, currentMonth - 2); // month - 2 because currentMonth is 1-based
   const prevYear = prevDate.getFullYear();
   const prevMonth = prevDate.getMonth() + 1;
   const prevValue = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
   options.push({ value: prevValue, label: getLabel(prevYear, prevMonth) });
-  
+
   // Add all other months (current year ± 2 years), excluding current and previous
   for (let year = currentYear - 2; year <= currentYear + 2; year++) {
     for (let month = 1; month <= 12; month++) {
@@ -100,7 +102,7 @@ const getMonthOptions = () => {
       options.push({ value, label: getLabel(year, month) });
     }
   }
-  
+
   // Sort remaining options (after first two) in reverse chronological order
   const firstTwo = options.slice(0, 2);
   const rest = options.slice(2).sort((a, b) => b.value.localeCompare(a.value));
@@ -108,14 +110,23 @@ const getMonthOptions = () => {
 };
 
 function AddressCell({
+  address,
   latitude,
   longitude,
   accuracy,
 }: {
+  address: string | null;
   latitude: string | null;
   longitude: string | null;
   accuracy: string | null;
 }) {
+  if (address) {
+    return (
+      <div className="text-xs text-foreground whitespace-pre-wrap break-words">
+        {address}
+      </div>
+    );
+  }
   if (!latitude || !longitude) return <span className="text-muted-foreground">—</span>;
 
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -190,7 +201,7 @@ function ImageCell({ imageUrl }: { imageUrl: string | null }) {
 export default function EmployeeAttendanceReportPage() {
   const { can } = usePermissions();
   const canView = can(PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE);
-  
+
   if (!canView) {
     return (
       <div className="text-muted-foreground">
@@ -244,6 +255,25 @@ export default function EmployeeAttendanceReportPage() {
       return;
     }
 
+    const selectedMonth = month;
+    const monthMatch = selectedMonth.match(/^(\d{4})-(\d{2})$/);
+    if (!monthMatch) {
+      toast.error("Invalid month selected");
+      return;
+    }
+    const selectedYear = Number(monthMatch[1]);
+    const selectedMonthNo = Number(monthMatch[2]);
+    const daysInSelectedMonth = new Date(selectedYear, selectedMonthNo, 0).getDate();
+
+    const formatMonthDate = (d: Date) => {
+      return new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      }).format(d);
+    };
+
     toast.loading("Loading images for PDF...", { id: "pdf-export" });
 
     // Pre-fetch all images
@@ -287,7 +317,7 @@ export default function EmployeeAttendanceReportPage() {
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("DCTPL", pageWidth / 2, 12, { align: "center" });
-    
+
     // Report Title
     doc.setFontSize(14);
     doc.setFont("helvetica", "normal");
@@ -296,7 +326,7 @@ export default function EmployeeAttendanceReportPage() {
     // Generated timestamp (dd/mm/yyyy hh:mm:ss AM/PM IST)
     const now = new Date();
     const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const nowMonth = String(now.getMonth() + 1).padStart(2, "0");
     const year = now.getFullYear();
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
@@ -305,14 +335,18 @@ export default function EmployeeAttendanceReportPage() {
     hours = hours % 12;
     hours = hours ? hours : 12; // 0 should be 12
     const formattedTime = `${String(hours).padStart(2, "0")}:${minutes}:${seconds} ${ampm}`;
-    
+
     doc.setFontSize(9);
-    doc.text(`Generated on: ${day}/${month}/${year} ${formattedTime} IST`, pageWidth - 14, 25, { align: "right" });
+    doc.text(`Generated on: ${day}/${nowMonth}/${year} ${formattedTime} IST`, pageWidth - 14, 25, { align: "right" });
 
     // Report details
     doc.setFontSize(10);
     let y = 32;
-    doc.text(`Month: ${monthOptions.find(m => m.value === month)?.label || month}`, 14, y);
+    doc.text(
+      `Month: ${monthOptions.find((m) => m.value === selectedMonth)?.label || selectedMonth}`,
+      14,
+      y
+    );
     y += 5;
     if (employeeId) {
       const emp = employeeOptions.find(e => e.value === employeeId);
@@ -321,7 +355,47 @@ export default function EmployeeAttendanceReportPage() {
     }
     y += 3;
 
-    // Build table data using sorted data
+    // Expand data: for each employee, include all dates of the selected month
+    const keyOf = (empId: number, dateStr: string) => `${empId}|${dateStr}`;
+    const byEmployeeDate = new Map<string, ReportRow>();
+    for (const r of sortedData) {
+      byEmployeeDate.set(keyOf(r.employee.id, r.date), r);
+    }
+
+    const employeesInReport = Array.from(
+      new Map(sortedData.map((r) => [r.employee.id, r.employee])).values()
+    ).sort((a, b) => a.name.localeCompare(b.name));
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expandedRows: ReportRow[] = [];
+    for (const emp of employeesInReport) {
+      for (let d = 1; d <= daysInSelectedMonth; d++) {
+        const currentDate = new Date(selectedYear, selectedMonthNo - 1, d);
+        if (currentDate.getTime() > today.getTime()) {
+          break; // Skip future dates
+        }
+
+        const dateStr = formatMonthDate(currentDate);
+        const existing = byEmployeeDate.get(keyOf(emp.id, dateStr));
+        if (existing) {
+          expandedRows.push(existing);
+        } else {
+          expandedRows.push({
+            date: dateStr,
+            employee: emp,
+            workHours: 0,
+            workDuration: "—",
+            workDay: 0,
+            in: null,
+            out: null,
+          });
+        }
+      }
+    }
+
+    // Build table data using expanded rows
     const headers = [
       "Sr.No",
       "Date",
@@ -337,16 +411,20 @@ export default function EmployeeAttendanceReportPage() {
       "Attendance By",
     ];
 
-    const body = sortedData.map((r, idx) => {
-      const inAddr = r.in?.latitude && r.in?.longitude 
-        ? `Lat:${r.in.latitude} Lng:${r.in.longitude} Acc:${r.in.accuracy ?? "—"}` 
-        : "—";
-      const outAddr = r.out?.latitude && r.out?.longitude 
-        ? `Lat:${r.out.latitude} Lng:${r.out.longitude} Acc:${r.out.accuracy ?? "—"}` 
-        : "—";
+    const body = expandedRows.map((r, idx) => {
+      const inAddr = r.in?.address
+        ? r.in.address
+        : r.in?.latitude && r.in?.longitude
+          ? `Lat:${r.in.latitude} Lng:${r.in.longitude} Acc:${r.in.accuracy ?? "—"}`
+          : "—";
+      const outAddr = r.out?.address
+        ? r.out.address
+        : r.out?.latitude && r.out?.longitude
+          ? `Lat:${r.out.latitude} Lng:${r.out.longitude} Acc:${r.out.accuracy ?? "—"}`
+          : "—";
       const inBy = r.in?.createdByName ?? "—";
       const outBy = r.out?.createdByName ?? "—";
-      
+
       return [
         idx + 1,
         r.date,
@@ -367,14 +445,14 @@ export default function EmployeeAttendanceReportPage() {
       head: [headers],
       body: body,
       startY: y,
-      styles: { 
-        fontSize: 7, 
-        cellPadding: 1.5, 
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5,
         minCellHeight: 20,
       },
-      headStyles: { 
-        fillColor: [66, 139, 202], 
-        fontSize: 8, 
+      headStyles: {
+        fillColor: [66, 139, 202],
+        fontSize: 8,
         textColor: 255,
       },
       bodyStyles: {
@@ -388,35 +466,35 @@ export default function EmployeeAttendanceReportPage() {
         3: { cellWidth: "auto" },
         4: { cellWidth: "auto" },
         5: { cellWidth: "auto" },
-        6: { cellWidth: "auto" },
+        6: { cellWidth: 22 },
         7: { cellWidth: "auto" },
         8: { cellWidth: "auto" },
-        9: { cellWidth: "auto" },
+        9: { cellWidth: 22 },
         10: { cellWidth: "auto" },
         11: { cellWidth: "auto" },
       },
-      margin: 10,
+      margin: { top: 10, right: 10, bottom: 20, left: 10 },
       didDrawCell: (data: any) => {
         // Draw images in the In Image (column 6) and Out Image (column 9) cells
         if (data.section === "body" && (data.column.index === 6 || data.column.index === 9)) {
           const rowIdx = data.row.index;
-          const row = sortedData[rowIdx];
+          const row = expandedRows[rowIdx];
           if (!row) return;
 
           const isInImage = data.column.index === 6;
           const imageUrl = isInImage ? row.in?.imageUrl : row.out?.imageUrl;
-          
+
           if (imageUrl) {
             const cacheKey = `${isInImage ? "in" : "out"}-${row.date}-${row.employee.id}`;
             const base64Image = imageCache.get(cacheKey);
-            
+
             if (base64Image) {
               const cell = data.cell;
               const imgWidth = 18;
               const imgHeight = 14;
               const x = cell.x + (cell.width - imgWidth) / 2;
               const y = cell.y + (cell.height - imgHeight) / 2;
-              
+
               try {
                 doc.addImage(base64Image, "JPEG", x, y, imgWidth, imgHeight);
               } catch {
@@ -435,7 +513,7 @@ export default function EmployeeAttendanceReportPage() {
       },
     });
 
-    doc.save(`employee-attendance-${month}.pdf`);
+    doc.save(`employee-attendance-${selectedMonth}.pdf`);
     toast.success("PDF exported successfully");
   };
 
@@ -555,6 +633,7 @@ export default function EmployeeAttendanceReportPage() {
                       </td>
                       <td className="px-2 py-1.5 bg-blue-50/40 dark:bg-blue-950/10 border border-border">
                         <AddressCell
+                          address={r.in?.address ?? null}
                           latitude={r.in?.latitude ?? null}
                           longitude={r.in?.longitude ?? null}
                           accuracy={r.in?.accuracy ?? null}
@@ -568,6 +647,7 @@ export default function EmployeeAttendanceReportPage() {
                       </td>
                       <td className="px-2 py-1.5 bg-rose-50/40 dark:bg-rose-950/10 border border-border">
                         <AddressCell
+                          address={r.out?.address ?? null}
                           latitude={r.out?.latitude ?? null}
                           longitude={r.out?.longitude ?? null}
                           accuracy={r.out?.accuracy ?? null}

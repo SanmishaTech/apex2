@@ -3,13 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
 
-function parseYyyyMmDdToUtcDateOnly(v: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-  const [yyyy, mm, dd] = v.split("-").map((x) => Number(x));
-  if (!yyyy || !mm || !dd) return null;
-  return new Date(Date.UTC(yyyy, mm - 1, dd));
-}
-
 function formatTime(d: Date | string | null | undefined): string {
   if (!d) return "—";
   const dt = typeof d === "string" ? new Date(d) : d;
@@ -91,18 +84,25 @@ export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
 
-  const sp = req.nextUrl.searchParams;
-  const monthRaw = sp.get("month");
-  const employeeIdRaw = sp.get("employeeId");
+  const employee = await prisma.employee.findFirst({
+    where: { userId: auth.user.id },
+    select: { id: true, name: true },
+  });
 
-  if (!monthRaw) {
+  if (!employee) {
     return NextResponse.json(
-      { message: "month is required" },
+      { message: "No employee record linked to current user" },
       { status: 400 }
     );
   }
 
-  // Parse month (YYYY-MM) to get start and end dates
+  const sp = req.nextUrl.searchParams;
+  const monthRaw = sp.get("month");
+
+  if (!monthRaw) {
+    return NextResponse.json({ message: "month is required" }, { status: 400 });
+  }
+
   const monthMatch = monthRaw.match(/^(\d{4})-(\d{2})$/);
   if (!monthMatch) {
     return NextResponse.json(
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
   const [, yearStr, monthStr] = monthMatch;
   const year = Number(yearStr);
   const month = Number(monthStr);
-  
+
   if (month < 1 || month > 12) {
     return NextResponse.json(
       { message: "Invalid month. Month must be between 1 and 12" },
@@ -122,34 +122,27 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Calculate from date (1st of month) and to date (last day of month)
   const from = new Date(Date.UTC(year, month - 1, 1));
-  const to = new Date(Date.UTC(year, month, 0)); // Last day of month
-
-  // Build where clause
-  const whereClause: any = {
-    date: { gte: from, lte: to },
-    type: { in: ["IN", "OUT"] },
-  };
-
-  // Add employee filter if provided
-  if (employeeIdRaw) {
-    const employeeId = Number(employeeIdRaw);
-    if (!Number.isNaN(employeeId) && employeeId > 0) {
-      whereClause.employeeId = employeeId;
-    }
-  }
+  const to = new Date(Date.UTC(year, month, 0));
 
   const rows = await prisma.employeeAttendance.findMany({
-    where: whereClause,
+    where: {
+      employeeId: employee.id,
+      date: { gte: from, lte: to },
+      type: { in: ["IN", "OUT"] },
+    },
     include: {
       employee: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
     },
-    orderBy: [{ date: "asc" }, { employeeId: "asc" }, { type: "asc" }],
+    orderBy: [{ date: "asc" }, { type: "asc" }],
   });
 
-  const byKey = new Map<string, { inRow: (typeof rows)[number] | null; outRow: (typeof rows)[number] | null }>();
+  const byKey = new Map<
+    string,
+    { inRow: (typeof rows)[number] | null; outRow: (typeof rows)[number] | null }
+  >();
+
   for (const r of rows) {
     const key = `${r.employeeId}:${r.date.toISOString().slice(0, 10)}`;
     const entry = byKey.get(key) || { inRow: null, outRow: null };
@@ -159,7 +152,7 @@ export async function GET(req: NextRequest) {
   }
 
   const result: Row[] = [];
-  for (const [key, entry] of byKey.entries()) {
+  for (const entry of byKey.values()) {
     const base = entry.inRow || entry.outRow;
     if (!base) continue;
 
@@ -171,16 +164,12 @@ export async function GET(req: NextRequest) {
       inTime && outTime
         ? Math.max(0, (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60))
         : 0;
-    const workDuration = formatWorkDuration(inTime, outTime);
 
     result.push({
       date: formatDate(base.date),
-      employee: {
-        id: base.employee.id,
-        name: base.employee.name,
-      },
+      employee: { id: employee.id, name: employee.name },
       workHours: Number(workHours.toFixed(2)),
-      workDuration,
+      workDuration: formatWorkDuration(inTime, outTime),
       workDay,
       in: entry.inRow
         ? {
