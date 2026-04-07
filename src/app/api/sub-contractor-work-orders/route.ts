@@ -62,7 +62,6 @@ const createSchema = z.object({
   note: z.string().optional().nullable(),
   terms: z.string().optional().nullable(),
   deliverySchedule: z.string().optional().nullable(),
-  amountInWords: z.string().min(1, "Amount in words is required"),
   paymentTermIds: z.array(z.coerce.number()).min(1, "At least one payment term is required"),
   workOrderItems: z.array(workOrderItemSchema).min(1, "At least one item is required").superRefine((items, ctx) => {
     items.forEach((it, i) => {
@@ -261,7 +260,7 @@ export async function POST(req: NextRequest) {
           totalCgst: parsedData.totalCgst,
           totalSgst: parsedData.totalSgst,
           totalIgst: parsedData.totalIgst,
-          amountInWords: parsedData.amountInWords,
+          amountInWords: amountInWords(parsedData.totalAmount),
           status: parsedData.status ?? "DRAFT",
           createdById: auth.user.id,
           updatedById: auth.user.id,

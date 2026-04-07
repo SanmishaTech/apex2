@@ -5,6 +5,9 @@ import { BadRequest, NotFound } from "@/lib/api-response";
 import jsPDF from "jspdf";
 import autoTable, { type CellDef } from "jspdf-autotable";
 import { format } from "date-fns";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 function formatDateSafe(value?: Date | string | null) {
   if (!value) return "-";
@@ -52,6 +55,29 @@ function drawLines(
   return currentY;
 }
 
+// Load logo from site's company (no fallback)
+async function loadLogoDataUrl(logoPath?: string | null): Promise<{ dataUrl: string; format: "PNG" | "JPEG" } | null> {
+  if (!logoPath) {
+    return null;
+  }
+
+  try {
+    const p = path.join(process.cwd(), logoPath);
+    const buf = await fs.readFile(p);
+    const isPng = logoPath.toLowerCase().endsWith(".png");
+    const fmt = isPng
+      ? "PNG"
+      : logoPath.toLowerCase().endsWith(".jpg") ||
+        logoPath.toLowerCase().endsWith(".jpeg")
+      ? "JPEG"
+      : "PNG";
+    const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
+    return { dataUrl, format: fmt as "PNG" | "JPEG" };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -61,14 +87,14 @@ export async function GET(
 
   const idParam = (await context.params).id;
   const id = Number.parseInt(idParam, 10);
-  if (Number.isNaN(id)) return BadRequest("Invalid purchase order ID");
+  if (Number.isNaN(id)) return BadRequest("Invalid work order ID");
 
-  const purchaseOrder = await prisma.purchaseOrder.findUnique({
+  const workOrder = await prisma.workOrder.findUnique({
     where: { id },
     select: {
       id: true,
-      purchaseOrderNo: true,
-      purchaseOrderDate: true,
+      workOrderNo: true,
+      workOrderDate: true,
       deliveryDate: true,
       quotationNo: true,
       quotationDate: true,
@@ -82,23 +108,12 @@ export async function GET(
       totalCgstAmount: true,
       totalSgstAmount: true,
       totalIgstAmount: true,
-      transitInsuranceStatus: true,
-      transitInsuranceAmount: true,
       pfStatus: true,
       pfCharges: true,
-      gstReverseStatus: true,
-      gstReverseAmount: true,
-      poStatus: true,
       approvalStatus: true,
-      purchaseOrderIndent: {
-        select: {
-          indent: {
-            select: {
-              indentNo: true,
-            },
-          },
-        },
-      },
+      isApproved2: true,
+      WorkOrderfilePath: true,
+      isApproved2Printed: true,
       site: {
         select: {
           site: true,
@@ -121,6 +136,7 @@ export async function GET(
               companyName: true,
               contactPerson: true,
               contactNo: true,
+              logoUrl: true,
             },
           },
         },
@@ -189,13 +205,12 @@ export async function GET(
           },
         },
       },
-      purchaseOrderDetails: {
+      workOrderDetails: {
         select: {
           serialNo: true,
+          Item: true,
           qty: true,
           rate: true,
-          discountPercent: true,
-          disAmt: true,
           cgstPercent: true,
           cgstAmt: true,
           sgstPercent: true,
@@ -203,16 +218,9 @@ export async function GET(
           igstPercent: true,
           igstAmt: true,
           amount: true,
-          item: {
+          unit: {
             select: {
-              item: true,
-              itemCode: true,
-              hsnCode: true,
-              unit: {
-                select: {
-                  unitName: true,
-                },
-              },
+              unitName: true,
             },
           },
         },
@@ -223,31 +231,51 @@ export async function GET(
     },
   });
 
-  if (!purchaseOrder) {
+  if (!workOrder) {
     return NextResponse.json(
-      { error: "Purchase order not found" },
+      { error: "Work order not found" },
       { status: 404 }
     );
   }
 
-  const indentNos = Array.from(
-    new Set(
-      ((purchaseOrder as any).purchaseOrderIndent || [])
-        .map((x: any) => x?.indent?.indentNo)
-        .filter((v: any) => typeof v === "string" && v.trim() !== "")
-    )
-  );
-  const indentNoLabel = indentNos.length > 0 ? indentNos.join(", ") : "";
+  // If already approved2 and already printed, return saved file
+  if ((workOrder as any).isApproved2 && (workOrder as any).isApproved2Printed && (workOrder as any).WorkOrderfilePath) {
+    try {
+      const fullPath = path.join(process.cwd(), (workOrder as any).WorkOrderfilePath);
+      const fileContent = await fs.readFile(fullPath);
+      return new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="work-order-${workOrder.workOrderNo || id}.pdf"`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to read saved work order PDF, regenerating...", e);
+    }
+  }
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 12;
   const usableWidth = pageWidth - margin * 2;
 
+  // Logo - from site's company (no fallback)
+  const logoHeight = 22;
+  const logoWidth = 78;
+  const logoY = margin;
+  try {
+    const logo = await loadLogoDataUrl((workOrder as any).site?.company?.logoUrl);
+    if (logo) {
+      const logoX = pageWidth - margin - logoWidth;
+      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
+    }
+  } catch {}
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.rect(margin, margin, usableWidth, 10);
-  doc.text("PURCHASE ORDER", pageWidth / 2, margin + 7, {
+  doc.text("WORK ORDER", pageWidth / 2, margin + 7, {
     align: "center",
   });
 
@@ -255,7 +283,7 @@ export async function GET(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(60);
   doc.setTextColor(230);
-  doc.text(purchaseOrder.approvalStatus ?? "DRAFT", pageWidth / 2, 160, {
+  doc.text(workOrder.approvalStatus ?? "DRAFT", pageWidth / 2, 160, {
     align: "center",
     angle: -40,
   });
@@ -290,36 +318,36 @@ export async function GET(
 
   doc.setFontSize(10);
   const vendorPhone = [
-    purchaseOrder.vendor?.mobile1,
-    purchaseOrder.vendor?.mobile2,
+    workOrder.vendor?.mobile1,
+    workOrder.vendor?.mobile2,
   ]
     .filter(Boolean)
     .join(", ");
   const vendorLines = [
     { text: `To,`, bold: true },
-    { text: `M/s ${safeText(purchaseOrder.vendor?.vendorName)}`, bold: true },
-    { text: safeText(purchaseOrder.vendor?.addressLine1) },
-    { text: safeText(purchaseOrder.vendor?.addressLine2) },
+    { text: `M/s ${safeText(workOrder.vendor?.vendorName)}`, bold: true },
+    { text: safeText(workOrder.vendor?.addressLine1) },
+    { text: safeText(workOrder.vendor?.addressLine2) },
     {
       text: [
-        safeText(purchaseOrder.vendor?.city?.city),
-        safeText(purchaseOrder.vendor?.state?.state),
-        safeText(purchaseOrder.vendor?.pincode),
+        safeText(workOrder.vendor?.city?.city),
+        safeText(workOrder.vendor?.state?.state),
+        safeText(workOrder.vendor?.pincode),
       ]
         .filter((line) => line !== "-")
         .join(", "),
     },
     {
-      text: `Contact Person : ${safeText(purchaseOrder.vendor?.contactPerson)}`,
+      text: `Contact Person : ${safeText(workOrder.vendor?.contactPerson)}`,
     },
     { text: `Contact No : ${vendorPhone || "-"}` },
-    { text: `Email Id : ${safeText(purchaseOrder.vendor?.email)}` },
-    { text: `GST No : ${safeText(purchaseOrder.vendor?.gstNumber)}` },
-    { text: `State Code : ${safeText(purchaseOrder.vendor?.stateCode)}` },
+    { text: `Email Id : ${safeText(workOrder.vendor?.email)}` },
+    { text: `GST No : ${safeText(workOrder.vendor?.gstNumber)}` },
+    { text: `State Code : ${safeText(workOrder.vendor?.stateCode)}` },
   ];
   drawLines(doc, vendorLines, topBoxX + 2, topBoxY + 6);
 
-  const billing = purchaseOrder.billingAddress;
+  const billing = workOrder.billingAddress;
   const billingPhone = [billing?.landline1, billing?.landline2]
     .filter(Boolean)
     .join(", ");
@@ -345,20 +373,19 @@ export async function GET(
   drawLines(doc, billingLines, topBoxX + 2, topBoxY + topBoxHeight / 2 + 6);
 
   const poHeaderLines = [
-    { text: "INLAND PURCHASE ORDER", bold: true },
-    { text: `Purchase Order No : ${safeText(purchaseOrder.purchaseOrderNo)}` },
-    { text: `Date : ${formatDateSafe(purchaseOrder.purchaseOrderDate)}` },
-    { text: `Quotation No : ${safeText(purchaseOrder.quotationNo)}` },
-    { text: `Quotation Date : ${formatDateSafe(purchaseOrder.quotationDate)}` },
-    { text: `Indent No : ${safeText(indentNoLabel)}` },
+    { text: "WORK ORDER", bold: true },
+    { text: `Work Order No : ${safeText(workOrder.workOrderNo)}` },
+    { text: `Date : ${formatDateSafe(workOrder.workOrderDate)}` },
+    { text: `Quotation No : ${safeText(workOrder.quotationNo)}` },
+    { text: `Quotation Date : ${formatDateSafe(workOrder.quotationDate)}` },
   ];
   drawLines(doc, poHeaderLines, topBoxX + halfWidth + 2, topBoxY + 6);
 
-  const deliver = purchaseOrder.siteDeliveryAddress;
+  const deliver = workOrder.siteDeliveryAddress;
   const deliverLines = [
     { text: "Deliver to :", bold: true },
     {
-      text: safeText(purchaseOrder.site?.shortName || purchaseOrder.site?.site),
+      text: safeText(workOrder.site?.shortName || workOrder.site?.site),
       bold: true,
     },
     { text: safeText(deliver?.addressLine1) },
@@ -374,11 +401,11 @@ export async function GET(
     },
     {
       text: `Contact Person : ${safeText(
-        purchaseOrder.site?.company?.contactPerson
+        workOrder.site?.company?.contactPerson
       )}`,
     },
     {
-      text: `Contact No : ${safeText(purchaseOrder.site?.company?.contactNo)}`,
+      text: `Contact No : ${safeText(workOrder.site?.company?.contactNo)}`,
     },
   ];
   drawLines(
@@ -400,7 +427,7 @@ export async function GET(
   );
 
   const tableStartY = summaryYStart + 8;
-  const itemRows = purchaseOrder.purchaseOrderDetails.map((detail, index) => [
+  const itemRows = workOrder.workOrderDetails.map((detail, index) => [
     (index + 1).toString(),
     detail.item?.item ?? "",
     detail.item?.itemCode ?? "",
@@ -463,7 +490,7 @@ export async function GET(
 
   const tableEndY = (doc as any).lastAutoTable.finalY;
 
-  const totals = purchaseOrder.purchaseOrderDetails.reduce(
+  const totals = workOrder.workOrderDetails.reduce(
     (acc, detail) => {
       const amount = Number(detail.amount ?? 0);
       const cgst = Number(detail.cgstAmt ?? 0);
@@ -481,58 +508,40 @@ export async function GET(
     { amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
   );
 
-  const transitAmount =
-    purchaseOrder.transitInsuranceStatus === null
-      ? Number(purchaseOrder.transitInsuranceAmount ?? 0)
-      : 0;
   const pfAmount =
-    purchaseOrder.pfStatus === null ? Number(purchaseOrder.pfCharges ?? 0) : 0;
-  const gstReverseAmount =
-    purchaseOrder.gstReverseStatus === null
-      ? Number(purchaseOrder.gstReverseAmount ?? 0)
-      : 0;
+    workOrder.pfStatus === null ? Number(workOrder.pfCharges ?? 0) : 0;
 
   const baseAmount = totals.amount - totals.cgst - totals.sgst - totals.igst;
   const grandTotal =
-    Number(purchaseOrder.amount ?? 0) ||
+    Number(workOrder.amount ?? 0) ||
     baseAmount +
       totals.cgst +
       totals.sgst +
       totals.igst +
-      transitAmount +
-      pfAmount +
-      gstReverseAmount;
+      pfAmount;
 
   const chargesY = tableEndY + 6;
 
   autoTable(doc, {
     startY: chargesY,
     body: [
-      ["Delivery Schedule", safeText(purchaseOrder.deliverySchedule)],
+      ["Delivery Schedule", safeText(workOrder.deliverySchedule)],
       [
         "Payment Terms",
-        purchaseOrder.paymentTermsInDays
-          ? `${purchaseOrder.paymentTermsInDays} Days from PO`
-          : "As per PO",
+        workOrder.paymentTermsInDays
+          ? `${workOrder.paymentTermsInDays} Days from WO`
+          : "As per WO",
       ],
-      ["Transport", safeText(purchaseOrder.transport)],
+      ["Transport", safeText(workOrder.transport)],
       [
         "Validity",
         safeText(
-          purchaseOrder.terms ??
+          workOrder.terms ??
             "Terms & Conditions apply as per negotiated agreement"
         ),
       ],
-      ["Jurisdiction & Conditions", safeText(purchaseOrder.note)],
-      [
-        "Transit Insurance",
-        transitAmount ? formatCurrency(transitAmount) : "Inclusive",
-      ],
+      ["Jurisdiction & Conditions", safeText(workOrder.note)],
       ["PF Charges", pfAmount ? formatCurrency(pfAmount) : "Inclusive"],
-      [
-        "GST Reverse Charges",
-        gstReverseAmount ? formatCurrency(gstReverseAmount) : "Not Applicable",
-      ],
       ["Total Before Tax", formatCurrency(baseAmount)],
       ["CGST", formatCurrency(totals.cgst)],
       ["SGST", formatCurrency(totals.sgst)],
@@ -557,7 +566,7 @@ export async function GET(
   doc.setFont("helvetica", "normal");
   doc.text(
     doc.splitTextToSize(
-      safeText(purchaseOrder.amountInWords) || "Rupees Zero Only",
+      safeText(workOrder.amountInWords) || "Rupees Zero Only",
       usableWidth
     ),
     margin,
@@ -605,14 +614,31 @@ export async function GET(
   doc.text(footerText, margin, footerY);
   doc.text("Page 1/1", pageWidth - margin, footerY, { align: "right" });
 
-  const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+  const pdfBytes = doc.output("arraybuffer");
+  const buffer = Buffer.from(pdfBytes);
 
-  return new Response(pdfBuffer, {
+  // Save to disk
+  const uploadDir = path.join(process.cwd(), "uploads", "work-orders");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filename = `wo-${id}-${crypto.randomUUID()}.pdf`;
+  const relativePath = path.join("uploads", "work-orders", filename);
+  const fullPath = path.join(process.cwd(), relativePath);
+  await fs.writeFile(fullPath, buffer);
+
+  // Update DB
+  await prisma.workOrder.update({
+    where: { id },
+    data: {
+      WorkOrderfilePath: relativePath,
+      isApproved2Printed: (workOrder as any).isApproved2 ? true : false,
+    },
+  });
+
+  return new NextResponse(pdfBytes, {
+    status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="purchase-order-${
-        purchaseOrder.purchaseOrderNo ?? id
-      }.pdf"`,
+      "Content-Disposition": `attachment; filename="work-order-${workOrder.workOrderNo ?? id}.pdf"`,
     },
   });
 }

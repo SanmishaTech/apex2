@@ -384,6 +384,7 @@ export async function POST(req: NextRequest) {
         lwf: parsedData.lwf,
         other: parsedData.other,
         totalAmount: parsedData.totalAmount,
+        amountInWords: amountInWords(parsedData.totalAmount),
         createdById: auth.user.id,
         updatedById: auth.user.id,
       };
@@ -406,6 +407,9 @@ export async function POST(req: NextRequest) {
           lwf: true,
           other: true,
           totalAmount: true,
+          amountInWords: true,
+          salesInvoicefilePath: true,
+          isAuthorizedPrinted: true,
           createdAt: true,
           updatedAt: true,
           site: {
@@ -500,6 +504,9 @@ export async function POST(req: NextRequest) {
           lwf: salesInvoice.lwf,
           other: salesInvoice.other,
           totalAmount: salesInvoice.totalAmount,
+          amountInWords: salesInvoice.amountInWords,
+          salesInvoicefilePath: salesInvoice.salesInvoicefilePath,
+          isAuthorizedPrinted: salesInvoice.isAuthorizedPrinted,
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },

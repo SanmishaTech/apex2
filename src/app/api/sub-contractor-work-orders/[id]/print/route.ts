@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 
 function formatDateSafe(value?: Date | string | null) {
   if (!value) return "-";
@@ -25,21 +26,30 @@ function formatCurrency(value: unknown) {
   });
 }
 
-async function loadLogoDataUrl(): Promise<{ dataUrl: string; format: "PNG" | "JPEG" } | null> {
-  const candidates = [path.join("images", "DCTPL-logo.png")];
-  for (const name of candidates) {
-    try {
-      const p = path.join(process.cwd(), "public", name);
-      const buf = await fs.readFile(p);
-      const isPng = name.toLowerCase().endsWith(".png");
-      const fmt = isPng ? "PNG" : "JPEG";
-      const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
-      return { dataUrl, format: fmt } as any;
-    } catch (e) {
-      // ignore
-    }
+// Load logo from site's company (no fallback)
+async function loadLogoDataUrl(logoPath?: string | null): Promise<{
+  dataUrl: string;
+  format: "PNG" | "JPEG";
+} | null> {
+  if (!logoPath) {
+    return null;
   }
-  return null;
+
+  try {
+    const p = path.join(process.cwd(), logoPath);
+    const buf = await fs.readFile(p);
+    const isPng = logoPath.toLowerCase().endsWith(".png");
+    const fmt = isPng
+      ? "PNG"
+      : logoPath.toLowerCase().endsWith(".jpg") ||
+        logoPath.toLowerCase().endsWith(".jpeg")
+      ? "JPEG"
+      : "PNG";
+    const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
+    return { dataUrl, format: fmt as "PNG" | "JPEG" };
+  } catch {
+    return null;
+  }
 }
 
 function getWatermarkText(status?: string | null, isApproved2?: boolean) {
@@ -96,6 +106,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       amountInWords: true,
       status: true,
       isApproved2: true,
+      subContractorWorkOrderfilePath: true,
+      isApproved2Printed: true,
       site: {
         select: {
           site: true,
@@ -105,6 +117,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           city: { select: { city: true } },
           state: { select: { state: true } },
           pinCode: true,
+          company: {
+            select: {
+              logoUrl: true,
+            },
+          },
         },
       },
       vendor: {
@@ -165,13 +182,30 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
   if (!swo) return NextResponse.json({ error: "Work order not found" }, { status: 404 });
 
+  // If already approved2 and already printed, return saved file
+  if ((swo as any).isApproved2 && (swo as any).isApproved2Printed && (swo as any).subContractorWorkOrderfilePath) {
+    try {
+      const fullPath = path.join(process.cwd(), (swo as any).subContractorWorkOrderfilePath);
+      const fileContent = await fs.readFile(fullPath);
+      return new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="sub-contractor-work-order-${swo.workOrderNo || id}.pdf"`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to read saved work order PDF, regenerating...", e);
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
   doc.setDrawColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 8;
 
-  const logo = await loadLogoDataUrl();
+  const logo = await loadLogoDataUrl(((swo as any).site as any)?.company?.logoUrl);
   if (logo) {
     try {
       // place larger logo at top-right
@@ -467,7 +501,26 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   }
 
   const pdfBuf = doc.output("arraybuffer");
-  return new NextResponse(Buffer.from(pdfBuf), {
+  const buffer = Buffer.from(pdfBuf);
+
+  // Save to disk
+  const uploadDir = path.join(process.cwd(), "uploads", "sub-contractor-work-orders");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filename = `swo-${id}-${crypto.randomUUID()}.pdf`;
+  const relativePath = path.join("uploads", "sub-contractor-work-orders", filename);
+  const fullPath = path.join(process.cwd(), relativePath);
+  await fs.writeFile(fullPath, buffer);
+
+  // Update DB
+  await prisma.subContractorWorkOrder.update({
+    where: { id },
+    data: {
+      subContractorWorkOrderfilePath: relativePath,
+      isApproved2Printed: (swo as any).isApproved2 ? true : false,
+    },
+  });
+
+  return new NextResponse(pdfBuf, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",

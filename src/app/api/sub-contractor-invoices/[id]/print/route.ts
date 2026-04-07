@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 
 function formatDateSafe(value?: Date | string | null) {
   if (!value) return "-";
@@ -25,21 +26,28 @@ function formatCurrency(value: unknown) {
   });
 }
 
-async function loadLogoDataUrl(): Promise<{ dataUrl: string; format: "PNG" | "JPEG" } | null> {
-  const candidates = [path.join("images", "DCTPL-logo.png")];
-  for (const name of candidates) {
-    try {
-      const p = path.join(process.cwd(), "public", name);
-      const buf = await fs.readFile(p);
-      const isPng = name.toLowerCase().endsWith(".png");
-      const fmt = isPng ? "PNG" : "JPEG";
-      const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
-      return { dataUrl, format: fmt } as any;
-    } catch (e) {
-      // ignore
-    }
+// Try to load a logo image from site's company (same pattern as Purchase Order)
+async function loadLogoDataUrl(logoPath?: string | null): Promise<{ dataUrl: string; format: "PNG" | "JPEG" } | null> {
+  if (!logoPath) {
+    // No fallback - if no company logo, don't show any logo
+    return null;
   }
-  return null;
+
+  try {
+    const p = path.join(process.cwd(), logoPath);
+    const buf = await fs.readFile(p);
+    const isPng = logoPath.toLowerCase().endsWith(".png");
+    const fmt = isPng
+      ? "PNG"
+      : logoPath.toLowerCase().endsWith(".jpg") ||
+        logoPath.toLowerCase().endsWith(".jpeg")
+      ? "JPEG"
+      : "PNG";
+    const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
+    return { dataUrl, format: fmt as "PNG" | "JPEG" };
+  } catch {
+    return null;
+  }
 }
 
 function getWatermarkText(status?: string | null, isAuthorized?: boolean) {
@@ -78,7 +86,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
   const invoice = await prisma.subContractorInvoice.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      siteId: true,
+      subcontractorWorkOrderId: true,
+      invoiceNumber: true,
+      invoiceDate: true,
+      fromDate: true,
+      toDate: true,
+      grossAmount: true,
+      retentionAmount: true,
+      tds: true,
+      lwf: true,
+      otherDeductions: true,
+      netPayable: true,
+      amountInWords: true,
+      subContractorInvoicefilePath: true,
+      isAuthorized: true,
+      isAuthorizedPrinted: true,
+      status: true,
       site: {
         select: {
           site: true,
@@ -88,6 +114,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           city: { select: { city: true } },
           state: { select: { state: true } },
           pinCode: true,
+          company: {
+            select: {
+              logoUrl: true,
+            },
+          },
         },
       },
       subcontractorWorkOrder: {
@@ -132,6 +163,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           sgstAmt: true,
           igstAmt: true,
           totalLineAmount: true,
+          subContractorWorkOrderDetailId: true,
           subContractorWorkOrderDetail: {
             select: {
               item: true,
@@ -152,13 +184,30 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
   if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
+  // If already authorized and already printed, return saved file
+  if ((invoice as any).isAuthorized && (invoice as any).isAuthorizedPrinted && (invoice as any).subContractorInvoicefilePath) {
+    try {
+      const fullPath = path.join(process.cwd(), (invoice as any).subContractorInvoicefilePath);
+      const fileContent = await fs.readFile(fullPath);
+      return new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="sub-contractor-invoice-${invoice.invoiceNumber || id}.pdf"`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to read saved invoice PDF, regenerating...", e);
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
   doc.setDrawColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 8;
 
-  const logo = await loadLogoDataUrl();
+  const logo = await loadLogoDataUrl(((invoice as any).site as any)?.company?.logoUrl);
   if (logo) {
     try {
       const logoW = 60;
@@ -188,8 +237,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // Header info table - Two columns
   const leftLines = [] as string[];
   leftLines.push("To,");
-  leftLines.push(invoice.subcontractorWorkOrder?.subContractor?.name || "M/s -");
-  const subCon = invoice.subcontractorWorkOrder?.subContractor;
+  leftLines.push((invoice as any).subcontractorWorkOrder?.subContractor?.name || "M/s -");
+  const subCon = (invoice as any).subcontractorWorkOrder?.subContractor;
   if (subCon?.addressLine1) leftLines.push(subCon.addressLine1);
   if (subCon?.addressLine2) leftLines.push(subCon.addressLine2);
   leftLines.push(`Contact: ${subCon?.contactPerson || "-"}`);
@@ -198,8 +247,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const rightLines = [] as string[];
   rightLines.push(`Invoice Date: ${formatDateSafe(invoice.invoiceDate)}`);
   rightLines.push(`Period: ${formatDateSafe(invoice.fromDate)} to ${formatDateSafe(invoice.toDate)}`);
-  rightLines.push(`Work Order: ${invoice.subcontractorWorkOrder?.workOrderNo || "-"}`);
-  rightLines.push(`WO Date: ${formatDateSafe(invoice.subcontractorWorkOrder?.workOrderDate)}`);
+  rightLines.push(`Work Order: ${(invoice as any).subcontractorWorkOrder?.workOrderNo || "-"}`);
+  rightLines.push(`WO Date: ${formatDateSafe((invoice as any).subcontractorWorkOrder?.workOrderDate)}`);
   rightLines.push(`Status: ${invoice.status || "PENDING"}`);
 
   (autoTable as any)(doc as any, {
@@ -215,7 +264,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   });
 
   // Billing Address section
-  const billing = invoice.subcontractorWorkOrder?.billingAddress;
+  const billing = (invoice as any).subcontractorWorkOrder?.billingAddress;
   const billingLines = [] as string[];
   billingLines.push("Billing Address:");
   billingLines.push(billing?.companyName || "-");
@@ -230,7 +279,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const afterHeaderY = (doc as any).lastAutoTable?.finalY || y + 30;
 
   // Items table
-  const details = invoice.subContractorInvoiceDetails || [];
+  const details = (invoice as any).subContractorInvoiceDetails || [];
   const itemsBody = details.map((it: any, idx: number) => {
     return [
       String(idx + 1),
@@ -276,30 +325,36 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       ]
     ],
     body: itemsBody,
-    styles: { fontSize: 7, textColor: 0, lineColor: 0, cellPadding: 1.5 },
-    headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: "bold", lineWidth: 0.1 },
+    styles: { fontSize: 6, textColor: 0, lineColor: 0, cellPadding: 1 },
+    headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: "bold", lineWidth: 0.1, fontSize: 6 },
     theme: "grid",
     margin: { left: margin, right: margin },
     columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 12, halign: "center" },
-      3: { cellWidth: 15, halign: "right" },
-      4: { cellWidth: 15, halign: "right" },
-      5: { cellWidth: 16, halign: "right" },
-      6: { cellWidth: 10, halign: "right" },
-      7: { cellWidth: 14, halign: "right" },
-      8: { cellWidth: 10, halign: "right" },
-      9: { cellWidth: 14, halign: "right" },
-      10: { cellWidth: 10, halign: "right" },
-      11: { cellWidth: 14, halign: "right" },
-      12: { cellWidth: 10, halign: "right" },
-      13: { cellWidth: 14, halign: "right" },
-      14: { cellWidth: 20, halign: "right" },
+      0: { cellWidth: 6, halign: "center" },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 10, halign: "center" },
+      3: { cellWidth: 12, halign: "right" },
+      4: { cellWidth: 12, halign: "right" },
+      5: { cellWidth: 14, halign: "right" },
+      6: { cellWidth: 8, halign: "right" },
+      7: { cellWidth: 12, halign: "right" },
+      8: { cellWidth: 8, halign: "right" },
+      9: { cellWidth: 12, halign: "right" },
+      10: { cellWidth: 8, halign: "right" },
+      11: { cellWidth: 12, halign: "right" },
+      12: { cellWidth: 8, halign: "right" },
+      13: { cellWidth: 12, halign: "right" },
+      14: { cellWidth: 16, halign: "right" },
     },
   });
 
   const afterItemsY = (doc as any).lastAutoTable?.finalY || afterHeaderY + 40;
+
+  // Amount in Words
+  const amountWords = (invoice as any).amountInWords || "Zero";
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Amount in Words: ${amountWords}`, margin, afterItemsY + 10);
 
   // Totals section
   const totalsBody: any[] = [];
@@ -343,7 +398,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   ]);
 
   (autoTable as any)(doc as any, {
-    startY: afterItemsY + 5,
+    startY: afterItemsY + 15,
     body: totalsBody,
     styles: { fontSize: 9, textColor: 0 },
     theme: "grid",
@@ -391,8 +446,87 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin, "S");
   }
 
-  const pdfBuf = doc.output("arraybuffer");
-  return new NextResponse(Buffer.from(pdfBuf), {
+  const pdfBytes = doc.output("arraybuffer");
+  const buffer = Buffer.from(pdfBytes);
+
+  // Save to disk
+  const uploadDir = path.join(process.cwd(), "uploads", "sub-contractor-invoices");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filename = `sci-${id}-${crypto.randomUUID()}.pdf`;
+  const relativePath = path.join("uploads", "sub-contractor-invoices", filename);
+  const fullPath = path.join(process.cwd(), relativePath);
+  await fs.writeFile(fullPath, buffer);
+
+  // Update DB and create log entry in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Update the invoice
+    await tx.subContractorInvoice.update({
+      where: { id },
+      data: {
+        subContractorInvoicefilePath: relativePath,
+        isAuthorizedPrinted: (invoice as any).isAuthorized ? true : false,
+      },
+    });
+
+    // Get the user name for the log
+    const user = await tx.user.findUnique({
+      where: { id: auth.user.id },
+      select: { name: true },
+    });
+
+    // Create main log entry with type UPDATE
+    const log = await tx.subContractorInvoiceLog.create({
+      data: {
+        subContractorInvoiceId: id,
+        siteId: invoice.siteId,
+        subcontractorWorkOrderId: invoice.subcontractorWorkOrderId,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        fromDate: invoice.fromDate,
+        toDate: invoice.toDate,
+        logType: "UPDATE",
+        grossAmount: invoice.grossAmount,
+        retentionAmount: invoice.retentionAmount,
+        tds: invoice.tds,
+        lwf: invoice.lwf,
+        otherDeductions: invoice.otherDeductions,
+        netPayable: invoice.netPayable,
+        status: invoice.status,
+        isAuthorized: (invoice as any).isAuthorized,
+        amountInWords: invoice.amountInWords,
+        subContractorInvoicefilePath: relativePath,
+        isAuthorizedPrinted: (invoice as any).isAuthorized ? true : false,
+        createdById: auth.user.id,
+        createdByName: user?.name || "Unknown",
+      },
+    });
+
+    // Create detail logs from the invoice details
+    const detailLogsData = invoice.subContractorInvoiceDetails.map((detail) => ({
+      subContractorInvoiceLogId: log.id,
+      subContractorInvoiceDetailId: detail.id,
+      subContractorWorkOrderDetailId: detail.subContractorWorkOrderDetailId,
+      particulars: detail.particulars,
+      workOrderQty: detail.workOrderQty,
+      currentBillQty: detail.currentBillQty,
+      rate: detail.rate,
+      discountPercent: detail.discountPercent,
+      discountAmount: detail.discountAmount,
+      cgstPercent: detail.cgstPercent,
+      sgstpercent: detail.sgstpercent,
+      igstPercent: detail.igstPercent,
+      cgstAmt: detail.cgstAmt,
+      sgstAmt: detail.sgstAmt,
+      igstAmt: detail.igstAmt,
+      totalLineAmount: detail.totalLineAmount,
+    }));
+
+    await tx.subContractorInvoiceDetailLog.createMany({
+      data: detailLogsData,
+    });
+  });
+
+  return new NextResponse(pdfBytes, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
