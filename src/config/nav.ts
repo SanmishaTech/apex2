@@ -248,6 +248,12 @@ export const NAV_ITEMS: NavItem[] = [
                 icon: ClipboardCheck,
                 permission: PERMISSIONS.VIEW_EMPLOYEE_ATTENDANCE,
               },
+              {
+                title: "My Attendance",
+                href: "/reports/my-attendance",
+                icon: ClipboardCheck,
+                permission: "__PUBLIC__",
+              },
             ],
           },
         ],

@@ -548,7 +548,7 @@ model EmployeeAttendance {
   time        DateTime
 
   imageUrl    String
-
+  address     String? @db.Text
   latitude    Decimal @db.Decimal(10, 7)
   longitude   Decimal @db.Decimal(10, 7)
   accuracy Decimal     @db.Decimal(8, 2)

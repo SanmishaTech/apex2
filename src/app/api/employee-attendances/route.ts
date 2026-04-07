@@ -6,6 +6,47 @@ import { handleFileUpload } from "@/lib/upload";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
+const GEOAPIFY_API_KEY = (process.env.GEOAPIFY_API_KEY || "").trim().replace(/^["']|["]$/g, "");
+
+async function getAddressFromLatLong(lat: number, lon: number): Promise<string | null> {
+  try {
+    const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error("Geoapify API error:", response.status, response.statusText);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      const feature = data.features[0];
+      const properties = feature.properties;
+      
+      // Build address from available components
+      const addressParts = [
+        properties.name,
+        properties.housenumber,
+        properties.street,
+        properties.suburb,
+        properties.district,
+        properties.city,
+        properties.state,
+        properties.postcode,
+        properties.country
+      ].filter(Boolean);
+      
+      return addressParts.join(", ") || null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error fetching address from Geoapify:", error);
+    return null;
+  }
+}
+
 const createSchema = z.object({
   type: z.enum(["IN", "OUT"]),
   latitude: z
@@ -95,6 +136,9 @@ export async function POST(req: NextRequest) {
       return BadRequest("No employee record linked to current user");
     }
 
+    // Fetch address from Geoapify API
+    const address = await getAddressFromLatLong(parsed.latitude, parsed.longitude);
+
     const now = new Date();
     const dateObj = toDateOnlyIST(now);
 
@@ -118,6 +162,7 @@ export async function POST(req: NextRequest) {
           latitude: new Prisma.Decimal(parsed.latitude),
           longitude: new Prisma.Decimal(parsed.longitude),
           accuracy: new Prisma.Decimal(parsed.accuracy),
+          address,
           createdById: auth.user.id,
         },
       });
@@ -134,6 +179,7 @@ export async function POST(req: NextRequest) {
         latitude: new Prisma.Decimal(parsed.latitude),
         longitude: new Prisma.Decimal(parsed.longitude),
         accuracy: new Prisma.Decimal(parsed.accuracy),
+        address,
         createdById: auth.user.id,
       },
       select: {
@@ -146,6 +192,7 @@ export async function POST(req: NextRequest) {
         latitude: true,
         longitude: true,
         accuracy: true,
+        address: true,
         createdAt: true,
       },
     });

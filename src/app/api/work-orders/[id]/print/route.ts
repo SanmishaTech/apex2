@@ -429,12 +429,12 @@ export async function GET(
   const tableStartY = summaryYStart + 8;
   const itemRows = workOrder.workOrderDetails.map((detail, index) => [
     (index + 1).toString(),
-    detail.item?.item ?? "",
-    detail.item?.itemCode ?? "",
+    detail.Item ?? "",
+    "",
     formatNumber(detail.qty, 3),
-    detail.item?.unit?.unitName ?? "",
+    detail.unit?.unitName ?? "",
     formatNumber(detail.rate),
-    formatNumber(detail.discountPercent),
+    "",
     formatNumber(detail.cgstPercent),
     formatCurrency(detail.cgstAmt),
     formatNumber(detail.sgstPercent),
@@ -496,13 +496,12 @@ export async function GET(
       const cgst = Number(detail.cgstAmt ?? 0);
       const sgst = Number(detail.sgstAmt ?? 0);
       const igst = Number(detail.igstAmt ?? 0);
-      const discount = Number(detail.disAmt ?? 0);
       return {
         amount: acc.amount + amount,
         cgst: acc.cgst + cgst,
         sgst: acc.sgst + sgst,
         igst: acc.igst + igst,
-        discount: acc.discount + discount,
+        discount: acc.discount,
       };
     },
     { amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
