@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { PERMISSIONS, ROLES } from "@/config/roles";
+import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const workOrderItemSchema = z.object({
@@ -173,6 +174,11 @@ export async function PATCH(
       }
 
       dataToUpdate.updatedById = auth.user.id;
+
+      // Regenerate amountInWords if totalAmount is updated
+      if (baseData.totalAmount !== undefined) {
+        dataToUpdate.amountInWords = amountInWords(baseData.totalAmount);
+      }
 
       // If this is a normal update (not a statusAction) and approval level 1 is already done, block edits
       const isNormalUpdate = !statusAction;

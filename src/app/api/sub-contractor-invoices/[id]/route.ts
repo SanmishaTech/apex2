@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Success, Error as ApiError, BadRequest, NotFound } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { PERMISSIONS, ROLES } from "@/config/roles";
+import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const invoiceItemSchema = z.object({
@@ -122,6 +123,11 @@ export async function PATCH(
       const dataToUpdate: any = { ...baseData };
       const now = new Date();
 
+      // Regenerate amountInWords if netPayable is updated
+      if (baseData.netPayable !== undefined) {
+        dataToUpdate.amountInWords = amountInWords(baseData.netPayable);
+      }
+
       // Handle status actions
       if (statusAction) {
         const permSet = new Set((auth.user.permissions || []) as string[]);
@@ -227,6 +233,9 @@ export async function PATCH(
           netPayable: updated.netPayable,
           status: updated.status,
           isAuthorized: updated.isAuthorized,
+          amountInWords: updated.amountInWords,
+          subContractorInvoicefilePath: updated.subContractorInvoicefilePath,
+          isAuthorizedPrinted: updated.isAuthorizedPrinted,
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
@@ -330,6 +339,9 @@ export async function DELETE(
           netPayable: current.netPayable,
           status: current.status,
           isAuthorized: current.isAuthorized,
+          amountInWords: current.amountInWords,
+          subContractorInvoicefilePath: current.subContractorInvoicefilePath,
+          isAuthorizedPrinted: current.isAuthorizedPrinted,
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },

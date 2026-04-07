@@ -7,6 +7,7 @@ import autoTable, { type CellDef } from "jspdf-autotable";
 import { format } from "date-fns";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 
 function formatDateSafe(value?: Date | string | null) {
   if (!value) return "-";
@@ -141,29 +142,30 @@ function ensureSpace(
   return currentY;
 }
 
-async function loadLogoDataUrl(): Promise<{
+// Load logo from site's company (no fallback)
+async function loadLogoDataUrl(logoPath?: string | null): Promise<{
   dataUrl: string;
   format: "PNG" | "JPEG";
 } | null> {
-  const candidates = [path.join("images", "DCTPL-logo.png")];
-  for (const name of candidates) {
-    try {
-      const p = path.join(process.cwd(), "public", name);
-      const buf = await fs.readFile(p);
-      const isPng = name.toLowerCase().endsWith(".png");
-      const fmt = isPng
-        ? "PNG"
-        : name.toLowerCase().endsWith(".jpg") ||
-          name.toLowerCase().endsWith(".jpeg")
-        ? "JPEG"
-        : "PNG";
-      const dataUrl = `data:image/${
-        isPng ? "png" : "jpeg"
-      };base64,${buf.toString("base64")}`;
-      return { dataUrl, format: fmt as "PNG" | "JPEG" };
-    } catch {}
+  if (!logoPath) {
+    return null;
   }
-  return null;
+
+  try {
+    const p = path.join(process.cwd(), logoPath);
+    const buf = await fs.readFile(p);
+    const isPng = logoPath.toLowerCase().endsWith(".png");
+    const fmt = isPng
+      ? "PNG"
+      : logoPath.toLowerCase().endsWith(".jpg") ||
+        logoPath.toLowerCase().endsWith(".jpeg")
+      ? "JPEG"
+      : "PNG";
+    const dataUrl = `data:image/${isPng ? "png" : "jpeg"};base64,${buf.toString("base64")}`;
+    return { dataUrl, format: fmt as "PNG" | "JPEG" };
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(
@@ -181,6 +183,9 @@ export async function GET(
     where: { id },
     select: {
       id: true,
+      siteId: true,
+      boqId: true,
+      billingAddressId: true,
       invoiceNumber: true,
       revision: true,
       invoiceDate: true,
@@ -192,6 +197,9 @@ export async function GET(
       lwf: true,
       other: true,
       totalAmount: true,
+      amountInWords: true,
+      salesInvoicefilePath: true,
+      isAuthorizedPrinted: true,
       authorizedById: true,
       site: {
         select: {
@@ -215,6 +223,7 @@ export async function GET(
               city: true,
               pinCode: true,
               contactNo: true,
+              logoUrl: true,
             },
           },
         },
@@ -248,8 +257,11 @@ export async function GET(
       },
       salesInvoiceDetails: {
         select: {
+          id: true,
+          boqItemId: true,
           boqItem: {
             select: {
+              id: true,
               item: true,
               unit: {
                 select: {
@@ -283,6 +295,23 @@ export async function GET(
     return NotFound("Sales invoice not found");
   }
 
+  // If already authorized and already printed, return saved file
+  if ((salesInvoice as any).authorizedById && (salesInvoice as any).isAuthorizedPrinted && (salesInvoice as any).salesInvoicefilePath) {
+    try {
+      const fullPath = path.join(process.cwd(), (salesInvoice as any).salesInvoicefilePath);
+      const fileContent = await fs.readFile(fullPath);
+      return new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="sales-invoice-${salesInvoice.invoiceNumber || id}.pdf"`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to read saved sales invoice PDF, regenerating...", e);
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
   doc.setDrawColor(0);
@@ -299,12 +328,12 @@ export async function GET(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(headingFontSize);
   
-  // Logo
+  // Logo - load from site's company (no fallback)
   const logoHeight = 22;
   const logoWidth = 78;
   const logoY = margin;
   try {
-    const logo = await loadLogoDataUrl();
+    const logo = await loadLogoDataUrl((salesInvoice as any).site?.company?.logoUrl);
     if (logo) {
       const logoX = pageWidth - margin - logoWidth;
       doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
@@ -650,10 +679,11 @@ export async function GET(
   doc.text(`Net Amount:`, deductionsX, currentY);
   doc.text(formatCurrency(salesInvoice.totalAmount), deductionsX + 70, currentY, { align: "right" });
 
-  // Amount in words
+  // Amount in words - use saved amountInWords if available
   const wordsY = currentY + 8;
   doc.setFont("helvetica", "normal");
-  doc.text(`Amount in Words: ${safeText("Rupees " + amountInWords(Number(salesInvoice.totalAmount)) + " Only")}`, margin, wordsY);
+  const amountWords = (salesInvoice as any).amountInWords || amountInWords(Number(salesInvoice.totalAmount));
+  doc.text(`Amount in Words: ${safeText("Rupees " + amountWords + " Only")}`, margin, wordsY);
 
   // Signature
   const signatureY = wordsY + 15;
@@ -674,6 +704,87 @@ export async function GET(
   }
 
   const pdfBytes = doc.output("arraybuffer");
+  const buffer = Buffer.from(pdfBytes);
+
+  // Save to disk
+  const uploadDir = path.join(process.cwd(), "uploads", "sales-invoices");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filename = `si-${id}-${crypto.randomUUID()}.pdf`;
+  const relativePath = path.join("uploads", "sales-invoices", filename);
+  const fullPath = path.join(process.cwd(), relativePath);
+  await fs.writeFile(fullPath, buffer);
+
+  // Update DB and create log entry in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Update the invoice
+    await tx.salesInvoice.update({
+      where: { id },
+      data: {
+        salesInvoicefilePath: relativePath,
+        isAuthorizedPrinted: (salesInvoice as any).authorizedById ? true : false,
+      },
+    });
+
+    // Get the user name for the log
+    const user = await tx.user.findUnique({
+      where: { id: auth.user.id },
+      select: { name: true },
+    });
+
+    // Create main log entry with type UPDATE
+    const log = await tx.salesInvoiceLog.create({
+      data: {
+        salesInvoiceId: id,
+        siteId: salesInvoice.siteId,
+        boqId: salesInvoice.boqId,
+        invoiceNumber: salesInvoice.invoiceNumber,
+        revision: salesInvoice.revision,
+        invoiceDate: salesInvoice.invoiceDate,
+        fromDate: salesInvoice.fromDate,
+        toDate: salesInvoice.toDate,
+        billingAddressId: salesInvoice.billingAddressId,
+        logType: "UPDATE",
+        grossAmount: salesInvoice.grossAmount,
+        tds: salesInvoice.tds,
+        wct: salesInvoice.wct,
+        lwf: salesInvoice.lwf,
+        other: salesInvoice.other,
+        totalAmount: salesInvoice.totalAmount,
+        amountInWords: salesInvoice.amountInWords,
+        salesInvoicefilePath: relativePath,
+        isAuthorizedPrinted: (salesInvoice as any).authorizedById ? true : false,
+        createdById: auth.user.id,
+        createdByName: user?.name || "Unknown",
+      },
+    });
+
+    // Create detail logs from the invoice details (filter out entries with null boqItemId)
+    const detailLogsData = (salesInvoice as any).salesInvoiceDetails
+      .filter((detail: any) => detail.boqItemId !== null && detail.boqItemId !== undefined)
+      .map((detail: any) => ({
+        salesInvoiceLogId: log.id,
+        salesInvoiceDetailId: detail.id,
+        boqItemId: detail.boqItemId,
+        particulars: detail.particulars,
+        totalBoqQty: detail.totalBoqQty,
+        invoiceQty: detail.invoiceQty,
+        rate: detail.rate,
+        discount: detail.discount,
+        discountAmount: detail.discountAmount,
+        cgst: detail.cgst,
+        cgstAmt: detail.cgstAmt,
+        sgst: detail.sgst,
+        sgstAmt: detail.sgstAmt,
+        igst: detail.igst,
+        igstAmt: detail.igstAmt,
+        amount: detail.amount,
+      }));
+
+    await tx.salesInvoiceDetailLog.createMany({
+      data: detailLogsData,
+    });
+  });
+
   return new NextResponse(pdfBytes, {
     status: 200,
     headers: {

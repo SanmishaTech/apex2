@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-response";
 import { guardApiAccess } from "@/lib/access-guard";
 import { PERMISSIONS, ROLES } from "@/config/roles";
+import { amountInWords } from "@/lib/payroll";
 import { z } from "zod";
 
 const salesInvoiceDetailSchema = z.object({
@@ -255,6 +256,9 @@ export async function PATCH(
           lwf: true,
           other: true,
           totalAmount: true,
+          amountInWords: true,
+          salesInvoicefilePath: true,
+          isAuthorizedPrinted: true,
         },
       });
 
@@ -305,6 +309,11 @@ export async function PATCH(
       // Always update the updatedAt and updatedById
       invoiceData.updatedAt = new Date();
       invoiceData.updatedById = auth.user.id;
+
+      // Regenerate amountInWords if totalAmount is updated
+      if (invoiceData.totalAmount !== undefined) {
+        invoiceData.amountInWords = amountInWords(invoiceData.totalAmount);
+      }
 
       // Update invoice
       await tx.salesInvoice.update({
@@ -403,6 +412,9 @@ export async function PATCH(
           lwf: invoiceData.lwf ?? current.lwf,
           other: invoiceData.other ?? current.other,
           totalAmount: invoiceData.totalAmount ?? current.totalAmount,
+          amountInWords: invoiceData.amountInWords ?? current.amountInWords,
+          salesInvoicefilePath: invoiceData.salesInvoicefilePath ?? current.salesInvoicefilePath,
+          isAuthorizedPrinted: invoiceData.isAuthorizedPrinted ?? current.isAuthorizedPrinted,
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
@@ -577,6 +589,9 @@ export async function DELETE(
         lwf: true,
         other: true,
         totalAmount: true,
+        amountInWords: true,
+        salesInvoicefilePath: true,
+        isAuthorizedPrinted: true,
       },
     });
 
@@ -619,6 +634,9 @@ export async function DELETE(
           lwf: invoice.lwf,
           other: invoice.other,
           totalAmount: invoice.totalAmount,
+          amountInWords: invoice.amountInWords,
+          salesInvoicefilePath: invoice.salesInvoicefilePath,
+          isAuthorizedPrinted: invoice.isAuthorizedPrinted,
           createdById: auth.user.id,
           createdByName: user?.name || "Unknown",
         },
