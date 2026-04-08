@@ -1102,7 +1102,7 @@ model Manpower {
   address      String?  @db.Text
   location     String?
   mobileNumber String?
-
+  gender       String?
   // Bank details
   bank          String?
   branch        String?

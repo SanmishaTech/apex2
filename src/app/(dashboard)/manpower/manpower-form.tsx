@@ -25,6 +25,7 @@ export interface ManpowerInitialData {
   firstName?: string;
   middleName?: string | null;
   lastName?: string;
+  gender?: string | null;
   supplierId?: number | null;
   dateOfBirth?: string | null; // ISO
   address?: string | null;
@@ -88,6 +89,7 @@ const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
   middleName: z.string().optional(),
   lastName: z.string().optional(),
+  gender: z.string({ required_error: "Gender is required" }).min(1, "Gender is required"),
   supplierId: z.string().min(1, "Manpower supplier is required"),
   dateOfBirth: z.string().optional(), // yyyy-mm-dd
   // Contact
@@ -148,6 +150,7 @@ export default function ManpowerForm({
       firstName: initial?.firstName || "",
       middleName: initial?.middleName || "",
       lastName: initial?.lastName || "",
+      gender: initial?.gender || "",
       supplierId: initial?.supplierId ? String(initial.supplierId) : "",
       dateOfBirth: initial?.dateOfBirth
         ? initial.dateOfBirth.split("T")[0]
@@ -223,6 +226,7 @@ export default function ManpowerForm({
       fd.append("firstName", values.firstName.trim());
       if (values.middleName) fd.append("middleName", values.middleName.trim());
       if (values.lastName) fd.append("lastName", values.lastName.trim());
+      fd.append("gender", values.gender);
       fd.append("supplierId", values.supplierId);
       if (values.dateOfBirth) fd.append("dateOfBirth", values.dateOfBirth);
       if (values.address) fd.append("address", values.address);
@@ -336,11 +340,22 @@ export default function ManpowerForm({
               <FormRow className="grid-cols-12">
                 <AppSelect
                   control={control}
+                  name="gender"
+                  label="Gender"
+                  placeholder="Select gender"
+                  required
+                  className="col-span-4"
+                >
+                  <AppSelect.Item value="Male">Male</AppSelect.Item>
+                  <AppSelect.Item value="Female">Female</AppSelect.Item>
+                </AppSelect>
+                <AppSelect
+                  control={control}
                   name="supplierId"
                   label="Manpower Supplier"
                   placeholder="Select supplier"
                   required
-                  className="col-span-6"
+                  className="col-span-4"
                 >
                   {suppliers?.data?.map((s) => (
                     <AppSelect.Item key={s.id} value={String(s.id)}>
@@ -354,7 +369,7 @@ export default function ManpowerForm({
                   label="Date of Birth"
                   type="date"
                   placeholder="YYYY-MM-DD"
-                  itemClassName="col-span-6"
+                  itemClassName="col-span-4"
                 />
               </FormRow>
               <FormRow className="grid-cols-12">

@@ -25,6 +25,7 @@ export type ManpowerListItem = {
   firstName: string;
   middleName: string | null;
   lastName: string;
+  gender: string | null;
   supplierId: number;
   manpowerSupplier: { id: number; supplierName: string } | null;
   dateOfBirth: string | null;
@@ -105,6 +106,7 @@ export default function ManpowerPage() {
       key: 'firstName', header: 'Name', sortable: true, accessor: (r) => `${r.firstName}${r.middleName ? ' ' + r.middleName : ''} ${r.lastName}`,
       className: 'whitespace-nowrap', cellClassName: 'font-medium whitespace-nowrap',
     },
+    { key: 'gender', header: 'Gender', sortable: false, accessor: (r) => r.gender || '-', className: 'whitespace-nowrap' },
     { key: 'category', header: 'Category', sortable: false, accessor: (r) => r.category || '-', className: 'whitespace-nowrap' },
     { key: 'aadharNo', header: 'Aadhar No', sortable: false, accessor: (r) => r.aadharNo || '-', className: 'whitespace-nowrap' },
     { key: 'currentSiteName', header: 'Site', sortable: false, accessor: (r) => r.currentSiteName || '-', className: 'whitespace-nowrap' },
@@ -150,6 +152,7 @@ export default function ManpowerPage() {
         'First Name': item.firstName,
         'Middle Name': item.middleName || '',
         'Last Name': item.lastName,
+        'Gender': item.gender || '',
         'Full Name': `${item.firstName}${item.middleName ? ' ' + item.middleName : ''} ${item.lastName}`,
         'Supplier Name': item.manpowerSupplier?.supplierName || '',
         'Supplier ID': item.supplierId,
@@ -197,6 +200,7 @@ export default function ManpowerPage() {
         { wch: 15 }, // First Name
         { wch: 15 }, // Middle Name
         { wch: 15 }, // Last Name
+        { wch: 10 }, // Gender
         { wch: 30 }, // Full Name
         { wch: 25 }, // Supplier Name
         { wch: 12 }, // Supplier ID
