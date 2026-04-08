@@ -23,6 +23,7 @@ export async function GET(
         firstName: true,
         middleName: true,
         lastName: true,
+        gender: true,
         supplierId: true,
         manpowerSupplier: { select: { id: true, supplierName: true } },
         dateOfBirth: true,

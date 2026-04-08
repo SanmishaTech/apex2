@@ -26,6 +26,15 @@ function formatCurrency(value: unknown) {
   });
 }
 
+function formatNumber(value: unknown, fractionDigits = 2) {
+  const num = Number(value ?? 0);
+  if (!Number.isFinite(num)) return "0";
+  return num.toLocaleString("en-IN", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
 // Load logo from site's company (no fallback)
 async function loadLogoDataUrl(logoPath?: string | null): Promise<{
   dataUrl: string;
@@ -199,306 +208,613 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
   }
 
+  // Helper functions for drawing
+  function drawLines(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    x: number,
+    startY: number,
+    lineHeight = 4
+  ) {
+    let currentY = startY;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      doc.text(line.text, x, currentY);
+      currentY += lineHeight;
+    }
+    return currentY;
+  }
+
+  function measureWrappedLinesHeight(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    maxWidth: number,
+    lineHeight = 4
+  ) {
+    let total = 0;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      const wrapped = doc.splitTextToSize(line.text, maxWidth);
+      total += (Array.isArray(wrapped) ? wrapped.length : 1) * lineHeight;
+    }
+    return total;
+  }
+
+  function drawWrappedLines(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    x: number,
+    startY: number,
+    maxWidth: number,
+    lineHeight = 4
+  ) {
+    let currentY = startY;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      const wrapped = doc.splitTextToSize(line.text, maxWidth);
+      const items = Array.isArray(wrapped) ? wrapped : [String(wrapped)];
+      for (const w of items) {
+        doc.text(w, x, currentY);
+        currentY += lineHeight;
+      }
+    }
+    return currentY;
+  }
+
+  function ensureSpace(
+    doc: jsPDF,
+    currentY: number,
+    neededHeight: number,
+    margin: number
+  ) {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    if (currentY + neededHeight > pageHeight - margin - 10) {
+      doc.addPage();
+      return margin;
+    }
+    return currentY;
+  }
+
+  function safeText(value?: string | null) {
+    return value?.trim() ? value.trim() : "-";
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
   doc.setDrawColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 8;
+  const usableWidth = pageWidth - margin * 2;
 
-  const logo = await loadLogoDataUrl(((swo as any).site as any)?.company?.logoUrl);
-  if (logo) {
-    try {
-      // place larger logo at top-right
-      const logoW = 55;
-      const logoH = 22;
-      const logoX = pageWidth - margin - logoW;
-      const logoY = 10;
-      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoW, logoH);
-    } catch (e) {}
-  }
+  const headingFontSize = 10;
+  const smallFontSize = 7;
+  const tableFontSize = 7;
+  const lineHeight = 3.0;
 
-  // Title - positioned below logo with padding
-  doc.setFontSize(12);
+  // Place the company logo from site's company - top-right with larger sizing
+  const logoHeight = 22;
+  const logoWidth = 78;
+  const logoY = margin;
+  try {
+    const companyLogoUrl = ((swo as any).site as any)?.company?.logoUrl;
+    const logo = await loadLogoDataUrl(companyLogoUrl);
+    if (logo) {
+      const logoX = pageWidth - margin - logoWidth;
+      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
+    }
+  } catch {}
+
+  const headerY = logoY + logoHeight + 3;
   doc.setFont("helvetica", "bold");
-  doc.text("Sub Contractor Work Order", pageWidth / 2, 38, { align: "center" } as any);
-
-  // set global smaller font for print
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-
-  // We'll render vendor / WO details using a 2-column table below
-  let y = 45;
-  // Two-column table after heading: vendor / title & WO details  (2 rows)
-  const vendorTextLines = [] as string[];
-  vendorTextLines.push('To,');
-  vendorTextLines.push(swo.vendor?.vendorName || 'M/s -');
-  if (swo.vendor?.addressLine1) vendorTextLines.push(swo.vendor.addressLine1);
-  if (swo.vendor?.addressLine2) vendorTextLines.push(swo.vendor.addressLine2);
-  const vendorCity = swo.vendor?.city?.city ? `${swo.vendor.city.city}` : '';
-  const vendorState = swo.vendor?.state?.state ? `${swo.vendor.state.state}` : '';
-  const vendorPin = swo.vendor?.pincode ? swo.vendor.pincode : '';
-  if (vendorCity || vendorPin || vendorState) vendorTextLines.push(`${vendorCity} - ${vendorPin}, ${vendorState}`);
-  vendorTextLines.push(`Contact Person : ${swo.vendor?.contactPerson || '-'}`);
-  vendorTextLines.push(`Mobile No : ${swo.vendor?.mobile1 || '-'}`);
-  vendorTextLines.push(`Email Id : ${swo.vendor?.email || '-'}`);
-  vendorTextLines.push(`GST No : ${swo.vendor?.gstNumber || ' / State Code'}`);
-
-  const rightTopLines = [] as string[];
-  rightTopLines.push('SUB CONTRACTOR WORK ORDER - Sub');
-  rightTopLines.push('Contract');
-  rightTopLines.push('');
-  rightTopLines.push(`W O Number : ${swo.workOrderNo || '-'}`);
-  rightTopLines.push(`BOQ Number : ${swo.quotationNo || '-'}`);
-  rightTopLines.push(`Date : ${formatDateSafe(swo.workOrderDate)}`);
-  rightTopLines.push(`Quotation No : ${swo.quotationNo || '-'}`);
-  rightTopLines.push(`Quotation Date : ${formatDateSafe(swo.quotationDate)}`);
-
-  const billingLines = [] as string[];
-  billingLines.push('Billing Address');
-  billingLines.push(swo.billingAddress?.companyName || '-');
-  if (swo.billingAddress?.addressLine1) billingLines.push(swo.billingAddress.addressLine1);
-  if (swo.billingAddress?.addressLine2) billingLines.push(swo.billingAddress.addressLine2);
-  const billingCity = swo.billingAddress?.city?.city ? `${swo.billingAddress.city.city}` : '';
-  const billingState = swo.billingAddress?.state?.state ? `${swo.billingAddress.state.state}` : '';
-  const billingPin = swo.billingAddress?.pincode ? swo.billingAddress.pincode : '';
-  if (billingCity || billingPin || billingState) billingLines.push(`${billingCity} - ${billingPin} ${billingState}.`);
-  billingLines.push(`Email Id : ${swo.billingAddress?.addressLine1 ? swo.billingAddress.addressLine1 : '-'}`);
-  billingLines.push('GST No :');
-  billingLines.push('State Code :');
-  billingLines.push('CIN No :');
-
-  const deliveryLines = [] as string[];
-  deliveryLines.push('Deliver To:');
-  if (swo.deliveryAddress?.addressLine1) deliveryLines.push(swo.deliveryAddress.addressLine1);
-  if (swo.deliveryAddress?.addressLine2) deliveryLines.push(swo.deliveryAddress.addressLine2);
-  const delCity = swo.deliveryAddress?.city?.city ? `${swo.deliveryAddress.city.city}` : '';
-  const delState = swo.deliveryAddress?.state?.state ? `${swo.deliveryAddress.state.state}` : '';
-  const delPin = swo.deliveryAddress?.pinCode ? swo.deliveryAddress.pinCode : '';
-  if (delCity || delPin || delState) deliveryLines.push(`${delCity} - ${delPin}, ${delState}`);
-
-  (autoTable as any)(doc as any, {
-    startY: y,
-    body: [
-      [ { content: vendorTextLines.join('\n') }, { content: rightTopLines.join('\n') } ],
-      [ { content: billingLines.join('\n') }, { content: deliveryLines.join('\n') } ],
-    ],
-    styles: { fontSize: 10, textColor: 0 },
-    theme: 'grid',
-    head: [],
-    margin: { left: margin, right: margin },
-    columnStyles: { 0: { cellWidth: pageWidth / 2 - margin }, 1: { cellWidth: pageWidth / 2 - margin } },
+  doc.setFontSize(headingFontSize);
+  doc.text("SUB CONTRACTOR WORK ORDER", pageWidth / 2, headerY, {
+    align: "center",
   });
 
-  // Intro paragraph requested by user (hardcoded)
-  const intro = `Dear Sir/Madam :\nWe are pleased to confirm our work order against your Quotation. You are requested to execute the following items as per terms and conditions attached. Please quote work order no in challan,invoice and related correspondence.`;
-  // wrap text manually to fit page width
-  const maxTextWidth = pageWidth - margin * 2;
-  const lines = (doc as any).splitTextToSize(intro, maxTextWidth - 4);
-  
-  // Ensure intro starts after the header table with proper spacing
-  const headerTableEndY = (doc as any).lastAutoTable?.finalY || y + 50;
-  const introStartY = headerTableEndY + 8;
-  
-  doc.setFontSize(9);
-  doc.text(lines, margin, introStartY);
+  const topBoxY = headerY + 3;
+  const halfWidth = usableWidth / 2;
+  const topBoxX = margin;
 
-  // move startY below intro with padding
-  let itemsStartY = introStartY + lines.length * 3.5 + 6;
+  doc.setFontSize(smallFontSize);
+  const vendorPhone = [swo.vendor?.mobile1, swo.vendor?.mobile2]
+    .filter(Boolean)
+    .join(", ");
+  const vendorLines = [
+    { text: `To,`, bold: true },
+    { text: `M/s ${safeText(swo.vendor?.vendorName)}`, bold: true },
+    { text: safeText(swo.vendor?.addressLine1) },
+    { text: safeText(swo.vendor?.addressLine2) },
+    {
+      text: [
+        safeText(swo.vendor?.city?.city),
+        safeText(swo.vendor?.state?.state),
+        safeText(swo.vendor?.pincode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+    { text: `Contact Person : ${safeText(swo.vendor?.contactPerson)}` },
+    { text: `Contact No : ${vendorPhone || "-"}` },
+    { text: `Email Id : ${safeText(swo.vendor?.email)}` },
+    { text: `GST No : ${safeText(swo.vendor?.gstNumber)}` },
+  ];
 
-  // Build items table with tax sub-columns: CGST(% / Amt), SGST(% / Amt), IGST(% / Amt)
+  const billing = swo.billingAddress;
+  const billingLines = [
+    { text: "Billing Address", bold: true },
+    { text: safeText(billing?.companyName), bold: true },
+    { text: safeText(billing?.addressLine1) },
+    { text: safeText(billing?.addressLine2) },
+    { text: `State : ${safeText(billing?.state?.state)}` },
+    {
+      text: [
+        safeText(billing?.city?.city),
+        safeText(billing?.pincode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+    { text: `GST No : ${safeText(billing?.gstNumber)}` },
+  ];
+
+  const woHeaderLines = [
+    { text: "WORK ORDER", bold: true },
+    { text: `W O Number : ${safeText(swo.workOrderNo)}` },
+    { text: `Work Order Date : ${formatDateSafe(swo.workOrderDate)}` },
+    { text: `Quotation No : ${safeText(swo.quotationNo)}` },
+    { text: `Quotation Date : ${formatDateSafe(swo.quotationDate)}` },
+    { text: `Delivery Date : ${formatDateSafe(swo.deliveryDate)}` },
+  ];
+
+  const deliver = swo.deliveryAddress;
+  const siteShortName = (swo.site as any)?.shortName || (swo.site as any)?.site || "";
+  const deliverLines = [
+    { text: "Delivery/Site Address :", bold: true },
+    { text: safeText(siteShortName), bold: true },
+    { text: safeText(deliver?.addressLine1) },
+    { text: safeText(deliver?.addressLine2) },
+    {
+      text: [
+        safeText(deliver?.city?.city),
+        safeText(deliver?.state?.state),
+        safeText(deliver?.pinCode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+  ];
+
+  // Compute dynamic heights for top/bottom halves and draw the box & dividers
+  const colTextWidth = halfWidth - 4;
+  const vendorHeight = measureWrappedLinesHeight(
+    doc,
+    vendorLines,
+    colTextWidth,
+    lineHeight
+  );
+  const woHeaderHeight = measureWrappedLinesHeight(
+    doc,
+    woHeaderLines,
+    colTextWidth,
+    lineHeight
+  );
+  const topHalfHeight = Math.max(vendorHeight, woHeaderHeight) + 8;
+
+  const billingHeight = measureWrappedLinesHeight(
+    doc,
+    billingLines,
+    colTextWidth,
+    lineHeight
+  );
+  const deliverHeight = measureWrappedLinesHeight(
+    doc,
+    deliverLines,
+    colTextWidth,
+    lineHeight
+  );
+  const bottomHalfHeight = Math.max(billingHeight, deliverHeight) + 8;
+
+  const topBoxHeight = topHalfHeight + bottomHalfHeight;
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.2);
+  doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
+  // vertical center divider
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY,
+    topBoxX + halfWidth,
+    topBoxY + topBoxHeight
+  );
+  // horizontal divider at computed top-half height
+  doc.line(
+    topBoxX,
+    topBoxY + topHalfHeight,
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight
+  );
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight,
+    topBoxX + usableWidth,
+    topBoxY + topHalfHeight
+  );
+
+  // Render wrapped text blocks within columns
+  drawWrappedLines(
+    doc,
+    vendorLines,
+    topBoxX + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    woHeaderLines,
+    topBoxX + halfWidth + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    billingLines,
+    topBoxX + 2,
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    deliverLines,
+    topBoxX + halfWidth + 2,
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
+  );
+
+  const summaryGap = 3;
+  const summaryYStart = topBoxY + topBoxHeight + summaryGap;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(smallFontSize);
+  const summaryText =
+    "Dear Sir/Madam: We are pleased to confirm our work order against your Quotation. You are requested to execute the following items as per terms and conditions attached.";
+  const summarySpec = [{ text: summaryText }];
+  const summaryHeight = measureWrappedLinesHeight(
+    doc,
+    summarySpec,
+    usableWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    summarySpec,
+    margin,
+    summaryYStart,
+    usableWidth,
+    lineHeight
+  );
+
+  const tableStartY = summaryYStart + summaryHeight + summaryGap;
+
+  // Build item rows
   const details = swo.subContractorWorkOrderDetails || [];
-  const itemsBody = details.map((it: any, idx: number) => {
-    const qty = Number(it.qty ?? 0);
-    const rate = Number(it.rate ?? 0);
-    const base = qty * rate || 0;
-
-    const cgstAmt = Number(it.cgstAmt ?? 0);
-    const sgstAmt = Number(it.sgstAmt ?? 0);
-    const igstAmt = Number(it.igstAmt ?? 0);
-
-    const cgstPct = base > 0 ? (cgstAmt / base) * 100 : NaN;
-    const sgstPct = base > 0 ? (sgstAmt / base) * 100 : NaN;
-    const igstPct = base > 0 ? (igstAmt / base) * 100 : NaN;
-
+  const itemRows = details.map((it: any, index: number) => {
+    const qtyNum = Number(it.qty ?? 0);
+    const rateNum = Number(it.rate ?? 0);
+    const basicAmountNum = qtyNum * rateNum;
     return [
-      String(idx + 1), // sr.no
-      String(it.id ?? "-"), // activity id
-      it.item || "-", // description
-      it.sacCode || "-",
-      it.qty != null ? Number(it.qty).toLocaleString("en-IN") : "-",
-      it.unit?.unitName || "-",
-      formatCurrency(it.rate),
-      // CGST % , CGST amount
-      Number.isFinite(cgstPct) ? `${cgstPct.toFixed(2)}%` : "-",
-      formatCurrency(cgstAmt),
-      // SGST % , SGST amount
-  Number.isFinite(sgstPct) ? `${sgstPct.toFixed(2)}%` : "-",
-      formatCurrency(sgstAmt),
-      // IGST % , IGST amount
-      Number.isFinite(igstPct) ? `${igstPct.toFixed(2)}%` : "-",
-      formatCurrency(igstAmt),
-      // Amount
+      (index + 1).toString(),
+      [
+        it.item || "-",
+        it.description ? String(it.description) : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      it.sacCode ?? "-",
+      it.unit?.unitName ?? "-",
+      formatNumber(it.qty, 2),
+      formatNumber(it.rate, 2),
+      formatCurrency(basicAmountNum),
+      // CGST
+      formatNumber((Number(it.cgstAmt ?? 0) / (basicAmountNum || 1)) * 100, 2),
+      formatCurrency(it.cgstAmt),
+      // SGST
+      formatNumber((Number(it.sgstAmt ?? 0) / (basicAmountNum || 1)) * 100, 2),
+      formatCurrency(it.sgstAmt),
+      // IGST
+      formatNumber((Number(it.igstAmt ?? 0) / (basicAmountNum || 1)) * 100, 2),
+      formatCurrency(it.igstAmt),
       formatCurrency(it.amount),
     ];
   });
 
-  (autoTable as any)(doc as any, {
-    startY: itemsStartY,
-    tableWidth: pageWidth - margin * 2,
-    head: [
-      [
-        { content: 'Sr.\nNo', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Activity\nID', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Description', rowSpan: 2, styles: { halign: 'left', valign: 'middle', fontSize: 7 } },
-        { content: 'SAC\nCode', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Qty', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Unit', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Rate', rowSpan: 2, styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
-        { content: 'CGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'SGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'IGST', colSpan: 2, styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Amount', rowSpan: 2, styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
-      ],
-      [
-        '', '', '', '', '', '', '',
-        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
-        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
-        { content: '%', styles: { halign: 'center', valign: 'middle', fontSize: 7 } },
-        { content: 'Amt', styles: { halign: 'right', valign: 'middle', fontSize: 7 } },
-        ''
-      ],
+  const totals = details.reduce(
+    (acc: any, it: any) => {
+      const qtyNum = Number(it.qty ?? 0);
+      const rateNum = Number(it.rate ?? 0);
+      const basicAmount = qtyNum * rateNum;
+      const amount = Number(it.amount ?? 0);
+      const cgst = Number(it.cgstAmt ?? 0);
+      const sgst = Number(it.sgstAmt ?? 0);
+      const igst = Number(it.igstAmt ?? 0);
+      return {
+        basicAmount: acc.basicAmount + basicAmount,
+        amount: acc.amount + amount,
+        cgst: acc.cgst + cgst,
+        sgst: acc.sgst + sgst,
+        igst: acc.igst + igst,
+      };
+    },
+    { basicAmount: 0, amount: 0, cgst: 0, sgst: 0, igst: 0 }
+  );
+
+  const grandTotal = Number(swo.totalAmount ?? 0) || totals.amount;
+
+  const amountWords = safeText(swo.amountInWords) || "Rupees Zero Only";
+  const amountWordsDisplay = `Rupees : ${amountWords} Only`;
+
+  const totalsRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "Total", styles: { fontStyle: "bold", halign: "right" } },
+    {
+      content: formatCurrency(totals.basicAmount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.cgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.sgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.igst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    {
+      content: formatCurrency(totals.amount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const amountWordsRow: any[] = [
+    {
+      content: amountWordsDisplay,
+      colSpan: 13,
+      styles: { fontStyle: "bold", halign: "left" },
+    },
+    {
+      content: formatCurrency(grandTotal),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const itemRowsWithSummary: any[] = [
+    ...(itemRows as any[]),
+    totalsRow,
+    amountWordsRow,
+  ];
+
+  const headRows: any[][] = [
+    [
+      { content: "Sr. No.", rowSpan: 2 },
+      { content: "Description", rowSpan: 2 },
+      { content: "SAC Code", rowSpan: 2 },
+      { content: "Unit", rowSpan: 2 },
+      { content: "Qty", rowSpan: 2 },
+      { content: "Rate (INR)", rowSpan: 2 },
+      { content: "Basic Amount (INR)", rowSpan: 2 },
+      { content: "CGST", colSpan: 2 },
+      { content: "SGST", colSpan: 2 },
+      { content: "IGST", colSpan: 2 },
+      { content: "Amount (INR)", rowSpan: 2 },
     ],
-    body: itemsBody,
-    styles: { fontSize: 7, textColor: 0, lineColor: 0, cellPadding: 1 },
-    headStyles: { fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', lineWidth: 0.2, halign: 'center', valign: 'middle' },
-    theme: 'grid',
-    margin: { left: margin, right: margin },
+    [
+      { content: "%" },
+      { content: "Amt" },
+      { content: "%" },
+      { content: "Amt" },
+      { content: "%" },
+      { content: "Amt" },
+    ],
+  ];
+
+  const itemTableStyles: any = {
+    fontSize: tableFontSize,
+    textColor: 0,
+    lineColor: [0, 0, 0],
+    cellPadding: 0.45,
+    valign: "top",
+    lineWidth: 0.15,
+  };
+
+  autoTable(doc, {
+    startY: tableStartY,
+    head: headRows,
+    body: itemRowsWithSummary,
+    theme: "grid",
+    styles: itemTableStyles,
+    headStyles: {
+      textColor: 0,
+      lineWidth: 0.15,
+      fontSize: tableFontSize,
+      fillColor: [255, 255, 255],
+    },
+    margin: margin,
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 50, halign: 'left' },
-      3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 12, halign: 'right' },
-      5: { cellWidth: 10, halign: 'center' },
-      6: { cellWidth: 14, halign: 'right' },
-      7: { cellWidth: 10, halign: 'center' },
-      8: { cellWidth: 14, halign: 'right' },
-      9: { cellWidth: 10, halign: 'center' },
-      10: { cellWidth: 14, halign: 'right' },
-      11: { cellWidth: 10, halign: 'center' },
-      12: { cellWidth: 14, halign: 'right' },
-      13: { cellWidth: 16, halign: 'right' },
+      0: { halign: "center", cellWidth: 9 },
+      2: { halign: "center" },
+      3: { halign: "center" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+      6: { halign: "right" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right" },
+      10: { halign: "right" },
+      11: { halign: "right" },
+      12: { halign: "right" },
+      13: { halign: "right" },
+    },
+    didParseCell: (data: any) => {
+      if (data.section !== "body") return;
+      const summaryStartIndex = (itemRows as any[]).length;
+      if (data.row.index < summaryStartIndex) return;
+
+      const totalsRowIndex = summaryStartIndex;
+      const amountWordsRowIndex = summaryStartIndex + 1;
+
+      // Default for summary rows: no vertical lines (keep only horizontal)
+      data.cell.styles.lineWidth = {
+        top: 0.15,
+        bottom: 0.15,
+        left: 0,
+        right: 0,
+      };
+
+      // Totals row: show vertical lines starting from Basic Amount column (index 6)
+      if (data.row.index === totalsRowIndex) {
+        if (data.column.index >= 6) {
+          data.cell.styles.lineWidth = 0.15;
+        }
+        return;
+      }
+
+      // Amount in words row: show vertical separator between words and final amount
+      if (data.row.index === amountWordsRowIndex) {
+        if (data.column.index === 0) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0,
+            right: 0.15,
+          };
+          return;
+        }
+        if (data.column.index === 13) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0,
+          };
+          return;
+        }
+        return;
+      }
     },
   });
 
-  const afterItemsY = (doc as any).lastAutoTable?.finalY || itemsStartY + 40;
-
-  const finalY = (doc as any).lastAutoTable?.finalY || (y + 40);
-
-  // (Totals are shown in the attached 4-column table below - do not duplicate here)
-
-  // Attached info table (4 columns): [label, value, spacer, totals column header/value]
-  const leftTableStartY = afterItemsY + 40;
-  const leftTableBody: any[] = [];
-
-  // Rows where column 0 = label, col1 = value, col2 = tax label, col3 = tax value
-  leftTableBody.push([
-    { content: 'Delivery Schedule:', styles: { valign: 'top' } },
-    formatDateSafe(swo.deliveryDate),
-    { content: 'Taxable Amount', styles: { halign: 'center', valign: 'middle' } },
-    formatCurrency(swo.totalAmount ?? 0),
-  ]);
-  leftTableBody.push([
-    { content: 'Payment Terms:', styles: { valign: 'top' } },
-    swo.paymentTermsInDays != null ? `${swo.paymentTermsInDays} DAYS` : '-',
-    { content: 'Total CGST', styles: { halign: 'center', valign: 'middle' } },
-    formatCurrency(swo.totalCgst ?? 0),
-  ]);
-  leftTableBody.push([
-    { content: 'Validity:', styles: { valign: 'top' } },
-    // hardcoded validity text per request
-    'If you have any query, please revert within 48 hours, else we will presume that order is accepted by you.',
-    { content: 'Total SGST', styles: { halign: 'center', valign: 'middle' } },
-    formatCurrency(swo.totalSgst ?? 0),
-  ]);
-  leftTableBody.push([
-    { content: 'Jurisdiction & Conditions:', styles: { valign: 'top' } },
-    // hardcoded jurisdiction text per request
-    'Mumbai Courts, please refer the general terms and conditions governing this PO.',
-    { content: 'Total IGST', styles: { halign: 'center', valign: 'middle' } },
-    formatCurrency(swo.totalIgst ?? 0),
-  ]);
-  leftTableBody.push([
-    { content: 'Note:', styles: { valign: 'top' } },
-    swo.note || '-',
-    { content: '', styles: { valign: 'top' } },
-    { content: '', styles: { valign: 'top' } },
-  ]);
-
-  // one more row with 3 columns: amount in words (spans col0-1), 'Total Amount' (col2), value (col3)
-  leftTableBody.push([
-    { content: swo.amountInWords || '-', colSpan: 2, styles: { valign: 'top' } },
-    { content: 'Total Amount', styles: { halign: 'left', valign: 'top' } },
-    { content: formatCurrency(swo.totalAmount ?? 0), styles: { halign: 'right', valign: 'top' } },
-  ]);
-
-  (autoTable as any)(doc as any, {
-    startY: leftTableStartY,
-    body: leftTableBody,
-    styles: { fontSize: 9, textColor: 0 },
-    headStyles: { fillColor: [255, 255, 255], textColor: 0 },
-    theme: 'grid',
-    margin: { left: margin, right: margin },
-    columnStyles: {
-      0: { cellWidth: 45 },
-      1: { cellWidth: pageWidth / 2 - margin - 45 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 40 },
-    },
-  });
-  // Print Terms & Conditions full width below the attached table
-  const afterLeftTableY = (doc as any).lastAutoTable?.finalY || leftTableStartY + 40;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text('Terms & Conditions:', margin, afterLeftTableY + 8);
-  doc.setFont("helvetica", "normal");
-  const termsText = swo.terms || '-';
-  const termsLines = (doc as any).splitTextToSize(termsText, pageWidth - margin * 2);
-  doc.text(termsLines, margin, afterLeftTableY + 14);
-
-  // Signature lines: Prepared by / Approved by 1 / Approved by 2
-  const sigStartY = afterLeftTableY + 14 + termsLines.length * 5 + 12;
-  const colW = (pageWidth - margin * 2) / 3;
-  const leftX = margin;
-  const midX = margin + colW;
-  const rightX = margin + colW * 2;
-  const sigLineY = sigStartY + 12;
-  // draw signature lines
-  doc.setLineWidth(0.5);
+  const tableEndY = (doc as any).lastAutoTable.finalY;
   doc.setDrawColor(0);
-  doc.line(leftX, sigLineY, leftX + colW - 20, sigLineY);
-  doc.line(midX, sigLineY, midX + colW - 20, sigLineY);
-  doc.line(rightX, sigLineY, rightX + colW - 20, sigLineY);
-  // names below lines
+  doc.setLineWidth(0.2);
+  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
+  doc.setLineWidth(0.15);
+
+  let cursorY = tableEndY + 6;
+  const signatureBoxHeight = 16;
+  const footerSpace = 10;
+  const padX = margin + 4;
+
+  const paymentTermsFromJoin = Array.isArray(swo.subContractorWorkOrderPaymentTerms)
+    ? ((swo.subContractorWorkOrderPaymentTerms as any[])
+        .map((pt) =>
+          safeText(
+            pt?.paymentTerm?.description || pt?.paymentTerm?.paymentTerm || "-"
+          )
+        )
+        .filter((t) => t && t !== "-"))
+    : [];
+  const paymentTermsToPrint =
+    paymentTermsFromJoin.length > 0
+      ? paymentTermsFromJoin
+      : swo.paymentTermsInDays != null
+      ? [`${swo.paymentTermsInDays} DAYS`]
+      : ["-"];
+
+  // Terms & Conditions section
+  const termsText = [
+    "1) Work shall be executed as per the specifications and quality standards mentioned in the work order.",
+    "2) All safety norms and site regulations must be strictly followed during execution.",
+    "3) Payment terms:",
+    ...paymentTermsToPrint.map((t) => `   ${safeText(t)}`),
+    "4) Work Order validity is upto 30 days from the date of issue.",
+    "5) Please quote work order number in all invoices, challans and related correspondence.",
+    "6) Jurisdiction: Mumbai Courts.",
+  ].join("\n");
+  const termsHeader = "Terms & Conditions:";
+  const otherNotesLine = `Note: ${safeText(swo.note)}`;
+  const fullTermsWithNotes = [termsText, otherNotesLine].filter(Boolean).join("\n\n");
+
+  doc.setFont("helvetica", "bold");
+  const termsHeadingHeight = lineHeight + 2;
+  const termsLines = doc.splitTextToSize(fullTermsWithNotes || "-", usableWidth);
+  const termsHeight =
+    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(termsHeader, padX, cursorY);
   doc.setFont("helvetica", "normal");
-  doc.text('Prepared by : Sanjeev Divekar', leftX, sigLineY + 6);
-  doc.text('Approved by 1 : Amarnath Sathe', midX, sigLineY + 6);
-  doc.text('Approved by 2 : Amarnath Sathe', rightX, sigLineY + 6);
+  const termsBlock = Array.isArray(termsLines)
+    ? termsLines.map((t: any) => ({ text: t }))
+    : [{ text: String(termsLines) }];
+  drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+  cursorY = cursorY + 5 + termsHeight + 5;
+
+  // Acknowledgement text
+  const ackText = "Please acknowledge the order and confirm acceptance";
+  doc.setFont("helvetica", "bold");
+  const ackLines = doc.splitTextToSize(ackText, usableWidth);
+  const ackHeight =
+    (Array.isArray(ackLines) ? ackLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    ackHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(ackLines as any, padX, cursorY);
+  cursorY = cursorY + ackHeight + 6;
+
+  const forCompanyName =
+    safeText(((swo as any).site as any)?.company?.companyName) !== "-"
+      ? safeText(((swo as any).site as any)?.company?.companyName)
+      : "Dynasoure Concrete Treatment Pvt Ltd.";
+  doc.setFont("helvetica", "bold");
+  doc.text(`For M/s ${forCompanyName}`, padX, cursorY);
+  cursorY = cursorY + lineHeight + 4;
+
+  // Signature section
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    signatureBoxHeight + footerSpace + 6,
+    margin
+  );
+  const signatureBoxY = cursorY + 6;
+  doc.setFont("helvetica", "bold");
+  doc.text("Authorised Signatory", padX, signatureBoxY + 8);
 
   const watermark = getWatermarkText(swo.status, !!swo.isApproved2);
   if (watermark) applyWatermark(doc, watermark);
-
-  // Draw universal black border on every page (inside margins)
-  const pageCount = doc.getNumberOfPages();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p);
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.7);
-    doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin, 'S');
-  }
 
   const pdfBuf = doc.output("arraybuffer");
   const buffer = Buffer.from(pdfBuf);

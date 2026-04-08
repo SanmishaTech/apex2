@@ -201,250 +201,616 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
   }
 
+  // Helper functions for drawing
+  function drawLines(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    x: number,
+    startY: number,
+    lineHeight = 4
+  ) {
+    let currentY = startY;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      doc.text(line.text, x, currentY);
+      currentY += lineHeight;
+    }
+    return currentY;
+  }
+
+  function measureWrappedLinesHeight(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    maxWidth: number,
+    lineHeight = 4
+  ) {
+    let total = 0;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      const wrapped = doc.splitTextToSize(line.text, maxWidth);
+      total += (Array.isArray(wrapped) ? wrapped.length : 1) * lineHeight;
+    }
+    return total;
+  }
+
+  function drawWrappedLines(
+    doc: jsPDF,
+    lines: { text: string; bold?: boolean }[],
+    x: number,
+    startY: number,
+    maxWidth: number,
+    lineHeight = 4
+  ) {
+    let currentY = startY;
+    for (const line of lines) {
+      if (!line.text) continue;
+      doc.setFont("helvetica", line.bold ? "bold" : "normal");
+      const wrapped = doc.splitTextToSize(line.text, maxWidth);
+      const items = Array.isArray(wrapped) ? wrapped : [String(wrapped)];
+      for (const w of items) {
+        doc.text(w, x, currentY);
+        currentY += lineHeight;
+      }
+    }
+    return currentY;
+  }
+
+  function ensureSpace(
+    doc: jsPDF,
+    currentY: number,
+    neededHeight: number,
+    margin: number
+  ) {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    if (currentY + neededHeight > pageHeight - margin - 10) {
+      doc.addPage();
+      return margin;
+    }
+    return currentY;
+  }
+
+  function safeText(value?: string | null) {
+    return value?.trim() ? value.trim() : "-";
+  }
+
+  function formatNumber(value: unknown, fractionDigits = 2) {
+    const num = Number(value ?? 0);
+    if (!Number.isFinite(num)) return "0";
+    return num.toLocaleString("en-IN", {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setTextColor(0);
   doc.setDrawColor(0);
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 8;
+  const usableWidth = pageWidth - margin * 2;
 
-  const logo = await loadLogoDataUrl(((invoice as any).site as any)?.company?.logoUrl);
-  if (logo) {
-    try {
-      const logoW = 60;
-      const logoH = 25;
-      const logoX = pageWidth - margin - logoW;
-      const logoY = 8;
-      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoW, logoH);
-    } catch (e) {}
-  }
+  const headingFontSize = 10;
+  const smallFontSize = 7;
+  const tableFontSize = 7;
+  const lineHeight = 3.0;
 
-  // Title
-  doc.setFontSize(14);
+  // Place the company logo from site's company - top-right with larger sizing
+  const logoHeight = 22;
+  const logoWidth = 78;
+  const logoY = margin;
+  try {
+    const companyLogoUrl = ((invoice as any).site as any)?.company?.logoUrl;
+    const logo = await loadLogoDataUrl(companyLogoUrl);
+    if (logo) {
+      const logoX = pageWidth - margin - logoWidth;
+      doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
+    }
+  } catch {}
+
+  const headerY = logoY + logoHeight + 3;
   doc.setFont("helvetica", "bold");
-  doc.text("Sub Contractor Invoice", pageWidth / 2, 20, { align: "center" } as any);
-
-  // Subtitle
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Invoice No: ${invoice.invoiceNumber || "-"}`, pageWidth / 2, 26, { align: "center" } as any);
-
-  // Set global smaller font for print
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-
-  let y = 35;
-
-  // Header info table - Two columns
-  const leftLines = [] as string[];
-  leftLines.push("To,");
-  leftLines.push((invoice as any).subcontractorWorkOrder?.subContractor?.name || "M/s -");
-  const subCon = (invoice as any).subcontractorWorkOrder?.subContractor;
-  if (subCon?.addressLine1) leftLines.push(subCon.addressLine1);
-  if (subCon?.addressLine2) leftLines.push(subCon.addressLine2);
-  leftLines.push(`Contact: ${subCon?.contactPerson || "-"}`);
-  leftLines.push(`GST No: ${subCon?.gstNumber || "-"}`);
-
-  const rightLines = [] as string[];
-  rightLines.push(`Invoice Date: ${formatDateSafe(invoice.invoiceDate)}`);
-  rightLines.push(`Period: ${formatDateSafe(invoice.fromDate)} to ${formatDateSafe(invoice.toDate)}`);
-  rightLines.push(`Work Order: ${(invoice as any).subcontractorWorkOrder?.workOrderNo || "-"}`);
-  rightLines.push(`WO Date: ${formatDateSafe((invoice as any).subcontractorWorkOrder?.workOrderDate)}`);
-  rightLines.push(`Status: ${invoice.status || "PENDING"}`);
-
-  (autoTable as any)(doc as any, {
-    startY: y,
-    body: [
-      [{ content: leftLines.join("\n") }, { content: rightLines.join("\n") }],
-    ],
-    styles: { fontSize: 9, textColor: 0 },
-    theme: "grid",
-    head: [],
-    margin: { left: margin, right: margin },
-    columnStyles: { 0: { cellWidth: pageWidth / 2 - margin }, 1: { cellWidth: pageWidth / 2 - margin } },
+  doc.setFontSize(headingFontSize);
+  doc.text("SUB CONTRACTOR INVOICE", pageWidth / 2, headerY, {
+    align: "center",
   });
 
-  // Billing Address section
-  const billing = (invoice as any).subcontractorWorkOrder?.billingAddress;
-  const billingLines = [] as string[];
-  billingLines.push("Billing Address:");
-  billingLines.push(billing?.companyName || "-");
-  if (billing?.addressLine1) billingLines.push(billing.addressLine1);
-  if (billing?.addressLine2) billingLines.push(billing.addressLine2);
-  const billCity = billing?.city?.city || "";
-  const billState = billing?.state?.state || "";
-  const billPin = billing?.pincode || "";
-  if (billCity || billPin || billState) billingLines.push(`${billCity} - ${billPin}, ${billState}`);
-  billingLines.push(`GST No: ${billing?.gstNumber || "-"}`);
+  const topBoxY = headerY + 3;
+  const halfWidth = usableWidth / 2;
+  const topBoxX = margin;
 
-  const afterHeaderY = (doc as any).lastAutoTable?.finalY || y + 30;
+  doc.setFontSize(smallFontSize);
 
-  // Items table
+  const subCon = (invoice as any).subcontractorWorkOrder?.subContractor;
+  const vendorLines = [
+    { text: `To,`, bold: true },
+    { text: `M/s ${safeText(subCon?.name)}`, bold: true },
+    { text: safeText(subCon?.addressLine1) },
+    { text: safeText(subCon?.addressLine2) },
+    { text: `Contact Person : ${safeText(subCon?.contactPerson)}` },
+    { text: `GST No : ${safeText(subCon?.gstNumber)}` },
+  ];
+
+  const wo = (invoice as any).subcontractorWorkOrder;
+  const invoiceHeaderLines = [
+    { text: "INVOICE", bold: true },
+    { text: `Invoice No : ${safeText(invoice.invoiceNumber)}` },
+    { text: `Invoice Date : ${formatDateSafe(invoice.invoiceDate)}` },
+    { text: `Period : ${formatDateSafe(invoice.fromDate)} to ${formatDateSafe(invoice.toDate)}` },
+    { text: `Work Order No : ${safeText(wo?.workOrderNo)}` },
+    { text: `WO Date : ${formatDateSafe(wo?.workOrderDate)}` },
+  ];
+
+  const billing = wo?.billingAddress;
+  const billingLines = [
+    { text: "Billing Address", bold: true },
+    { text: safeText(billing?.companyName), bold: true },
+    { text: safeText(billing?.addressLine1) },
+    { text: safeText(billing?.addressLine2) },
+    { text: `State : ${safeText(billing?.state?.state)}` },
+    {
+      text: [
+        safeText(billing?.city?.city),
+        safeText(billing?.pincode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+    { text: `GST No : ${safeText(billing?.gstNumber)}` },
+  ];
+
+  const siteShortName = (invoice.site as any)?.shortName || (invoice.site as any)?.site || "";
+  const siteLines = [
+    { text: "Site Address :", bold: true },
+    { text: safeText(siteShortName), bold: true },
+    { text: safeText((invoice.site as any)?.addressLine1) },
+    { text: safeText((invoice.site as any)?.addressLine2) },
+    {
+      text: [
+        safeText((invoice.site as any)?.city?.city),
+        safeText((invoice.site as any)?.state?.state),
+        safeText((invoice.site as any)?.pinCode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+  ];
+
+  // Compute dynamic heights for top/bottom halves and draw the box & dividers
+  const colTextWidth = halfWidth - 4;
+  const vendorHeight = measureWrappedLinesHeight(
+    doc,
+    vendorLines,
+    colTextWidth,
+    lineHeight
+  );
+  const invoiceHeaderHeight = measureWrappedLinesHeight(
+    doc,
+    invoiceHeaderLines,
+    colTextWidth,
+    lineHeight
+  );
+  const topHalfHeight = Math.max(vendorHeight, invoiceHeaderHeight) + 8;
+
+  const billingHeight = measureWrappedLinesHeight(
+    doc,
+    billingLines,
+    colTextWidth,
+    lineHeight
+  );
+  const siteHeight = measureWrappedLinesHeight(
+    doc,
+    siteLines,
+    colTextWidth,
+    lineHeight
+  );
+  const bottomHalfHeight = Math.max(billingHeight, siteHeight) + 8;
+
+  const topBoxHeight = topHalfHeight + bottomHalfHeight;
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.2);
+  doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
+  // vertical center divider
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY,
+    topBoxX + halfWidth,
+    topBoxY + topBoxHeight
+  );
+  // horizontal divider at computed top-half height
+  doc.line(
+    topBoxX,
+    topBoxY + topHalfHeight,
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight
+  );
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight,
+    topBoxX + usableWidth,
+    topBoxY + topHalfHeight
+  );
+
+  // Render wrapped text blocks within columns
+  drawWrappedLines(
+    doc,
+    vendorLines,
+    topBoxX + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    invoiceHeaderLines,
+    topBoxX + halfWidth + 2,
+    topBoxY + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    billingLines,
+    topBoxX + 2,
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
+  );
+  drawWrappedLines(
+    doc,
+    siteLines,
+    topBoxX + halfWidth + 2,
+    topBoxY + topHalfHeight + 6,
+    colTextWidth,
+    lineHeight
+  );
+
+  const summaryGap = 3;
+  const tableStartY = topBoxY + topBoxHeight + summaryGap;
+
+  // Build item rows
   const details = (invoice as any).subContractorInvoiceDetails || [];
-  const itemsBody = details.map((it: any, idx: number) => {
+  const itemRows = details.map((it: any, index: number) => {
+    const qtyNum = Number(it.currentBillQty ?? 0);
+    const rateNum = Number(it.rate ?? 0);
+    const baseAmount = qtyNum * rateNum;
+    const discountAmt = Number(it.discountAmount ?? 0);
+    const taxableAmount = baseAmount - discountAmt;
     return [
-      String(idx + 1),
+      (index + 1).toString(),
       it.subContractorWorkOrderDetail?.item || it.particulars || "-",
       it.subContractorWorkOrderDetail?.unit?.unitName || "-",
-      formatCurrency(it.workOrderQty),
-      formatCurrency(it.currentBillQty),
-      formatCurrency(it.rate),
-      `${it.discountPercent || 0}%`,
+      formatNumber(it.workOrderQty, 2),
+      formatNumber(it.currentBillQty, 2),
+      formatNumber(it.rate, 2),
+      formatCurrency(baseAmount),
+      formatNumber(it.discountPercent),
       formatCurrency(it.discountAmount),
-      `${it.cgstPercent || 0}%`,
+      formatNumber(it.cgstPercent),
       formatCurrency(it.cgstAmt),
-      `${it.sgstpercent || 0}%`,
+      formatNumber(it.sgstpercent),
       formatCurrency(it.sgstAmt),
-      `${it.igstPercent || 0}%`,
+      formatNumber(it.igstPercent),
       formatCurrency(it.igstAmt),
       formatCurrency(it.totalLineAmount),
     ];
   });
 
-  (autoTable as any)(doc as any, {
-    startY: afterHeaderY + 5,
-    tableWidth: pageWidth - margin * 2,
-    head: [
-      [
-        { content: "Sr.No", rowSpan: 2 },
-        { content: "Item / Description", rowSpan: 2 },
-        { content: "Unit", rowSpan: 2 },
-        { content: "WO Qty", rowSpan: 2 },
-        { content: "Bill Qty", rowSpan: 2 },
-        { content: "Rate", rowSpan: 2 },
-        { content: "Discount", colSpan: 2, halign: "center" },
-        { content: "CGST", colSpan: 2, halign: "center" },
-        { content: "SGST", colSpan: 2, halign: "center" },
-        { content: "IGST", colSpan: 2, halign: "center" },
-        { content: "Amount", rowSpan: 2 },
-      ],
-      [
-        "%", "Amt",
-        "%", "Amt",
-        "%", "Amt",
-        "%", "Amt",
-      ]
-    ],
-    body: itemsBody,
-    styles: { fontSize: 6, textColor: 0, lineColor: 0, cellPadding: 1 },
-    headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: "bold", lineWidth: 0.1, fontSize: 6 },
-    theme: "grid",
-    margin: { left: margin, right: margin },
-    columnStyles: {
-      0: { cellWidth: 6, halign: "center" },
-      1: { cellWidth: 35 },
-      2: { cellWidth: 10, halign: "center" },
-      3: { cellWidth: 12, halign: "right" },
-      4: { cellWidth: 12, halign: "right" },
-      5: { cellWidth: 14, halign: "right" },
-      6: { cellWidth: 8, halign: "right" },
-      7: { cellWidth: 12, halign: "right" },
-      8: { cellWidth: 8, halign: "right" },
-      9: { cellWidth: 12, halign: "right" },
-      10: { cellWidth: 8, halign: "right" },
-      11: { cellWidth: 12, halign: "right" },
-      12: { cellWidth: 8, halign: "right" },
-      13: { cellWidth: 12, halign: "right" },
-      14: { cellWidth: 16, halign: "right" },
+  const totals = details.reduce(
+    (acc: any, it: any) => {
+      const qtyNum = Number(it.currentBillQty ?? 0);
+      const rateNum = Number(it.rate ?? 0);
+      const baseAmount = qtyNum * rateNum;
+      const amount = Number(it.totalLineAmount ?? 0);
+      const cgst = Number(it.cgstAmt ?? 0);
+      const sgst = Number(it.sgstAmt ?? 0);
+      const igst = Number(it.igstAmt ?? 0);
+      const discount = Number(it.discountAmount ?? 0);
+      return {
+        basicAmount: acc.basicAmount + baseAmount,
+        amount: acc.amount + amount,
+        cgst: acc.cgst + cgst,
+        sgst: acc.sgst + sgst,
+        igst: acc.igst + igst,
+        discount: acc.discount + discount,
+      };
     },
-  });
+    { basicAmount: 0, amount: 0, cgst: 0, sgst: 0, igst: 0, discount: 0 }
+  );
 
-  const afterItemsY = (doc as any).lastAutoTable?.finalY || afterHeaderY + 40;
+  const grossTotal = Number(invoice.grossAmount ?? 0) || totals.amount;
 
-  // Amount in Words
-  const amountWords = (invoice as any).amountInWords || "Zero";
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Amount in Words: ${amountWords}`, margin, afterItemsY + 10);
+  const amountWords = safeText(invoice.amountInWords) || "Rupees Zero Only";
+  const amountWordsDisplay = `Rupees : ${amountWords} Only`;
 
-  // Totals section
-  const totalsBody: any[] = [];
-  totalsBody.push([
-    { content: "", colSpan: 2, styles: { fillColor: [255, 255, 255] } },
-    { content: "Gross Amount:", styles: { halign: "right", fontStyle: "bold" } },
-    { content: formatCurrency(invoice.grossAmount), styles: { halign: "right" } },
-  ]);
+  const totalsRow: any[] = [
+    "",
+    "",
+    "",
+    "",
+    "",
+    { content: "Total", styles: { fontStyle: "bold", halign: "right" } },
+    {
+      content: formatCurrency(totals.basicAmount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.discount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.cgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.sgst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    "",
+    {
+      content: formatCurrency(totals.igst),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+    {
+      content: formatCurrency(totals.amount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const deductionsRows: any[] = [];
   if (Number(invoice.retentionAmount) > 0) {
-    totalsBody.push([
-      { content: "", colSpan: 2 },
-      { content: "Less Retention:", styles: { halign: "right" } },
+    deductionsRows.push([
+      { content: "Less: Retention", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
       { content: formatCurrency(invoice.retentionAmount), styles: { halign: "right" } },
     ]);
   }
   if (Number(invoice.tds) > 0) {
-    totalsBody.push([
-      { content: "", colSpan: 2 },
-      { content: "Less TDS:", styles: { halign: "right" } },
+    deductionsRows.push([
+      { content: "Less: TDS", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
       { content: formatCurrency(invoice.tds), styles: { halign: "right" } },
     ]);
   }
   if (Number(invoice.lwf) > 0) {
-    totalsBody.push([
-      { content: "", colSpan: 2 },
-      { content: "Less LWF:", styles: { halign: "right" } },
+    deductionsRows.push([
+      { content: "Less: LWF", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
       { content: formatCurrency(invoice.lwf), styles: { halign: "right" } },
     ]);
   }
   if (Number(invoice.otherDeductions) > 0) {
-    totalsBody.push([
-      { content: "", colSpan: 2 },
-      { content: "Less Other:", styles: { halign: "right" } },
+    deductionsRows.push([
+      { content: "Less: Other Deductions", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
       { content: formatCurrency(invoice.otherDeductions), styles: { halign: "right" } },
     ]);
   }
-  totalsBody.push([
-    { content: "", colSpan: 2, styles: { fillColor: [255, 255, 255] } },
-    { content: "Net Payable:", styles: { halign: "right", fontStyle: "bold", fillColor: [230, 230, 230] } },
-    { content: formatCurrency(invoice.netPayable), styles: { halign: "right", fontStyle: "bold", fillColor: [230, 230, 230] } },
-  ]);
 
-  (autoTable as any)(doc as any, {
-    startY: afterItemsY + 15,
-    body: totalsBody,
-    styles: { fontSize: 9, textColor: 0 },
+  const netPayableRow: any[] = [
+    {
+      content: amountWordsDisplay,
+      colSpan: 15,
+      styles: { fontStyle: "bold", halign: "left" },
+    },
+    {
+      content: formatCurrency(invoice.netPayable),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  const itemRowsWithSummary: any[] = [
+    ...(itemRows as any[]),
+    totalsRow,
+    ...deductionsRows,
+    netPayableRow,
+  ];
+
+  const headRows: any[][] = [
+    [
+      { content: "Sr. No.", rowSpan: 2 },
+      { content: "Description", rowSpan: 2 },
+      { content: "Unit", rowSpan: 2 },
+      { content: "WO Qty", rowSpan: 2 },
+      { content: "Bill Qty", rowSpan: 2 },
+      { content: "Rate (INR)", rowSpan: 2 },
+      { content: "Basic Amount (INR)", rowSpan: 2 },
+      { content: "Discount", colSpan: 2 },
+      { content: "CGST", colSpan: 2 },
+      { content: "SGST", colSpan: 2 },
+      { content: "IGST", colSpan: 2 },
+      { content: "Amount (INR)", rowSpan: 2 },
+    ],
+    [
+      { content: "%" },
+      { content: "Amt" },
+      { content: "%" },
+      { content: "Amt" },
+      { content: "%" },
+      { content: "Amt" },
+      { content: "%" },
+      { content: "Amt" },
+    ],
+  ];
+
+  const itemTableStyles: any = {
+    fontSize: tableFontSize,
+    textColor: 0,
+    lineColor: [0, 0, 0],
+    cellPadding: 0.45,
+    valign: "top",
+    lineWidth: 0.15,
+  };
+
+  autoTable(doc, {
+    startY: tableStartY,
+    head: headRows,
+    body: itemRowsWithSummary,
     theme: "grid",
-    margin: { left: margin, right: margin },
+    styles: itemTableStyles,
+    headStyles: {
+      textColor: 0,
+      lineWidth: 0.15,
+      fontSize: tableFontSize,
+      fillColor: [255, 255, 255],
+    },
+    margin: margin,
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: pageWidth - margin * 2 - 50 - 40 - 40 },
-      2: { cellWidth: 40, halign: "right" },
-      3: { cellWidth: 40, halign: "right" },
+      0: { halign: "center", cellWidth: 9 },
+      2: { halign: "center" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+      6: { halign: "right" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right" },
+      10: { halign: "right" },
+      11: { halign: "right" },
+      12: { halign: "right" },
+      13: { halign: "right" },
+      14: { halign: "right" },
+      15: { halign: "right" },
+    },
+    didParseCell: (data: any) => {
+      if (data.section !== "body") return;
+      const summaryStartIndex = (itemRows as any[]).length;
+      if (data.row.index < summaryStartIndex) return;
+
+      const totalsRowIndex = summaryStartIndex;
+      const deductionsStartIndex = summaryStartIndex + 1;
+      const deductionsEndIndex = deductionsStartIndex + deductionsRows.length;
+      const netPayableRowIndex = deductionsEndIndex;
+
+      // Default for summary rows: no vertical lines (keep only horizontal)
+      data.cell.styles.lineWidth = {
+        top: 0.15,
+        bottom: 0.15,
+        left: 0,
+        right: 0,
+      };
+
+      // Totals row: show vertical lines starting from Basic Amount column (index 6)
+      if (data.row.index === totalsRowIndex) {
+        if (data.column.index >= 6) {
+          data.cell.styles.lineWidth = 0.15;
+        }
+        return;
+      }
+
+      // Deductions rows: keep full grid lines
+      if (
+        deductionsRows.length > 0 &&
+        data.row.index >= deductionsStartIndex &&
+        data.row.index < deductionsEndIndex
+      ) {
+        data.cell.styles.lineWidth = 0.15;
+        return;
+      }
+
+      // Net payable row: show vertical separator between words and final amount
+      if (data.row.index === netPayableRowIndex) {
+        if (data.column.index === 0) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0,
+            right: 0.15,
+          };
+          return;
+        }
+        if (data.column.index === 15) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0,
+          };
+          return;
+        }
+        return;
+      }
     },
   });
 
-  // Signature section
-  const afterTotalsY = (doc as any).lastAutoTable?.finalY || afterItemsY + 30;
-  const sigStartY = afterTotalsY + 15;
-  const colW = (pageWidth - margin * 2) / 3;
-  const leftX = margin;
-  const midX = margin + colW;
-  const rightX = margin + colW * 2;
-  const sigLineY = sigStartY + 12;
-
-  doc.setLineWidth(0.5);
+  const tableEndY = (doc as any).lastAutoTable.finalY;
   doc.setDrawColor(0);
-  doc.line(leftX, sigLineY, leftX + colW - 20, sigLineY);
-  doc.line(midX, sigLineY, midX + colW - 20, sigLineY);
-  // doc.line(rightX, sigLineY, rightX + colW - 20, sigLineY); // Removed Received by
+  doc.setLineWidth(0.2);
+  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
+  doc.setLineWidth(0.15);
 
+  let cursorY = tableEndY + 6;
+  const signatureBoxHeight = 16;
+  const footerSpace = 10;
+  const padX = margin + 4;
+
+  // Terms & Conditions section
+  const termsHeader = "Terms & Conditions:";
+  const termsText = [
+    "1) Payment shall be made as per the agreed payment terms.",
+    "2) Retention amount shall be released as per contract terms.",
+    "3) All deductions (TDS, LWF, Other) are statutory or as per agreement.",
+    "4) Jurisdiction: Mumbai Courts.",
+    `5) Invoice Status: ${safeText(invoice.status)}`,
+  ].join("\n");
+
+  doc.setFont("helvetica", "bold");
+  const termsHeadingHeight = lineHeight + 2;
+  const termsLines = doc.splitTextToSize(termsText || "-", usableWidth);
+  const termsHeight =
+    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(termsHeader, padX, cursorY);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("Prepared by", leftX, sigLineY + 6);
-  doc.text("Authorized by", midX, sigLineY + 6);
-  // doc.text("Received by", rightX, sigLineY + 6);
+  const termsBlock = Array.isArray(termsLines)
+    ? termsLines.map((t: any) => ({ text: t }))
+    : [{ text: String(termsLines) }];
+  drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+  cursorY = cursorY + 5 + termsHeight + 5;
 
-  // Watermark
+  // Acknowledgement text
+  const ackText = "Please acknowledge receipt of this invoice";
+  doc.setFont("helvetica", "bold");
+  const ackLines = doc.splitTextToSize(ackText, usableWidth);
+  const ackHeight =
+    (Array.isArray(ackLines) ? ackLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    ackHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(ackLines as any, padX, cursorY);
+  cursorY = cursorY + ackHeight + 6;
+
+  const forCompanyName =
+    safeText(((invoice as any).site as any)?.company?.companyName) !== "-"
+      ? safeText(((invoice as any).site as any)?.company?.companyName)
+      : "Dynasoure Concrete Treatment Pvt Ltd.";
+  doc.setFont("helvetica", "bold");
+  doc.text(`For M/s ${forCompanyName}`, padX, cursorY);
+  cursorY = cursorY + lineHeight + 4;
+
+  // Signature section
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    signatureBoxHeight + footerSpace + 6,
+    margin
+  );
+  const signatureBoxY = cursorY + 6;
+  doc.setFont("helvetica", "bold");
+  doc.text("Authorised Signatory", padX, signatureBoxY + 8);
+
   const watermark = getWatermarkText(invoice.status, !!invoice.isAuthorized);
   if (watermark) applyWatermark(doc, watermark);
-
-  // Border on every page
-  const pageCount = doc.getNumberOfPages();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p);
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.7);
-    doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin, "S");
-  }
 
   const pdfBytes = doc.output("arraybuffer");
   const buffer = Buffer.from(pdfBytes);

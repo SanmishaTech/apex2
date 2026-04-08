@@ -158,61 +158,121 @@ export async function GET(req: NextRequest) {
     byKey.set(key, entry);
   }
 
+  const daysInMonth = to.getUTCDate();
+  
+  const employeesMap = new Map<number, { id: number; name: string }>();
+  for (const r of rows) {
+    if (!employeesMap.has(r.employeeId)) {
+      employeesMap.set(r.employeeId, r.employee);
+    }
+  }
+  const distinctEmployees = Array.from(employeesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
   const result: Row[] = [];
-  for (const [key, entry] of byKey.entries()) {
-    const base = entry.inRow || entry.outRow;
-    if (!base) continue;
+  
+  // Strict boundary for 'today' in IST
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const todayIst = new Date(Date.now() + istOffset);
+  const currentYearIst = todayIst.getUTCFullYear();
+  const currentMonthIst = todayIst.getUTCMonth() + 1;
+  const currentDateIst = todayIst.getUTCDate();
 
-    const inTime = entry.inRow?.time ? new Date(entry.inRow.time) : null;
-    const outTime = entry.outRow?.time ? new Date(entry.outRow.time) : null;
+  for (const emp of distinctEmployees) {
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (
+        year > currentYearIst ||
+        (year === currentYearIst && month > currentMonthIst) ||
+        (year === currentYearIst && month === currentMonthIst && d > currentDateIst)
+      ) {
+        break; // skip future dates
+      }
 
-    const workDay: 0 | 1 = inTime && outTime ? 1 : 0;
-    const workHours =
-      inTime && outTime
-        ? Math.max(0, (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60))
-        : 0;
-    const workDuration = formatWorkDuration(inTime, outTime);
+      const currentDate = new Date(Date.UTC(year, month - 1, d));
+      const key = `${emp.id}:${currentDate.toISOString().slice(0, 10)}`;
+      const entry = byKey.get(key);
 
-    result.push({
-      date: formatDate(base.date),
-      employee: {
-        id: base.employee.id,
-        name: base.employee.name,
-      },
-      workHours: Number(workHours.toFixed(2)),
-      workDuration,
-      workDay,
-      in: entry.inRow
-        ? {
-            time: formatTime(entry.inRow.time),
-            imageUrl: normalizeImageUrl(entry.inRow.imageUrl),
-            latitude: decimalToStringOrNull(entry.inRow.latitude),
-            longitude: decimalToStringOrNull(entry.inRow.longitude),
-            accuracy: decimalToStringOrNull((entry.inRow as any).accuracy),
-            address: (entry.inRow as any).address ?? null,
-            createdByName: entry.inRow.createdBy?.name ?? null,
-          }
-        : null,
-      out: entry.outRow
-        ? {
-            time: formatTime(entry.outRow.time),
-            imageUrl: normalizeImageUrl(entry.outRow.imageUrl),
-            latitude: decimalToStringOrNull(entry.outRow.latitude),
-            longitude: decimalToStringOrNull(entry.outRow.longitude),
-            accuracy: decimalToStringOrNull((entry.outRow as any).accuracy),
-            address: (entry.outRow as any).address ?? null,
-            createdByName: entry.outRow.createdBy?.name ?? null,
-          }
-        : null,
-    });
+      if (entry && (entry.inRow || entry.outRow)) {
+        const base = entry.inRow || entry.outRow;
+        if (!base) continue;
+
+        const inTime = entry.inRow?.time ? new Date(entry.inRow.time) : null;
+        const outTime = entry.outRow?.time ? new Date(entry.outRow.time) : null;
+        const workDay: 0 | 1 = inTime && outTime ? 1 : 0;
+        const workHours = inTime && outTime
+          ? Math.max(0, (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60))
+          : 0;
+        const workDuration = formatWorkDuration(inTime, outTime);
+
+        result.push({
+          date: formatDate(base.date),
+          employee: {
+            id: base.employee.id,
+            name: base.employee.name,
+          },
+          workHours: Number(workHours.toFixed(2)),
+          workDuration,
+          workDay,
+          in: entry.inRow
+            ? {
+                time: formatTime(entry.inRow.time),
+                imageUrl: normalizeImageUrl(entry.inRow.imageUrl),
+                latitude: decimalToStringOrNull(entry.inRow.latitude),
+                longitude: decimalToStringOrNull(entry.inRow.longitude),
+                accuracy: decimalToStringOrNull((entry.inRow as any).accuracy),
+                address: (entry.inRow as any).address ?? null,
+                createdByName: entry.inRow.createdBy?.name ?? null,
+              }
+            : null,
+          out: entry.outRow
+            ? {
+                time: formatTime(entry.outRow.time),
+                imageUrl: normalizeImageUrl(entry.outRow.imageUrl),
+                latitude: decimalToStringOrNull(entry.outRow.latitude),
+                longitude: decimalToStringOrNull(entry.outRow.longitude),
+                accuracy: decimalToStringOrNull((entry.outRow as any).accuracy),
+                address: (entry.outRow as any).address ?? null,
+                createdByName: entry.outRow.createdBy?.name ?? null,
+              }
+            : null,
+        });
+      } else {
+        // Pad with empty row
+        result.push({
+          date: formatDate(currentDate),
+          employee: { id: emp.id, name: emp.name },
+          workHours: 0,
+          workDuration: "—",
+          workDay: 0,
+          in: null,
+          out: null,
+        });
+      }
+    }
+  }
+
+  const pageRaw = sp.get("page");
+  const perPageRaw = sp.get("perPage");
+  const page = pageRaw ? Math.max(1, parseInt(pageRaw, 10)) : 1;
+  const perPage = perPageRaw ? parseInt(perPageRaw, 10) : null;
+
+  let finalResult = result;
+  let totalPages = 1;
+
+  if (perPage && perPage > 0) {
+    const startIndex = (page - 1) * perPage;
+    finalResult = result.slice(startIndex, startIndex + perPage);
+    totalPages = Math.ceil(result.length / perPage);
   }
 
   return NextResponse.json(
     {
-      data: result,
+      data: finalResult,
       meta: {
         month: monthRaw,
         total: result.length,
+        page,
+        perPage: perPage || result.length,
+        totalPages,
       },
     },
     {

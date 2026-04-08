@@ -126,6 +126,7 @@ export async function GET(req: NextRequest) {
       firstName: true,
       middleName: true,
       lastName: true,
+      gender: true,
       supplierId: true,
       manpowerSupplier: { select: { id: true, supplierName: true } },
       dateOfBirth: true,
@@ -226,6 +227,7 @@ export async function POST(req: NextRequest) {
         firstName: get("firstName"),
         middleName: get("middleName"),
         lastName: get("lastName"),
+        gender: get("gender"),
         supplierId: get("supplierId"),
         dateOfBirth: get("dateOfBirth"),
         address: get("address"),
@@ -331,6 +333,7 @@ export async function POST(req: NextRequest) {
           firstName: String(body.firstName).trim(),
           middleName: nil(body.middleName) as any,
           lastName: nil(body.lastName) as any,
+          gender: nil(body.gender) as any,
           supplierId: supplierIdNum,
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
           address: nil(body.address) as any,
@@ -432,6 +435,7 @@ export async function PATCH(req: NextRequest) {
         firstName: get("firstName"),
         middleName: get("middleName"),
         lastName: get("lastName"),
+        gender: get("gender"),
         supplierId: get("supplierId"),
         dateOfBirth: get("dateOfBirth"),
         address: get("address"),
@@ -528,6 +532,7 @@ export async function PATCH(req: NextRequest) {
     set("firstName", body.firstName);
     set("middleName", body.middleName);
     set("lastName", body.lastName);
+    set("gender", body.gender);
     if (body.supplierId !== undefined)
       data.supplierId = body.supplierId ? Number(body.supplierId) : null;
     if (body.dateOfBirth !== undefined)

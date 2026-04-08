@@ -5,6 +5,9 @@ import useSWR from "swr";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+import { Pagination } from "@/components/common/pagination";
+import { useQueryParamsState } from "@/hooks/use-query-params-state";
+
 import { AppCard } from "@/components/common/app-card";
 import { AppButton } from "@/components/common/app-button";
 import { AppCombobox } from "@/components/common/app-combobox";
@@ -17,16 +20,35 @@ import { PERMISSIONS } from "@/config/roles";
 async function getImageAsBase64(imageUrl: string | null): Promise<string | null> {
   if (!imageUrl) return null;
   try {
-    const fullUrl = imageUrl.startsWith("http")
-      ? imageUrl
-      : `${window.location.origin}${imageUrl}`;
+    const resolvedUrl = imageUrl.startsWith("/uploads/") ? `/api${imageUrl}` : imageUrl;
+    const fullUrl = resolvedUrl.startsWith("http")
+      ? resolvedUrl
+      : `${window.location.origin}${resolvedUrl}`;
     const response = await fetch(fullUrl);
     if (!response.ok) return null;
     const blob = await response.blob();
+    
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
+      const url = URL.createObjectURL(blob);
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, img.width, img.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        } else {
+          resolve(null);
+        }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        resolve(null);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
     });
   } catch {
     return null;
@@ -66,7 +88,7 @@ type ReportRow = {
 
 type ReportResponse = {
   data: ReportRow[];
-  meta: { month: string; total: number };
+  meta: { month: string; total: number; page?: number; perPage?: number; totalPages?: number };
 };
 
 // Generate month options (current year ± 2 years) with current and previous month at top
@@ -227,6 +249,13 @@ export default function EmployeeAttendanceReportPage() {
 
   const [employeeId, setEmployeeId] = useState<string>("");
   const [month, setMonth] = useState<string>("");
+  const [appliedFilters, setAppliedFilters] = useState<{month: string, employeeId: string} | null>(null);
+
+  const [qp, setQp] = useQueryParamsState({
+    page: 1,
+    perPage: 10,
+  });
+  const { page, perPage } = qp as unknown as { page: number; perPage: number };
 
   // Initialize with current month
   useEffect(() => {
@@ -235,7 +264,15 @@ export default function EmployeeAttendanceReportPage() {
     setMonth(currentMonth);
   }, []);
 
-  const [queryUrl, setQueryUrl] = useState<string | null>(null);
+  const queryUrl = useMemo(() => {
+    if (!appliedFilters) return null;
+    const params = new URLSearchParams();
+    params.set("month", appliedFilters.month);
+    if (appliedFilters.employeeId) params.set("employeeId", appliedFilters.employeeId);
+    params.set("page", String(page));
+    params.set("perPage", String(perPage));
+    return `/api/reports/employee-attendance?${params.toString()}`;
+  }, [appliedFilters, page, perPage]);
 
   const { data: reportData, error, isLoading } = useSWR<ReportResponse>(queryUrl, apiGet);
 
@@ -250,12 +287,12 @@ export default function EmployeeAttendanceReportPage() {
       toast.error("You do not have permission to export this report");
       return;
     }
-    if (!reportData?.data?.length) {
-      toast.error("No data to export");
+    if (!appliedFilters) {
+      toast.error("Please search for a report first");
       return;
     }
 
-    const selectedMonth = month;
+    const selectedMonth = appliedFilters.month;
     const monthMatch = selectedMonth.match(/^(\d{4})-(\d{2})$/);
     if (!monthMatch) {
       toast.error("Invalid month selected");
@@ -274,6 +311,25 @@ export default function EmployeeAttendanceReportPage() {
       }).format(d);
     };
 
+    toast.loading("Fetching all data for PDF...", { id: "pdf-export" });
+
+    let fullData: ReportRow[] = [];
+    try {
+      const params = new URLSearchParams();
+      params.set("month", appliedFilters.month);
+      if (appliedFilters.employeeId) params.set("employeeId", appliedFilters.employeeId);
+      const res = await apiGet(`/api/reports/employee-attendance?${params.toString()}`);
+      fullData = (res as any).data || [];
+    } catch {
+      toast.error("Failed to fetch full data for export", { id: "pdf-export" });
+      return;
+    }
+
+    if (!fullData.length) {
+      toast.error("No data to export", { id: "pdf-export" });
+      return;
+    }
+
     toast.loading("Loading images for PDF...", { id: "pdf-export" });
 
     // Pre-fetch all images
@@ -281,7 +337,7 @@ export default function EmployeeAttendanceReportPage() {
     const imagePromises: Promise<void>[] = [];
 
     // Sort data alphabetically by employee name, then by date
-    const sortedData = [...reportData.data].sort((a, b) => {
+    const sortedData = [...fullData].sort((a, b) => {
       // First sort by employee name alphabetically
       const nameCompare = a.employee.name.localeCompare(b.employee.name);
       if (nameCompare !== 0) return nameCompare;
@@ -348,8 +404,8 @@ export default function EmployeeAttendanceReportPage() {
       y
     );
     y += 5;
-    if (employeeId) {
-      const emp = employeeOptions.find(e => e.value === employeeId);
+    if (appliedFilters.employeeId) {
+      const emp = employeeOptions.find(e => e.value === appliedFilters.employeeId);
       doc.text(`Employee: ${emp?.label || "—"}`, 14, y);
       y += 5;
     }
@@ -473,7 +529,9 @@ export default function EmployeeAttendanceReportPage() {
         10: { cellWidth: "auto" },
         11: { cellWidth: "auto" },
       },
-      margin: { top: 10, right: 10, bottom: 20, left: 10 },
+  // autoTable typings accept number for margin in our setup; use a uniform margin value
+  // to satisfy TypeScript. If per-side margins are needed in future, cast to `any`.
+  margin: 10,
       didDrawCell: (data: any) => {
         // Draw images in the In Image (column 6) and Out Image (column 9) cells
         if (data.section === "body" && (data.column.index === 6 || data.column.index === 9)) {
@@ -527,10 +585,8 @@ export default function EmployeeAttendanceReportPage() {
       return;
     }
 
-    const params = new URLSearchParams();
-    params.set("month", month);
-    if (employeeId) params.set("employeeId", employeeId);
-    setQueryUrl(`/api/reports/employee-attendance?${params.toString()}`);
+    setQp({ page: 1 });
+    setAppliedFilters({ month, employeeId });
   };
 
   return (
@@ -673,6 +729,21 @@ export default function EmployeeAttendanceReportPage() {
           )}
         </div>
       </AppCard.Content>
+      {reportData && reportData.meta && (
+        <AppCard.Footer className="justify-end border-t border-border pt-4 mt-4">
+          <Pagination
+            page={reportData.meta.page || page}
+            totalPages={reportData.meta.totalPages || 1}
+            total={reportData.meta.total}
+            perPage={perPage}
+            onPerPageChange={(val) => setQp({ page: 1, perPage: val })}
+            onPageChange={(p) => setQp({ page: p })}
+            showPageNumbers
+            maxButtons={5}
+            disabled={isLoading}
+          />
+        </AppCard.Footer>
+      )}
     </AppCard>
   );
 }

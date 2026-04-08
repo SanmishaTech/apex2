@@ -325,9 +325,6 @@ export async function GET(
   const tableFontSize = 7;
   const lineHeight = 3.0;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(headingFontSize);
-  
   // Logo - load from site's company (no fallback)
   const logoHeight = 22;
   const logoWidth = 78;
@@ -347,7 +344,14 @@ export async function GET(
     align: "center",
   });
 
-  // Company Info (Left side)
+  // 4-quadrant dynamic header box
+  const topBoxY = headerY + 3;
+  const halfWidth = usableWidth / 2;
+  const topBoxX = margin;
+
+  doc.setFontSize(smallFontSize);
+
+  // Company Info (Top-Left)
   const company = (salesInvoice as any).site?.company;
   const companyLines = [
     { text: safeText(company?.companyName), bold: true },
@@ -358,7 +362,7 @@ export async function GET(
     { text: `Contact: ${safeText(company?.contactNo)}` },
   ];
 
-  // Invoice Header (Right side)
+  // Invoice Header (Top-Right)
   const invoiceHeaderLines = [
     { text: "INVOICE", bold: true },
     { text: `No: ${safeText(salesInvoice.invoiceNumber)}` },
@@ -367,12 +371,44 @@ export async function GET(
     { text: `Period: ${formatDateSafe(salesInvoice.fromDate)} - ${formatDateSafe(salesInvoice.toDate)}` },
   ];
 
-  const topBoxY = headerY + 3;
-  const halfWidth = usableWidth / 2;
-  const topBoxX = margin;
+  // Billing Address (Bottom-Left)
+  const billing = (salesInvoice as any).billingAddress;
+  const billingLines = [
+    { text: "Billing Address", bold: true },
+    { text: safeText(billing?.companyName), bold: true },
+    { text: safeText(billing?.addressLine1) },
+    { text: safeText(billing?.addressLine2) },
+    { text: `State : ${safeText(billing?.state?.state)}` },
+    {
+      text: [
+        safeText(billing?.city),
+        safeText(billing?.pincode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+    { text: `GST No : ${safeText(billing?.gstNumber)}` },
+  ];
 
-  doc.setFontSize(smallFontSize);
+  // Site Address (Bottom-Right)
+  const site = (salesInvoice as any).site;
+  const siteLines = [
+    { text: "Site Address :", bold: true },
+    { text: safeText(site?.site), bold: true },
+    { text: safeText(site?.addressLine1) },
+    { text: safeText(site?.addressLine2) },
+    { text: `State : ${safeText(site?.state?.state)}` },
+    {
+      text: [
+        safeText(site?.city),
+        safeText(site?.pinCode),
+      ]
+        .filter((line) => line !== "-")
+        .join(", "),
+    },
+  ];
 
+  // Compute dynamic heights for top/bottom halves and draw the box & dividers
   const colTextWidth = halfWidth - 4;
   const companyHeight = measureWrappedLinesHeight(
     doc,
@@ -386,18 +422,49 @@ export async function GET(
     colTextWidth,
     lineHeight
   );
-  const topBoxHeight = Math.max(companyHeight, invoiceHeaderHeight) + 8;
+  const topHalfHeight = Math.max(companyHeight, invoiceHeaderHeight) + 8;
+
+  const billingHeight = measureWrappedLinesHeight(
+    doc,
+    billingLines,
+    colTextWidth,
+    lineHeight
+  );
+  const siteHeight = measureWrappedLinesHeight(
+    doc,
+    siteLines,
+    colTextWidth,
+    lineHeight
+  );
+  const bottomHalfHeight = Math.max(billingHeight, siteHeight) + 8;
+
+  const topBoxHeight = topHalfHeight + bottomHalfHeight;
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.2);
   doc.rect(topBoxX, topBoxY, usableWidth, topBoxHeight);
+  // vertical center divider
   doc.line(
     topBoxX + halfWidth,
     topBoxY,
     topBoxX + halfWidth,
     topBoxY + topBoxHeight
   );
+  // horizontal divider at computed top-half height
+  doc.line(
+    topBoxX,
+    topBoxY + topHalfHeight,
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight
+  );
+  doc.line(
+    topBoxX + halfWidth,
+    topBoxY + topHalfHeight,
+    topBoxX + usableWidth,
+    topBoxY + topHalfHeight
+  );
 
+  // Render wrapped text blocks within columns
   drawWrappedLines(
     doc,
     companyLines,
@@ -414,58 +481,11 @@ export async function GET(
     colTextWidth,
     lineHeight
   );
-
-  // Billing Address
-  const billingY = topBoxY + topBoxHeight + 4;
-  const billing = (salesInvoice as any).billingAddress;
-  const billingLines = [
-    { text: "Bill To:", bold: true },
-    { text: safeText(billing?.companyName), bold: true },
-    { text: safeText(billing?.addressLine1) },
-    { text: safeText(billing?.addressLine2) },
-    { text: `${safeText(billing?.city)}, ${safeText(billing?.pincode)}` },
-    { text: `State: ${safeText(billing?.state?.state)}` },
-    { text: `GST: ${safeText(billing?.gstNumber)}` },
-    { text: `Email: ${safeText(billing?.email)}` },
-  ];
-
-  const site = (salesInvoice as any).site;
-  const siteLines = [
-    { text: "Site Details:", bold: true },
-    { text: safeText(site?.site), bold: true },
-    { text: safeText(site?.addressLine1) },
-    { text: safeText(site?.addressLine2) },
-    { text: `${safeText(site?.city)}, ${safeText(site?.pinCode)}` },
-    { text: `State: ${safeText(site?.state?.state)}` },
-  ];
-
-  const billingHeight = measureWrappedLinesHeight(
-    doc,
-    billingLines,
-    colTextWidth,
-    lineHeight
-  );
-  const siteHeight = measureWrappedLinesHeight(
-    doc,
-    siteLines,
-    colTextWidth,
-    lineHeight
-  );
-  const addressBoxHeight = Math.max(billingHeight, siteHeight) + 8;
-
-  doc.rect(topBoxX, billingY, usableWidth, addressBoxHeight);
-  doc.line(
-    topBoxX + halfWidth,
-    billingY,
-    topBoxX + halfWidth,
-    billingY + addressBoxHeight
-  );
-
   drawWrappedLines(
     doc,
     billingLines,
     topBoxX + 2,
-    billingY + 6,
+    topBoxY + topHalfHeight + 6,
     colTextWidth,
     lineHeight
   );
@@ -473,13 +493,13 @@ export async function GET(
     doc,
     siteLines,
     topBoxX + halfWidth + 2,
-    billingY + 6,
+    topBoxY + topHalfHeight + 6,
     colTextWidth,
     lineHeight
   );
 
-  // Items Table
-  const tableStartY = billingY + addressBoxHeight + 6;
+  const summaryGap = 3;
+  const tableStartY = topBoxY + topBoxHeight + summaryGap;
   
   const itemRows = ((salesInvoice as any).salesInvoiceDetails as any[]).map((detail, index) => {
     const qtyNum = toNumberOrZero(detail.invoiceQty);
@@ -528,6 +548,10 @@ export async function GET(
   );
 
   const grandTotal = toNumberOrZero(salesInvoice.totalAmount);
+  const grossAmount = Number(salesInvoice.grossAmount ?? 0);
+
+  const amountWordsText = safeText(salesInvoice.amountInWords) || "Rupees Zero Only";
+  const amountWordsDisplay = `Rupees : ${amountWordsText} Only`;
 
   const totalsRow: any[] = [
     "",
@@ -562,6 +586,45 @@ export async function GET(
     },
     {
       content: formatCurrency(totals.amount),
+      styles: { fontStyle: "bold", halign: "right" },
+    },
+  ];
+
+  // Deductions rows
+  const deductionsRows: any[] = [];
+  if (toNumberOrZero(salesInvoice.tds) > 0) {
+    deductionsRows.push([
+      { content: "Less: TDS", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
+      { content: formatCurrency(salesInvoice.tds), styles: { halign: "right" } },
+    ]);
+  }
+  if (toNumberOrZero(salesInvoice.wct) > 0) {
+    deductionsRows.push([
+      { content: "Less: WCT", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
+      { content: formatCurrency(salesInvoice.wct), styles: { halign: "right" } },
+    ]);
+  }
+  if (toNumberOrZero(salesInvoice.lwf) > 0) {
+    deductionsRows.push([
+      { content: "Less: LWF", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
+      { content: formatCurrency(salesInvoice.lwf), styles: { halign: "right" } },
+    ]);
+  }
+  if (toNumberOrZero(salesInvoice.other) > 0) {
+    deductionsRows.push([
+      { content: "Less: Other Deductions", colSpan: 15, styles: { halign: "right", fontStyle: "bold" } },
+      { content: formatCurrency(salesInvoice.other), styles: { halign: "right" } },
+    ]);
+  }
+
+  const netTotalRow: any[] = [
+    {
+      content: amountWordsDisplay,
+      colSpan: 15,
+      styles: { fontStyle: "bold", halign: "left" },
+    },
+    {
+      content: formatCurrency(salesInvoice.totalAmount),
       styles: { fontStyle: "bold", halign: "right" },
     },
   ];
@@ -602,10 +665,17 @@ export async function GET(
     lineWidth: 0.15,
   };
 
+  const itemRowsWithSummary: any[] = [
+    ...itemRows,
+    totalsRow,
+    ...deductionsRows,
+    netTotalRow,
+  ];
+
   autoTable(doc, {
     startY: tableStartY,
     head: headRows,
-    body: [...itemRows, totalsRow],
+    body: itemRowsWithSummary,
     theme: "grid",
     styles: itemTableStyles,
     headStyles: {
@@ -616,86 +686,153 @@ export async function GET(
     },
     margin: margin,
     columnStyles: {
-      0: { halign: "center", cellWidth: 8 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 25 },
-      3: { halign: "center", cellWidth: 12 },
-      4: { halign: "right", cellWidth: 12 },
-      5: { halign: "right", cellWidth: 15 },
-      6: { halign: "right", cellWidth: 18 },
-      7: { halign: "right", cellWidth: 8 },
-      8: { halign: "right", cellWidth: 15 },
-      9: { halign: "right", cellWidth: 8 },
-      10: { halign: "right", cellWidth: 15 },
-      11: { halign: "right", cellWidth: 8 },
-      12: { halign: "right", cellWidth: 15 },
-      13: { halign: "right", cellWidth: 8 },
-      14: { halign: "right", cellWidth: 15 },
-      15: { halign: "right", cellWidth: 18 },
+      0: { halign: "center", cellWidth: 9 },
+      2: { halign: "center" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+      6: { halign: "right" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right" },
+      10: { halign: "right" },
+      11: { halign: "right" },
+      12: { halign: "right" },
+      13: { halign: "right" },
+      14: { halign: "right" },
+      15: { halign: "right" },
+    },
+    didParseCell: (data: any) => {
+      if (data.section !== "body") return;
+      const summaryStartIndex = itemRows.length;
+      if (data.row.index < summaryStartIndex) return;
+
+      const totalsRowIndex = summaryStartIndex;
+      const deductionsStartIndex = summaryStartIndex + 1;
+      const deductionsEndIndex = deductionsStartIndex + deductionsRows.length;
+      const netTotalRowIndex = deductionsEndIndex;
+
+      // Default for summary rows: no vertical lines (keep only horizontal)
+      data.cell.styles.lineWidth = {
+        top: 0.15,
+        bottom: 0.15,
+        left: 0,
+        right: 0,
+      };
+
+      // Totals row: show vertical lines starting from Basic Amount column (index 6)
+      if (data.row.index === totalsRowIndex) {
+        if (data.column.index >= 6) {
+          data.cell.styles.lineWidth = 0.15;
+        }
+        return;
+      }
+
+      // Deductions rows: keep full grid lines
+      if (
+        deductionsRows.length > 0 &&
+        data.row.index >= deductionsStartIndex &&
+        data.row.index < deductionsEndIndex
+      ) {
+        data.cell.styles.lineWidth = 0.15;
+        return;
+      }
+
+      // Net total row: show vertical separator between words and final amount
+      if (data.row.index === netTotalRowIndex) {
+        if (data.column.index === 0) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0,
+            right: 0.15,
+          };
+          return;
+        }
+        if (data.column.index === 15) {
+          data.cell.styles.lineWidth = {
+            top: 0.15,
+            bottom: 0.15,
+            left: 0.15,
+            right: 0,
+          };
+          return;
+        }
+        return;
+      }
     },
   });
 
   const tableEndY = (doc as any).lastAutoTable.finalY;
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.2);
+  doc.rect(margin, tableStartY, usableWidth, tableEndY - tableStartY);
+  doc.setLineWidth(0.15);
 
-  // Deductions and Final Total
-  const deductionsY = tableEndY + 4;
-  const deductionsX = pageWidth - margin - 80;
-  
-  doc.setFontSize(smallFontSize);
-  doc.setFont("helvetica", "normal");
-  
-  let currentY = deductionsY;
-  const lineSpacing = 4;
+  let cursorY = tableEndY + 6;
+  const signatureBoxHeight = 16;
+  const footerSpace = 10;
+  const padX = margin + 4;
 
-  doc.text(`Gross Amount:`, deductionsX, currentY);
-  doc.text(formatCurrency(salesInvoice.grossAmount), deductionsX + 70, currentY, { align: "right" });
-  currentY += lineSpacing;
-
-  if (toNumberOrZero(salesInvoice.tds) > 0) {
-    doc.text(`Less TDS:`, deductionsX, currentY);
-    doc.text(formatCurrency(salesInvoice.tds), deductionsX + 70, currentY, { align: "right" });
-    currentY += lineSpacing;
-  }
-
-  if (toNumberOrZero(salesInvoice.wct) > 0) {
-    doc.text(`Less WCT:`, deductionsX, currentY);
-    doc.text(formatCurrency(salesInvoice.wct), deductionsX + 70, currentY, { align: "right" });
-    currentY += lineSpacing;
-  }
-
-  if (toNumberOrZero(salesInvoice.lwf) > 0) {
-    doc.text(`Less LWF:`, deductionsX, currentY);
-    doc.text(formatCurrency(salesInvoice.lwf), deductionsX + 70, currentY, { align: "right" });
-    currentY += lineSpacing;
-  }
-
-  if (toNumberOrZero(salesInvoice.other) > 0) {
-    doc.text(`Other Deductions:`, deductionsX, currentY);
-    doc.text(formatCurrency(salesInvoice.other), deductionsX + 70, currentY, { align: "right" });
-    currentY += lineSpacing;
-  }
+  // Terms & Conditions section
+  const termsHeader = "Terms & Conditions:";
+  const termsText = [
+    "1) Payment shall be made as per the agreed payment terms.",
+    "2) All taxes are as per applicable rates.",
+    "3) Jurisdiction: Mumbai Courts.",
+  ].join("\n");
 
   doc.setFont("helvetica", "bold");
-  doc.text(`Net Amount:`, deductionsX, currentY);
-  doc.text(formatCurrency(salesInvoice.totalAmount), deductionsX + 70, currentY, { align: "right" });
-
-  // Amount in words - use saved amountInWords if available
-  const wordsY = currentY + 8;
+  const termsHeadingHeight = lineHeight + 2;
+  const termsLines = doc.splitTextToSize(termsText || "-", usableWidth);
+  const termsHeight =
+    (Array.isArray(termsLines) ? termsLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    termsHeadingHeight + termsHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(termsHeader, padX, cursorY);
   doc.setFont("helvetica", "normal");
-  const amountWords = (salesInvoice as any).amountInWords || amountInWords(Number(salesInvoice.totalAmount));
-  doc.text(`Amount in Words: ${safeText("Rupees " + amountWords + " Only")}`, margin, wordsY);
+  const termsBlock = Array.isArray(termsLines)
+    ? termsLines.map((t: any) => ({ text: t }))
+    : [{ text: String(termsLines) }];
+  drawWrappedLines(doc, termsBlock, padX, cursorY + 6, usableWidth - 4, lineHeight);
+  cursorY = cursorY + 5 + termsHeight + 5;
 
-  // Signature
-  const signatureY = wordsY + 15;
+  // Acknowledgement text
+  const ackText = "Please acknowledge receipt of this invoice";
   doc.setFont("helvetica", "bold");
-  doc.text("For " + safeText(company?.companyName), margin, signatureY);
-  
-  if ((salesInvoice as any).authorizedBy?.name) {
-    doc.setFont("helvetica", "normal");
-    doc.text(`Authorized By: ${safeText((salesInvoice as any).authorizedBy.name)}`, margin, signatureY + 10);
-  }
+  const ackLines = doc.splitTextToSize(ackText, usableWidth);
+  const ackHeight =
+    (Array.isArray(ackLines) ? ackLines.length : 0) * lineHeight;
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    ackHeight + signatureBoxHeight + footerSpace,
+    margin
+  );
+  doc.text(ackLines as any, padX, cursorY);
+  cursorY = cursorY + ackHeight + 6;
 
-  doc.text("Authorized Signatory", margin, signatureY + 20);
+  const forCompanyName =
+    safeText(company?.companyName) !== "-"
+      ? safeText(company?.companyName)
+      : "Company Name";
+  doc.setFont("helvetica", "bold");
+  doc.text(`For M/s ${forCompanyName}`, padX, cursorY);
+  cursorY = cursorY + lineHeight + 4;
+
+  // Signature section
+  cursorY = ensureSpace(
+    doc,
+    cursorY,
+    signatureBoxHeight + footerSpace + 6,
+    margin
+  );
+  const signatureBoxY = cursorY + 6;
+  doc.setFont("helvetica", "bold");
+  doc.text("Authorised Signatory", padX, signatureBoxY + 8);
 
   // Watermark
   const watermarkText = getInvoiceWatermarkText(salesInvoice.authorizedById);
