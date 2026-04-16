@@ -119,7 +119,17 @@ export async function GET(req: NextRequest) {
           in: allowed.length > 0 ? allowed : [-1],
         };
       } else {
-        (where as any).currentSiteId = { in: inIds };
+        // For non-admin users: show assets at assigned sites
+        // Also include unassigned assets (currentSiteId: null) when querying for Available transfer status
+        // This allows employees to see unassigned assets for "New Assign" transfers
+        if (transferStatus === "Available") {
+          (where as any).OR = [
+            { currentSiteId: { in: inIds } },
+            { currentSiteId: null }
+          ];
+        } else {
+          (where as any).currentSiteId = { in: inIds };
+        }
       }
     }
 
