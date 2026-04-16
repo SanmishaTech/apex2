@@ -119,6 +119,12 @@ export async function GET(req: NextRequest) {
       _count: {
         select: { budgetItems: true },
       },
+      approved1By_user: {
+        select: { id: true, name: true },
+      },
+      approvedBy_user: {
+        select: { id: true, name: true },
+      },
     },
   });
   return Success(result);
