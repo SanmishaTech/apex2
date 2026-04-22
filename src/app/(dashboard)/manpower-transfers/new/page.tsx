@@ -191,6 +191,14 @@ export default function NewManpowerTransferPage() {
       ),
       sortable: false,
     },
+     {
+      key: 'aadharNo',
+      header: 'Aadhar No',
+      accessor: (row: AssignedManpowerForTransfer) => (
+        <span className="font-mono text-sm">{row.aadharNo || '-'}</span>
+      ),
+      sortable: false,
+    },
     {
       key: 'supplier',
       header: 'Supplier',

@@ -189,7 +189,7 @@ export default function InwardDeliveryChallansPage() {
   return (
     <AppCard>
       <AppCard.Header>
-        <AppCard.Title>Inward Delivery Challans</AppCard.Title>
+        <AppCard.Title>Inward Delivery Challans (GRN)</AppCard.Title>
         <AppCard.Description>
           Manage inward delivery challans.
         </AppCard.Description>

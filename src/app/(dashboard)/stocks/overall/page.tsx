@@ -139,8 +139,7 @@ export default function OverallStockPage() {
   ];
 
   function onSortChange(s: SortState) {
-    const newOrder = sort === s.field && order === "asc" ? "desc" : "asc";
-    setQp({ sort: s.field, order: newOrder });
+    setQp({ page: 1, sort: s.field, order: s.order });
   }
 
   return (

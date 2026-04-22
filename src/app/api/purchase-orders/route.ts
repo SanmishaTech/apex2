@@ -235,6 +235,8 @@ export async function GET(req: NextRequest) {
     const poStatusFilter = searchParams.get("poStatus") || "";
     const excludeLinked = searchParams.get("excludeLinked") === "true";
     const approved2Filter = searchParams.get("approved2");
+    const forInwardDeliveryChallan =
+      searchParams.get("forInwardDeliveryChallan") === "true";
     const sort = (searchParams.get("sort") || "purchaseOrderDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
@@ -390,6 +392,11 @@ export async function GET(req: NextRequest) {
             name: true,
           },
         },
+        _count: {
+          select: {
+            inwardDeliveryChallan: true,
+          },
+        },
         site: {
           select: {
             id: true,
@@ -414,6 +421,7 @@ export async function GET(req: NextRequest) {
               },
             },
             qty: true,
+            receivedQty: true,
             rate: true,
             amount: true,
           },
@@ -421,8 +429,55 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const dataWithItemCompletion = (result.data || []).map((po: any) => {
+      const details = Array.isArray(po.purchaseOrderDetails)
+        ? po.purchaseOrderDetails
+        : [];
+
+      const comparableLines = details.filter((d: any) => {
+        const ordered = Number(d?.qty || 0);
+        return Number.isFinite(ordered) && ordered > 0;
+      });
+
+      const completedItems = comparableLines.filter((d: any) => {
+        const ordered = Number(d?.qty || 0);
+        const received = Number(d?.receivedQty || 0);
+        return (
+          Number.isFinite(ordered) &&
+          Number.isFinite(received) &&
+          received >= ordered
+        );
+      }).length;
+
+      return {
+        ...po,
+        completedItems,
+        totalItems: comparableLines.length,
+        inwardDeliveryChallanCount: Number(po?._count?.inwardDeliveryChallan || 0),
+      };
+    });
+
+    const filteredForIdc = forInwardDeliveryChallan
+      ? dataWithItemCompletion.filter((po: any) => {
+          if (po?.isSuspended || po?.approvalStatus === "SUSPENDED") return false;
+          const details = Array.isArray(po.purchaseOrderDetails)
+            ? po.purchaseOrderDetails
+            : [];
+          return details.some((d: any) => {
+            const ordered = Number(d?.qty || 0);
+            const received = Number(d?.receivedQty || 0);
+            return (
+              Number.isFinite(ordered) &&
+              ordered > 0 &&
+              Number.isFinite(received) &&
+              received < ordered
+            );
+          });
+        })
+      : dataWithItemCompletion;
+
     return Success({
-      data: result.data,
+      data: filteredForIdc,
       meta: {
         page: result.page,
         perPage: result.perPage,

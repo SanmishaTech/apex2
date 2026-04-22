@@ -175,13 +175,20 @@ export async function PATCH(
         // Ensure manpower marked assigned
         await tx.manpower.update({ where: { id }, data: { isAssigned: true } });
 
-        // Create a history log row for this assignment
+        // Create a history log row for this assignment with wage data
         await tx.siteManpowerLog.create({
           data: {
             manpowerId: id,
             siteId,
             assignedDate,
             assignedById: auth.user.id,
+            wage: assignmentData.wage ?? null,
+            minWage: assignmentData.minWage ?? null,
+            pf: !!assignmentData.pf,
+            esic: !!assignmentData.esic,
+            hra: !!assignmentData.hra,
+            pt: !!assignmentData.pt,
+            mlwf: !!assignmentData.mlwf,
           },
         });
         return;

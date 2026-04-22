@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Decimal } from "@prisma/client/runtime/library";
 
 export type PayrollMode = "company" | "govt";
 
@@ -226,6 +227,114 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     siteManpowerList.map((s) => [`${s.manpowerId}:${s.siteId}`, s] as const)
   );
 
+  // Also fetch ManpowerTransferItem for transferred manpower (preserves wage data at transfer time)
+  const transferItems = await prisma.manpowerTransferItem.findMany({
+    where: {
+      manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
+      // Transfer FROM the site we're generating payroll for
+      manpowerTransfer: { fromSiteId: { in: siteIds.length ? siteIds : [0] } },
+    },
+    select: {
+      manpowerId: true,
+      wage: true,
+      minWage: true,
+      pf: true,
+      esic: true,
+      hra: true,
+      pt: true,
+      mlwf: true,
+      manpowerTransfer: { select: { fromSiteId: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Build a map from transfer items as fallback for transferred manpower
+  // Key format: "manpowerId:fromSiteId"
+  const transferItemMap = new Map<string, typeof transferItems[0]>();
+  for (const item of transferItems) {
+    const key = `${item.manpowerId}:${item.manpowerTransfer.fromSiteId}`;
+    // Only use the most recent transfer per manpower+site
+    if (!transferItemMap.has(key)) {
+      transferItemMap.set(key, item);
+    }
+  }
+
+  // Fetch SiteManpowerLog for historical wage data (when employee was unassigned then reassigned)
+  const siteManpowerLogs = await prisma.siteManpowerLog.findMany({
+    where: {
+      manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
+      siteId: { in: siteIds.length ? siteIds : [0] },
+    },
+    select: {
+      manpowerId: true,
+      siteId: true,
+      wage: true,
+      minWage: true,
+      pf: true,
+      esic: true,
+      hra: true,
+      pt: true,
+      mlwf: true,
+      assignedDate: true,
+    },
+    orderBy: { assignedDate: 'desc' },
+  });
+
+  // Build a map from logs - use most recent assignment per manpower+site
+  const siteManpowerLogMap = new Map<string, typeof siteManpowerLogs[0]>();
+  for (const log of siteManpowerLogs) {
+    const key = `${log.manpowerId}:${log.siteId}`;
+    if (!siteManpowerLogMap.has(key)) {
+      siteManpowerLogMap.set(key, log);
+    }
+  }
+
+  // Helper to get assignment data - tries current siteManpower first, then transfer item, then log
+  type SiteManpowerData = {
+    wage: number | Decimal | null;
+    minWage: number | Decimal | null;
+    pf: boolean;
+    esic: boolean;
+    hra: boolean;
+    pt: boolean;
+    mlwf: boolean;
+  };
+
+  const getSiteManpowerData = (manpowerId: number, siteId: number): SiteManpowerData | null => {
+    const key = `${manpowerId}:${siteId}` as AttendanceAggKey;
+    // Try current assignment first
+    const current = siteManpowerMap.get(key);
+    if (current) return current;
+    // Fall back to transfer item (which has preserved wage data)
+    const transfer = transferItemMap.get(key);
+    if (transfer) {
+      // Return in same shape as siteManpower
+      return {
+        wage: transfer.wage,
+        minWage: transfer.minWage,
+        pf: transfer.pf,
+        esic: Boolean(transfer.esic),
+        hra: Boolean(transfer.hra),
+        pt: Boolean(transfer.pt),
+        mlwf: Boolean(transfer.mlwf),
+      };
+    }
+    // Fall back to log entry (for unassigned then reassigned employees)
+    const log = siteManpowerLogMap.get(key);
+    if (log) {
+      return {
+        wage: log.wage,
+        minWage: log.minWage,
+        pf: log.pf,
+        esic: Boolean(log.esic),
+        hra: Boolean(log.hra),
+        pt: Boolean(log.pt),
+        mlwf: Boolean(log.mlwf),
+      };
+    }
+    return null;
+  };
+
   const results: { mode: PayrollMode; created: number; warnings: string[] }[] = [];
 
   // Helper to delete existing slips for period+mode
@@ -248,7 +357,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       for (const d of details as any[]) {
         // Legacy parity: OT is treated as DAYS, not hours
         const totalDays = d.presentDays + Number(d.otDays);
-        const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        const smp = getSiteManpowerData(manpowerId, d.siteId);
         if (!smp) continue;
         const wage = smp?.wage ? Number(smp.wage) : smp?.minWage ? Number(smp.minWage) : 0;
         if (!wage) warnings.push(`Manpower ${manpowerId} has no wage/minWage; computed as 0 for site ${d.siteId}`);
@@ -321,7 +430,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       const dets: any[] = [];
       for (const d of details as any[]) {
         const workingDays = Math.min(d.presentDays, cap);
-        const smp = siteManpowerMap.get(`${manpowerId}:${d.siteId}`);
+        const smp = getSiteManpowerData(manpowerId, d.siteId);
         if (!smp) continue;
         const minWage = smp?.minWage ? Number(smp.minWage) : 0;
         if (!minWage) warnings.push(`Manpower ${manpowerId} has no minWage; computed as 0 for site ${d.siteId}`);
