@@ -58,6 +58,9 @@ const createSchema = z.object({
   accuracy: z
     .union([z.string(), z.number()])
     .transform((v) => Number(v)),
+  capturedAt: z
+    .union([z.string(), z.number()])
+    .transform((v) => Number(v)),
 });
 
 function toDateOnly(d: Date) {
@@ -100,6 +103,7 @@ export async function POST(req: NextRequest) {
       latitude: form.get("latitude"),
       longitude: form.get("longitude"),
       accuracy: form.get("accuracy"),
+      capturedAt: form.get("capturedAt"),
     });
 
     if (
@@ -139,8 +143,9 @@ export async function POST(req: NextRequest) {
     // Fetch address from Geoapify API
     const address = await getAddressFromLatLong(parsed.latitude, parsed.longitude);
 
-    const now = new Date();
-    const dateObj = toDateOnlyIST(now);
+    // Use capturedAt timestamp from client when image was captured
+    const attendanceTime = new Date(parsed.capturedAt);
+    const dateObj = toDateOnlyIST(attendanceTime);
 
     const existing = await prisma.employeeAttendance.findUnique({
       where: {
@@ -157,7 +162,7 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.employeeAttendance.update({
         where: { id: existing.id },
         data: {
-          time: now,
+          time: attendanceTime,
           imageUrl,
           latitude: new Prisma.Decimal(parsed.latitude),
           longitude: new Prisma.Decimal(parsed.longitude),
@@ -174,7 +179,7 @@ export async function POST(req: NextRequest) {
         date: dateObj,
         employeeId: employee.id,
         type: parsed.type,
-        time: now,
+        time: attendanceTime,
         imageUrl,
         latitude: new Prisma.Decimal(parsed.latitude),
         longitude: new Prisma.Decimal(parsed.longitude),

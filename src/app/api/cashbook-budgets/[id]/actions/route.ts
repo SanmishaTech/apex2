@@ -19,11 +19,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   let body: unknown;
   try { body = await req.json(); } catch { return Error('Invalid JSON body', 400); }
-  
+
   const { action, budgetItems } = (body as Partial<{
     action: 'approve' | 'approve_1' | 'accept';
-    budgetItems?: Array<{ 
-      id: number; 
+    budgetItems?: Array<{
+      id: number;
       approvedAmount?: string | number;
       approved1Amount?: string | number;
     }>;
@@ -60,11 +60,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (auth.user.role !== ROLES.ADMIN) {
       const employee = await prisma.employee.findFirst({
         where: { userId: auth.user.id },
-        select: { siteEmployees: { select: { siteId: true } } },
+        select: {
+          id: true,
+          siteEmployees: { select: { siteId: true } },
+        },
       });
-      const assignedSiteIds: number[] = (employee?.siteEmployees || [])
+
+      if (!employee) {
+        return Forbidden("Employee record not found for current user");
+      }
+
+      const assignedSiteIds: number[] = (employee.siteEmployees || [])
         .map((s) => s.siteId)
         .filter((v): v is number => typeof v === "number");
+
       if (typeof budget.siteId !== "number" || !assignedSiteIds.includes(budget.siteId)) {
         return Forbidden("Site is not assigned to current user");
       }

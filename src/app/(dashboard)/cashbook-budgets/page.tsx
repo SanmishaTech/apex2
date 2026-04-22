@@ -43,8 +43,9 @@ type CashbookBudgetListItem = {
 	_count: { budgetItems: number };
 	createdAt: string;
 	updatedAt: string;
-	approved1By_user: { id: number; name: string | null } | null;
 	approvedBy_user: { id: number; name: string | null } | null;
+	approved1By_user: { id: number; name: string | null } | null;
+	acceptedBy_user: { id: number; name: string | null } | null;
 };
 
 type CashbookBudgetsResponse = {
@@ -203,19 +204,6 @@ export default function CashbookBudgetsPage() {
 					: formatCurrency(0),
 		},
 		{
-			key: 'createdBy',
-			header: 'Prepared By',
-			sortable: false,
-			className: 'whitespace-nowrap',
-			cellClassName: 'whitespace-nowrap',
-			accessor: (r) => (
-				<div className="text-xs">
-					<div className="bg-green-100 text-green-800 px-2 py-1 rounded mb-1">Administrator</div>
-					<div className="text-muted-foreground">{formatDate(r.createdAt)}</div>
-				</div>
-			),
-		},
-		{
 			key: 'approved1By',
 			header: 'Approved 1 By',
 			sortable: false,
@@ -238,6 +226,19 @@ export default function CashbookBudgetsPage() {
 				<div className="text-xs">
 					<div className="bg-purple-100 text-purple-800 px-2 py-1 rounded mb-1">{r.approvedBy_user.name || 'Unknown'}</div>
 					<div className="text-muted-foreground">{formatDate(r.approvedDatetime)}</div>
+				</div>
+			) : '-',
+		},
+		{
+			key: 'acceptedBy',
+			header: 'Accepted By',
+			sortable: false,
+			className: 'whitespace-nowrap',
+			cellClassName: 'whitespace-nowrap',
+			accessor: (r) => r.acceptedBy_user && r.acceptedDatetime ? (
+				<div className="text-xs">
+					<div className="bg-orange-100 text-orange-800 px-2 py-1 rounded mb-1">{r.acceptedBy_user.name || 'Unknown'}</div>
+					<div className="text-muted-foreground">{formatDate(r.acceptedDatetime)}</div>
 				</div>
 			) : '-',
 		},

@@ -30,6 +30,10 @@ export default function EmployeeAttendancePage() {
   const [showWebcam, setShowWebcam] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [captureTimestamp, setCaptureTimestamp] = useState<number | null>(null);
+
+  // Feature flag: Set to true to enable webcam capture, false to disable (mobile-only mode)
+  const ENABLE_WEBCAM_CAPTURE = false;
 
   useEffect(() => {
     try {
@@ -157,6 +161,57 @@ export default function EmployeeAttendancePage() {
     });
   };
 
+  const compressImage = async (file: File | Blob, maxWidth = 1280, maxHeight = 1280, quality = 0.85): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        
+        let { width, height } = img;
+        
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error("Failed to compress image"));
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load image"));
+      };
+      
+      img.src = url;
+    });
+  };
+
   const captureImage = async () => {
     setGeoError(null);
 
@@ -190,6 +245,10 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
+    // Store the capture timestamp immediately
+    const capturedAt = Date.now();
+    setCaptureTimestamp(capturedAt);
+
     const blob: Blob | null = await new Promise((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92)
     );
@@ -198,10 +257,20 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    const file = new File([blob], `attendance-${Date.now()}.jpg`, {
-      type: "image/jpeg",
-    });
-    setImageFile(file);
+    // Compress the image
+    try {
+      const compressedBlob = await compressImage(blob, 1280, 1280, 0.85);
+      const file = new File([compressedBlob], `attendance-${capturedAt}.jpg`, {
+        type: "image/jpeg",
+      });
+      setImageFile(file);
+    } catch {
+      // Fallback to original if compression fails
+      const file = new File([blob], `attendance-${capturedAt}.jpg`, {
+        type: "image/jpeg",
+      });
+      setImageFile(file);
+    }
   };
 
   const openCamera = async () => {
@@ -210,6 +279,12 @@ export default function EmployeeAttendancePage() {
       mobileCaptureInputRef.current?.click();
       return;
     }
+
+    if (!ENABLE_WEBCAM_CAPTURE) {
+      toast.error("Webcam capture is disabled. Please use a mobile device.");
+      return;
+    }
+
     setShowWebcam(true);
     await startCamera();
   };
@@ -241,7 +316,30 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
-    setImageFile(file);
+    // Store the capture timestamp immediately
+    const capturedAt = Date.now();
+    setCaptureTimestamp(capturedAt);
+
+    // Compress image if larger than 1MB
+    let finalFile = file;
+    if (file.size > 1024 * 1024) {
+      try {
+        const compressedBlob = await compressImage(file, 1280, 1280, 0.85);
+        finalFile = new File([compressedBlob], `attendance-${capturedAt}.jpg`, {
+          type: "image/jpeg",
+        });
+      } catch {
+        finalFile = new File([file], `attendance-${capturedAt}.jpg`, {
+          type: "image/jpeg",
+        });
+      }
+    } else {
+      finalFile = new File([file], `attendance-${capturedAt}.jpg`, {
+        type: "image/jpeg",
+      });
+    }
+
+    setImageFile(finalFile);
   };
 
   const doSubmitAttendance = async () => {
@@ -265,6 +363,11 @@ export default function EmployeeAttendancePage() {
       return;
     }
 
+    if (!captureTimestamp) {
+      toast.error("Image capture time not found. Please recapture.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const form = new FormData();
@@ -273,6 +376,7 @@ export default function EmployeeAttendancePage() {
       form.append("latitude", String(latitude));
       form.append("longitude", String(longitude));
       form.append("accuracy", String(accuracy));
+      form.append("capturedAt", String(captureTimestamp));
 
       await apiUpload("/api/employee-attendances", form, { timeoutMs: 60000 });
       try {
@@ -287,6 +391,7 @@ export default function EmployeeAttendancePage() {
       }
 
       setImageFile(null);
+      setCaptureTimestamp(null);
       router.push("/dashboard");
     } catch (e: any) {
       console.error(e);
@@ -381,7 +486,9 @@ export default function EmployeeAttendancePage() {
               <div className="text-xs text-muted-foreground">
                 {isMobile
                   ? "This will open your device camera. Attendance requires clicking a new picture."
-                  : "This will open your webcam capture. Attendance requires a live camera/webcam."}
+                  : ENABLE_WEBCAM_CAPTURE
+                    ? "This will open your webcam capture. Attendance requires a live camera/webcam."
+                    : "Webcam capture is disabled. Please use a mobile device to mark attendance."}
               </div>
             </div>
 
@@ -389,6 +496,7 @@ export default function EmployeeAttendancePage() {
               <AppButton
                 onClick={submitAttendance}
                 isLoading={submitting}
+                disabled={submitting || !imageFile}
                 className="w-full sm:w-auto"
               >
                 <Save className="h-4 w-4 mr-2" />
