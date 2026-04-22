@@ -1183,12 +1183,20 @@ model SiteManpower {
 
 model SiteManpowerLog {
   id           Int      @id @default(autoincrement())
-  siteId       Int    
-  manpowerId   Int     
+  siteId       Int
+  manpowerId   Int
   assignedDate DateTime
   assignedById   Int
   unassignedDate DateTime?
   unassignedById Int?
+  // Wage data preserved at time of assignment
+  wage         Decimal? @db.Decimal(10, 2)
+  minWage      Decimal? @db.Decimal(10, 2)
+  pf           Boolean  @default(false)
+  esic         Boolean  @default(false)
+  hra          Boolean  @default(false)
+  pt           Boolean  @default(false)
+  mlwf         Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

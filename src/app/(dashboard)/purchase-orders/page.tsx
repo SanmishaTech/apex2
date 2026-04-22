@@ -49,6 +49,9 @@ type PurchaseOrder = {
   approved1ById?: number | null;
   approved2ById?: number | null;
   poStatus?: "ORDER_PLACED" | "IN_TRANSIT" | "RECEIVED" | "HOLD" | "OPEN" | null;
+  completedItems?: number;
+  totalItems?: number;
+  inwardDeliveryChallanCount?: number;
   site: {
     id: number;
     site: string;
@@ -631,6 +634,20 @@ export default function PurchaseOrdersPage() {
       accessor: (row) => <POStatusBadge status={(row as any).poStatus ?? null} />,
     },
     {
+      key: "completedItems",
+      header: "Completed Items",
+      sortable: false,
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap tabular-nums",
+      accessor: (row) => {
+        const completed = Number((row as any).completedItems ?? 0);
+        const total = Number((row as any).totalItems ?? 0);
+        return `${Number.isFinite(completed) ? completed : 0}/${
+          Number.isFinite(total) ? total : 0
+        }`;
+      },
+    },
+    {
       key: "createdBy",
       header: "Created By",
       sortable: false,
@@ -895,7 +912,12 @@ export default function PurchaseOrdersPage() {
                           po.approved1ById === user?.id
                         );
                         if (actions.length === 0) return null;
-                        return actions.map((a) => (
+                        const hasIdc =
+                          Number((po as any)?.inwardDeliveryChallanCount || 0) > 0;
+                        const filtered = hasIdc
+                          ? actions.filter((a) => a.key !== "suspend")
+                          : actions;
+                        return filtered.map((a) => (
                           <DropdownMenuItem
                             key={a.key}
                             onSelect={() => openApproval(po.id, a.key)}

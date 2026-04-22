@@ -54,6 +54,12 @@ export async function GET(req: NextRequest) {
     else if (sort === "closingQty") orderBy.push({ closingStock: order });
     else orderBy.push({ site: { site: "asc" } }, { item: { item: "asc" } });
 
+    // Always add deterministic tie-breakers so ordering is stable across refresh/tab changes.
+    // This avoids MySQL returning different row orders when primary sort values are equal.
+    orderBy.push({ site: { site: "asc" } });
+    orderBy.push({ item: { item: "asc" } });
+    orderBy.push({ id: "asc" });
+
     const total = await prisma.siteItem.count({ where });
 
     const rows = await prisma.siteItem.findMany({

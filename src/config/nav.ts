@@ -381,7 +381,7 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.READ_WORK_ORDER_BILLS,
       },
       {
-        title: "Inward Delivery Challan",
+        title: "GRN",
         href: "/inward-delivery-challans",
         icon: FileText,
         permission: PERMISSIONS.READ_INWARD_DELIVERY_CHALLAN,

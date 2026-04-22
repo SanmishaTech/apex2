@@ -67,6 +67,7 @@ export interface AssignedManpowerForTransfer {
   firstName: string;
   middleName?: string | null;
   lastName: string;
+  aadharNo?: string | null;
   supplierId?: number;
   manpowerSupplier?: { id: number; supplierName: string } | null;
   mobileNumber?: string | null;

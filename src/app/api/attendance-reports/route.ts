@@ -38,160 +38,182 @@ export async function GET(req: NextRequest) {
     const [year, monthNum] = month.split("-").map(Number);
     const startDate = new Date(year, monthNum - 1, 1);
     const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999); // Last day of month
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
 
-    // Build where clause for manpower
-    const manpowerWhere: any = {
-      isAssigned: true,
-      siteManpower: {
+    // Step 1: Fetch all attendance records for the date range and sites
+    // This includes transferred manpower who have attendance but are no longer assigned
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
         siteId: { in: siteIds },
       },
-    };
-
-    if (category) {
-      manpowerWhere.siteManpower = {
-        ...(manpowerWhere.siteManpower || {}),
-        category: {
-          categoryName: category,
-        },
-      };
-    }
-
-    if (skillSet) {
-      manpowerWhere.siteManpower = {
-        ...(manpowerWhere.siteManpower || {}),
-        skillset: {
-          skillsetName: skillSet,
-        },
-      };
-    }
-
-    // Fetch assigned manpower for the selected sites with filters
-    const manpowerList = await prisma.manpower.findMany({
-      where: manpowerWhere,
-      include: {
-        manpowerSupplier: {
+      select: {
+        date: true,
+        isPresent: true,
+        isIdle: true,
+        ot: true,
+        siteId: true,
+        manpowerId: true,
+        manpower: {
           select: {
             id: true,
-            supplierName: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            manpowerSupplier: { select: { id: true, supplierName: true } },
+            siteManpower: {
+              select: {
+                siteId: true,
+                site: { select: { id: true, site: true, shortName: true } },
+                category: { select: { id: true, categoryName: true } },
+                skillset: { select: { id: true, skillsetName: true } },
+              },
+            },
           },
         },
+        site: { select: { id: true, site: true } },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Step 2: Also fetch currently assigned manpower for these sites
+    const assignedManpowerWhere: any = {
+      isAssigned: true,
+      siteManpower: { siteId: { in: siteIds } },
+    };
+    if (category) {
+      assignedManpowerWhere.siteManpower = {
+        ...(assignedManpowerWhere.siteManpower || {}),
+        category: { categoryName: category },
+      };
+    }
+    if (skillSet) {
+      assignedManpowerWhere.siteManpower = {
+        ...(assignedManpowerWhere.siteManpower || {}),
+        skillset: { skillsetName: skillSet },
+      };
+    }
+
+    const assignedManpower = await prisma.manpower.findMany({
+      where: assignedManpowerWhere,
+      select: {
+        id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        manpowerSupplier: { select: { id: true, supplierName: true } },
         siteManpower: {
           select: {
             siteId: true,
-            site: {
-              select: {
-                id: true,
-                site: true,
-                shortName: true,
-              },
-            },
-            category: {
-              select: {
-                id: true,
-                categoryName: true,
-              },
-            },
-            skillset: {
-              select: {
-                id: true,
-                skillsetName: true,
-              },
-            },
-          },
-        },
-        attendances: {
-          where: {
-            date: {
-              gte: startDate,
-              lte: endDate,
-            },
-            siteId: { in: siteIds },
-          },
-          select: {
-            date: true,
-            isPresent: true,
-            isIdle: true,
-            ot: true,
-          },
-          orderBy: {
-            date: 'asc',
+            site: { select: { id: true, site: true, shortName: true } },
+            category: { select: { id: true, categoryName: true } },
+            skillset: { select: { id: true, skillsetName: true } },
           },
         },
       },
-      orderBy: [
-        { siteManpower: { siteId: 'asc' } },
-        { manpowerSupplier: { supplierName: 'asc' } },
-        { firstName: 'asc' },
-      ],
     });
 
-    // Calculate number of days in the month
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    // Step 3: Combine and deduplicate manpower
+    const manpowerMap = new Map<number, any>();
 
-    // Transform data into report format and filter out manpower with no attendance records
-    const reportData = manpowerList
-      .map((manpower) => {
-        // Create a map of attendance by date for quick lookup
-        const attendanceMap = new Map(
-          manpower.attendances.map((att) => [
-            att.date.toISOString().split('T')[0],
-            att,
-          ])
-        );
+    // Add manpower from attendance records (includes transferred-out manpower)
+    attendances.forEach((att) => {
+      if (att.manpower && !manpowerMap.has(att.manpowerId)) {
+        manpowerMap.set(att.manpowerId, att.manpower);
+      }
+    });
 
-        // Generate daily attendance only for days with actual attendance records
-        const dailyAttendance: { date: string; isPresent: boolean; isIdle: boolean; ot: number }[] = [];
-        let totalPresent = 0;
-        let totalAbsent = 0;
-        let totalOT = 0;
-        let totalIdle = 0;
+    // Add currently assigned manpower (if not already added)
+    assignedManpower.forEach((mp) => {
+      if (!manpowerMap.has(mp.id)) {
+        manpowerMap.set(mp.id, mp);
+      }
+    });
 
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const attendance = attendanceMap.get(dateStr);
+    // Step 4: Group attendance records by manpowerId
+    const attendanceByManpower = new Map<number, any[]>();
+    attendances.forEach((att) => {
+      if (!attendanceByManpower.has(att.manpowerId)) {
+        attendanceByManpower.set(att.manpowerId, []);
+      }
+      attendanceByManpower.get(att.manpowerId)!.push(att);
+    });
 
-          // Only include days with actual attendance records
-          if (attendance) {
-            const isPresent = attendance.isPresent;
-            const isIdle = attendance.isIdle;
-            const ot = attendance.ot ? Number(attendance.ot) : 0;
+    // Step 5: Transform data into report format
+    const reportData: any[] = [];
 
-            dailyAttendance.push({
-              date: dateStr,
-              isPresent,
-              isIdle,
-              ot,
-            });
+    manpowerMap.forEach((mp) => {
+      const mpAttendances = attendanceByManpower.get(mp.id) || [];
 
-            if (isPresent) {
-              totalPresent++;
-              totalOT += ot;
-              if (isIdle) {
-                totalIdle++;
-              }
-            } else {
-              totalAbsent++;
-            }
+      // Apply category/skill filters on final data
+      const currentSiteManpower = mp.siteManpower?.[0];
+      if (category && currentSiteManpower?.category?.categoryName !== category && mpAttendances.length === 0) {
+        return; // Skip if no attendance and category doesn't match
+      }
+      if (skillSet && currentSiteManpower?.skillset?.skillsetName !== skillSet && mpAttendances.length === 0) {
+        return; // Skip if no attendance and skill doesn't match
+      }
+
+      // Skip if no attendance records
+      if (mpAttendances.length === 0) return;
+
+      // Create attendance map for this manpower
+      const attendanceMap = new Map(
+        mpAttendances.map((att: any) => [
+          att.date.toISOString().split('T')[0],
+          att,
+        ])
+      );
+
+      // Generate daily attendance
+      const dailyAttendance: { date: string; isPresent: boolean; isIdle: boolean; ot: number }[] = [];
+      let totalPresent = 0;
+      let totalAbsent = 0;
+      let totalOT = 0;
+      let totalIdle = 0;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const attendance = attendanceMap.get(dateStr);
+
+        if (attendance) {
+          const isPresent = attendance.isPresent;
+          const isIdle = attendance.isIdle;
+          const ot = attendance.ot ? Number(attendance.ot) : 0;
+
+          dailyAttendance.push({ date: dateStr, isPresent, isIdle, ot });
+
+          if (isPresent) {
+            totalPresent++;
+            totalOT += ot;
+            if (isIdle) totalIdle++;
+          } else {
+            totalAbsent++;
           }
         }
+      }
 
-        return {
-          manpowerId: manpower.id,
-          manpowerName: `${manpower.firstName} ${manpower.middleName || ''} ${manpower.lastName}`.trim(),
-          supplierId: manpower.manpowerSupplier.id,
-          supplierName: manpower.manpowerSupplier.supplierName,
-          category: manpower.siteManpower?.category?.categoryName ?? null,
-          skillSet: manpower.siteManpower?.skillset?.skillsetName ?? null,
-          siteId: manpower.siteManpower!.site.id,
-          siteName: manpower.siteManpower!.site.site,
-          dailyAttendance,
-          totalPresent,
-          totalAbsent,
-          totalOT,
-          totalIdle,
-        };
-      })
-      .filter((record) => record.dailyAttendance.length > 0); // Only include manpower with at least one attendance record
+      // Determine site info
+      const siteInfo = currentSiteManpower?.site || mpAttendances[0]?.site;
+      const siteId = siteInfo?.id || mpAttendances[0]?.siteId;
+      const siteName = siteInfo?.site || "Unknown Site";
+
+      reportData.push({
+        manpowerId: mp.id,
+        manpowerName: `${mp.firstName} ${mp.middleName || ''} ${mp.lastName}`.trim(),
+        supplierId: mp.manpowerSupplier?.id ?? 0,
+        supplierName: mp.manpowerSupplier?.supplierName ?? "Unknown",
+        category: currentSiteManpower?.category?.categoryName ?? null,
+        skillSet: currentSiteManpower?.skillset?.skillsetName ?? null,
+        siteId,
+        siteName,
+        dailyAttendance,
+        totalPresent,
+        totalAbsent,
+        totalOT,
+        totalIdle,
+      });
+    });
 
     // Group data by site
     const siteGroups = new Map();

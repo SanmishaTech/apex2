@@ -122,12 +122,35 @@ export default function EditAttendancePage() {
       attendanceMap.set(key, att);
     });
 
-    // Generate complete attendance matrix
+    // Collect unique manpower from both assigned list AND existing attendance records
+    // This ensures transferred manpower (who have attendance but are no longer assigned) are included
+    const manpowerMap = new Map<number, AssignedManpower>();
+    
+    // Add currently assigned manpower
+    assignedManpower.forEach((mp) => {
+      manpowerMap.set(mp.id, mp);
+    });
+    
+    // Add manpower from existing attendance records (for transferred manpower)
+    existingAttendance.forEach((att) => {
+      if (att.manpower && !manpowerMap.has(att.manpowerId)) {
+        manpowerMap.set(att.manpowerId, {
+          id: att.manpowerId,
+          firstName: att.manpower.firstName,
+          middleName: att.manpower.middleName,
+          lastName: att.manpower.lastName,
+          category: att.manpower.category,
+          skillSet: att.manpower.skillSet,
+        });
+      }
+    });
+
+    // Generate complete attendance matrix using union of assigned + historical manpower
     const allAttendances: AttendanceEdit[] = [];
-    let counter = 1;
 
     dateRange.forEach((date) => {
-      assignedManpower.forEach((manpower) => {
+      // Iterate over all unique manpower (assigned + those with existing attendance)
+      manpowerMap.forEach((manpower) => {
         const key = `${date}-${manpower.id}`;
         const existingAtt = attendanceMap.get(key);
 
@@ -153,8 +176,8 @@ export default function EditAttendancePage() {
             ot: existingAtt.ot ? parseFloat(existingAtt.ot) : null,
             isNew: false,
           });
-        } else {
-          // New entry (no existing attendance record)
+        } else if (assignedManpower.some(mp => mp.id === manpower.id)) {
+          // New entry only for currently assigned manpower (not transferred-out ones)
           allAttendances.push({
             id: null,
             date: date,
@@ -168,6 +191,9 @@ export default function EditAttendancePage() {
             isNew: true,
           });
         }
+        // Note: We don't create new entries for transferred-out manpower 
+        // (those with existing attendance but not currently assigned) 
+        // to avoid cluttering the edit page with absent rows
       });
     });
 

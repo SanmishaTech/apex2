@@ -419,7 +419,7 @@ export default function InwardDeliveryChallanForm({
   const purchaseOrderIdVal = form.watch("purchaseOrderId");
   const { data: posData } = useSWR<any>(
     siteIdVal
-      ? `/api/purchase-orders?perPage=10000&site=${siteIdVal}&approved2=true`
+      ? `/api/purchase-orders?perPage=10000&site=${siteIdVal}&approved2=true&forInwardDeliveryChallan=true`
       : null,
     apiGet
   );

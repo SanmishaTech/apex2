@@ -138,23 +138,32 @@ export default function IndentsPage() {
     perPage: 10,
     search: "",
     site: "",
+    status: "",
+    priority: "",
     sort: "indentDate",
     order: "desc",
   });
   // Initialize current user early so subsequent effects can safely depend on it
   const { user } = useCurrentUser();
-  const { page, perPage, search, site, sort, order } = qp as unknown as {
+  const { page, perPage, search, site, status: statusParam, priority: priorityParam, sort, order } = qp as unknown as {
     page: number;
     perPage: number;
     search: string;
     site: string;
+    status: string;
+    priority: string;
     sort: string;
     order: "asc" | "desc";
   };
+  // Ensure status and priority are always strings (not undefined) to avoid Select defaultValue warning
+  const status = statusParam || "";
+  const priority = priorityParam || "";
 
   // Local filter draft state (only applied when clicking Filter)
   const [searchDraft, setSearchDraft] = useState(search);
   const [siteDraft, setSiteDraft] = useState(site);
+  const [statusDraft, setStatusDraft] = useState(status);
+  const [priorityDraft, setPriorityDraft] = useState(priority);
 
   // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
@@ -163,14 +172,22 @@ export default function IndentsPage() {
   useEffect(() => {
     setSiteDraft(site);
   }, [site]);
+  useEffect(() => {
+    setStatusDraft(status);
+  }, [status]);
+  useEffect(() => {
+    setPriorityDraft(priority);
+  }, [priority]);
 
-  const filtersDirty = searchDraft !== search || siteDraft !== site;
+  const filtersDirty = searchDraft !== search || siteDraft !== site || statusDraft !== status || priorityDraft !== priority;
 
   function applyFilters() {
     setQp({
       page: 1,
       search: searchDraft.trim(),
       site: siteDraft,
+      status: statusDraft,
+      priority: priorityDraft,
     });
   }
 
@@ -312,7 +329,9 @@ export default function IndentsPage() {
   function resetFilters() {
     setSearchDraft("");
     setSiteDraft("");
-    setQp({ page: 1, search: "", site: "" });
+    setStatusDraft("");
+    setPriorityDraft("");
+    setQp({ page: 1, search: "", site: "", status: "", priority: "" });
   }
 
   const query = useMemo(() => {
@@ -321,10 +340,12 @@ export default function IndentsPage() {
     sp.set("perPage", String(perPage));
     if (search) sp.set("search", search);
     if (site) sp.set("site", site);
+    if (status) sp.set("status", status);
+    if (priority) sp.set("priority", priority);
     if (sort) sp.set("sort", sort);
     if (order) sp.set("order", order);
     return `/api/indents?${sp.toString()}`;
-  }, [page, perPage, search, site, sort, order]);
+  }, [page, perPage, search, site, status, priority, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<IndentsResponse>(
     query,
@@ -349,6 +370,21 @@ export default function IndentsPage() {
       });
     }
   }, [data?.meta, perPage, query]);
+
+  // Status and priority options
+  const statusOptions = [
+    { value: "DRAFT", label: "Draft" },
+    { value: "APPROVED_LEVEL_1", label: "Approved 1" },
+    { value: "APPROVED_LEVEL_2", label: "Approved 2" },
+    { value: "COMPLETED", label: "Completed" },
+    { value: "SUSPENDED", label: "Suspended" },
+  ];
+
+  const priorityOptions = [
+    { value: "HIGH", label: "High" },
+    { value: "MEDIUM", label: "Medium" },
+    { value: "LOW", label: "Low" },
+  ];
 
   // Fetch sites for filter dropdown
   const { data: sitesData } = useSWR<SitesResponse>(
@@ -917,43 +953,73 @@ export default function IndentsPage() {
         </AppCard.Header>
         <AppCard.Content>
           <FilterBar title="Search & Filter">
-            <NonFormTextInput
-              aria-label="Search indents"
-              placeholder="Search indents..."
-              value={searchDraft}
-              onChange={(e) => setSearchDraft(e.target.value)}
-              containerClassName="w-full"
-            />
-            <AppSelect
-              value={siteDraft || "__all"}
-              onValueChange={(v) => setSiteDraft(v === "__all" ? "" : v)}
-              placeholder="Site"
-            >
-              <AppSelect.Item value="__all">All Sites</AppSelect.Item>
-              {sitesData?.data?.map((site) => (
-                <AppSelect.Item key={site.id} value={String(site.id)}>
-                  {site.site}
-                </AppSelect.Item>
-              ))}
-            </AppSelect>
-            <AppButton
-              size="sm"
-              onClick={applyFilters}
-              disabled={!filtersDirty && !searchDraft && !siteDraft}
-              className="min-w-[84px]"
-            >
-              Filter
-            </AppButton>
-            {(search || site) && (
-              <AppButton
-                variant="secondary"
-                size="sm"
-                onClick={resetFilters}
-                className="min-w-[84px]"
-              >
-                Reset
-              </AppButton>
-            )}
+            <div className="flex flex-col gap-4 w-full">
+              <div className="grid grid-cols-4 gap-4 w-full">
+                <NonFormTextInput
+                  aria-label="Search indents"
+                  placeholder="Search indents..."
+                  value={searchDraft}
+                  onChange={(e) => setSearchDraft(e.target.value)}
+                  containerClassName="w-full"
+                />
+                <AppSelect
+                  value={siteDraft || "__all"}
+                  onValueChange={(v) => setSiteDraft(v === "__all" ? "" : v)}
+                  placeholder="Site"
+                >
+                  <AppSelect.Item value="__all">All Sites</AppSelect.Item>
+                  {sitesData?.data?.map((site) => (
+                    <AppSelect.Item key={site.id} value={String(site.id)}>
+                      {site.site}
+                    </AppSelect.Item>
+                  ))}
+                </AppSelect>
+                <AppSelect
+                  value={statusDraft || "__all"}
+                  onValueChange={(v) => setStatusDraft(v === "__all" ? "" : v)}
+                  placeholder="Status"
+                >
+                  <AppSelect.Item value="__all">All Status</AppSelect.Item>
+                  {statusOptions.map((opt) => (
+                    <AppSelect.Item key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </AppSelect.Item>
+                  ))}
+                </AppSelect>
+                <AppSelect
+                  value={priorityDraft || "__all"}
+                  onValueChange={(v) => setPriorityDraft(v === "__all" ? "" : v)}
+                  placeholder="Priority"
+                >
+                  <AppSelect.Item value="__all">All Priority</AppSelect.Item>
+                  {priorityOptions.map((opt) => (
+                    <AppSelect.Item key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </AppSelect.Item>
+                  ))}
+                </AppSelect>
+              </div>
+              <div className="flex gap-2">
+                <AppButton
+                  size="sm"
+                  onClick={applyFilters}
+                  disabled={!filtersDirty && !searchDraft && !siteDraft && !statusDraft && !priorityDraft}
+                  className="min-w-[84px]"
+                >
+                  Filter
+                </AppButton>
+                {(search || site || status || priority) && (
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={resetFilters}
+                    className="min-w-[84px]"
+                  >
+                    Reset
+                  </AppButton>
+                )}
+              </div>
+            </div>
           </FilterBar>
           <div className="w-full overflow-x-auto">
             <div className="min-w-max">

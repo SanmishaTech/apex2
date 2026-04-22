@@ -58,6 +58,8 @@ export async function GET(req: NextRequest) {
     );
     const search = searchParams.get("search")?.trim() || "";
     const siteFilter = searchParams.get("site") || "";
+    const statusFilter = searchParams.get("status")?.trim() || "";
+    const priorityFilter = searchParams.get("priority")?.trim() || "";
     const sort = (searchParams.get("sort") || "indentDate") as string;
     const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as
       | "asc"
@@ -110,6 +112,16 @@ export async function GET(req: NextRequest) {
       }
     } else if (!isPrivileged && assignedSiteIds && assignedSiteIds.length > 0) {
       where.siteId = { in: assignedSiteIds };
+    }
+
+    // Status filter (using approvalStatus field)
+    if (statusFilter) {
+      where.approvalStatus = statusFilter;
+    }
+
+    // Priority filter
+    if (priorityFilter) {
+      where.priority = priorityFilter;
     }
 
     const sortableFields = new Set(["indentNo", "indentDate", "createdAt"]);

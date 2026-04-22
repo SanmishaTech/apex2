@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(
-    100,
+    1000,
     Math.max(1, Number(searchParams.get("perPage")) || 10)
   );
   const search = (searchParams.get("search") || "").trim();
@@ -121,6 +121,7 @@ export async function GET(req: NextRequest) {
     orderBy,
     page,
     perPage,
+    maxPerPage: 1000,
     select: {
       id: true,
       firstName: true,

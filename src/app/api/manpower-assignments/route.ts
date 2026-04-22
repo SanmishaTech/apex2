@@ -220,6 +220,13 @@ export async function POST(req: NextRequest) {
             manpowerId,
             assignedDate: asDate(i.assignedAt) ?? now,
             assignedById: auth.user.id,
+            wage: asNonNegativeDecimal(i.wage) as any,
+            minWage: asNonNegativeDecimal(i.minWage) as any,
+            pf: !!i.pf,
+            esic: !!i.esic,
+            hra: !!i.hra,
+            pt: !!i.pt,
+            mlwf: !!i.mlwf,
           },
         });
 
