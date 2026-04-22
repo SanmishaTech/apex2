@@ -903,17 +903,14 @@ export async function PATCH(
                 } as any,
               });
 
+              // Look for exact batch match by (batchNumber, expiryDate) - composite key
               const toBatch = await tx.siteItemBatch.findFirst({
-                where: { siteItemId: toSiteItemId, batchNumber: bn },
+                where: { siteItemId: toSiteItemId, batchNumber: bn, expiryDate: exp },
                 select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
               });
-              if (toBatch && String(toBatch.expiryDate || "") !== exp) {
-                throw new Error(
-                  `Expiry date mismatch for batch ${bn} at To Site. Expected ${toBatch.expiryDate}`
-                );
-              }
 
               if (!toBatch) {
+                // Create new batch entry (different expiry = different batch record)
                 await tx.siteItemBatch.create({
                   data: {
                     siteItemId: toSiteItemId,

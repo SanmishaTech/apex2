@@ -2532,7 +2532,7 @@ model SiteItemBatch {
   site     Site  @relation(fields: [siteId], references: [id], onDelete: Restrict)
   item     Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
-  @@unique([siteItemId, batchNumber], name: "uq_siteitem_batch")
+  @@unique([siteItemId, batchNumber, expiryDate], name: "uq_siteitem_batch_expiry")
   @@map("site_item_batches")
 }
 

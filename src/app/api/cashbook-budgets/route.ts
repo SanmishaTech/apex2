@@ -125,6 +125,9 @@ export async function GET(req: NextRequest) {
       approvedBy_user: {
         select: { id: true, name: true },
       },
+      acceptedBy_user: {
+        select: { id: true, name: true },
+      },
     },
   });
   return Success(result);

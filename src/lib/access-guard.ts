@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { verifyAccessToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { Unauthorized, Error as ApiError, Forbidden } from "@/lib/api-response";
-import { API_ACCESS_RULES, Permission } from "@/config/access-control";
+import { API_ACCESS_RULES, Permission, ApiAccessRule } from "@/config/access-control";
 
 // Return shape reused by both guard functions
 export type GuardSuccess = {
@@ -95,12 +95,21 @@ export async function guardApiPermissions(
   };
 }
 
-// Method + path aware guard reading API_ACCESS_RULES
 export async function guardApiAccess(req: NextRequest): Promise<GuardResult> {
   const { pathname } = new URL(req.url);
   const method = req.method.toUpperCase();
-  const rule = API_ACCESS_RULES.find((r) => pathname.startsWith(r.prefix));
-  if (!rule) return guardApiPermissions(req, []); // auth only
-  const required = rule.methods?.[method] || rule.permissions || [];
+
+  // Find the longest matching prefix to ensure sub-rules override general ones
+  let match: ApiAccessRule | undefined;
+  for (const rule of API_ACCESS_RULES) {
+    if (pathname.startsWith(rule.prefix)) {
+      if (!match || rule.prefix.length > match.prefix.length) {
+        match = rule;
+      }
+    }
+  }
+
+  if (!match) return guardApiPermissions(req, []); // auth only
+  const required = match.methods?.[method] || match.permissions || [];
   return guardApiPermissions(req, required);
 }
