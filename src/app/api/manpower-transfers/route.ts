@@ -216,7 +216,9 @@ export async function POST(request: NextRequest) {
         id: { in: manpowerIds },
         isAssigned: true,
         siteManpower: {
-          siteId: fromSiteId,
+          some: {
+            siteId: fromSiteId,
+          },
         },
       },
       select: {
@@ -224,6 +226,9 @@ export async function POST(request: NextRequest) {
         firstName: true,
         lastName: true,
         siteManpower: {
+          where: { siteId: fromSiteId },
+          take: 1,
+          orderBy: { id: 'desc' },
           select: {
             category: { select: { categoryName: true } },
             skillset: { select: { skillsetName: true } },
@@ -278,16 +283,16 @@ export async function POST(request: NextRequest) {
             data: {
               manpowerTransferId: newTransfer.id,
               manpowerId: manpower.id,
-              category: manpower.siteManpower?.category?.categoryName ?? null,
-              skillSet: manpower.siteManpower?.skillset?.skillsetName ?? null,
-              wage: manpower.siteManpower?.wage ?? null,
-              minWage: manpower.siteManpower?.minWage ?? null,
+              category: manpower.siteManpower?.[0]?.category?.categoryName ?? null,
+              skillSet: manpower.siteManpower?.[0]?.skillset?.skillsetName ?? null,
+              wage: manpower.siteManpower?.[0]?.wage ?? null,
+              minWage: manpower.siteManpower?.[0]?.minWage ?? null,
               hours: null,
-              esic: manpower.siteManpower?.esic ? (1 as any) : null,
-              pf: manpower.siteManpower?.pf ?? false,
-              pt: manpower.siteManpower?.pt ? (1 as any) : null,
-              hra: manpower.siteManpower?.hra ? (1 as any) : null,
-              mlwf: manpower.siteManpower?.mlwf ? (1 as any) : null,
+              esic: manpower.siteManpower?.[0]?.esic ? (1 as any) : null,
+              pf: manpower.siteManpower?.[0]?.pf ?? false,
+              pt: manpower.siteManpower?.[0]?.pt ? (1 as any) : null,
+              hra: manpower.siteManpower?.[0]?.hra ? (1 as any) : null,
+              mlwf: manpower.siteManpower?.[0]?.mlwf ? (1 as any) : null,
             },
             include: {
               manpower: {

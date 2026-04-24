@@ -32,8 +32,8 @@ interface AttendanceEdit {
   date: string;
   manpowerId: number;
   manpowerName: string;
-  category?: string | null;
-  skillSet?: string | null;
+  mobileNumber?: string | null;
+  aadharNo?: string | null;
   isPresent: boolean;
   isIdle: boolean;
   ot: number | null;
@@ -45,8 +45,8 @@ interface AssignedManpower {
   firstName: string;
   middleName?: string | null;
   lastName: string;
-  category?: string | null;
-  skillSet?: string | null;
+  mobileNumber?: string | null;
+  aadharNo?: string | null;
 }
 
 export default function EditAttendancePage() {
@@ -128,7 +128,14 @@ export default function EditAttendancePage() {
     
     // Add currently assigned manpower
     assignedManpower.forEach((mp) => {
-      manpowerMap.set(mp.id, mp);
+      manpowerMap.set(mp.id, {
+        id: mp.id,
+        firstName: mp.firstName,
+        middleName: mp.middleName,
+        lastName: mp.lastName,
+        mobileNumber: mp.mobileNumber,
+        aadharNo: mp.aadharNo,
+      });
     });
     
     // Add manpower from existing attendance records (for transferred manpower)
@@ -139,8 +146,8 @@ export default function EditAttendancePage() {
           firstName: att.manpower.firstName,
           middleName: att.manpower.middleName,
           lastName: att.manpower.lastName,
-          category: att.manpower.category,
-          skillSet: att.manpower.skillSet,
+          mobileNumber: att.manpower.mobileNumber,
+          aadharNo: att.manpower.aadharNo,
         });
       }
     });
@@ -169,8 +176,8 @@ export default function EditAttendancePage() {
             date: date,
             manpowerId: manpower.id,
             manpowerName: fullName,
-            category: manpower.category,
-            skillSet: manpower.skillSet,
+            mobileNumber: manpower.mobileNumber,
+            aadharNo: manpower.aadharNo,
             isPresent: existingAtt.isPresent,
             isIdle: existingAtt.isIdle,
             ot: existingAtt.ot ? parseFloat(existingAtt.ot) : null,
@@ -183,8 +190,8 @@ export default function EditAttendancePage() {
             date: date,
             manpowerId: manpower.id,
             manpowerName: fullName,
-            category: manpower.category,
-            skillSet: manpower.skillSet,
+            mobileNumber: manpower.mobileNumber,
+            aadharNo: manpower.aadharNo,
             isPresent: false,
             isIdle: false,
             ot: null,
@@ -494,7 +501,7 @@ export default function EditAttendancePage() {
                 </AppCard.Description>
               </div>
               <div className="flex gap-2">
-                <AppButton variant="outline" onClick={() => router.back()}>
+                <AppButton variant="outline" onClick={() => router.back()} className="text-black dark:text-white">
                   Cancel
                 </AppButton>
                 <AppButton onClick={handleSave} disabled={isSaving}>
@@ -538,10 +545,10 @@ export default function EditAttendancePage() {
                               Manpower Name
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
-                              Category
+                              Aadhar Number
                             </th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
-                              Skill Set
+                              Mobile Number
                             </th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-foreground">
                               Present
@@ -580,10 +587,10 @@ export default function EditAttendancePage() {
                                   {record.manpowerName}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {record.category || "-"}
+                                  {record.aadharNo || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {record.skillSet || "-"}
+                                  {record.mobileNumber || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                   <input

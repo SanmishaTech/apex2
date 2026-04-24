@@ -48,6 +48,10 @@ function parseMonthParam(v: string | null) {
   return { y, mo };
 }
 
+function monthStartUtc(y: number, mo: number) {
+  return new Date(Date.UTC(y, mo - 1, 1, 0, 0, 0, 0));
+}
+
 function monthEndUtc(y: number, mo: number) {
   const next = new Date(Date.UTC(y, mo, 1, 0, 0, 0, 0));
   return new Date(next.getTime() - 1);
@@ -397,8 +401,10 @@ export async function GET(req: NextRequest) {
       remainingPct: remainingPctTotal,
     });
 
-    // Monthly sections (cumulative to month end)
+    // Monthly sections (per-month data only)
     for (const m of months) {
+      const start = monthStartUtc(m.y, m.mo);
+      const startTs = start.getTime();
       const end = monthEndUtc(m.y, m.mo);
       const endTs = end.getTime();
       const dim = daysInMonthUtc(m.y, m.mo);
@@ -416,16 +422,16 @@ export async function GET(req: NextRequest) {
         const rate = Number(r.rate || 0);
         const orderedQty = Number(r.orderedQty || 0);
         const list = entriesByItem.get(r.id) || [];
-        let cumDone = 0;
+        let monthDone = 0;
         const dailyDone: Record<string, number> = {};
         for (const e of list) {
-          if (e.dt <= endTs) cumDone += Number(e.qty || 0);
-          else break;
-
+          if (e.dt >= startTs && e.dt <= endTs) {
+            monthDone += Number(e.qty || 0);
+          }
           const ds = fmtDateDDMMYYYYUtc(new Date(e.dt));
           dailyDone[ds] = Number(dailyDone[ds] || 0) + Number(e.qty || 0);
         }
-        const executedQty = orderedQty + cumDone;
+        const executedQty = orderedQty + monthDone;
         const remainingQty = qty - executedQty;
         const amount = Number(r.amount || 0);
         const executedAmount = executedQty * rate;

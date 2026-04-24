@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     // Only show sites with assigned manpower
     where.siteManpowers = {
       some: {
+        isAssigned: true,
         manpower: {
           isAssigned: true,
         },
@@ -69,7 +70,10 @@ export async function GET(req: NextRequest) {
         site: true,
         shortName: true,
         siteManpowers: {
-          where: { manpower: { isAssigned: true } },
+          where: { 
+            isAssigned: true,
+            manpower: { isAssigned: true },
+          },
           select: { id: true },
         },
       },

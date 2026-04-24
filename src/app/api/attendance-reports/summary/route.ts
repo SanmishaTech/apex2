@@ -76,18 +76,18 @@ export async function GET(req: NextRequest) {
     const assignedManpowerWhere: any = {
       isAssigned: true,
       siteManpower: {
-        siteId: { in: siteIds },
+        some: { siteId: { in: siteIds } },
       },
     };
     if (category) {
-      assignedManpowerWhere.siteManpower = {
-        ...(assignedManpowerWhere.siteManpower || {}),
+      assignedManpowerWhere.siteManpower.some = {
+        ...(assignedManpowerWhere.siteManpower.some || {}),
         category: { categoryName: category },
       };
     }
     if (skillSet) {
-      assignedManpowerWhere.siteManpower = {
-        ...(assignedManpowerWhere.siteManpower || {}),
+      assignedManpowerWhere.siteManpower.some = {
+        ...(assignedManpowerWhere.siteManpower.some || {}),
         skillset: { skillsetName: skillSet },
       };
     }

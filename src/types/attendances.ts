@@ -22,6 +22,8 @@ export interface AttendanceWithRelations extends Attendance {
     firstName: string;
     middleName?: string | null;
     lastName: string;
+    mobileNumber?: string | null;
+    aadharNo?: string | null;
     category?: string | null;
     skillSet?: string | null;
   };
