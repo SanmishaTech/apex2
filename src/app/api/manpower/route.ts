@@ -99,8 +99,11 @@ export async function GET(req: NextRequest) {
     const sid = parseInt(currentSiteId);
     if (!Number.isNaN(sid)) {
       where.siteManpower = {
-        siteId: sid,
-        ...(activeOnly === "true" ? { isPresent: true } : {}),
+        some: {
+          siteId: sid,
+          isAssigned: true, // Only show currently assigned records
+          ...(activeOnly === "true" ? { isPresent: true } : {}),
+        },
       };
     }
   }

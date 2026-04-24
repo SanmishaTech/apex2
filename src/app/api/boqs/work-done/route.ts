@@ -271,22 +271,30 @@ export async function GET(req: NextRequest) {
         let mTotalOrderedAmount = 0;
         let mTotalRemainingAmount = 0;
 
+        // Build map of overall values by item id for quick lookup
+        const overallByItemId = new Map<number, { remainingQty: number; remainingAmount: number; remainingPct: number }>();
+        for (const d of data) {
+          overallByItemId.set(d.id, {
+            remainingQty: d.remainingQty,
+            remainingAmount: d.remainingAmount,
+            remainingPct: d.remainingPct,
+          });
+        }
+
         const mData = rows.map((r) => {
           const qty = Number(r.qty || 0);
           const rate = Number(r.rate || 0);
           const orderedQty = Number(r.orderedQty || 0);
           const list = entriesByItem.get(r.id) || [];
-          let cumDone = 0;
+          let monthDone = 0;
           const dailyDone: Record<string, number> = {};
           for (const e of list) {
-            if (e.dt <= endTs) cumDone += Number(e.qty || 0);
-            else break;
-
             if (e.dt >= startTs && e.dt <= endTs) {
+              monthDone += Number(e.qty || 0);
               dailyDone[e.dateStr] = Number(dailyDone[e.dateStr] || 0) + Number(e.qty || 0);
             }
           }
-          const executedQty = orderedQty + cumDone;
+          const executedQty = orderedQty + monthDone;
           const remainingQty = qty - executedQty;
           const amount = Number(r.amount || 0);
           const orderedAmount = executedQty * rate;
@@ -295,6 +303,9 @@ export async function GET(req: NextRequest) {
           mTotalAmount += amount;
           mTotalOrderedAmount += orderedAmount;
           mTotalRemainingAmount += remainingAmount;
+
+          // Get overall remaining values for this item
+          const overall = overallByItemId.get(r.id);
 
           return {
             id: r.id,
@@ -308,13 +319,13 @@ export async function GET(req: NextRequest) {
             qty,
             unit: r.unit?.unitName || null,
             orderedQty: executedQty,
-            remainingQty,
+            remainingQty: overall?.remainingQty ?? remainingQty, // Use overall remaining
             rate,
             amount,
             orderedAmount,
-            remainingAmount,
+            remainingAmount: overall?.remainingAmount ?? remainingAmount, // Use overall remaining
             orderedPct: qty === 0 ? 0 : (executedQty / qty) * 100,
-            remainingPct: qty === 0 ? 0 : (remainingQty / qty) * 100,
+            remainingPct: overall?.remainingPct ?? (qty === 0 ? 0 : (remainingQty / qty) * 100), // Use overall remaining
             dailyDone,
           };
         });
@@ -324,6 +335,10 @@ export async function GET(req: NextRequest) {
         const remainingPctTotal =
           mTotalAmount === 0 ? 0 : (mTotalRemainingAmount / mTotalAmount) * 100;
 
+        // Calculate overall remaining amount and percentage for monthly totals display
+        const overallRemainingAmountTotal = data.reduce((sum, d) => sum + d.remainingAmount, 0);
+        const overallRemainingPctTotal = totalAmount === 0 ? 0 : (overallRemainingAmountTotal / totalAmount) * 100;
+
         return {
           month: `${String(y)}-${String(mo).padStart(2, "0")}`,
           label: monthLabel(y, mo),
@@ -332,9 +347,9 @@ export async function GET(req: NextRequest) {
           totals: {
             amount: mTotalAmount,
             orderedAmount: mTotalOrderedAmount,
-            remainingAmount: mTotalRemainingAmount,
+            remainingAmount: overallRemainingAmountTotal, // Overall remaining amount
             orderedPctTotal,
-            remainingPctTotal,
+            remainingPctTotal: overallRemainingPctTotal, // Overall remaining percentage
           },
         };
       });

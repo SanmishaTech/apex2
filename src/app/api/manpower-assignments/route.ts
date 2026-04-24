@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
     if (mode === 'assigned') {
       if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required for mode=assigned');
       where.isAssigned = true;
-      where.siteManpower = { siteId };
+      // Only show manpowers with isAssigned=true at this site
+      where.siteManpower = { some: { siteId, isAssigned: true } };
     } else if (mode === 'available') {
       // Only unassigned manpower
       where.isAssigned = false;
@@ -105,6 +106,9 @@ export async function GET(req: NextRequest) {
         mobileNumber: true,
         isAssigned: true,
         siteManpower: {
+          where: mode === 'assigned' && siteId ? { siteId } : undefined,
+          orderBy: { id: 'desc' },
+          take: 1,
           select: {
             siteId: true,
             isPresent: true,
@@ -131,7 +135,7 @@ export async function GET(req: NextRequest) {
       ...result,
       data: Array.isArray((result as any).data)
         ? (result as any).data.map((row: any) => {
-            const sm = row?.siteManpower;
+            const sm = row?.siteManpower?.[0];
             return {
               ...row,
               // Back-compat keys used by older UI
@@ -193,11 +197,15 @@ export async function POST(req: NextRequest) {
         const categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
         const skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
 
+        const isPresent = !!i.present;
         await tx.siteManpower.create({
           data: {
             siteId,
             manpowerId,
-            isPresent: !!i.present,
+            isAssigned: true,
+            isPresent,
+            startDate: isPresent ? now : null,
+            endDate: null,
             assignedDate: asDate(i.assignedAt) ?? now,
             assignedById: auth.user.id,
             categoryId,
@@ -220,13 +228,6 @@ export async function POST(req: NextRequest) {
             manpowerId,
             assignedDate: asDate(i.assignedAt) ?? now,
             assignedById: auth.user.id,
-            wage: asNonNegativeDecimal(i.wage) as any,
-            minWage: asNonNegativeDecimal(i.minWage) as any,
-            pf: !!i.pf,
-            esic: !!i.esic,
-            hra: !!i.hra,
-            pt: !!i.pt,
-            mlwf: !!i.mlwf,
           },
         });
 
@@ -257,34 +258,150 @@ export async function PATCH(req: NextRequest) {
     if (items.length === 0) return ApiBadRequest('items are required');
 
     const updates = await prisma.$transaction(async (tx) => {
+      const now = new Date();
       let count = 0;
       for (const i of items) {
         const manpowerId = Number(i.manpowerId);
         if (!Number.isFinite(manpowerId)) continue;
 
-        const where: any = { manpowerId };
-        if (siteId !== undefined) where.siteId = siteId;
-
-        const data: any = {};
-        if (i.category !== undefined || i.categoryId !== undefined) {
-          data.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+        // Find the 'open' record (endDate is null) - this is the currently active assignment
+        const openWhere: any = { manpowerId, endDate: null };
+        if (siteId !== undefined) openWhere.siteId = siteId;
+        let existing = await tx.siteManpower.findFirst({ where: openWhere });
+        // If no open record, fall back to the most recent record
+        if (!existing) {
+          const where: any = { manpowerId };
+          if (siteId !== undefined) where.siteId = siteId;
+          existing = await tx.siteManpower.findFirst({ where, orderBy: { id: 'desc' } });
         }
-        if (i.skillSet !== undefined || i.skillsetId !== undefined) {
-          data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
-        }
-        if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
-        if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
-        if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
-        if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
-        if (i.pf !== undefined) data.pf = !!i.pf;
-        if (i.esic !== undefined) data.esic = !!i.esic;
-        if (i.pt !== undefined) data.pt = !!i.pt;
-        if (i.hra !== undefined) data.hra = !!i.hra;
-        if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
-        if (i.present !== undefined) data.isPresent = !!i.present;
-        if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
+        if (!existing) continue;
 
-        await tx.siteManpower.update({ where, data, select: { id: true } });
+        const newIsPresent = i.present !== undefined ? !!i.present : existing.isPresent;
+        const isPresentChanged = i.present !== undefined && existing.isPresent !== newIsPresent;
+
+        // Handle isPresent toggle logic
+        if (isPresentChanged) {
+          if (newIsPresent) {
+            // false -> true: If startDate is null, update existing; otherwise create new
+            if (existing.startDate === null) {
+              const updateData: any = {
+                isPresent: true,
+                startDate: now,
+              };
+              if (i.category !== undefined || i.categoryId !== undefined) {
+                updateData.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+              }
+              if (i.skillSet !== undefined || i.skillsetId !== undefined) {
+                updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+              }
+              if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
+              if (i.minWage !== undefined) updateData.minWage = asNonNegativeDecimal(i.minWage) as any;
+              if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
+              if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
+              if (i.pf !== undefined) updateData.pf = !!i.pf;
+              if (i.esic !== undefined) updateData.esic = !!i.esic;
+              if (i.pt !== undefined) updateData.pt = !!i.pt;
+              if (i.hra !== undefined) updateData.hra = !!i.hra;
+              if (i.mlwf !== undefined) updateData.mlwf = !!i.mlwf;
+              if (i.assignedAt !== undefined) updateData.assignedDate = asDate(i.assignedAt);
+              await tx.siteManpower.update({ where: { id: existing.id }, data: updateData });
+            } else {
+              // Create new record with startDate = now
+              const data: any = {
+                siteId: existing.siteId,
+                manpowerId,
+                isAssigned: true,
+                isPresent: true,
+                startDate: now,
+                endDate: null,
+                assignedDate: existing.assignedDate,
+                assignedById: existing.assignedById,
+                categoryId: existing.categoryId,
+                skillsetId: existing.skillsetId,
+                wage: existing.wage,
+                minWage: existing.minWage,
+                foodCharges: existing.foodCharges,
+                foodCharges2: existing.foodCharges2,
+                pf: existing.pf,
+                esic: existing.esic,
+                pt: existing.pt,
+                hra: existing.hra,
+                mlwf: existing.mlwf,
+              };
+              if (i.category !== undefined || i.categoryId !== undefined) {
+                data.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+              }
+              if (i.skillSet !== undefined || i.skillsetId !== undefined) {
+                data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+              }
+              if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
+              if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
+              if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
+              if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
+              if (i.pf !== undefined) data.pf = !!i.pf;
+              if (i.esic !== undefined) data.esic = !!i.esic;
+              if (i.pt !== undefined) data.pt = !!i.pt;
+              if (i.hra !== undefined) data.hra = !!i.hra;
+              if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
+              if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
+
+              // Close old record with endDate and set isAssigned to false
+              await tx.siteManpower.update({
+                where: { id: existing.id },
+                data: { isAssigned: false, endDate: now },
+              });
+              // Create new record
+              await tx.siteManpower.create({ data });
+            }
+          } else {
+            // true -> false: Update current record with endDate (keep isAssigned true)
+            const updateData: any = {
+              isPresent: false,
+              endDate: now,
+            };
+            if (i.category !== undefined || i.categoryId !== undefined) {
+              updateData.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+            }
+            if (i.skillSet !== undefined || i.skillsetId !== undefined) {
+              updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+            }
+            if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
+            if (i.minWage !== undefined) updateData.minWage = asNonNegativeDecimal(i.minWage) as any;
+            if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
+            if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
+            if (i.pf !== undefined) updateData.pf = !!i.pf;
+            if (i.esic !== undefined) updateData.esic = !!i.esic;
+            if (i.pt !== undefined) updateData.pt = !!i.pt;
+            if (i.hra !== undefined) updateData.hra = !!i.hra;
+            if (i.mlwf !== undefined) updateData.mlwf = !!i.mlwf;
+            if (i.assignedAt !== undefined) updateData.assignedDate = asDate(i.assignedAt);
+
+            await tx.siteManpower.update({ where: { id: existing.id }, data: updateData });
+          }
+        } else {
+          // No isPresent change - just update other fields
+          const data: any = {};
+          if (i.category !== undefined || i.categoryId !== undefined) {
+            data.categoryId = await resolveCategoryId(tx, i.categoryId ?? i.category);
+          }
+          if (i.skillSet !== undefined || i.skillsetId !== undefined) {
+            data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
+          }
+          if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
+          if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
+          if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
+          if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
+          if (i.pf !== undefined) data.pf = !!i.pf;
+          if (i.esic !== undefined) data.esic = !!i.esic;
+          if (i.pt !== undefined) data.pt = !!i.pt;
+          if (i.hra !== undefined) data.hra = !!i.hra;
+          if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
+          if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
+
+          if (Object.keys(data).length > 0) {
+            await tx.siteManpower.update({ where: { id: existing.id }, data });
+          }
+        }
         count++;
       }
       return count;
@@ -313,15 +430,28 @@ export async function DELETE(req: NextRequest) {
         const where: any = { manpowerId };
         if (siteId != null) where.siteId = siteId;
 
-        const existing = await tx.siteManpower.findFirst({ where, select: { siteId: true, manpowerId: true } });
-        if (!existing) continue;
+        // Find all records for this manpower at the site and set endDate before deleting
+        const existingRecords = await tx.siteManpower.findMany({ 
+          where, 
+          select: { id: true, siteId: true, manpowerId: true, endDate: true } 
+        });
+        if (existingRecords.length === 0) continue;
 
-        await tx.siteManpower.delete({ where: { manpowerId } });
+        // Update endDate on records that don't have it set (keep historical data)
+        for (const record of existingRecords) {
+          if (!record.endDate) {
+            await tx.siteManpower.update({
+              where: { id: record.id },
+              data: { isAssigned: false, endDate: now, isPresent: false },
+            });
+          }
+        }
 
+        // Note: We intentionally keep all siteManpower records for historical tracking
         await tx.siteManpowerLog.updateMany({
           where: {
             manpowerId,
-            siteId: existing.siteId,
+            siteId: existingRecords[0].siteId,
             unassignedDate: null,
           },
           data: {

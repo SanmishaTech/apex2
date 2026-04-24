@@ -122,8 +122,10 @@ export async function PATCH(
     if (body.pt !== undefined) assignmentData.pt = !!body.pt;
     if (body.mlwf !== undefined) assignmentData.mlwf = !!body.mlwf;
     if (body.assignedDate !== undefined) assignmentData.assignedDate = asDate(body.assignedDate);
+    // Handle isPresent field
+    const isPresentUpdate = body.isPresent !== undefined ? !!body.isPresent : undefined;
 
-    const hasAssignmentFieldUpdates = Object.keys(assignmentData).length > 0;
+    const hasAssignmentFieldUpdates = Object.keys(assignmentData).length > 0 || isPresentUpdate !== undefined;
     const currentSiteIdProvided = body.currentSiteId !== undefined;
 
     if (!hasAssignmentFieldUpdates && !currentSiteIdProvided) {
@@ -131,10 +133,22 @@ export async function PATCH(
     }
 
     await prisma.$transaction(async (tx) => {
+      const now = new Date();
+
       if (currentSiteIdProvided) {
         if (body.currentSiteId === null) {
-          // Unassign: delete current assignment row and close the open log
-          await tx.siteManpower.delete({ where: { manpowerId: id } }).catch(() => null);
+          // Unassign: update endDate on all open records, then delete, and close the open log
+          const openRecords = await tx.siteManpower.findMany({
+            where: { manpowerId: id, endDate: null },
+            select: { id: true },
+          });
+          for (const record of openRecords) {
+            await tx.siteManpower.update({
+              where: { id: record.id },
+              data: { endDate: now, isPresent: false },
+            });
+          }
+          // Note: We intentionally keep all siteManpower records for historical tracking
           await tx.siteManpowerLog
             .updateMany({
               where: {
@@ -142,7 +156,7 @@ export async function PATCH(
                 unassignedDate: null,
               },
               data: {
-                unassignedDate: new Date(),
+                unassignedDate: now,
                 unassignedById: auth.user.id,
               },
             })
@@ -154,49 +168,129 @@ export async function PATCH(
         const siteId = Number(body.currentSiteId);
         if (!Number.isFinite(siteId)) throw new Error('Invalid currentSiteId');
 
-        const assignedDate = asDate(body.assignedDate) ?? new Date();
+        const assignedDate = asDate(body.assignedDate) ?? now;
 
-        // Create or update current assignment row
-        await tx.siteManpower.upsert({
+        // Find existing active record for this manpower
+        const existingRecord = await tx.siteManpower.findFirst({
           where: { manpowerId: id },
-          create: {
-            manpowerId: id,
-            siteId,
-            assignedDate,
-            assignedById: auth.user.id,
-            ...(hasAssignmentFieldUpdates ? assignmentData : {}),
-          },
-          update: {
-            siteId,
-            ...(hasAssignmentFieldUpdates ? assignmentData : {}),
-          },
+          orderBy: { id: 'desc' },
         });
+
+        if (existingRecord) {
+          // Update existing record with new site and fields
+          await tx.siteManpower.update({
+            where: { id: existingRecord.id },
+            data: {
+              siteId,
+              assignedDate,
+              ...(hasAssignmentFieldUpdates ? assignmentData : {}),
+            },
+          });
+        } else {
+          // Create new record - check if isPresent is set, if so set startDate
+          const isPresent = isPresentUpdate ?? false;
+          await tx.siteManpower.create({
+            data: {
+              manpowerId: id,
+              siteId,
+              assignedDate,
+              assignedById: auth.user.id,
+              isPresent,
+              startDate: isPresent ? now : null,
+              endDate: null,
+              ...(hasAssignmentFieldUpdates ? assignmentData : {}),
+            },
+          });
+        }
 
         // Ensure manpower marked assigned
         await tx.manpower.update({ where: { id }, data: { isAssigned: true } });
 
-        // Create a history log row for this assignment with wage data
+        // Create a history log row for this assignment
         await tx.siteManpowerLog.create({
           data: {
             manpowerId: id,
             siteId,
             assignedDate,
             assignedById: auth.user.id,
-            wage: assignmentData.wage ?? null,
-            minWage: assignmentData.minWage ?? null,
-            pf: !!assignmentData.pf,
-            esic: !!assignmentData.esic,
-            hra: !!assignmentData.hra,
-            pt: !!assignmentData.pt,
-            mlwf: !!assignmentData.mlwf,
           },
         });
         return;
       }
 
-      // Update fields only (site remains same)
-      if (hasAssignmentFieldUpdates) {
-        await tx.siteManpower.update({ where: { manpowerId: id }, data: assignmentData });
+      // Update fields only (site remains same) - handle isPresent toggle
+      if (hasAssignmentFieldUpdates || isPresentUpdate !== undefined) {
+        // Find the 'open' record (endDate is null) - this is the currently active assignment
+        let existing = await tx.siteManpower.findFirst({
+          where: { manpowerId: id, endDate: null },
+          orderBy: { id: 'desc' },
+        });
+        // If no open record, fall back to the most recent record
+        if (!existing) {
+          existing = await tx.siteManpower.findFirst({
+            where: { manpowerId: id },
+            orderBy: { id: 'desc' },
+          });
+        }
+
+        if (existing) {
+          // Check if isPresent is changing
+          if (isPresentUpdate !== undefined && existing.isPresent !== isPresentUpdate) {
+            if (isPresentUpdate) {
+              // false -> true: If startDate is null, update existing; otherwise create new
+              if (existing.startDate === null) {
+                await tx.siteManpower.update({
+                  where: { id: existing.id },
+                  data: {
+                    isPresent: true,
+                    startDate: now,
+                    ...assignmentData,
+                  },
+                });
+              } else {
+                await tx.siteManpower.create({
+                  data: {
+                    siteId: existing.siteId,
+                    manpowerId: id,
+                    isPresent: true,
+                    startDate: now,
+                    endDate: null,
+                    assignedDate: existing.assignedDate,
+                    assignedById: existing.assignedById,
+                    categoryId: existing.categoryId,
+                    skillsetId: existing.skillsetId,
+                    wage: existing.wage,
+                    minWage: existing.minWage,
+                    foodCharges: existing.foodCharges,
+                    foodCharges2: existing.foodCharges2,
+                    pf: existing.pf,
+                    esic: existing.esic,
+                    pt: existing.pt,
+                    hra: existing.hra,
+                    mlwf: existing.mlwf,
+                    ...assignmentData,
+                  },
+                });
+              }
+            } else {
+              // true -> false: Update current record with endDate
+              await tx.siteManpower.update({
+                where: { id: existing.id },
+                data: {
+                  isPresent: false,
+                  endDate: now,
+                  ...assignmentData,
+                },
+              });
+            }
+          } else {
+            // No isPresent change - just update other fields
+            await tx.siteManpower.update({
+              where: { id: existing.id },
+              data: assignmentData,
+            });
+          }
+        }
       }
     });
 
@@ -220,7 +314,19 @@ export async function DELETE(
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.siteManpower.delete({ where: { manpowerId: id } }).catch(() => null);
+      const now = new Date();
+      // Update endDate on all open records before deleting
+      const openRecords = await tx.siteManpower.findMany({
+        where: { manpowerId: id, endDate: null },
+        select: { id: true },
+      });
+      for (const record of openRecords) {
+        await tx.siteManpower.update({
+          where: { id: record.id },
+          data: { isAssigned: false, endDate: now, isPresent: false },
+        });
+      }
+      // Note: We intentionally keep all siteManpower records for historical tracking
       await tx.siteManpowerLog
         .updateMany({
           where: {
@@ -228,7 +334,7 @@ export async function DELETE(
             unassignedDate: null,
           },
           data: {
-            unassignedDate: new Date(),
+            unassignedDate: now,
             unassignedById: auth.user.id,
           },
         })

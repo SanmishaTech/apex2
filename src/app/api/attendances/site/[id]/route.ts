@@ -29,13 +29,16 @@ export async function GET(
       return NotFound('Site not found');
     }
 
-    // Get all assigned manpower for this site
+    // Get all assigned manpower for this site (isAssigned: true)
     const manpower = await prisma.manpower.findMany({
       where: {
         isAssigned: true,
         siteManpower: {
-          siteId,
-          isPresent: true,
+          some: {
+            siteId,
+            isAssigned: true,
+            isPresent: true,
+          },
         },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
@@ -70,7 +73,7 @@ export async function GET(
           middleName: m.middleName,
           lastName: m.lastName,
           lastAttendance: lastAttendance?.date.toISOString() || null,
-          assignedAt: m.siteManpower?.assignedDate?.toISOString() || null,
+          assignedAt: m.siteManpower?.[0]?.assignedDate?.toISOString() || null,
           ot: 0,
           isPresent: false,
           isIdle: false,

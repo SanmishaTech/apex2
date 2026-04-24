@@ -1136,7 +1136,7 @@ model Manpower {
   attendances   Attendance[]           @relation("ManpowerAttendances")
   paySlips      PaySlip[]
   manpowerDocuments     ManpowerDocument[]
-  siteManpower      SiteManpower?
+  siteManpower      SiteManpower[]
   siteManpowerLogs SiteManpowerLog[]
   @@index([supplierId])
   @@index([firstName, lastName])
@@ -1146,7 +1146,7 @@ model Manpower {
 model SiteManpower {
   id           Int      @id @default(autoincrement())
   siteId       Int    
-  manpowerId   Int      @unique
+  manpowerId   Int
   isPresent    Boolean  @default(false)   
   categoryId   Int?
   skillsetId   Int?
@@ -1160,10 +1160,13 @@ model SiteManpower {
   hra           Boolean  @default(false)
   pt           Boolean  @default(false)
   mlwf         Boolean  @default(false)
+  // Presence period tracking
+  startDate    DateTime?
+  endDate      DateTime?
   // end
   assignedDate DateTime
   assignedById   Int
- 
+  isAssigned    Boolean 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
@@ -1177,7 +1180,8 @@ model SiteManpower {
   @@index([skillsetId])
   @@index([manpowerId])
   @@index([assignedById])
-  // @@index([unassignedById])
+  @@index([startDate])
+  @@index([endDate])
   @@map("site_manpowers")
 }
 
@@ -1189,14 +1193,7 @@ model SiteManpowerLog {
   assignedById   Int
   unassignedDate DateTime?
   unassignedById Int?
-  // Wage data preserved at time of assignment
-  wage         Decimal? @db.Decimal(10, 2)
-  minWage      Decimal? @db.Decimal(10, 2)
-  pf           Boolean  @default(false)
-  esic         Boolean  @default(false)
-  hra          Boolean  @default(false)
-  pt           Boolean  @default(false)
-  mlwf         Boolean  @default(false)
+ 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

@@ -185,13 +185,33 @@ export async function PATCH(
             existingTransfer.transferItems.map(async (item) => {
               const assignedDate = actionDate;
 
-              const previous = await tx.siteManpower.findUnique({
-                where: { manpowerId: item.manpowerId },
-                select: { siteId: true, manpowerId: true },
+              // Get the previous assignment data (isAssigned: true)
+              const previous = await tx.siteManpower.findFirst({
+                where: { manpowerId: item.manpowerId, isAssigned: true },
+                orderBy: { id: 'desc' },
+                select: {
+                  siteId: true,
+                  manpowerId: true,
+                  categoryId: true,
+                  skillsetId: true,
+                  wage: true,
+                  minWage: true,
+                  foodCharges: true,
+                  foodCharges2: true,
+                  pf: true,
+                  esic: true,
+                  pt: true,
+                  hra: true,
+                  mlwf: true,
+                },
               });
 
               if (previous) {
-                await tx.siteManpower.delete({ where: { manpowerId: item.manpowerId } });
+                // Set endDate on old record (keep historical data, never delete)
+                await tx.siteManpower.updateMany({
+                  where: { manpowerId: item.manpowerId, siteId: previous.siteId, isAssigned: true },
+                  data: { isAssigned: false, endDate: assignedDate, isPresent: false },
+                });
                 await tx.siteManpowerLog.updateMany({
                   where: {
                     manpowerId: item.manpowerId,
@@ -199,20 +219,35 @@ export async function PATCH(
                     unassignedDate: null,
                   },
                   data: {
-                    unassignedDate: new Date(),
+                    unassignedDate: assignedDate,
                     unassignedById: guardResult.user.id,
                   },
                 });
               }
 
-              // Create a fresh assignment with details reset
+              // Create new assignment at destination site with all previous data copied
               await tx.siteManpower.create({
                 data: {
                   manpowerId: item.manpowerId,
                   siteId: existingTransfer.toSiteId,
+                  isAssigned: true,
                   assignedDate,
                   assignedById: guardResult.user.id,
-                  // categoryId/skillsetId/wage/minWage/pf/esic/pt/hra/mlwf intentionally omitted to reset
+                  isPresent: false,
+                  startDate: null,
+                  endDate: null,
+                  // Copy all assignment data from previous site
+                  categoryId: previous?.categoryId ?? null,
+                  skillsetId: previous?.skillsetId ?? null,
+                  wage: previous?.wage ?? null,
+                  minWage: previous?.minWage ?? null,
+                  foodCharges: previous?.foodCharges ?? null,
+                  foodCharges2: previous?.foodCharges2 ?? null,
+                  pf: previous?.pf ?? false,
+                  esic: previous?.esic ?? false,
+                  pt: previous?.pt ?? false,
+                  hra: previous?.hra ?? false,
+                  mlwf: previous?.mlwf ?? false,
                 } as any,
               });
 

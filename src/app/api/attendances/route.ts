@@ -195,6 +195,8 @@ export async function GET(req: NextRequest) {
             firstName: true,
             middleName: true,
             lastName: true,
+            mobileNumber: true,
+            aadharNo: true,
             siteManpower: {
               select: {
                 category: { select: { categoryName: true } },

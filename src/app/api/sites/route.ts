@@ -344,7 +344,9 @@ export async function GET(req: NextRequest) {
         siteContactPersons: true,
         _count: {
           select: {
-            siteManpowers: true,
+            siteManpowers: {
+              where: { isAssigned: true },
+            },
             siteBudgets: true,
             siteEmployees: true,
           },

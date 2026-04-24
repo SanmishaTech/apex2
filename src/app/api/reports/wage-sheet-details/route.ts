@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
           ? {
               manpower: {
                 siteManpower: {
-                  is: siteManpowerIs,
+                  some: siteManpowerIs,
                 },
               },
             }
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
             ? {
                 manpower: {
                   siteManpower: {
-                    is: siteManpowerIs,
+                    some: siteManpowerIs,
                   },
                 },
               }

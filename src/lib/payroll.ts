@@ -259,37 +259,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     }
   }
 
-  // Fetch SiteManpowerLog for historical wage data (when employee was unassigned then reassigned)
-  const siteManpowerLogs = await prisma.siteManpowerLog.findMany({
-    where: {
-      manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
-      siteId: { in: siteIds.length ? siteIds : [0] },
-    },
-    select: {
-      manpowerId: true,
-      siteId: true,
-      wage: true,
-      minWage: true,
-      pf: true,
-      esic: true,
-      hra: true,
-      pt: true,
-      mlwf: true,
-      assignedDate: true,
-    },
-    orderBy: { assignedDate: 'desc' },
-  });
-
-  // Build a map from logs - use most recent assignment per manpower+site
-  const siteManpowerLogMap = new Map<string, typeof siteManpowerLogs[0]>();
-  for (const log of siteManpowerLogs) {
-    const key = `${log.manpowerId}:${log.siteId}`;
-    if (!siteManpowerLogMap.has(key)) {
-      siteManpowerLogMap.set(key, log);
-    }
-  }
-
-  // Helper to get assignment data - tries current siteManpower first, then transfer item, then log
+  // Helper to get assignment data - tries current siteManpower first, then transfer item
   type SiteManpowerData = {
     wage: number | Decimal | null;
     minWage: number | Decimal | null;
@@ -319,19 +289,7 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         mlwf: Boolean(transfer.mlwf),
       };
     }
-    // Fall back to log entry (for unassigned then reassigned employees)
-    const log = siteManpowerLogMap.get(key);
-    if (log) {
-      return {
-        wage: log.wage,
-        minWage: log.minWage,
-        pf: log.pf,
-        esic: Boolean(log.esic),
-        hra: Boolean(log.hra),
-        pt: Boolean(log.pt),
-        mlwf: Boolean(log.mlwf),
-      };
-    }
+    // Note: SiteManpowerLog is no longer used in business logic (kept for audit only)
     return null;
   };
 
