@@ -152,12 +152,6 @@ export const NAV_ITEMS: NavItem[] = [
       },
 
       {
-        title: "Minimum Wages",
-        href: "/minimum-wages",
-        icon: Folder,
-        permission: PERMISSIONS.VIEW_MIN_WAGES,
-      },
-      {
         title: "Assign Manpower",
         href: "/assign-manpower",
 
@@ -205,14 +199,8 @@ export const NAV_ITEMS: NavItem[] = [
             icon: Receipt,
             children: [
               {
-                title: "Wage sheet as per minimum wages",
-                href: "/reports/wage-sheet?mode=govt",
-                icon: Receipt,
-                permission: PERMISSIONS.READ_PAYSLIPS,
-              },
-              {
                 title: "Wage sheet as per company rates",
-                href: "/reports/wage-sheet?mode=company",
+                href: "/reports/wage-sheet",
                 icon: Receipt,
                 permission: PERMISSIONS.READ_PAYSLIPS,
               },

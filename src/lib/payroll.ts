@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import type { Decimal } from "@prisma/client/runtime/library";
 
-export type PayrollMode = "company" | "govt";
+export type PayrollMode = "company";
 
 export interface GeneratePayrollParams {
   period: string; // "MM-YYYY"
   paySlipDate: string | Date;
-  modes?: PayrollMode[]; // default: ["company","govt"]
+  modes?: PayrollMode[]; // default: ["company"]
 }
 
 type AttendanceAggKey = `${number}:${number}`; // manpowerId:siteId
@@ -134,7 +134,7 @@ export function amountInWords(num: number): string {
 }
 
 export async function generatePayroll(params: GeneratePayrollParams) {
-  const modes: PayrollMode[] = params.modes && params.modes.length ? params.modes : ["company", "govt"];
+  const modes: PayrollMode[] = params.modes && params.modes.length ? params.modes : ["company"];
   const { from, to, month } = parsePeriod(params.period);
   const paySlipDate = new Date(params.paySlipDate);
 
@@ -145,17 +145,18 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     create: {
       id: 1,
       hoursPerDay: 8,
-      govtWorkingDayCap: 26,
-      hraPercentage: 5,
       pfPercentage: 12,
+      esicThreshold: 21000,
       esicPercentage: 0.75,
       ptThreshold1: 7500,
       ptAmount1: 175,
       ptThreshold2: 10000,
       ptAmount2: 200,
       febPtAmount: 300,
-      mlwfAmount: 12,
-      mlwfMonths: "02,06",
+      ptThresholdWomen: 25000,
+      ptAmountWomen: 200,
+      mlwfAmount: 25,
+      mlwfMonths: "06,12",
     },
   });
 
@@ -215,12 +216,12 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       manpowerId: true,
       siteId: true,
       wage: true,
-      minWage: true,
       pf: true,
       esic: true,
-      hra: true,
       pt: true,
       mlwf: true,
+      foodCharges: true,
+      foodCharges2: true,
     },
   });
   const siteManpowerMap = new Map(
@@ -237,10 +238,8 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     select: {
       manpowerId: true,
       wage: true,
-      minWage: true,
       pf: true,
       esic: true,
-      hra: true,
       pt: true,
       mlwf: true,
       manpowerTransfer: { select: { fromSiteId: true } },
@@ -262,12 +261,12 @@ export async function generatePayroll(params: GeneratePayrollParams) {
   // Helper to get assignment data - tries current siteManpower first, then transfer item
   type SiteManpowerData = {
     wage: number | Decimal | null;
-    minWage: number | Decimal | null;
     pf: boolean;
     esic: boolean;
-    hra: boolean;
     pt: boolean;
     mlwf: boolean;
+    foodCharges: number | Decimal | null;
+    foodCharges2: number | Decimal | null;
   };
 
   const getSiteManpowerData = (manpowerId: number, siteId: number): SiteManpowerData | null => {
@@ -281,12 +280,12 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       // Return in same shape as siteManpower
       return {
         wage: transfer.wage,
-        minWage: transfer.minWage,
         pf: transfer.pf,
         esic: Boolean(transfer.esic),
-        hra: Boolean(transfer.hra),
         pt: Boolean(transfer.pt),
         mlwf: Boolean(transfer.mlwf),
+        foodCharges: 0,
+        foodCharges2: 0,
       };
     }
     // Note: SiteManpowerLog is no longer used in business logic (kept for audit only)
@@ -297,48 +296,113 @@ export async function generatePayroll(params: GeneratePayrollParams) {
 
   // Helper to delete existing slips for period+mode
   async function clearExisting(mode: PayrollMode) {
-    await prisma.paySlipDetail.deleteMany({ where: { paySlip: { period: params.period, govt: mode === "govt" } } });
-    await prisma.paySlip.deleteMany({ where: { period: params.period, govt: mode === "govt" } });
+    await prisma.paySlipDetail.deleteMany({ where: { paySlip: { period: params.period } } });
+    await prisma.paySlip.deleteMany({ where: { period: params.period } });
   }
 
-  // Company mode
-  if (modes.includes("company")) {
-    const warnings: string[] = [];
-    await clearExisting("company");
+    // Company mode
+    if (modes.includes("company")) {
+      const warnings: string[] = [];
+      await clearExisting("company");
 
-    const paySlipsToCreate: any[] = [];
-    for (const { manpowerId, details } of byManpower.values()) {
-      const mp = manpowerMap.get(manpowerId);
-      if (!mp) continue;
-      let net = 0;
-      const dets: any[] = [];
-      for (const d of details as any[]) {
-        // Legacy parity: OT is treated as DAYS, not hours
-        const totalDays = d.presentDays + Number(d.otDays);
-        const smp = getSiteManpowerData(manpowerId, d.siteId);
-        if (!smp) continue;
-        const wage = smp?.wage ? Number(smp.wage) : smp?.minWage ? Number(smp.minWage) : 0;
-        if (!wage) warnings.push(`Manpower ${manpowerId} has no wage/minWage; computed as 0 for site ${d.siteId}`);
-        const gross = toFixed2(totalDays * wage);
-        const total = Math.round(gross);
-        net += total;
-        dets.push({
-          siteId: d.siteId,
-          workingDays: toFixed2(d.presentDays),
-          ot: toFixed2(Number(d.otDays)),
-          idle: toFixed2(d.idleDays),
-          wages: toFixed2(wage),
-          grossWages: toFixed2(gross),
-          total: toFixed2(total),
-          amountInWords: amountInWords(total),
+      const paySlipsToCreate: any[] = [];
+      const monthStr = String(month).padStart(2, "0");
+      const isMlwfMonth = cfg.mlwfMonths.split(",").includes(monthStr);
+
+      for (const { manpowerId, details } of byManpower.values()) {
+        const mp = manpowerMap.get(manpowerId);
+        if (!mp) continue;
+
+        // Calculate total monthly gross to check ESIC threshold
+        let totalGrossMonthly = 0;
+        const siteDataList = (details as any[]).map((d) => {
+          const smp = getSiteManpowerData(manpowerId, d.siteId);
+          if (!smp) return { ...d, smp: null, wage: 0, gross: 0 };
+          const wage = smp.wage ? Number(smp.wage) : 0;
+          const totalDays = d.presentDays + Number(d.otDays);
+          const gross = toFixed2(totalDays * wage);
+          totalGrossMonthly += gross;
+          return { ...d, smp, wage, gross };
         });
-      }
+
+        let net = 0;
+        const dets: any[] = [];
+        let mlwfDeducted = false;
+        let ptDeducted = false;
+
+        for (const data of siteDataList) {
+          if (!data.smp) continue;
+          const { smp, gross, wage } = data;
+
+          if (!wage) {
+            warnings.push(
+              `Manpower ${manpowerId} has no wage; computed as 0 for site ${data.siteId}`
+            );
+          }
+
+          // 1) PF: Calculate if flag is true (no other condition)
+          const pf = smp.pf ? toFixed2(gross * (Number(cfg.pfPercentage) / 100)) : 0;
+
+          // 2) ESIC: Calculate if flag is true AND total monthly gross <= threshold
+          const esic =
+            smp.esic && totalGrossMonthly <= Number(cfg.esicThreshold)
+              ? toFixed2(gross * (Number(cfg.esicPercentage) / 100))
+              : 0;
+
+          // 3) MLWF: Calculate if flag is true AND is a sanctioned month (deduct once per month)
+          let mlwf = 0;
+          if (smp.mlwf && isMlwfMonth && !mlwfDeducted) {
+            mlwf = Number(cfg.mlwfAmount);
+            mlwfDeducted = true;
+          }
+
+          // 4) PT: Calculate if flag is true AND not already deducted
+          let pt = 0;
+          if (smp.pt) {
+            if (!mp.gender || !mp.gender.trim()) {
+              throw new Error("Can not calculate pt if gender not specified");
+            }
+            if (!ptDeducted) {
+              const isFemale = mp.gender?.toLowerCase() === "female" || mp.gender?.toLowerCase() === "f";
+              if (isFemale) {
+                if (totalGrossMonthly > Number(cfg.ptThresholdWomen)) {
+                  pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmountWomen);
+                }
+              } else {
+                if (totalGrossMonthly > Number(cfg.ptThreshold1) && totalGrossMonthly <= Number(cfg.ptThreshold2)) {
+                  pt = Number(cfg.ptAmount1);
+                } else if (totalGrossMonthly > Number(cfg.ptThreshold2)) {
+                  pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmount2);
+                }
+              }
+              if (pt > 0) ptDeducted = true;
+            }
+          }
+
+          const foodCharge = Number(smp.foodCharges || 0) + Number(smp.foodCharges2 || 0);
+          const total = toFixed2(gross - pf - esic - pt - mlwf - foodCharge);
+          net += total;
+
+          dets.push({
+            siteId: data.siteId,
+            workingDays: toFixed2(data.presentDays),
+            ot: toFixed2(Number(data.otDays)),
+            idle: toFixed2(data.idleDays),
+            wages: toFixed2(wage),
+            grossWages: toFixed2(gross),
+            pf,
+            esic,
+            pt,
+            mlwf,
+            total: toFixed2(total),
+            amountInWords: amountInWords(total),
+          });
+        }
       if (dets.length === 0) continue;
       paySlipsToCreate.push({
         manpowerId,
         period: params.period,
         paySlipDate,
-        govt: false,
         netWages: toFixed2(net),
         amountInWords: amountInWords(net),
         details: dets,
@@ -360,107 +424,6 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       }
     });
     results.push({ mode: "company", created: createdCount, warnings });
-  }
-
-  // Govt mode
-  if (modes.includes("govt")) {
-    const warnings: string[] = [];
-    await clearExisting("govt");
-
-    const cap = Number(cfg.govtWorkingDayCap);
-    const hraPct = Number(cfg.hraPercentage);
-    const pfPct = Number(cfg.pfPercentage);
-    const esicPct = Number(cfg.esicPercentage);
-    const ptTh1 = Number(cfg.ptThreshold1);
-    const ptAmt1 = Number(cfg.ptAmount1);
-    const ptTh2 = Number(cfg.ptThreshold2);
-    const ptAmt2 = Number(cfg.ptAmount2);
-    const febPtAmt = Number(cfg.febPtAmount);
-    const mlwfAmt = Number(cfg.mlwfAmount);
-    const mlwfMonths = String(cfg.mlwfMonths || "02,06").split(",").map((s) => s.trim());
-
-    const paySlipsToCreate: any[] = [];
-
-    for (const { manpowerId, details } of byManpower.values()) {
-      const mp = manpowerMap.get(manpowerId);
-      if (!mp) continue;
-      let net = 0;
-      const dets: any[] = [];
-      for (const d of details as any[]) {
-        const workingDays = Math.min(d.presentDays, cap);
-        const smp = getSiteManpowerData(manpowerId, d.siteId);
-        if (!smp) continue;
-        const minWage = smp?.minWage ? Number(smp.minWage) : 0;
-        if (!minWage) warnings.push(`Manpower ${manpowerId} has no minWage; computed as 0 for site ${d.siteId}`);
-        const gross = toFixed2(workingDays * minWage);
-
-        const applyHra = Boolean(smp?.hra);
-        const hra = applyHra ? toFixed2((gross * hraPct) / 100) : 0;
-
-        const applyPf = Boolean(smp?.pf);
-        const pf = applyPf ? Math.round((gross * pfPct) / 100) : 0;
-
-        const applyEsic = Boolean(smp?.esic);
-        const esicBase = gross + hra;
-        const esic = applyEsic ? toFixed2((esicBase * esicPct) / 100) : 0;
-
-        const gwHra = gross + hra;
-        const applyPt = Boolean(smp?.pt);
-        let pt = 0;
-        if (applyPt) {
-          if (gwHra > ptTh1 && gwHra < ptTh2) pt = ptAmt1;
-          if (gwHra > ptTh2) pt = ptAmt2;
-          if (month === 2) pt = febPtAmt; // Feb override
-        }
-
-        let mlwf = 0;
-        if (Boolean(smp?.mlwf) && mlwfMonths.includes(`${month}`.padStart(2, "0"))) mlwf = mlwfAmt;
-
-        const total = Math.round(gross + hra - pf - esic - pt - mlwf);
-        net += total;
-        dets.push({
-          siteId: d.siteId,
-          workingDays: toFixed2(workingDays),
-          ot: toFixed2(Number(d.otDays)), // display OT like legacy, but not included in gross
-          idle: toFixed2(d.idleDays),
-          wages: toFixed2(minWage),
-          grossWages: toFixed2(gross),
-          hra: toFixed2(hra),
-          pf: toFixed2(pf),
-          esic: toFixed2(esic),
-          pt: toFixed2(pt),
-          mlwf: toFixed2(mlwf),
-          total: toFixed2(total),
-          amountInWords: amountInWords(total),
-        });
-      }
-      if (dets.length === 0) continue;
-      paySlipsToCreate.push({
-        manpowerId,
-        period: params.period,
-        paySlipDate,
-        govt: true,
-        netWages: toFixed2(net),
-        amountInWords: amountInWords(net),
-        details: dets,
-      });
-    }
-
-    let createdCountGovt = 0;
-    await prisma.$transaction(async (tx) => {
-      for (const data of paySlipsToCreate) {
-        const { details, ...slipData } = data as any;
-        const slip = await tx.paySlip.create({ data: slipData });
-        if (Array.isArray(details) && details.length) {
-          await tx.paySlipDetail.createMany({
-            data: details.map((d: any) => ({ ...d, paySlipId: slip.id })),
-            skipDuplicates: true,
-          });
-        }
-        createdCountGovt += 1;
-      }
-    });
-    results.push({ mode: "govt", created: createdCountGovt, warnings });
   }
 
   return { period: params.period, results };

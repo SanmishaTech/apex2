@@ -21,21 +21,7 @@ import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import type { AssignedManpowerItem, AssignManpowerRequestItem } from '@/types/manpower-assignments';
 type AssignRow = AssignedManpowerItem & { __sr: string };
 type AssignQ = { page: number; perPage: number; supplierId: string; name: string; sort: string; order: 'asc' | 'desc' };
-type AssignDraft = {
-  manpowerId: number;
-  category?: string | null;
-  skillSet?: string | null;
-  wage?: number | string | null;
-  minWage?: number | string | null;
-  foodCharges?: number | string | null;
-  foodCharges2?: number | string | null;
-  esic?: boolean | null;
-  pf?: boolean | null;
-  pt?: boolean | null;
-  hra?: boolean | null;
-  mlwf?: boolean | null;
-  present?: boolean;
-};
+type AssignDraft = AssignManpowerRequestItem;
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -113,13 +99,11 @@ export default function AssignManpowerPage({ params }: PageProps) {
           category: row.category ?? undefined,
           skillSet: row.skillSet ?? undefined,
           wage: row.wage ?? undefined,
-          minWage: row.minWage ?? undefined,
           foodCharges: row.foodCharges ?? undefined,
           foodCharges2: row.foodCharges2 ?? undefined,
           esic: asBool(row.esic),
           pf: row.pf ?? false,
           pt: asBool(row.pt),
-          hra: asBool(row.hra),
           mlwf: asBool(row.mlwf),
           present: true,
         };
@@ -144,13 +128,11 @@ export default function AssignManpowerPage({ params }: PageProps) {
             category: row.category ?? undefined,
             skillSet: row.skillSet ?? undefined,
             wage: row.wage ?? undefined,
-            minWage: row.minWage ?? undefined,
             foodCharges: row.foodCharges ?? undefined,
             foodCharges2: row.foodCharges2 ?? undefined,
             esic: asBool(row.esic),
             pf: row.pf ?? false,
             pt: asBool(row.pt),
-            hra: asBool(row.hra),
             mlwf: asBool(row.mlwf),
             present: true,
             [key]: value,
@@ -223,12 +205,6 @@ export default function AssignManpowerPage({ params }: PageProps) {
       )
     },
     {
-      key: 'minWage', header: 'Min Wage', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
-        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String(selected[r.id]?.minWage ?? r.minWage ?? '')}
-          onChange={(e) => setField(r.id, 'minWage', e.currentTarget.value)} />
-      )
-    },
-    {
       key: 'foodCharges', header: 'Food Charges', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
         <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String(selected[r.id]?.foodCharges ?? r.foodCharges ?? '')}
           onChange={(e) => setField(r.id, 'foodCharges', e.currentTarget.value)} />
@@ -242,27 +218,22 @@ export default function AssignManpowerPage({ params }: PageProps) {
     },
     {
       key: 'pf', header: 'PF', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
-        <input type='checkbox' checked={selected[r.id]?.pf ?? r.pf ?? false} onChange={(e) => setField(r.id, 'pf', e.currentTarget.checked)} />
+        <input type='checkbox' checked={asBool(selected[r.id]?.pf ?? r.pf)} onChange={(e) => setField(r.id, 'pf', e.currentTarget.checked)} />
       )
     },
     {
       key: 'esic', header: 'ESIC', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
-        <input type='checkbox' checked={selected[r.id]?.esic ?? asBool(r.esic)} onChange={(e) => setField(r.id, 'esic', e.currentTarget.checked)} />
-      )
-    },
-    {
-      key: 'hra', header: 'HRA', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
-        <input type='checkbox' checked={selected[r.id]?.hra ?? asBool(r.hra)} onChange={(e) => setField(r.id, 'hra', e.currentTarget.checked)} />
+        <input type='checkbox' checked={asBool(selected[r.id]?.esic ?? r.esic)} onChange={(e) => setField(r.id, 'esic', e.currentTarget.checked)} />
       )
     },
     {
       key: 'pt', header: 'PT', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
-        <input type='checkbox' checked={selected[r.id]?.pt ?? asBool(r.pt)} onChange={(e) => setField(r.id, 'pt', e.currentTarget.checked)} />
+        <input type='checkbox' checked={asBool(selected[r.id]?.pt ?? r.pt)} onChange={(e) => setField(r.id, 'pt', e.currentTarget.checked)} />
       )
     },
     {
       key: 'mlwf', header: 'MLWF', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
-        <input type='checkbox' checked={selected[r.id]?.mlwf ?? asBool(r.mlwf)} onChange={(e) => setField(r.id, 'mlwf', e.currentTarget.checked)} />
+        <input type='checkbox' checked={asBool(selected[r.id]?.mlwf ?? r.mlwf)} onChange={(e) => setField(r.id, 'mlwf', e.currentTarget.checked)} />
       )
     },
     ];
@@ -270,21 +241,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
   const sortState: SortState = { field: sort, order };
 
   async function handleAssign() {
-    const items: AssignManpowerRequestItem[] = Object.values(selected).map(({ manpowerId, category, skillSet, wage, minWage, foodCharges, foodCharges2, esic, pf, pt, hra, mlwf, present }) => ({
-      manpowerId,
-      category,
-      skillSet,
-      wage,
-      minWage,
-      foodCharges,
-      foodCharges2,
-      esic: typeof esic === 'boolean' ? (esic ? 1 : null) : (esic as any),
-      pf: pf ?? null,
-      pt: typeof pt === 'boolean' ? (pt ? 1 : null) : (pt as any),
-      hra: typeof hra === 'boolean' ? (hra ? 1 : null) : (hra as any),
-      mlwf: typeof mlwf === 'boolean' ? (mlwf ? 1 : null) : (mlwf as any),
-      present,
-    }));
+    const items = Object.values(selected);
     if (items.length === 0) { toast.error('Select at least one manpower'); return; }
     try {
       await apiPost('/api/manpower-assignments', { siteId, items });

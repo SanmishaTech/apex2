@@ -45,6 +45,7 @@ export interface SiteWithLastAttendance {
   shortName?: string | null;
   lastAttendanceDate?: string | null;
   assignedManpowerCount: number;
+  presentManpowerCount: number;
 }
 
 export interface SitesAttendanceResponse {

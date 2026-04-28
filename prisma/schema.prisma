@@ -355,12 +355,8 @@ model Site {
   // Back-relation for CashbookBudget.site
   cashbookBudgets    CashbookBudget[]
 
-  // Back-relation for MinimumWage.site
-  minimumWages MinimumWage[]
-  // Back-relation for Indent.site
   indents         Indent[]
-    workOrders WorkOrder[]
-
+  workOrders WorkOrder[]
 
   siteBudgets           SiteBudget[]
   // Back-relation for Rent.site
@@ -576,8 +572,6 @@ model Category {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Back-relation for MinimumWage.category
-  minimumWages MinimumWage[]
   siteManpowers SiteManpower[]
 
 
@@ -606,8 +600,6 @@ model SkillSet {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Back-relation for MinimumWage.skillSet
-  minimumWages MinimumWage[]
   siteManpowers SiteManpower[]
 
   @@index([skillsetName])
@@ -1151,13 +1143,11 @@ model SiteManpower {
   categoryId   Int?
   skillsetId   Int?
   wage         Decimal? @db.Decimal(10, 2) 
-  minWage      Decimal? @db.Decimal(10, 2) 
   foodCharges  Decimal? @db.Decimal(10, 2) 
   foodCharges2  Decimal? @db.Decimal(10, 2) 
 
   pf           Boolean  @default(false)
   esic          Boolean  @default(false)
-  hra           Boolean  @default(false)
   pt           Boolean  @default(false)
   mlwf         Boolean  @default(false)
   // Presence period tracking
@@ -1210,26 +1200,6 @@ model SiteManpowerLog {
   @@map("site_manpower_logs")
 }
 
-// Minimum wage mapping per Site + Category + SkillSet
-model MinimumWage {
-  id         Int      @id @default(autoincrement())
-  siteId     Int
-  categoryId Int
-  skillSetId Int
-  minWage    Decimal  @db.Decimal(12, 2)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  site     Site     @relation(fields: [siteId], references: [id])
-  category Category @relation(fields: [categoryId], references: [id])
-  skillSet SkillSet @relation(fields: [skillSetId], references: [id])
-
-  @@unique([siteId, categoryId, skillSetId])
-  @@index([siteId])
-  @@index([categoryId])
-  @@index([skillSetId])
-  @@map("minimum_wages")
-}
 
 // Payment Terms master data
 model PaymentTerm {
@@ -1591,12 +1561,10 @@ model ManpowerTransferItem {
   category           String?
   skillSet           String?
   wage               Decimal? @db.Decimal(12, 2)
-  minWage            Decimal? @db.Decimal(10, 2)
   hours              Decimal? @db.Decimal(5, 2)
   esic               Decimal? @db.Decimal(10, 2)
   pf                 Boolean  @default(false)
   pt                 Decimal? @db.Decimal(10, 2)
-  hra                Decimal? @db.Decimal(10, 2)
   mlwf               Decimal? @db.Decimal(10, 2)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -1616,16 +1584,14 @@ model PaySlip {
   manpower      Manpower        @relation(fields: [manpowerId], references: [id])
   period        String // MM-YYYY
   paySlipDate   DateTime
-  govt          Boolean         @default(false)
   netWages      Decimal         @db.Decimal(12, 2)
   amountInWords String?
   details       PaySlipDetail[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  @@unique([manpowerId, period, govt])
+  @@unique([manpowerId, period])
   @@index([period])
-  @@index([govt])
   @@map("pay_slips")
 }
 
@@ -1640,7 +1606,6 @@ model PaySlipDetail {
   idle          Decimal? @db.Decimal(6, 2)
   wages         Decimal  @db.Decimal(12, 2)
   grossWages    Decimal  @db.Decimal(12, 2)
-  hra           Decimal? @db.Decimal(12, 2)
   pf            Decimal? @db.Decimal(12, 2)
   esic          Decimal? @db.Decimal(12, 2)
   pt            Decimal? @db.Decimal(12, 2)
@@ -1658,17 +1623,18 @@ model PaySlipDetail {
 model PayrollConfig {
   id                Int      @id @default(1)
   hoursPerDay       Decimal  @default(8) @db.Decimal(6, 2)
-  govtWorkingDayCap Int      @default(26)
-  hraPercentage     Decimal  @default(5.00) @db.Decimal(6, 2)
   pfPercentage      Decimal  @default(12.00) @db.Decimal(6, 2)
+  esicThreshold     Decimal  @default(21000) @db.Decimal(12, 2)
   esicPercentage    Decimal  @default(0.75) @db.Decimal(6, 2)
   ptThreshold1      Decimal  @default(7500) @db.Decimal(12, 2)
   ptAmount1         Decimal  @default(175) @db.Decimal(12, 2)
   ptThreshold2      Decimal  @default(10000) @db.Decimal(12, 2)
   ptAmount2         Decimal  @default(200) @db.Decimal(12, 2)
   febPtAmount       Decimal  @default(300) @db.Decimal(12, 2)
-  mlwfAmount        Decimal  @default(12) @db.Decimal(12, 2)
-  mlwfMonths        String   @default("02,06")
+  ptThresholdWomen  Decimal  @default(25000) @db.Decimal(12, 2)
+  ptAmountWomen     Decimal  @default(200) @db.Decimal(12, 2)
+  mlwfAmount        Decimal  @default(25) @db.Decimal(12, 2)
+  mlwfMonths        String   @default("02,12")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

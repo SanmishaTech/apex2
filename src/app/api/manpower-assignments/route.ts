@@ -113,13 +113,11 @@ export async function GET(req: NextRequest) {
             siteId: true,
             isPresent: true,
             wage: true,
-            minWage: true,
             ...({ foodCharges: true } as any),
             ...({ foodCharges2: true } as any),
             pf: true,
             esic: true,
             pt: true,
-            hra: true,
             mlwf: true,
             assignedDate: true,
             category: { select: { id: true, categoryName: true } },
@@ -142,13 +140,11 @@ export async function GET(req: NextRequest) {
               currentSiteId: sm?.siteId ?? null,
               assignedAt: sm?.assignedDate ?? null,
               wage: sm?.wage ?? null,
-              minWage: sm?.minWage ?? null,
               foodCharges: sm?.foodCharges ?? null,
               foodCharges2: sm?.foodCharges2 ?? null,
               pf: sm?.pf ?? false,
               esic: sm?.esic ?? false,
               pt: sm?.pt ?? false,
-              hra: sm?.hra ?? false,
               mlwf: sm?.mlwf ?? false,
               isPresent: sm?.isPresent ?? false,
               category: sm?.category?.categoryName ?? null,
@@ -164,7 +160,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/manpower-assignments  { siteId, items: [{ manpowerId, category, skillSet, wage, minWage, esic, pf, pt }] }
+// POST /api/manpower-assignments  { siteId, items: [{ manpowerId, category, skillSet, wage, esic, pf, pt }] }
 export async function POST(req: NextRequest) {
   const auth = await guardApiAccess(req);
   if (auth.ok === false) return auth.response;
@@ -211,13 +207,11 @@ export async function POST(req: NextRequest) {
             categoryId,
             skillsetId,
             wage: asNonNegativeDecimal(i.wage) as any,
-            minWage: asNonNegativeDecimal(i.minWage) as any,
             foodCharges: asNonNegativeDecimal(i.foodCharges) as any,
             foodCharges2: asNonNegativeDecimal(i.foodCharges2) as any,
             pf: !!i.pf,
             esic: !!i.esic,
             pt: !!i.pt,
-            hra: !!i.hra,
             mlwf: !!i.mlwf,
           } as any,
         });
@@ -295,13 +289,11 @@ export async function PATCH(req: NextRequest) {
                 updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
               }
               if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
-              if (i.minWage !== undefined) updateData.minWage = asNonNegativeDecimal(i.minWage) as any;
               if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
               if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
               if (i.pf !== undefined) updateData.pf = !!i.pf;
               if (i.esic !== undefined) updateData.esic = !!i.esic;
               if (i.pt !== undefined) updateData.pt = !!i.pt;
-              if (i.hra !== undefined) updateData.hra = !!i.hra;
               if (i.mlwf !== undefined) updateData.mlwf = !!i.mlwf;
               if (i.assignedAt !== undefined) updateData.assignedDate = asDate(i.assignedAt);
               await tx.siteManpower.update({ where: { id: existing.id }, data: updateData });
@@ -319,13 +311,11 @@ export async function PATCH(req: NextRequest) {
                 categoryId: existing.categoryId,
                 skillsetId: existing.skillsetId,
                 wage: existing.wage,
-                minWage: existing.minWage,
                 foodCharges: existing.foodCharges,
                 foodCharges2: existing.foodCharges2,
                 pf: existing.pf,
                 esic: existing.esic,
                 pt: existing.pt,
-                hra: existing.hra,
                 mlwf: existing.mlwf,
               };
               if (i.category !== undefined || i.categoryId !== undefined) {
@@ -335,13 +325,11 @@ export async function PATCH(req: NextRequest) {
                 data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
               }
               if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
-              if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
               if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
               if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
               if (i.pf !== undefined) data.pf = !!i.pf;
               if (i.esic !== undefined) data.esic = !!i.esic;
               if (i.pt !== undefined) data.pt = !!i.pt;
-              if (i.hra !== undefined) data.hra = !!i.hra;
               if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
               if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
 
@@ -366,13 +354,11 @@ export async function PATCH(req: NextRequest) {
               updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
             }
             if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
-            if (i.minWage !== undefined) updateData.minWage = asNonNegativeDecimal(i.minWage) as any;
             if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
             if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
             if (i.pf !== undefined) updateData.pf = !!i.pf;
             if (i.esic !== undefined) updateData.esic = !!i.esic;
             if (i.pt !== undefined) updateData.pt = !!i.pt;
-            if (i.hra !== undefined) updateData.hra = !!i.hra;
             if (i.mlwf !== undefined) updateData.mlwf = !!i.mlwf;
             if (i.assignedAt !== undefined) updateData.assignedDate = asDate(i.assignedAt);
 
@@ -388,13 +374,11 @@ export async function PATCH(req: NextRequest) {
             data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
           }
           if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
-          if (i.minWage !== undefined) data.minWage = asNonNegativeDecimal(i.minWage) as any;
           if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
           if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
           if (i.pf !== undefined) data.pf = !!i.pf;
           if (i.esic !== undefined) data.esic = !!i.esic;
           if (i.pt !== undefined) data.pt = !!i.pt;
-          if (i.hra !== undefined) data.hra = !!i.hra;
           if (i.mlwf !== undefined) data.mlwf = !!i.mlwf;
           if (i.assignedAt !== undefined) data.assignedDate = asDate(i.assignedAt);
 

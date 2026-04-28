@@ -10,13 +10,11 @@ export interface AssignedManpowerItem {
   category?: string | null;
   skillSet?: string | null;
   wage?: string | null; // Prisma Decimal serialized to string
-  minWage?: string | null; // Prisma Decimal serialized to string
   foodCharges?: string | null; // Prisma Decimal serialized to string
   foodCharges2?: string | null; // Prisma Decimal serialized to string
   esic?: string | null; // Prisma Decimal serialized to string
   pf?: boolean;
   pt?: string | null; // Prisma Decimal serialized to string
-  hra?: string | null; // Prisma Decimal serialized to string
   mlwf?: string | null; // Prisma Decimal serialized to string
   isPresent: boolean;
   isAssigned: boolean;
@@ -31,14 +29,13 @@ export interface AssignManpowerRequestItem {
   category?: string | null;
   skillSet?: string | null;
   wage?: number | string | null;
-  minWage?: number | string | null;
   foodCharges?: number | string | null;
   foodCharges2?: number | string | null;
-  esic?: number | string | null;
+  esic?: number | string | boolean | null;
   pf?: boolean | null;
-  pt?: number | string | null;
-  hra?: number | string | null;
-  mlwf?: number | string | null;
+  pt?: number | string | boolean | null;
+  mlwf?: number | string | boolean | null;
+  present?: boolean;
   assignedAt?: string | Date | null;
 }
 

@@ -71,12 +71,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Build data directly (avoid cross-fetch to App Router to prevent 400)
-    const govt = mode === "govt" ? true : mode === "company" ? false : undefined;
-
     const details = await prisma.paySlipDetail.findMany({
       where: {
         ...(siteId && siteId !== "all" ? { siteId: Number(siteId) } : {}),
-        paySlip: { period, ...(govt !== undefined ? { govt } : {}) },
+        paySlip: { period },
       },
       include: {
         site: true,
@@ -96,7 +94,6 @@ export async function GET(request: NextRequest) {
       idle: Number(d.idle ?? 0),
       wages: Number(d.wages ?? 0),
       grossWages: Number(d.grossWages ?? 0),
-      hra: Number(d.hra ?? 0),
       pf: Number(d.pf ?? 0),
       esic: Number(d.esic ?? 0),
       pt: Number(d.pt ?? 0),
@@ -106,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     const lines: string[] = [];
     lines.push("ABCD COMPANY LTD        APEX Constructions");
-    lines.push("Report: Monthly Wage Sheet" + (mode === "govt" ? " As Per Minimum Wage" : " As Per Company Rates"));
+    lines.push("Report: Monthly Wage Sheet As Per Company Rates");
     lines.push(`Period: ${period}`);
     lines.push("");
 
@@ -117,7 +114,6 @@ export async function GET(request: NextRequest) {
       "Days".padStart(5),
       "Wage".padStart(9),
       "Gross".padStart(9),
-      "HRA".padStart(7),
       "PF".padStart(7),
       "ESIC".padStart(7),
       "PT".padStart(7),
@@ -128,12 +124,11 @@ export async function GET(request: NextRequest) {
     lines.push(headerLine);
     lines.push("".padEnd(headerLine.length, "-"));
 
-    let sumDays = 0, sumGross = 0, sumHra = 0, sumPf = 0, sumEsic = 0, sumPt = 0, sumMlwf = 0;
+    let sumDays = 0, sumGross = 0, sumPf = 0, sumEsic = 0, sumPt = 0, sumMlwf = 0;
     let sumTotalWorkingDays = 0, sumTotal = 0;
     for (const r of rows) {
       sumDays += Number(r.workingDays || 0);
       sumGross += Number(r.grossWages || 0);
-      sumHra += Number(r.hra || 0);
       sumPf += Number(r.pf || 0);
       sumEsic += Number(r.esic || 0);
       sumPt += Number(r.pt || 0);
@@ -147,7 +142,6 @@ export async function GET(request: NextRequest) {
         Number(r.workingDays || 0).toFixed(2).padStart(5),
         Number(r.wages || 0).toFixed(2).padStart(9),
         Number(r.grossWages || 0).toFixed(2).padStart(9),
-        Number(r.hra || 0).toFixed(2).padStart(7),
         Number(r.pf || 0).toFixed(2).padStart(7),
         Number(r.esic || 0).toFixed(2).padStart(7),
         Number(r.pt || 0).toFixed(2).padStart(7),
@@ -164,7 +158,6 @@ export async function GET(request: NextRequest) {
       sumDays.toFixed(2).padStart(5),
       "".padStart(9),
       sumGross.toFixed(2).padStart(9),
-      sumHra.toFixed(2).padStart(7),
       sumPf.toFixed(2).padStart(7),
       sumEsic.toFixed(2).padStart(7),
       sumPt.toFixed(2).padStart(7),

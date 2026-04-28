@@ -48,12 +48,13 @@ export default function AssignManpowerSitesPage() {
   function resetFilters() { setSearchDraft(''); setQp({ page: 1, search: '' }); }
   function toggleSort(field: string) { setQp(sort === field ? { order: order === 'asc' ? 'desc' : 'asc' } : { sort: field, order: 'asc' }); }
 
-  type SiteRow = (SitesResponse['data'][number] & { _count?: { assignedManpower?: number } });
+  type SiteRow = (SitesResponse['data'][number] & { _count?: { assignedManpower?: number; presentManpower?: number } });
 
   const columns: Column<SiteRow>[] = [
     { key: 'site', header: 'Site', sortable: true, cellClassName: 'font-medium whitespace-nowrap' },
     { key: 'shortName', header: 'Short Name', sortable: false, className: 'whitespace-nowrap' },
     { key: 'company', header: 'Company', sortable: false, accessor: (r) => r.company?.shortName || r.company?.companyName || '—', className: 'whitespace-nowrap' },
+    { key: 'present', header: 'Present', sortable: false, accessor: (r) => r._count?.presentManpower ?? '—', className: 'text-center whitespace-nowrap', cellClassName: 'text-center' },
     { key: 'assigned', header: 'Assigned', sortable: false, accessor: (r) => r._count?.assignedManpower ?? '—', className: 'text-center whitespace-nowrap', cellClassName: 'text-center' },
   ];
 

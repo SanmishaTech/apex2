@@ -101,10 +101,6 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: "/skill-sets/new", permissions: [PERMISSIONS.CREATE_SKILLSETS] },
   { prefix: "/skill-sets/", permissions: [PERMISSIONS.EDIT_SKILLSETS] },
   { prefix: "/skill-sets", permissions: [PERMISSIONS.VIEW_SKILLSETS] },
-  // Minimum Wages
-  { prefix: "/minimum-wages/new", permissions: [PERMISSIONS.CREATE_MIN_WAGES] },
-  { prefix: "/minimum-wages/", permissions: [PERMISSIONS.EDIT_MIN_WAGES] },
-  { prefix: "/minimum-wages", permissions: [PERMISSIONS.VIEW_MIN_WAGES] },
   // Units
   { prefix: "/units/new", permissions: [PERMISSIONS.CREATE_UNITS] },
   { prefix: "/units/", permissions: [PERMISSIONS.EDIT_UNITS] },
@@ -563,15 +559,6 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_SKILLSETS],
       PATCH: [PERMISSIONS.EDIT_SKILLSETS],
       DELETE: [PERMISSIONS.DELETE_SKILLSETS],
-    },
-  },
-  {
-    prefix: "/api/minimum-wages",
-    methods: {
-      GET: [PERMISSIONS.READ_MIN_WAGES],
-      POST: [PERMISSIONS.CREATE_MIN_WAGES],
-      PATCH: [PERMISSIONS.EDIT_MIN_WAGES],
-      DELETE: [PERMISSIONS.DELETE_MIN_WAGES],
     },
   },
   {

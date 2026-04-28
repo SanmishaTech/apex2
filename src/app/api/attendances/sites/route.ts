@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
             isAssigned: true,
             manpower: { isAssigned: true },
           },
-          select: { id: true },
+          select: { id: true, isPresent: true },
         },
       },
     });
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
           shortName: site.shortName,
           lastAttendanceDate: lastAttendance?.date.toISOString() || null,
           assignedManpowerCount: site.siteManpowers.length,
+          presentManpowerCount: site.siteManpowers.filter(sm => sm.isPresent).length,
         };
       })
     );

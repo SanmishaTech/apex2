@@ -151,23 +151,25 @@ export async function GET(req: NextRequest) {
       bankDetails: true,
       watch: true,
       isAssigned: true,
-      siteManpower: {
-        select: {
-          siteId: true,
-          site: { select: { id: true, site: true } },
-          isPresent: true,
-          assignedDate: true,
-          wage: true,
-          minWage: true,
-          pf: true,
-          esic: true,
-          pt: true,
-          hra: true,
-          mlwf: true,
-          category: { select: { categoryName: true } },
-          skillset: { select: { skillsetName: true } },
+        siteManpower: {
+          orderBy: { id: 'desc' },
+          take: 1,
+          select: {
+            siteId: true,
+            site: { select: { id: true, site: true } },
+            isPresent: true,
+            assignedDate: true,
+            wage: true,
+            ...({ foodCharges: true } as any),
+            ...({ foodCharges2: true } as any),
+            pf: true,
+            esic: true,
+            pt: true,
+            mlwf: true,
+            category: { select: { categoryName: true } },
+            skillset: { select: { skillsetName: true } },
+          },
         },
-      },
       createdAt: true,
       updatedAt: true,
     },
@@ -177,7 +179,7 @@ export async function GET(req: NextRequest) {
     ...result,
     data: Array.isArray((result as any).data)
       ? (result as any).data.map((row: any) => {
-          const sm = row?.siteManpower;
+          const sm = row?.siteManpower?.[0];
           return {
             ...row,
             // Back-compat fields expected by some UIs
@@ -187,11 +189,11 @@ export async function GET(req: NextRequest) {
             category: sm?.category?.categoryName ?? null,
             skillSet: sm?.skillset?.skillsetName ?? null,
             wage: sm?.wage ?? null,
-            minWage: sm?.minWage ?? null,
+            foodCharges: sm?.foodCharges ?? null,
+            foodCharges2: sm?.foodCharges2 ?? null,
             pf: sm?.pf ?? false,
             esic: sm?.esic ?? false,
             pt: sm?.pt ?? false,
-            hra: sm?.hra ?? false,
             mlwf: sm?.mlwf ?? false,
             isPresent: sm?.isPresent ?? false,
           };
