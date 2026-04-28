@@ -65,11 +65,24 @@ export default function AttendancesPage() {
       className: 'min-w-[120px]'
     },
     { 
-      key: 'assignedManpowerCount', 
-      header: 'Assigned Manpower', 
+      key: 'presentManpowerCount', 
+      header: 'Present', 
       sortable: false, 
       cellClassName: 'text-center font-medium',
-      className: 'text-center min-w-[140px]',
+      className: 'text-center min-w-[100px]',
+      accessor: (r) => (
+        <div className="flex items-center justify-center gap-1.5">
+          <ClipboardCheck className="w-4 h-4 text-green-500" />
+          <span>{r.presentManpowerCount}</span>
+        </div>
+      )
+    },
+    { 
+      key: 'assignedManpowerCount', 
+      header: 'Assigned', 
+      sortable: false, 
+      cellClassName: 'text-center font-medium',
+      className: 'text-center min-w-[100px]',
       accessor: (r) => (
         <div className="flex items-center justify-center gap-1.5">
           <Users className="w-4 h-4 text-muted-foreground" />

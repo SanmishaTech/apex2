@@ -10,12 +10,10 @@ export interface ManpowerTransferItem {
   category?: string | null;
   skillSet?: string | null;
   wage?: string | null; // Prisma Decimal serialized to string
-  minWage?: string | null; // Prisma Decimal serialized to string
   hours?: string | null; // Prisma Decimal serialized to string
   esic?: string | null; // Prisma Decimal serialized to string
   pf?: boolean;
   pt?: string | null; // Prisma Decimal serialized to string
-  hra?: string | null; // Prisma Decimal serialized to string
   mlwf?: string | null; // Prisma Decimal serialized to string
 }
 
@@ -75,12 +73,10 @@ export interface AssignedManpowerForTransfer {
   category?: string | null;
   skillSet?: string | null;
   wage?: string | null; // Prisma Decimal serialized to string
-  minWage?: string | null; // Prisma Decimal serialized to string
   hours?: string | null; // Prisma Decimal serialized to string
   esic?: string | null; // Prisma Decimal serialized to string
   pf?: boolean;
   pt?: string | null; // Prisma Decimal serialized to string
-  hra?: string | null; // Prisma Decimal serialized to string
   mlwf?: string | null; // Prisma Decimal serialized to string
   isAssigned: boolean;
   currentSiteId?: number | null;

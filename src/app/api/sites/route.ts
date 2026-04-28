@@ -354,26 +354,39 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const normalized = {
-      ...result,
-      data: Array.isArray((result as any).data)
-        ? (result as any).data.map((row: any) => {
-            const count = row?._count;
-            if (!count) return row;
-            // Back-compat: older UI expects _count.assignedManpower
-            return {
-              ...row,
-              _count: {
-                ...count,
-                assignedManpower:
-                  typeof count.siteManpowers === "number"
-                    ? count.siteManpowers
-                    : (count.assignedManpower ?? 0),
-              },
-            };
-          })
-        : (result as any).data,
-    };
+    const normalized = { ...result };
+
+    // Fetch present counts for these sites
+    const siteIds = normalized.data.map((s: any) => s.id);
+    const presentCounts = await prisma.siteManpower.groupBy({
+      by: ["siteId"],
+      where: {
+        siteId: { in: siteIds },
+        isPresent: true,
+        isAssigned: true,
+      },
+      _count: true,
+    });
+
+    const presentMap: Record<number, number> = {};
+    presentCounts.forEach((c) => {
+      presentMap[c.siteId] = c._count;
+    });
+
+    normalized.data = normalized.data.map((row: any) => {
+      const count = row?._count;
+      return {
+        ...row,
+        _count: {
+          ...count,
+          assignedManpower:
+            typeof count?.siteManpowers === "number"
+              ? count.siteManpowers
+              : (count?.assignedManpower ?? 0),
+          presentManpower: presentMap[row.id] || 0,
+        },
+      };
+    });
 
     return Success(normalized);
   } catch (error) {

@@ -141,14 +141,6 @@ export default function ViewManpowerTransferPage() {
       sortable: false,
     },
     {
-      key: 'minWage',
-      header: 'Min Wage (₹)',
-      accessor: (row: ManpowerTransferItem) => (
-        <span>{row.minWage ? formatCurrency(Number(row.minWage)) : '-'}</span>
-      ),
-      sortable: false,
-    },
-    {
       key: 'mobileNumber',
       header: 'Mobile',
       accessor: (row: ManpowerTransferItem) => (

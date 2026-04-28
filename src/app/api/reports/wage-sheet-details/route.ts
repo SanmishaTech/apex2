@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardApiAccess } from "@/lib/access-guard";
 
-// GET /api/reports/wage-sheet-details?period=MM-YYYY&siteId=123&mode=govt|company
+// GET /api/reports/wage-sheet-details?period=MM-YYYY&siteId=123
 // Returns detailed daily attendance breakdown for wage sheet PDF
 export async function GET(req: NextRequest) {
   const auth = await guardApiAccess(req);
@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
     const siteIdsCsv = searchParams.get("siteIds");
     const categoryId = searchParams.get("categoryId");
     const pf = searchParams.get("pf");
-    const mode = searchParams.get("mode") as "company" | "govt" | null;
 
     if (!period || !/^\d{2}-\d{4}$/.test(period)) {
       return NextResponse.json(
@@ -81,15 +80,12 @@ export async function GET(req: NextRequest) {
       orderBy: [{ siteId: "asc" }, { manpowerId: "asc" }, { date: "asc" }],
     });
 
-    // Fetch payslip details based on mode (to get wage rates and deductions)
-    const govt =
-      mode === "govt" ? true : mode === "company" ? false : undefined;
+    // Fetch payslip details (company mode only)
     const paySlipDetails = await prisma.paySlipDetail.findMany({
       where: {
         ...(resolvedSiteIds.length ? { siteId: { in: resolvedSiteIds } } : {}),
         paySlip: {
           period,
-          ...(govt !== undefined ? { govt } : {}),
           ...(Object.keys(siteManpowerIs).length
             ? {
                 manpower: {
@@ -128,6 +124,10 @@ export async function GET(req: NextRequest) {
       orderBy: [{ siteId: "asc" }, { paySlipId: "asc" }],
     });
 
+    const payrollConfig = await prisma.payrollConfig.findFirst({ where: { id: 1 } });
+    const pfPercentage = payrollConfig?.pfPercentage || 12;
+    const esicPercentage = payrollConfig?.esicPercentage || 0.75;
+
     // Build daily attendance map: manpowerId -> siteId -> day -> status
     const dailyMap = new Map<
       number,
@@ -163,7 +163,8 @@ export async function GET(req: NextRequest) {
       const manpowerId = (detail as any).paySlip.manpowerId;
       const manpower = (detail as any).paySlip.manpower;
 
-      const siteManpowerForThisSite = (manpower as any)?.siteManpower || null;
+      const smArray = (manpower as any)?.siteManpower || [];
+      const siteManpowerForThisSite = smArray.find((sm: any) => sm.siteId === siteId) || smArray[0] || null;
 
       if (!siteManpowerForThisSite) continue;
 
@@ -192,7 +193,7 @@ export async function GET(req: NextRequest) {
             // Count OT for both present and idle days
             totalOT += dayData.ot;
             // Add OT hours if present (for both P and I)
-            if (dayData.ot > 0) {
+            if (dayData.ot !== 0) {
               status += `\n${dayData.ot}`;
             }
             dailyAttendance.push(status);
@@ -205,16 +206,17 @@ export async function GET(req: NextRequest) {
       }
 
       const grossWage = Number(detail.grossWages || 0);
-      const hra = Number(detail.hra || 0);
       const pt = Number(detail.pt || 0);
       const lwf = Number(detail.mlwf || 0);
 
-      // Apply PF/ESIC percentages from SiteManpower flags
-      // PF = 12% of gross wage, ESIC = 0.75% of gross wage
-      const pfAmount = siteManpowerForThisSite?.pf ? grossWage * 0.12 : 0;
-      const esicAmount = siteManpowerForThisSite?.esic ? grossWage * 0.0075 : 0;
+      // Use saved PF/ESIC amounts from the payroll detail to ensure exact matching 
+      // with DB and respecting thresholds (like ESIC > 21k rule)
+      const pfAmount = Number(detail.pf || 0);
+      const esicAmount = Number(detail.esic || 0);
 
-      const totalDeduction = hra + pfAmount + esicAmount + pt + lwf;
+      const foodCharges = Number(siteManpowerForThisSite?.foodCharges || 0);
+      const foodCharges2 = Number(siteManpowerForThisSite?.foodCharges2 || 0);
+      const totalDeduction = pfAmount + esicAmount + pt + lwf + foodCharges + foodCharges2;
       const payable = Math.max(0, grossWage - totalDeduction);
 
       siteGroup.workers.push({
@@ -225,6 +227,8 @@ export async function GET(req: NextRequest) {
         designation: siteManpowerForThisSite?.category?.categoryName || "",
         unaNo: manpower?.unaNo || "",
         esicNo: manpower?.esicNo || "",
+        aadharNo: manpower?.aadharNo || "",
+        panNo: manpower?.panNumber || "",
         skillSet: siteManpowerForThisSite?.skillset?.skillsetName || "",
         supplierId: manpower?.supplierId || 0,
         supplierName: manpower?.manpowerSupplier?.supplierName || "",
@@ -238,13 +242,12 @@ export async function GET(req: NextRequest) {
         idleDays: Number(detail.idle || 0),
         idleOT: 0,
         wageRate: Number(detail.wages || 0),
-        foodCharges: Number(siteManpowerForThisSite?.foodCharges || 0),
-        foodCharges2: Number(siteManpowerForThisSite?.foodCharges2 || 0),
+        foodCharges,
+        foodCharges2,
         grossWage,
         actualWages: Number(detail.total || 0),
         idleWages: 0,
         totalWages: Number(detail.total || 0),
-        hra,
         pf: pfAmount,
         esic: esicAmount,
         pt,
@@ -257,11 +260,15 @@ export async function GET(req: NextRequest) {
     const result = {
       period,
       daysInMonth,
-      mode,
+      mode: "company",
       filters: {
         siteIds: resolvedSiteIds.length ? resolvedSiteIds : null,
         categoryId: categoryId || null,
         pf: pf || null,
+      },
+      config: {
+        pfPercentage,
+        esicPercentage
       },
       data: Array.from(siteGroups.values()),
     };

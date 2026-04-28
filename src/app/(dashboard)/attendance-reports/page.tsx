@@ -135,7 +135,7 @@ export default function AttendanceReportsPage() {
           for (let day = 1; day <= daysInMonth; day++) {
             const att = attendanceByDate.get(day);
             if (att) {
-              csv += `${att.isPresent ? 'P' : 'A'},${att.isPresent && att.ot > 0 ? att.ot : ''},`;
+              csv += `${att.isPresent ? 'P' : 'A'},${att.isPresent && att.ot !== 0 ? att.ot : ''},`;
             } else {
               csv += '-,,'; // No attendance record for this day
             }
@@ -233,7 +233,7 @@ export default function AttendanceReportsPage() {
 
           for (let d = 1; d <= daysInMonth; d++) {
             const dayData = attendanceByDay[d];
-            if (dayData) row.push(dayData.present ? (dayData.ot > 0 ? `P+${dayData.ot}` : 'P') : 'A');
+            if (dayData) row.push(dayData.present ? (dayData.ot !== 0 ? (dayData.ot > 0 ? `P+${dayData.ot}` : `P${dayData.ot}`) : 'P') : 'A');
             else row.push('-');
           }
 
@@ -610,20 +610,20 @@ export default function AttendanceReportsPage() {
                                   att.isPresent
                                     ? att.isIdle
                                       ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
-                                      : att.ot > 0
+                                      : att.ot !== 0
                                       ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
                                       : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                                     : 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400'
                                 }`}
                                 title={
                                   att.isPresent
-                                    ? `Present${att.ot > 0 ? ` | OT: ${att.ot}h` : ''}${
+                                    ? `Present${att.ot !== 0 ? ` | OT: ${att.ot}h` : ''}${
                                         att.isIdle ? ' | Idle' : ''
                                       }`
                                     : 'Absent'
                                 }
                               >
-                                {att.isPresent ? (att.ot > 0 ? `P+${att.ot}` : 'P') : 'A'}
+                                {att.isPresent ? (att.ot !== 0 ? (att.ot > 0 ? `P+${att.ot}` : `P${att.ot}`) : 'P') : 'A'}
                               </td>
                             );
                           })}
@@ -684,9 +684,9 @@ export default function AttendanceReportsPage() {
                 </div>
                 <div className='flex items-center gap-2'>
                   <span className='px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded'>
-                    P+2
+                    P+2 / P-0.5
                   </span>
-                  <span className='text-muted-foreground'>Present with Overtime (hours)</span>
+                  <span className='text-muted-foreground'>Present with Overtime (pos/neg hours)</span>
                 </div>
                 <div className='flex items-center gap-2'>
                   <span className='px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded'>

@@ -16,6 +16,7 @@ import autoTable from "jspdf-autotable";
 import { useForm } from "react-hook-form";
 import { Form } from "@/components/ui/form";
 import { MultiSelectInput } from "@/components/common/multi-select-input";
+import XLSX from "xlsx-js-style";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -26,10 +27,9 @@ type FormValues = {
 export default function WageSheetPage() {
   const search = useSearchParams();
   const [period, setPeriod] = useState("");
-  const [mode, setMode] = useState<"company" | "govt" | "all">("govt");
+  const mode = "company";
   const [categoryId, setCategoryId] = useState<string>("");
   const [pf, setPf] = useState<string>("");
-  const [exportType, setExportType] = useState<"none" | "excel" | "pdf">("none");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
@@ -56,10 +56,6 @@ export default function WageSheetPage() {
   }, []);
 
   useEffect(() => {
-    const m = search?.get("mode");
-    if (m === "company" || m === "govt") {
-      setMode(m);
-    }
     const p = search?.get("period");
     if (p) setPeriod(p);
     const cat = search?.get("categoryId");
@@ -102,12 +98,11 @@ export default function WageSheetPage() {
     if (period) params.set("period", period);
     const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
     if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-    if (mode !== "all") params.set("mode", mode);
     if (categoryId) params.set("categoryId", categoryId);
     if (pf) params.set("pf", pf);
     const qs = params.toString();
     return "/api/reports/wage-sheet" + (qs ? `?${qs}` : "");
-  }, [period, mode, selectedSiteIds, categoryId, pf]);
+  }, [period, selectedSiteIds, categoryId, pf]);
 
   const { data, isLoading } = useSWR(query, fetcher);
 
@@ -126,82 +121,6 @@ export default function WageSheetPage() {
     link.click();
     link.remove();
     URL.revokeObjectURL(objectUrl);
-  }
-
-  function exportExcel() {
-    if (!/^\d{2}-\d{4}$/.test(period)) {
-      toast.error("Select a period (MM-YYYY)");
-      return;
-    }
-    const params = new URLSearchParams();
-    params.set("period", period);
-    const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
-    if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-    if (mode !== "all") params.set("mode", mode);
-    if (categoryId) params.set("categoryId", categoryId);
-    if (pf) params.set("pf", pf);
-    const url = `/api/reports/wage-sheet.xlsx?${params.toString()}`;
-    const fname = `wage-sheet-${period}${
-      mode !== "all" ? `-${mode}` : ""
-    }.xlsx`;
-    downloadFile(url, fname);
-  }
-
-  async function exportPdf() {
-    if (!/^\d{2}-\d{4}$/.test(period)) {
-      toast.error("Select a period (MM-YYYY)");
-      return;
-    }
-
-    // PDF export now available for both modes
-
-    try {
-      // Fetch detailed daily attendance data
-      const params = new URLSearchParams();
-      params.set("period", period);
-      const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
-      if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-      params.set("mode", mode);
-      if (categoryId) params.set("categoryId", categoryId);
-      if (pf) params.set("pf", pf);
-      const url = `/api/reports/wage-sheet-details?${params.toString()}`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch wage sheet data");
-      }
-
-      const wageData = await response.json();
-
-      const siteName = (() => {
-        const ids = (selectedSiteIds || []).filter(Boolean);
-        if (!ids.length) return "All Sites";
-        if (ids.length === 1) {
-          return (
-            sites.data?.data?.find((s: any) => String(s.id) === ids[0])?.site ||
-            "Selected Site"
-          );
-        }
-        return `${ids.length} Sites`;
-      })();
-      const pdfBlob = await generateWageSheetPDF(
-        wageData,
-        period,
-        siteName
-      );
-
-      // Open PDF in new tab
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      window.open(pdfUrl, "_blank");
-
-      // Clean up the URL after a delay
-      setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000);
-
-      toast.success("PDF opened in new tab");
-    } catch (error: any) {
-      console.error("PDF export error:", error);
-      toast.error(error?.message || "Failed to generate PDF");
-    }
   }
 
   function generateWageSheetPDF(
@@ -228,13 +147,7 @@ export default function WageSheetPage() {
     doc.text("APEX Constructions", 370, 15);
 
     doc.setFontSize(12);
-    doc.text(
-      `Report : Monthly Wage Sheet As Per ${
-        mode === "govt" ? "Minimum Wage" : "Company Rates"
-      }`,
-      14,
-      22
-    );
+    doc.text("Report : Monthly Wage Sheet As Per Company Rates", 14, 22);
 
     doc.setFontSize(10);
     doc.text(`Site : ${siteName || "All Sites"}`, 14, 29);
@@ -266,49 +179,28 @@ export default function WageSheetPage() {
         "Bank",
       ];
 
-      // Add Rate column for company mode
-      if (mode === "company") {
-        headers.push("Rate");
-      } else {
-        headers.push("Skill Set");
-      }
+      // Add Rate column
+      headers.push("Rate");
 
       // Add day columns (1-31)
       for (let day = 1; day <= daysInMonth; day++) {
         headers.push(String(day));
       }
 
-      // Add summary columns based on mode
-      if (mode === "govt") {
-        headers.push(
-          "Total Days",
-          "Wage Rate",
-          "Gross Wage",
-          "HRA @5%",
-          "PF @12%",
-          "ESIC @0.75%",
-          "PT",
-          "LWF",
-          "Total Deduction",
-          "Total Working Days",
-          "Net Wages"
-        );
-      } else {
-        // Company rates columns (add Total Working Days before final Total Wages)
-        headers.push(
-          "Working Days",
-          "OT",
-          "Actual Wages",
-          "Food Charges",
-          "Idle Days",
-          "Total Working Days",
-          "Total Wages"
-        );
-      }
+      // Add summary columns
+      headers.push(
+        "Working Days",
+        "OT",
+        "Actual Wages",
+        "Food Charges",
+        "Idle Days",
+        "Total Working Days",
+        "Total Wages"
+      );
 
-      // Group workers by supplier for company mode
+      // Group workers by supplier
       let groupedWorkers = siteGroup.workers;
-      if (mode === "company") {
+      {
         const supplierGroups: { [key: string]: any[] } = {};
         siteGroup.workers.forEach((worker: any) => {
           const supplierKey = worker.supplierName || "No Supplier";
@@ -331,14 +223,6 @@ export default function WageSheetPage() {
 
       // Build table body
       const body: any[] = [];
-      let totalGross = 0,
-        totalHra = 0,
-        totalPf = 0,
-        totalEsic = 0,
-        totalPt = 0,
-        totalLwf = 0,
-        totalDeduction = 0,
-        totalPayable = 0;
       let totalWorkingDays = 0,
         totalOT = 0,
         totalActualWages = 0,
@@ -348,15 +232,13 @@ export default function WageSheetPage() {
         totalTotalWages = 0;
       // combined working days (workingDays + OT) for company summary column
       let totalWorkingDaysCombined = 0;
-      // for govt mode we also need combined total working days
-      let totalWorkingDaysGovCombined = 0;
       let supplierTotals: any = null;
       let workerIndex = 1;
 
       groupedWorkers.forEach((item: any, idx: number) => {
         if (item.isSupplierHeader) {
           // Add supplier totals for previous group if exists
-          if (supplierTotals && mode === "company") {
+          if (supplierTotals) {
             const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
             for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
             supplierTotalRow.push(
@@ -371,9 +253,7 @@ export default function WageSheetPage() {
           }
 
           // Add supplier header row as a regular row with merged cells
-          const supplierHeaderRow = new Array(
-            9 + daysInMonth + (mode === "govt" ? 11 : 7)
-          ).fill("");
+          const supplierHeaderRow = new Array(9 + daysInMonth + 7).fill("");
           supplierHeaderRow[1] = item.supplierName; // Put supplier name in second column
           body.push(supplierHeaderRow);
 
@@ -403,163 +283,83 @@ export default function WageSheetPage() {
           worker.bankName || "-",
         ];
 
-        // Add Rate or Skill Set based on mode
-        if (mode === "company") {
-          row.push(worker.wageRate?.toFixed(2) || "-");
-        } else {
-          row.push(worker.skillSet || "-");
-        }
+        // Add Rate
+        row.push(worker.wageRate?.toFixed(2) || "-");
 
         // Add daily attendance (P/A/I/O)
         worker.dailyAttendance.forEach((status: string) => {
-          if (mode === "govt") {
-            const parts = String(status || "").split("\n");
-            row.push(parts[0] || "-");
-            return;
-          }
           row.push(status || "-");
         });
 
-        // Add summary values based on mode
-        if (mode === "govt") {
-          const workerTotalWorkingDays = (
-            Number(worker.totalDays || 0) + Number(worker.totalOT || 0)
-          );
-          row.push(
-            worker.totalDays.toFixed(0),
-            worker.wageRate.toFixed(2),
-            worker.grossWage.toFixed(2),
-            worker.hra.toFixed(2),
-            worker.pf.toFixed(2),
-            worker.esic.toFixed(2),
-            worker.pt.toFixed(2),
-            worker.lwf.toFixed(2),
-            worker.totalDeduction.toFixed(2),
-            workerTotalWorkingDays.toFixed(2),
-            worker.payable.toFixed(2)
-          );
-          // accumulate govt combined days
-          totalWorkingDaysGovCombined += workerTotalWorkingDays;
-        } else {
-          // Company rates columns
-          const idleDaysCombined =
-            Number(worker.idleDays || 0) + Number(worker.idleOT || 0);
-          const workerTotalWorkingDays =
-            Number(worker.workingDays || 0) + Number(worker.totalOT || 0);
-          row.push(
-            worker.workingDays?.toFixed(2) || "0.00",
-            worker.totalOT?.toFixed(2) || "0.00",
-            worker.actualWages?.toFixed(2) || "0.00",
-            worker.foodCharges?.toFixed(2) || "0.00",
-            idleDaysCombined.toFixed(2),
-            workerTotalWorkingDays.toFixed(2),
-            (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0) - Number(worker.foodCharges2 || 0)).toFixed(2)
-          );
-          // Update totals based on mode
-          totalWorkingDays += Number(worker.workingDays || 0);
-          totalOT += Number(worker.totalOT || 0);
-          totalWorkingDaysCombined += workerTotalWorkingDays;
-          totalActualWages += Number(worker.actualWages || 0);
-          totalFoodCharges += Number(worker.foodCharges || 0);
-          totalFoodCharges2 += Number(worker.foodCharges2 || 0);
-          totalIdleDays += idleDaysCombined;
-          totalTotalWages += Number(worker.totalWages || 0);
+        // Add summary values
+        const idleDaysCombined =
+          Number(worker.idleDays || 0) + Number(worker.idleOT || 0);
+        const workerTotalWorkingDays =
+          Number(worker.workingDays || 0) + Number(worker.totalOT || 0);
+        row.push(
+          worker.workingDays?.toFixed(2) || "0.00",
+          worker.totalOT?.toFixed(2) || "0.00",
+          worker.actualWages?.toFixed(2) || "0.00",
+          worker.foodCharges?.toFixed(2) || "0.00",
+          idleDaysCombined.toFixed(2),
+          workerTotalWorkingDays.toFixed(2),
+          (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0) - Number(worker.foodCharges2 || 0)).toFixed(2)
+        );
+        // Update totals
+        totalWorkingDays += Number(worker.workingDays || 0);
+        totalOT += Number(worker.totalOT || 0);
+        totalWorkingDaysCombined += workerTotalWorkingDays;
+        totalActualWages += Number(worker.actualWages || 0);
+        totalFoodCharges += Number(worker.foodCharges || 0);
+        totalFoodCharges2 += Number(worker.foodCharges2 || 0);
+        totalIdleDays += idleDaysCombined;
+        totalTotalWages += Number(worker.totalWages || 0);
 
-          // Update supplier totals
-          if (supplierTotals) {
-            supplierTotals.workingDays += Number(worker.workingDays || 0);
-            supplierTotals.ot += Number(worker.totalOT || 0);
-            supplierTotals.actualWages += Number(worker.actualWages || 0);
-            supplierTotals.foodCharges += Number(worker.foodCharges || 0);
-            supplierTotals.foodCharges2 += Number(worker.foodCharges2 || 0);
-            supplierTotals.idleDays += idleDaysCombined;
-            supplierTotals.totalWorkingDays += workerTotalWorkingDays;
-            supplierTotals.totalWages += Number(worker.totalWages || 0);
-          }
+        // Update supplier totals
+        if (supplierTotals) {
+          supplierTotals.workingDays += Number(worker.workingDays || 0);
+          supplierTotals.ot += Number(worker.totalOT || 0);
+          supplierTotals.actualWages += Number(worker.actualWages || 0);
+          supplierTotals.foodCharges += Number(worker.foodCharges || 0);
+          supplierTotals.foodCharges2 += Number(worker.foodCharges2 || 0);
+          supplierTotals.idleDays += idleDaysCombined;
+          supplierTotals.totalWorkingDays += workerTotalWorkingDays;
+          supplierTotals.totalWages += Number(worker.totalWages || 0);
         }
 
         body.push(row);
-
-        // Update totals for govt mode (company totals were updated earlier)
-        if (mode === "govt") {
-          totalGross += worker.grossWage || 0;
-          totalHra += worker.hra || 0;
-          totalPf += worker.pf || 0;
-          totalEsic += worker.esic || 0;
-          totalPt += worker.pt || 0;
-          totalLwf += worker.lwf || 0;
-          totalDeduction += worker.totalDeduction || 0;
-          totalPayable += worker.payable || 0;
-        }
       });
 
-      // Add final supplier totals for company mode
-          if (supplierTotals && mode === "company") {
-            const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
-            for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
-            supplierTotalRow.push(
-              supplierTotals.workingDays.toFixed(2),
-              supplierTotals.ot.toFixed(2),
-              supplierTotals.actualWages.toFixed(2),
-              supplierTotals.foodCharges.toFixed(2),
-              supplierTotals.idleDays.toFixed(2),
-              supplierTotals.totalWorkingDays.toFixed(2),
-              (supplierTotals.totalWages - supplierTotals.foodCharges - supplierTotals.foodCharges2).toFixed(2)
-            );
-            body.push(supplierTotalRow);
-          }
-
-      // Skip the separate Total row for company mode as we have supplier totals
-      if (mode === "govt") {
-        // Add Total row for govt mode
-        const totalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
-        for (let i = 0; i < daysInMonth; i++) totalRow.push("");
-        totalRow.push(
-          "",
-          "",
-          totalGross.toFixed(2),
-          totalHra.toFixed(2),
-          totalPf.toFixed(2),
-          totalEsic.toFixed(2),
-          totalPt.toFixed(2),
-          totalLwf.toFixed(2),
-          totalDeduction.toFixed(2),
-          totalWorkingDaysGovCombined.toFixed(2),
-          totalPayable.toFixed(2)
+      // Add final supplier totals
+      if (supplierTotals) {
+        const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
+        for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
+        supplierTotalRow.push(
+          supplierTotals.workingDays.toFixed(2),
+          supplierTotals.ot.toFixed(2),
+          supplierTotals.actualWages.toFixed(2),
+          supplierTotals.foodCharges.toFixed(2),
+          supplierTotals.idleDays.toFixed(2),
+          supplierTotals.totalWorkingDays.toFixed(2),
+          (supplierTotals.totalWages - supplierTotals.foodCharges - supplierTotals.foodCharges2).toFixed(2)
         );
-        body.push(totalRow);
+        body.push(supplierTotalRow);
       }
 
       // Add Grand Total row
       const grandTotalRow: any[] = ["", "Grand Total", "", "", "", "", "", "", ""];
       for (let i = 0; i < daysInMonth; i++) grandTotalRow.push("");
 
-      if (mode === "govt") {
-        grandTotalRow.push(
-          "",
-          "",
-          totalGross.toFixed(2),
-          totalHra.toFixed(2),
-          totalPf.toFixed(2),
-          totalEsic.toFixed(2),
-          totalPt.toFixed(2),
-          totalLwf.toFixed(2),
-          totalDeduction.toFixed(2),
-          totalWorkingDaysGovCombined.toFixed(2),
-          totalPayable.toFixed(2)
-        );
-      } else {
-        // Company mode grand totals (include combined working days)
-        grandTotalRow.push(
-          totalWorkingDays.toFixed(2),
-          totalOT.toFixed(2),
-          totalActualWages.toFixed(2),
-          totalFoodCharges.toFixed(2),
-          totalIdleDays.toFixed(2),
-          totalWorkingDaysCombined.toFixed(2),
-          (totalTotalWages - totalFoodCharges - totalFoodCharges2).toFixed(2)
-        );
-      }
+      // Grand totals
+      grandTotalRow.push(
+        totalWorkingDays.toFixed(2),
+        totalOT.toFixed(2),
+        totalActualWages.toFixed(2),
+        totalFoodCharges.toFixed(2),
+        totalIdleDays.toFixed(2),
+        totalWorkingDaysCombined.toFixed(2),
+        (totalTotalWages - totalFoodCharges - totalFoodCharges2).toFixed(2)
+      );
       body.push(grandTotalRow);
 
       // Column styles
@@ -583,28 +383,14 @@ export default function WageSheetPage() {
       // Summary columns
       const summaryStart = 9 + daysInMonth;
 
-      if (mode === "govt") {
-        columnStyles[summaryStart] = { cellWidth: 12 }; // Total Days
-        columnStyles[summaryStart + 1] = { cellWidth: 14 }; // Wage Rate
-        columnStyles[summaryStart + 2] = { cellWidth: 16 }; // Gross
-        columnStyles[summaryStart + 3] = { cellWidth: 12 }; // HRA
-        columnStyles[summaryStart + 4] = { cellWidth: 14 }; // PF
-        columnStyles[summaryStart + 5] = { cellWidth: 12 }; // ESIC
-        columnStyles[summaryStart + 6] = { cellWidth: 10 }; // PT
-        columnStyles[summaryStart + 7] = { cellWidth: 10 }; // LWF
-        columnStyles[summaryStart + 8] = { cellWidth: 16 }; // Total Deduction
-        columnStyles[summaryStart + 9] = { cellWidth: 16 }; // Total Working Days
-        columnStyles[summaryStart + 10] = { cellWidth: 16 }; // Payable
-      } else {
-        // Company mode column widths
-        columnStyles[summaryStart] = { cellWidth: 16 }; // Working Days
-        columnStyles[summaryStart + 1] = { cellWidth: 12 }; // OT
-        columnStyles[summaryStart + 2] = { cellWidth: 18 }; // Actual Wages
-        columnStyles[summaryStart + 3] = { cellWidth: 18 }; // Food Charges
-        columnStyles[summaryStart + 4] = { cellWidth: 14 }; // Idle Days
-        columnStyles[summaryStart + 5] = { cellWidth: 16 }; // Total Working Days
-        columnStyles[summaryStart + 6] = { cellWidth: 18 }; // Total Wages
-      }
+      // Column widths
+      columnStyles[summaryStart] = { cellWidth: 16 }; // Working Days
+      columnStyles[summaryStart + 1] = { cellWidth: 12 }; // OT
+      columnStyles[summaryStart + 2] = { cellWidth: 18 }; // Actual Wages
+      columnStyles[summaryStart + 3] = { cellWidth: 18 }; // Food Charges
+      columnStyles[summaryStart + 4] = { cellWidth: 14 }; // Idle Days
+      columnStyles[summaryStart + 5] = { cellWidth: 16 }; // Total Working Days
+      columnStyles[summaryStart + 6] = { cellWidth: 18 }; // Total Wages
 
       autoTable(doc, {
         head: [headers],
@@ -627,9 +413,8 @@ export default function WageSheetPage() {
             const row = body[hookData.row.index];
             const cellText = hookData.cell.text[0];
 
-            // Style supplier header rows (company mode)
+            // Style supplier header rows
             if (
-              mode === "company" &&
               hookData.column.index === 1 &&
               groupedWorkers[hookData.row.index]?.isSupplierHeader
             ) {
@@ -681,37 +466,258 @@ export default function WageSheetPage() {
     }).replace(',', '');
     setGeneratedAt(formattedDate);
     
-    if (exportType === "excel") {
-      exportExcel();
-    } else if (exportType === "pdf") {
-      // PDF option removed - fallback to opening in new tab
+    // Open in new tab with current filters
+    const params = new URLSearchParams();
+    params.set("period", period);
+    const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
+    if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
+    if (categoryId) params.set("categoryId", categoryId);
+    if (pf) params.set("pf", pf);
+    const url = `/reports/wage-sheet?${params.toString()}`;
+    window.open(url, "_blank");
+  }
+
+  async function handleExportExcel() {
+    if (!/^\d{2}-\d{4}$/.test(period)) {
+      toast.error("Select a period (MM-YYYY)");
+      return;
+    }
+
+    toast.info("Generating Excel...");
+
+    try {
       const params = new URLSearchParams();
       params.set("period", period);
       const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
       if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-      params.set("mode", mode);
       if (categoryId) params.set("categoryId", categoryId);
       if (pf) params.set("pf", pf);
-      const url = `/reports/wage-sheet?${params.toString()}`;
-      window.open(url, "_blank");
-    } else {
-      // Open in new tab with current filters
-      const params = new URLSearchParams();
-      params.set("period", period);
-      const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
-      if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-      params.set("mode", mode);
-      if (categoryId) params.set("categoryId", categoryId);
-      if (pf) params.set("pf", pf);
-      const url = `/reports/wage-sheet?${params.toString()}`;
-      window.open(url, "_blank");
+
+      const res = await fetch(`/api/reports/wage-sheet-details?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const result = await resultProcessing(await res.json());
+
+      const wb = XLSX.utils.book_new();
+      
+      result.data.forEach((siteGroup: any) => {
+        const wsData: any[] = [];
+        const daysInMonth = result.daysInMonth;
+        const [mm, yyyy] = period.split("-");
+        const monthDate = new Date(Number(yyyy), Number(mm) - 1, 1);
+        const monthName = monthDate.toLocaleString("en", { month: "long" });
+
+        // Meta Info & Header
+        const now = new Date();
+        const generatedOn = now.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }).replace(',', '');
+
+        const siteLabel = siteGroup.siteName || "All Sites";
+        const filterText = `Site: ${siteLabel} | Period: ${monthName} ${yyyy} | PF: ${pf || 'All'} | Category: ${categoryId ? categories.data?.data?.find((c: any) => String(c.id) === categoryId)?.categoryName : 'All'}`;
+        
+        // Row 1: Title
+        wsData.push([{ v: "MONTHLY WAGE SHEET", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" } } }]);
+        // Row 2: Filters
+        wsData.push([{ v: filterText, s: { font: { bold: true }, alignment: { horizontal: "center" } } }]);
+        // Row 3: Generated On
+        wsData.push([{ v: `Generated on: ${generatedOn}`, s: { font: { italic: true }, alignment: { horizontal: "center" } } }]);
+        // Row 4: Empty
+        wsData.push([]);
+
+        // Table Headers (Row 5 & 6)
+        const header1: any[] = ["Sr. No.", "Name", "Designation", "Aadhar No.", "PAN No.", "UAN No.", "ESIC No.", "Rate"];
+        const header2: any[] = ["", "", "", "", "", "", "", ""];
+
+        // Add Days 1-31
+        for (let d = 1; d <= daysInMonth; d++) {
+          header1.push(d);
+          const dayDate = new Date(Number(yyyy), Number(mm) - 1, d);
+          const dayName = dayDate.toLocaleString("en", { weekday: "short" });
+          header2.push(dayName);
+        }
+
+        const pfPct = result.config?.pfPercentage || 12;
+        const esicPct = result.config?.esicPercentage || 0.75;
+
+        header1.push(
+          "Total Working Days",
+          "Total Amount",
+          "Fooding Advance 1",
+          "Fooding Advance 2",
+          `PF (${pfPct}%)`,
+          `ESIC (${esicPct}%)`,
+          "PT (Maharashtra)",
+          "MLWF",
+          "Net Payable",
+          "Remarks",
+          "Account Details"
+        );
+        header2.push("", "", "", "", "", "", "", "", "", "", "Account No");
+        header1.push("", ""); // Space for IFSC and Bank Name in row 5
+        header2.push("IFSC", "Bank Name");
+
+        wsData.push(header1.map(v => ({ v, s: headerStyle })));
+        wsData.push(header2.map(v => ({ v, s: headerStyle })));
+
+        // Data Rows
+        siteGroup.workers.forEach((w: any, idx: number) => {
+          const row: any[] = [
+            { v: idx + 1, s: centerStyle },
+            { v: w.manpowerName, s: leftStyle },
+            { v: w.designation, s: leftStyle },
+            { v: w.aadharNo || "-", s: centerStyle },
+            { v: w.panNo || "-", s: centerStyle },
+            { v: w.unaNo || "-", s: centerStyle },
+            { v: w.esicNo || "-", s: centerStyle },
+            { v: w.wageRate, s: numberStyle },
+          ];
+
+          // Daily Attendance
+          w.dailyAttendance.forEach((status: string) => {
+            let display = status;
+            if (status.includes("\n")) {
+              const [st, ot] = status.split("\n");
+              const otNum = parseFloat(ot);
+              const sign = otNum >= 0 ? "+" : "";
+              display = `${st}${sign}${otNum}`;
+            }
+            row.push({ v: display, s: centerStyle });
+          });
+
+          const totalWorkingDays = parseFloat(w.workingDays) + parseFloat(w.totalOT);
+          const netPayable = parseFloat(w.payable);
+
+          row.push(
+            { v: totalWorkingDays, s: numberStyle },
+            { v: w.grossWage, s: numberStyle },
+            { v: w.foodCharges, s: numberStyle },
+            { v: w.foodCharges2, s: numberStyle },
+            { v: w.pf, s: numberStyle },
+            { v: w.esic, s: numberStyle },
+            { v: w.pt, s: numberStyle },
+            { v: w.lwf, s: numberStyle },
+            { v: netPayable, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "E2EFDA" } } } },
+            { v: "", s: leftStyle }, // Remarks
+            { v: w.accountNumber || "-", s: leftStyle },
+            { v: w.ifscCode || "-", s: leftStyle },
+            { v: w.bankName || "-", s: leftStyle }
+          );
+
+          wsData.push(row);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Merges
+        const merges: any[] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: header1.length - 1 } }, // Title
+          { s: { r: 1, c: 0 }, e: { r: 1, c: header1.length - 1 } }, // Filters
+          { s: { r: 2, c: 0 }, e: { r: 2, c: header1.length - 1 } }, // Generated On
+        ];
+
+        // Header Merges
+        for (let c = 0; c < 8; c++) merges.push({ s: { r: 4, c }, e: { r: 5, c } }); // Sr.no to Rate
+        for (let c = 8 + daysInMonth; c < 8 + daysInMonth + 10; c++) merges.push({ s: { r: 4, c }, e: { r: 5, c } }); // Working Days to Remarks
+        merges.push({ s: { r: 4, c: 8 + daysInMonth + 10 }, e: { r: 4, c: 8 + daysInMonth + 12 } }); // Account Details label
+
+        ws["!merges"] = merges;
+
+        // Column Widths
+        const cols = [
+          { wch: 6 }, // Sr.No
+          { wch: 25 }, // Name
+          { wch: 15 }, // Designation
+          { wch: 15 }, // Aadhar
+          { wch: 15 }, // PAN
+          { wch: 15 }, // UAN
+          { wch: 15 }, // ESIC
+          { wch: 10 }, // Rate
+        ];
+        for (let i = 0; i < daysInMonth; i++) cols.push({ wch: 5 });
+        cols.push(
+          { wch: 10 }, // Working Days
+          { wch: 12 }, // Total Amount
+          { wch: 12 }, // Fooding 1
+          { wch: 12 }, // Fooding 2
+          { wch: 10 }, // PF
+          { wch: 10 }, // ESIC
+          { wch: 10 }, // PT
+          { wch: 8 },  // MLWF
+          { wch: 12 }, // Net Payable
+          { wch: 20 }, // Remarks
+          { wch: 20 }, // Account No
+          { wch: 15 }, // IFSC
+          { wch: 20 }  // Bank Name
+        );
+        ws["!cols"] = cols;
+
+        XLSX.utils.book_append_sheet(wb, ws, siteGroup.siteName.substring(0, 31) || "Sheet");
+      });
+
+      XLSX.writeFile(wb, `Wage_Report_${period}.xlsx`);
+      toast.success("Excel generated successfully");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Export failed");
     }
   }
 
-  const title =
-    mode === "govt"
-      ? "Monthly Wage Sheet As Per Minimum Wage"
-      : "Monthly Wage Sheet As Per Company Rates";
+  // Helper function to process some result fields (placeholder if needed)
+  async function resultProcessing(data: any) {
+    return data;
+  }
+
+  // Styles
+  const headerStyle = {
+    font: { bold: true, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "4472C4" } },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left: { style: "thin", color: { rgb: "000000" } },
+      right: { style: "thin", color: { rgb: "000000" } }
+    }
+  };
+
+  const centerStyle = {
+    alignment: { horizontal: "center", vertical: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "D9D9D9" } },
+      bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+      left: { style: "thin", color: { rgb: "D9D9D9" } },
+      right: { style: "thin", color: { rgb: "D9D9D9" } }
+    }
+  };
+
+  const leftStyle = {
+    alignment: { horizontal: "left", vertical: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "D9D9D9" } },
+      bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+      left: { style: "thin", color: { rgb: "D9D9D9" } },
+      right: { style: "thin", color: { rgb: "D9D9D9" } }
+    }
+  };
+
+  const numberStyle = {
+    alignment: { horizontal: "right", vertical: "center" },
+    numFmt: "#,##0.00",
+    border: {
+      top: { style: "thin", color: { rgb: "D9D9D9" } },
+      bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+      left: { style: "thin", color: { rgb: "D9D9D9" } },
+      right: { style: "thin", color: { rgb: "D9D9D9" } }
+    }
+  };
+
+  const title = "Monthly Wage Sheet As Per Company Rates";
 
   const groupedBySite = useMemo(() => {
     const rows: any[] = Array.isArray(data?.data) ? data.data : [];
@@ -793,32 +799,26 @@ export default function WageSheetPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="block text-sm mb-1">Export</label>
-              <Select
-                value={exportType}
-                onValueChange={(v) => setExportType(v as any)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="---" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">---</SelectItem>
-                  <SelectItem value="excel">Excel</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            </div>
             <div className="mt-6 flex justify-end">
-              <Button
-                onClick={handleShow}
-                disabled={!/^\d{2}-\d{4}$/.test(period)}
-              >
-                Show
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleShow}
+                  disabled={!/^\d{2}-\d{4}$/.test(period)}
+                >
+                  Show
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  disabled={!/^\d{2}-\d{4}$/.test(period)}
+                >
+                  Generate Excel
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
       {isLoading ? (
         <div className="border rounded-md p-4">Loading...</div>
@@ -839,23 +839,16 @@ export default function WageSheetPage() {
                       <th className="p-2 text-left">IFSC Code</th>
                       <th className="p-2 text-left">Bank Name</th>
                       <th className="p-2 text-right">Days</th>
-                      {mode !== "govt" ? (
-                        <>
-                          <th className="p-2 text-right">OT</th>
-                          <th className="p-2 text-right">Food Charges</th>
-                          <th className="p-2 text-right">Food Charges 2</th>
-                        </>
-                      ) : null}
+                      <th className="p-2 text-right">OT</th>
+                      <th className="p-2 text-right">Food Charges</th>
+                      <th className="p-2 text-right">Food Charges 2</th>
                       <th className="p-2 text-right">Wage</th>
                       <th className="p-2 text-right">Gross</th>
-                      <th className="p-2 text-right">HRA</th>
                       <th className="p-2 text-right">PF</th>
                       <th className="p-2 text-right">ESIC</th>
                       <th className="p-2 text-right">PT</th>
                       <th className="p-2 text-right">MLWF</th>
-                      <th className="p-2 text-right">
-                        {mode === "govt" ? "Net Wages" : "Total"}
-                      </th>
+                      <th className="p-2 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -869,27 +862,20 @@ export default function WageSheetPage() {
                         <td className="p-2 text-right">
                           {Number(r.workingDays).toFixed(2)}
                         </td>
-                        {mode !== "govt" ? (
-                          <>
-                            <td className="p-2 text-right">
-                              {Number(r.ot).toFixed(2)}
-                            </td>
-                            <td className="p-2 text-right">
-                              {Number(r.foodCharges || 0).toFixed(2)}
-                            </td>
-                            <td className="p-2 text-right">
-                              {Number(r.foodCharges2 || 0).toFixed(2)}
-                            </td>
-                          </>
-                        ) : null}
+                        <td className="p-2 text-right">
+                          {Number(r.ot).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.foodCharges || 0).toFixed(2)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {Number(r.foodCharges2 || 0).toFixed(2)}
+                        </td>
                         <td className="p-2 text-right">
                           {Number(r.wages).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
                           {Number(r.grossWages).toFixed(2)}
-                        </td>
-                        <td className="p-2 text-right">
-                          {Number(r.hra).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
                           {Number(r.pf).toFixed(2)}
@@ -922,20 +908,9 @@ export default function WageSheetPage() {
               <thead className="bg-muted">
                 <tr>
                   <th className="p-2 text-left">Site</th>
-                  {mode === "all" ? (
-                    <>
-                      <th className="p-2 text-right">Days</th>
-                      <th className="p-2 text-right">OT</th>
-                    </>
-                  ) : null}
-                  {mode === "company" ? (
-                    <>
-                      <th className="p-2 text-right">Food Charges</th>
-                      <th className="p-2 text-right">Food Charges 2</th>
-                    </>
-                  ) : null}
+                  <th className="p-2 text-right">Food Charges</th>
+                  <th className="p-2 text-right">Food Charges 2</th>
                   <th className="p-2 text-right">Gross</th>
-                  <th className="p-2 text-right">HRA</th>
                   <th className="p-2 text-right">PF</th>
                   <th className="p-2 text-right">ESIC</th>
                   <th className="p-2 text-right">PT</th>
@@ -947,24 +922,11 @@ export default function WageSheetPage() {
                 {data.summary.map((s: any, idx: number) => (
                   <tr key={idx} className="border-t">
                     <td className="p-2">{s.siteName}</td>
-                    {mode === "all" ? (
-                      <>
-                        <td className="p-2 text-right">
-                          {Number(s.workingDays).toFixed(2)}
-                        </td>
-                        <td className="p-2 text-right">{Number(s.ot).toFixed(2)}</td>
-                      </>
-                    ) : null}
-                    {mode === "company" ? (
-                      <>
-                        <td className="p-2 text-right">{Number(s.foodCharges || 0).toFixed(2)}</td>
-                        <td className="p-2 text-right">{Number(s.foodCharges2 || 0).toFixed(2)}</td>
-                      </>
-                    ) : null}
+                    <td className="p-2 text-right">{Number(s.foodCharges || 0).toFixed(2)}</td>
+                    <td className="p-2 text-right">{Number(s.foodCharges2 || 0).toFixed(2)}</td>
                     <td className="p-2 text-right">
                       {Number(s.grossWages).toFixed(2)}
                     </td>
-                    <td className="p-2 text-right">{Number(s.hra).toFixed(2)}</td>
                     <td className="p-2 text-right">{Number(s.pf).toFixed(2)}</td>
                     <td className="p-2 text-right">
                       {Number(s.esic).toFixed(2)}

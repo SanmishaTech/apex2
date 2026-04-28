@@ -5,12 +5,9 @@ import { generatePayroll } from "@/lib/payroll";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const period = searchParams.get("period") || undefined;
-  const govt = searchParams.get("govt");
 
   const where: any = {};
   if (period) where.period = period;
-  if (govt === "true") where.govt = true;
-  if (govt === "false") where.govt = false;
 
   const slips = await prisma.paySlip.findMany({
     where,
@@ -26,7 +23,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const period: string = body.period;
     const paySlipDate: string = body.paySlipDate || new Date().toISOString();
-    const modes: ("company" | "govt")[] | undefined = body.modes;
+    const modes: ("company")[] | undefined = body.modes;
 
     if (!period || !/^\d{2}-\d{4}$/.test(period)) {
       return NextResponse.json({ error: "Invalid period. Expected MM-YYYY" }, { status: 400 });

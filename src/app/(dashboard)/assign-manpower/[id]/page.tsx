@@ -102,15 +102,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   }>(`/api/skill-sets?perPage=1000`, apiGet);
 
   // Track edits per manpowerId
-  type ViewEdit = Partial<AssignManpowerRequestItem> & {
-    esic?: boolean | number | string | null;
-    pt?: boolean | number | string | null;
-    foodCharges?: number | string | null;
-    foodCharges2?: number | string | null;
-    hra?: boolean | null;
-    mlwf?: boolean | null;
-    present?: boolean;
-  };
+  type ViewEdit = AssignManpowerRequestItem;
   const [edits, setEdits] = useState<Record<number, ViewEdit>>({});
   const [selected, setSelected] = useState<Record<number, boolean>>({});
 
@@ -255,22 +247,6 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       ),
     },
     {
-      key: "minWage",
-      header: "Min Wage",
-      sortable: false,
-      className: "text-right",
-      cellClassName: "text-right",
-      accessor: (r) => (
-        <input
-          type="number"
-          min="0"
-          className="w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-          value={String((edits[r.id]?.minWage as any) ?? r.minWage ?? "")}
-          onChange={(e) => setField(r.id, "minWage", e.currentTarget.value)}
-        />
-      ),
-    },
-    {
       key: "foodCharges",
       header: "Food Charges",
       sortable: false,
@@ -331,20 +307,6 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       ),
     },
     {
-      key: "hra",
-      header: "HRA",
-      sortable: false,
-      className: "text-center",
-      cellClassName: "text-center",
-      accessor: (r) => (
-        <input
-          type="checkbox"
-          checked={asBool(edits[r.id]?.hra ?? r.hra)}
-          onChange={(e) => setField(r.id, "hra", e.currentTarget.checked)}
-        />
-      ),
-    },
-    {
       key: "pt",
       header: "PT",
       sortable: false,
@@ -377,25 +339,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   const sortState: SortState = { field: sort, order };
 
   async function saveAll() {
-    const items = Object.entries(edits).map(([k, v]) => ({
-      manpowerId: Number(k),
-      category: v.category,
-      skillSet: v.skillSet,
-      wage: v.wage,
-      minWage: v.minWage,
-      foodCharges: v.foodCharges,
-      foodCharges2: v.foodCharges2,
-      pf: v.pf,
-      esic: typeof v.esic === "boolean" ? (v.esic ? 1 : null) : v.esic,
-      pt: typeof v.pt === "boolean" ? (v.pt ? 1 : null) : v.pt,
-      hra: typeof v.hra === "boolean" ? (v.hra ? 1 : null) : v.hra,
-      mlwf: typeof v.mlwf === "boolean" ? (v.mlwf ? 1 : null) : v.mlwf,
-      present: v.present,
-    }));
-    if (items.length === 0) {
-      toast.error("No changes to save");
-      return;
-    }
+    const items = Object.values(edits);
     try {
       await apiPatch("/api/manpower-assignments", { siteId, items });
       toast.success("Assignments updated");

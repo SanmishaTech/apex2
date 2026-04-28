@@ -48,12 +48,10 @@ export type ManpowerListItem = {
   watch: boolean;
   category: string | null;
   skillSet: string | null;
-  minWage: string | null;
   hours: string | null;
   esic: string | null;
   pf: boolean;
   pt: string | null;
-  hra: string | null;
   mlwf: string | null;
   isAssigned: boolean;
   currentSiteId: number | null;
@@ -176,12 +174,10 @@ export default function ManpowerPage() {
         'Watch': item.watch ? 'Yes' : 'No',
         'Category': item.category || '',
         'Skill Set': item.skillSet || '',
-        'Min Wage': item.minWage || '',
         'Hours': item.hours || '',
         'ESIC Amount': item.esic || '',
         'PF': item.pf ? 'Yes' : 'No',
         'PT': item.pt || '',
-        'HRA': item.hra || '',
         'MLWF': item.mlwf || '',
         'Is Assigned': item.isAssigned ? 'Yes' : 'No',
         'Current Site ID': item.currentSiteId || '',
@@ -224,12 +220,10 @@ export default function ManpowerPage() {
         { wch: 8 },  // Watch
         { wch: 15 }, // Category
         { wch: 15 }, // Skill Set
-        { wch: 12 }, // Min Wage
         { wch: 10 }, // Hours
         { wch: 12 }, // ESIC Amount
         { wch: 8 },  // PF
         { wch: 10 }, // PT
-        { wch: 10 }, // HRA
         { wch: 10 }, // MLWF
         { wch: 12 }, // Is Assigned
         { wch: 15 }, // Current Site ID
