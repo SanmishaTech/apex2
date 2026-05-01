@@ -78,28 +78,75 @@ export async function GET(request: NextRequest) {
       },
       include: {
         site: true,
-        paySlip: { include: { manpower: { include: { manpowerSupplier: true } } } },
+        paySlip: { 
+          include: { 
+            details: true,
+            manpower: { 
+              include: { 
+                manpowerSupplier: true,
+                siteManpower: {
+                  select: {
+                    siteId: true,
+                    pt: true,
+                  }
+                }
+              } 
+            } 
+          } 
+        },
       },
       orderBy: [{ siteId: "asc" }, { paySlipId: "asc" }],
     });
 
-    const rows = details.map((d) => ({
-      siteId: d.siteId,
-      siteName: d.site?.site,
-      manpowerId: d.paySlip.manpowerId,
-      manpowerName: `${d.paySlip.manpower?.firstName ?? ""} ${d.paySlip.manpower?.lastName ?? ""}`.trim(),
-      supplier: d.paySlip.manpower?.manpowerSupplier?.supplierName ?? null,
-      workingDays: Number(d.workingDays ?? 0),
-      ot: Number(d.ot ?? 0),
-      idle: Number(d.idle ?? 0),
-      wages: Number(d.wages ?? 0),
-      grossWages: Number(d.grossWages ?? 0),
-      pf: Number(d.pf ?? 0),
-      esic: Number(d.esic ?? 0),
-      pt: Number(d.pt ?? 0),
-      mlwf: Number(d.mlwf ?? 0),
-      total: Number(d.total ?? 0),
-    }));
+    const rows = details.map((d) => {
+      const smConfigs = ((d as any).paySlip.manpower as any)?.siteManpower || [];
+      const smConfig = smConfigs.find((sm: any) => sm.siteId === d.siteId) || smConfigs[0];
+      
+      const ptValue = Number(d.pt ?? 0);
+      const ptExpected = smConfig?.pt === true;
+      const wasPtDeductedElsewhere = (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.pt || 0) > 0);
+      const isPtAlreadyDeducted = ptExpected && ptValue === 0 && wasPtDeductedElsewhere;
+
+      // MLWF detection
+      const mlwfValue = Number(d.mlwf ?? 0);
+      const mlwfExpected = smConfig?.mlwf === true;
+      const wasMlwfDeductedElsewhere = (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.mlwf || 0) > 0);
+      const isMlwfAlreadyDeducted = mlwfExpected && mlwfValue === 0 && wasMlwfDeductedElsewhere;
+
+      // Food Charges detection: Now stored in DB
+      const foodCharges = Number(d.foodCharges || 0);
+      const foodCharges2 = Number(d.foodCharges2 || 0);
+      
+      const configFood1 = Number(smConfig?.foodCharges || 0);
+      const isFood1AlreadyDeducted = configFood1 > 0 && foodCharges === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges || 0) > 0);
+
+      const configFood2 = Number(smConfig?.foodCharges2 || 0);
+      const isFood2AlreadyDeducted = configFood2 > 0 && foodCharges2 === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges2 || 0) > 0);
+
+      return {
+        siteId: d.siteId,
+        siteName: d.site?.site,
+        manpowerId: d.paySlip.manpowerId,
+        manpowerName: `${d.paySlip.manpower?.firstName ?? ""} ${d.paySlip.manpower?.lastName ?? ""}`.trim(),
+        supplier: d.paySlip.manpower?.manpowerSupplier?.supplierName ?? null,
+        workingDays: Number(d.workingDays ?? 0),
+        ot: Number(d.ot ?? 0),
+        idle: Number(d.idle ?? 0),
+        wages: Number(d.wages ?? 0),
+        grossWages: Number(d.grossWages ?? 0),
+        pf: Number(d.pf ?? 0),
+        esic: Number(d.esic ?? 0),
+        pt: ptValue,
+        isPtAlreadyDeducted,
+        mlwf: mlwfValue,
+        isMlwfAlreadyDeducted,
+        foodCharges,
+        isFood1AlreadyDeducted,
+        foodCharges2,
+        isFood2AlreadyDeducted,
+        total: Number(d.total ?? 0),
+      };
+    });
 
     const lines: string[] = [];
     lines.push("ABCD COMPANY LTD        APEX Constructions");
@@ -144,8 +191,8 @@ export async function GET(request: NextRequest) {
         Number(r.grossWages || 0).toFixed(2).padStart(9),
         Number(r.pf || 0).toFixed(2).padStart(7),
         Number(r.esic || 0).toFixed(2).padStart(7),
-        Number(r.pt || 0).toFixed(2).padStart(7),
-        Number(r.mlwf || 0).toFixed(2).padStart(7),
+        r.isPtAlreadyDeducted ? "0 (AD)".padStart(7) : Number(r.pt || 0).toFixed(2).padStart(7),
+        r.isMlwfAlreadyDeducted ? "0.00 (AD)".padStart(7) : Number(r.mlwf || 0).toFixed(2).padStart(7),
         (Number(r.workingDays || 0) + Number(r.ot || 0)).toFixed(2).padStart(8),
         Number(r.total || 0).toFixed(2).padStart(10),
       ].join(" ");

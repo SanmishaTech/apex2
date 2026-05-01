@@ -28,6 +28,7 @@ type ViewQ = {
   perPage: number;
   supplierId: string;
   name: string;
+  category: string;
   sort: string;
   order: "asc" | "desc";
 };
@@ -53,6 +54,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
     perPage: 10,
     supplierId: "",
     name: "",
+    category: "",
     sort: "firstName",
     order: "asc",
   });
@@ -60,10 +62,12 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
 
   const [supplierDraft, setSupplierDraft] = useState(supplierId);
   const [nameDraft, setNameDraft] = useState(name);
+  const [categoryDraft, setCategoryDraft] = useState("");
   useEffect(() => setSupplierDraft(supplierId), [supplierId]);
   useEffect(() => setNameDraft(name), [name]);
+  useEffect(() => setCategoryDraft(qp.category || ''), [qp.category]);
 
-  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name;
+  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name || categoryDraft !== qp.category;
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
@@ -71,6 +75,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
     sp.set("siteId", String(siteId));
     if (supplierId) sp.set("supplierId", supplierId);
     if (name) sp.set("search", name);
+    if (qp.category) sp.set('category', qp.category);
     sp.set("page", String(page));
     sp.set("perPage", String(perPage));
     sp.set("sort", sort);
@@ -112,12 +117,13 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   }, [query]);
 
   function applyFilters() {
-    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim() });
+    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim(), category: categoryDraft });
   }
   function resetFilters() {
     setSupplierDraft("");
     setNameDraft("");
-    setQp({ page: 1, supplierId: "", name: "" });
+    setCategoryDraft("");
+    setQp({ page: 1, supplierId: "", name: "", category: "" });
   }
   function toggleSort(field: string) {
     setQp(
@@ -420,6 +426,16 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
               </AppSelect.Item>
             ))}
           </AppSelect>
+          <AppSelect
+            value={categoryDraft || '__all'}
+            onValueChange={(v) => setCategoryDraft(v === '__all' ? '' : v)}
+            placeholder='Category'
+          >
+            <AppSelect.Item value='__all'>All Categories</AppSelect.Item>
+            {categories?.data?.map((c) => (
+              <AppSelect.Item key={c.id} value={c.categoryName}>{c.categoryName}</AppSelect.Item>
+            ))}
+          </AppSelect>
           <NonFormTextInput
             aria-label="Labour name"
             placeholder="Labour name..."
@@ -431,7 +447,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
             size="sm"
             onClick={applyFilters}
             disabled={!filtersDirty && !supplierDraft && !nameDraft}
-            className="min-w-[84px]"
+            className="min-w-21"
           >
             Search
           </AppButton>
@@ -440,7 +456,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
               variant="secondary"
               size="sm"
               onClick={resetFilters}
-              className="min-w-[84px]"
+              className="min-w-21"
             >
               Reset
             </AppButton>

@@ -58,19 +58,34 @@ export async function GET(req: NextRequest) {
     const search = (searchParams.get('search') || '').trim();
     const mode = (searchParams.get('mode') || 'assigned').toLowerCase();
     const siteId = Number(searchParams.get('siteId'));
-    const supplierId = searchParams.get('supplierId');
+  const supplierId = searchParams.get('supplierId');
+  const categoryParam = searchParams.get('category');
     const sort = (searchParams.get('sort') || 'firstName');
     const order = (searchParams.get('order') === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
 
     const where: any = {};
+    // Resolve category param to id (if provided)
+    let categoryId: number | null = null;
+    if (categoryParam) {
+      categoryId = await resolveCategoryId(prisma, categoryParam);
+    }
+
     if (mode === 'assigned') {
       if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required for mode=assigned');
       where.isAssigned = true;
       // Only show manpowers with isAssigned=true at this site
       where.siteManpower = { some: { siteId, isAssigned: true } };
+      if (categoryId) {
+        // filter to assignments at this site with the category
+        where.siteManpower.some.categoryId = categoryId;
+      }
     } else if (mode === 'available') {
       // Only unassigned manpower
       where.isAssigned = false;
+      if (categoryId) {
+        // Filter manpowers that have historical siteManpower entries with this category
+        where.siteManpower = { some: { categoryId } };
+      }
     }
 
     if (supplierId) {
@@ -79,12 +94,26 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { mobileNumber: { contains: search } },
-        { manpowerSupplier: { supplierName: { contains: search } } },
-      ];
+      // If search contains space(s), attempt simple full-name matching by splitting terms
+      const parts = search.split(/\s+/).filter(Boolean);
+      if (parts.length === 1) {
+        const term = parts[0];
+        where.OR = [
+          { firstName: { contains: term } },
+          { middleName: { contains: term } },
+          { lastName: { contains: term } },
+          { mobileNumber: { contains: term } },
+          { manpowerSupplier: { supplierName: { contains: term } } },
+        ];
+      } else {
+        // For multiple parts, require that each part appears in any of the name fields
+        where.AND = parts.map((p) => ({ OR: [
+          { firstName: { contains: p } },
+          { middleName: { contains: p } },
+          { lastName: { contains: p } },
+        ] }));
+        // Also allow matching mobile or supplierName if full parts match
+      }
     }
 
     const sortable = new Set(['firstName','lastName','mobileNumber','wage','createdAt']);

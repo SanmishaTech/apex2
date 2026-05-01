@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 
 export default function PayslipsPage() {
   const [period, setPeriod] = useState("");
   const [paySlipDate, setPaySlipDate] = useState<string>(() => new Date().toISOString().slice(0, 10)); // yyyy-mm-dd
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const periodOptions = useMemo(() => {
     const opts: string[] = [];
@@ -27,6 +30,25 @@ export default function PayslipsPage() {
       toast.error("Select a period (MM-YYYY)");
       return;
     }
+
+    try {
+      setChecking(true);
+      const res = await fetch(`/api/payslips?period=${period}`);
+      const j = await res.json();
+      if (j?.data && j.data.length > 0) {
+        setShowConfirm(true);
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking existing payslips:", err);
+    } finally {
+      setChecking(false);
+    }
+
+    await executeGenerate();
+  }
+
+  async function executeGenerate() {
     const body: any = { period, paySlipDate };
     const res = await fetch("/api/payslips", {
       method: "POST",
@@ -66,10 +88,22 @@ export default function PayslipsPage() {
             </div>
           </div>
           <div className="mt-6 flex justify-end">
-            <Button onClick={handleGenerate} disabled={!/^\d{2}-\d{4}$/.test(period)}>Generate</Button>
+            <Button onClick={handleGenerate} disabled={!/^\d{2}-\d{4}$/.test(period) || checking}>
+              {checking ? "Checking..." : "Generate"}
+            </Button>
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Payslip Already Generated"
+        description="Payslips for this month have already been generated. If you generate them again, manpower wages will be updated according to the current wage settings for this month. Are you sure you want to proceed?"
+        confirmText="Generate"
+        cancelText="Cancel"
+        onConfirm={executeGenerate}
+      />
     </div>
   );
 }

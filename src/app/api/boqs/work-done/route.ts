@@ -294,7 +294,7 @@ export async function GET(req: NextRequest) {
               dailyDone[e.dateStr] = Number(dailyDone[e.dateStr] || 0) + Number(e.qty || 0);
             }
           }
-          const executedQty = orderedQty + monthDone;
+          const executedQty = monthDone;
           const remainingQty = qty - executedQty;
           const amount = Number(r.amount || 0);
           const orderedAmount = executedQty * rate;

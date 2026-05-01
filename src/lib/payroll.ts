@@ -329,6 +329,8 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         const dets: any[] = [];
         let mlwfDeducted = false;
         let ptDeducted = false;
+        let foodCharges1Deducted = false;
+        let foodCharges2Deducted = false;
 
         for (const data of siteDataList) {
           if (!data.smp) continue;
@@ -379,7 +381,19 @@ export async function generatePayroll(params: GeneratePayrollParams) {
             }
           }
 
-          const foodCharge = Number(smp.foodCharges || 0) + Number(smp.foodCharges2 || 0);
+          let foodCharge1 = 0;
+          if (Number(smp.foodCharges || 0) > 0 && !foodCharges1Deducted) {
+            foodCharge1 = Number(smp.foodCharges);
+            foodCharges1Deducted = true;
+          }
+
+          let foodCharge2 = 0;
+          if (Number(smp.foodCharges2 || 0) > 0 && !foodCharges2Deducted) {
+            foodCharge2 = Number(smp.foodCharges2);
+            foodCharges2Deducted = true;
+          }
+
+          const foodCharge = foodCharge1 + foodCharge2;
           const total = toFixed2(gross - pf - esic - pt - mlwf - foodCharge);
           net += total;
 
@@ -394,6 +408,8 @@ export async function generatePayroll(params: GeneratePayrollParams) {
             esic,
             pt,
             mlwf,
+            foodCharges: toFixed2(foodCharge1),
+            foodCharges2: toFixed2(foodCharge2),
             total: toFixed2(total),
             amountInWords: amountInWords(total),
           });

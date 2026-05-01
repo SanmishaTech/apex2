@@ -300,7 +300,7 @@ export default function WageSheetPage() {
           worker.workingDays?.toFixed(2) || "0.00",
           worker.totalOT?.toFixed(2) || "0.00",
           worker.actualWages?.toFixed(2) || "0.00",
-          worker.foodCharges?.toFixed(2) || "0.00",
+          worker.isFood1AlreadyDeducted ? "0.00 (AD)" : (worker.foodCharges?.toFixed(2) || "0.00"),
           idleDaysCombined.toFixed(2),
           workerTotalWorkingDays.toFixed(2),
           (Number(worker.totalWages || 0) - Number(worker.foodCharges || 0) - Number(worker.foodCharges2 || 0)).toFixed(2)
@@ -596,12 +596,12 @@ export default function WageSheetPage() {
           row.push(
             { v: totalWorkingDays, s: numberStyle },
             { v: w.grossWage, s: numberStyle },
-            { v: w.foodCharges, s: numberStyle },
-            { v: w.foodCharges2, s: numberStyle },
+            { v: w.isFood1AlreadyDeducted ? "0.00 (AD)" : w.foodCharges, s: w.isFood1AlreadyDeducted ? centerStyle : numberStyle },
+            { v: w.isFood2AlreadyDeducted ? "0.00 (AD)" : w.foodCharges2, s: w.isFood2AlreadyDeducted ? centerStyle : numberStyle },
             { v: w.pf, s: numberStyle },
             { v: w.esic, s: numberStyle },
-            { v: w.pt, s: numberStyle },
-            { v: w.lwf, s: numberStyle },
+            { v: w.isPtAlreadyDeducted ? "0 (AD)" : w.pt, s: w.isPtAlreadyDeducted ? centerStyle : numberStyle },
+            { v: w.isMlwfAlreadyDeducted ? "0.00 (AD)" : w.lwf, s: w.isMlwfAlreadyDeducted ? centerStyle : numberStyle },
             { v: netPayable, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "E2EFDA" } } } },
             { v: "", s: leftStyle }, // Remarks
             { v: w.accountNumber || "-", s: leftStyle },
@@ -866,10 +866,10 @@ export default function WageSheetPage() {
                           {Number(r.ot).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {Number(r.foodCharges || 0).toFixed(2)}
+                          {r.isFood1AlreadyDeducted ? "0.00 (AD)" : Number(r.foodCharges || 0).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {Number(r.foodCharges2 || 0).toFixed(2)}
+                          {r.isFood2AlreadyDeducted ? "0.00 (AD)" : Number(r.foodCharges2 || 0).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
                           {Number(r.wages).toFixed(2)}
@@ -884,10 +884,10 @@ export default function WageSheetPage() {
                           {Number(r.esic).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {Number(r.pt).toFixed(2)}
+                          {r.isPtAlreadyDeducted ? "0 (AD)" : Number(r.pt).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {Number(r.mlwf).toFixed(2)}
+                          {r.isMlwfAlreadyDeducted ? "0.00 (AD)" : Number(r.mlwf).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
                           {Number(r.total).toFixed(2)}

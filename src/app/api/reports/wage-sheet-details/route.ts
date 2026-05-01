@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
         site: true,
         paySlip: {
           include: {
+            details: true,
             manpower: {
               include: {
                 manpowerSupplier: true,
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest) {
                     categoryId: true,
                     pf: true,
                     esic: true,
+                    pt: true,
                     ...({ foodCharges: true } as any),
                     ...({ foodCharges2: true } as any),
                     category: { select: { categoryName: true } },
@@ -206,17 +208,36 @@ export async function GET(req: NextRequest) {
       }
 
       const grossWage = Number(detail.grossWages || 0);
-      const pt = Number(detail.pt || 0);
-      const lwf = Number(detail.mlwf || 0);
+      const ptValue = Number(detail.pt || 0);
+      const mlwfValue = Number(detail.mlwf || 0);
+
+      // Check if PT was already deducted elsewhere
+      const ptExpected = siteManpowerForThisSite?.pt === true;
+      const wasPtDeductedElsewhere = (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.pt || 0) > 0);
+      const isPtAlreadyDeducted = ptExpected && ptValue === 0 && wasPtDeductedElsewhere;
+
+      // MLWF detection
+      const mlwfExpected = siteManpowerForThisSite?.mlwf === true;
+      const wasMlwfDeductedElsewhere = (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.mlwf || 0) > 0);
+      const isMlwfAlreadyDeducted = mlwfExpected && mlwfValue === 0 && wasMlwfDeductedElsewhere;
+
+      // Food Charges detection: Now stored in DB
+      const foodCharges = Number(detail.foodCharges || 0);
+      const foodCharges2 = Number(detail.foodCharges2 || 0);
+      
+      const configFood1 = Number(siteManpowerForThisSite?.foodCharges || 0);
+      const isFood1AlreadyDeducted = configFood1 > 0 && foodCharges === 0 && (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.foodCharges || 0) > 0);
+
+      const configFood2 = Number(siteManpowerForThisSite?.foodCharges2 || 0);
+      const isFood2AlreadyDeducted = configFood2 > 0 && foodCharges2 === 0 && (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.foodCharges2 || 0) > 0);
 
       // Use saved PF/ESIC amounts from the payroll detail to ensure exact matching 
       // with DB and respecting thresholds (like ESIC > 21k rule)
       const pfAmount = Number(detail.pf || 0);
       const esicAmount = Number(detail.esic || 0);
 
-      const foodCharges = Number(siteManpowerForThisSite?.foodCharges || 0);
-      const foodCharges2 = Number(siteManpowerForThisSite?.foodCharges2 || 0);
-      const totalDeduction = pfAmount + esicAmount + pt + lwf + foodCharges + foodCharges2;
+      // Deductions calculation: Simplified since we use stored values
+      const totalDeduction = pfAmount + esicAmount + ptValue + mlwfValue + foodCharges + foodCharges2;
       const payable = Math.max(0, grossWage - totalDeduction);
 
       siteGroup.workers.push({
@@ -243,15 +264,19 @@ export async function GET(req: NextRequest) {
         idleOT: 0,
         wageRate: Number(detail.wages || 0),
         foodCharges,
+        isFood1AlreadyDeducted,
         foodCharges2,
+        isFood2AlreadyDeducted,
         grossWage,
         actualWages: Number(detail.total || 0),
         idleWages: 0,
         totalWages: Number(detail.total || 0),
         pf: pfAmount,
         esic: esicAmount,
-        pt,
-        lwf,
+        pt: ptValue,
+        isPtAlreadyDeducted,
+        lwf: mlwfValue,
+        isMlwfAlreadyDeducted,
         totalDeduction,
         payable,
       });

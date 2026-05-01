@@ -20,7 +20,7 @@ import { useQueryParamsState } from '@/hooks/use-query-params-state';
 
 import type { AssignedManpowerItem, AssignManpowerRequestItem } from '@/types/manpower-assignments';
 type AssignRow = AssignedManpowerItem & { __sr: string };
-type AssignQ = { page: number; perPage: number; supplierId: string; name: string; sort: string; order: 'asc' | 'desc' };
+type AssignQ = { page: number; perPage: number; supplierId: string; name: string; category: string; sort: string; order: 'asc' | 'desc' };
 type AssignDraft = AssignManpowerRequestItem;
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -37,27 +37,30 @@ export default function AssignManpowerPage({ params }: PageProps) {
     pushAndRestoreKey('assign-manpower-sites');
   };
 
-  const [qp, setQp] = useQueryParamsState<AssignQ>({ page: 1, perPage: 10, supplierId: '', name: '', sort: 'firstName', order: 'asc' });
-  const { page, perPage, supplierId, name, sort, order } = qp;
+  const [qp, setQp] = useQueryParamsState<AssignQ>({ page: 1, perPage: 10, supplierId: '', name: '', category: '', sort: 'firstName', order: 'asc' });
+  const { page, perPage, supplierId, name, category, sort, order } = qp;
 
   const [supplierDraft, setSupplierDraft] = useState(supplierId);
   const [nameDraft, setNameDraft] = useState(name);
+  const [categoryDraft, setCategoryDraft] = useState(category);
   useEffect(() => setSupplierDraft(supplierId), [supplierId]);
   useEffect(() => setNameDraft(name), [name]);
+  useEffect(() => setCategoryDraft(category), [category]);
 
-  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name;
+  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name || categoryDraft !== category;
 
   const manpowerQuery = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('mode', 'available');
     if (supplierId) sp.set('supplierId', supplierId);
     if (name) sp.set('search', name);
+    if (category) sp.set('category', category);
     sp.set('page', String(page));
     sp.set('perPage', String(perPage));
     sp.set('sort', sort);
     sp.set('order', order);
     return `/api/manpower-assignments?${sp.toString()}`;
-  }, [supplierId, name, page, perPage, sort, order]);
+  }, [supplierId, name, category, page, perPage, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<{ data: AssignedManpowerItem[]; page: number; perPage: number; total: number; totalPages: number }>(manpowerQuery, apiGet);
 
@@ -74,12 +77,13 @@ export default function AssignManpowerPage({ params }: PageProps) {
   }, [manpowerQuery]);
 
   function applyFilters() {
-    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim() });
+    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim(), category: categoryDraft });
   }
   function resetFilters() {
     setSupplierDraft('');
     setNameDraft('');
-    setQp({ page: 1, supplierId: '', name: '' });
+    setCategoryDraft('');
+    setQp({ page: 1, supplierId: '', name: '', category: '' });
   }
   function toggleSort(field: string) { setQp(sort === field ? { order: order === 'asc' ? 'desc' : 'asc' } : { sort: field, order: 'asc' }); }
 
@@ -280,10 +284,16 @@ export default function AssignManpowerPage({ params }: PageProps) {
               <AppSelect.Item key={s.id} value={String(s.id)}>{s.supplierName}</AppSelect.Item>
             ))}
           </AppSelect>
+          <AppSelect value={categoryDraft || '__all'} onValueChange={(v) => setCategoryDraft(v === '__all' ? '' : v)} placeholder='Category'>
+            <AppSelect.Item value='__all'>All Categories</AppSelect.Item>
+            {categories?.data?.map((c) => (
+              <AppSelect.Item key={c.id} value={c.categoryName}>{c.categoryName}</AppSelect.Item>
+            ))}
+          </AppSelect>
           <NonFormTextInput aria-label='Labour name' placeholder='Labour name...' value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} containerClassName='w-full' />
-          <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !supplierDraft && !nameDraft} className='min-w-[84px]'>Search</AppButton>
+          <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !supplierDraft && !nameDraft} className='min-w-21'>Search</AppButton>
           {(supplierId || name) && (
-            <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-[84px]'>Reset</AppButton>
+            <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-21'>Reset</AppButton>
           )}
         </FilterBar>
 
