@@ -73,12 +73,12 @@ export async function GET(req: NextRequest) {
     if (mode === 'assigned') {
       if (!siteId || Number.isNaN(siteId)) return ApiBadRequest('siteId is required for mode=assigned');
       where.isAssigned = true;
-      // Only show manpowers with an active assignment (isAssigned=true) at this site
-      const smWhere: any = { siteId, isAssigned: true };
+      // Only show manpowers with isAssigned=true at this site
+      where.siteManpower = { some: { siteId, isAssigned: true } };
       if (categoryId) {
-        smWhere.categoryId = categoryId;
+        // filter to assignments at this site with the category
+        where.siteManpower.some.categoryId = categoryId;
       }
-      where.siteManpower = { some: smWhere };
     } else if (mode === 'available') {
       // Only unassigned manpower
       where.isAssigned = false;
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
         mobileNumber: true,
         isAssigned: true,
         siteManpower: {
-          where: (mode === 'assigned' && siteId) ? { siteId, isAssigned: true } : { isAssigned: true },
+          where: mode === 'assigned' && siteId ? { siteId } : undefined,
           orderBy: { id: 'desc' },
           take: 1,
           select: {

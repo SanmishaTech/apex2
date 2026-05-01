@@ -17,11 +17,10 @@ import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
-import { AppCombobox } from '@/components/common/app-combobox';
 
 import type { AssignedManpowerItem, AssignManpowerRequestItem } from '@/types/manpower-assignments';
 type AssignRow = AssignedManpowerItem & { __sr: string };
-type AssignQ = { page: number; perPage: number; name: string; category: string; sort: string; order: 'asc' | 'desc' };
+type AssignQ = { page: number; perPage: number; supplierId: string; name: string; category: string; sort: string; order: 'asc' | 'desc' };
 type AssignDraft = AssignManpowerRequestItem;
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -38,19 +37,22 @@ export default function AssignManpowerPage({ params }: PageProps) {
     pushAndRestoreKey('assign-manpower-sites');
   };
 
-  const [qp, setQp] = useQueryParamsState<AssignQ>({ page: 1, perPage: 10, name: '', category: '', sort: 'firstName', order: 'asc' });
-  const { page, perPage, name, category, sort, order } = qp;
+  const [qp, setQp] = useQueryParamsState<AssignQ>({ page: 1, perPage: 10, supplierId: '', name: '', category: '', sort: 'firstName', order: 'asc' });
+  const { page, perPage, supplierId, name, category, sort, order } = qp;
 
+  const [supplierDraft, setSupplierDraft] = useState(supplierId);
   const [nameDraft, setNameDraft] = useState(name);
   const [categoryDraft, setCategoryDraft] = useState(category);
+  useEffect(() => setSupplierDraft(supplierId), [supplierId]);
   useEffect(() => setNameDraft(name), [name]);
   useEffect(() => setCategoryDraft(category), [category]);
 
-  const filtersDirty = nameDraft !== name || categoryDraft !== category;
+  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name || categoryDraft !== category;
 
   const manpowerQuery = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('mode', 'available');
+    if (supplierId) sp.set('supplierId', supplierId);
     if (name) sp.set('search', name);
     if (category) sp.set('category', category);
     sp.set('page', String(page));
@@ -58,10 +60,11 @@ export default function AssignManpowerPage({ params }: PageProps) {
     sp.set('sort', sort);
     sp.set('order', order);
     return `/api/manpower-assignments?${sp.toString()}`;
-  }, [name, category, page, perPage, sort, order]);
+  }, [supplierId, name, category, page, perPage, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<{ data: AssignedManpowerItem[]; page: number; perPage: number; total: number; totalPages: number }>(manpowerQuery, apiGet);
 
+  const { data: suppliers } = useSWR<{ data: { id: number; supplierName: string }[] }>(`/api/manpower-suppliers?perPage=1000`, apiGet);
   const { data: categories } = useSWR<{ data: { id: number; categoryName: string }[] }>(`/api/categories?perPage=1000`, apiGet);
   const { data: skillSets } = useSWR<{ data: { id: number; skillsetName: string }[] }>(`/api/skill-sets?perPage=1000`, apiGet);
 
@@ -74,12 +77,13 @@ export default function AssignManpowerPage({ params }: PageProps) {
   }, [manpowerQuery]);
 
   function applyFilters() {
-    setQp({ page: 1, name: nameDraft.trim(), category: categoryDraft });
+    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim(), category: categoryDraft });
   }
   function resetFilters() {
+    setSupplierDraft('');
     setNameDraft('');
     setCategoryDraft('');
-    setQp({ page: 1, name: '', category: '' });
+    setQp({ page: 1, supplierId: '', name: '', category: '' });
   }
   function toggleSort(field: string) { setQp(sort === field ? { order: order === 'asc' ? 'desc' : 'asc' } : { sort: field, order: 'asc' }); }
 
@@ -171,12 +175,16 @@ export default function AssignManpowerPage({ params }: PageProps) {
     },
     {
       key: 'category', header: 'Category', sortable: false, accessor: (r) => (
-        <AppCombobox
+        <AppSelect
           value={selected[r.id]?.category ?? r.category ?? ''}
-          onValueChange={(v) => setField(r.id, 'category', v)}
-          options={categories?.data?.map((c) => ({ value: c.categoryName, label: c.categoryName })) || []}
+          onValueChange={(v) => setField(r.id, 'category', v === '__none' ? '' : v)}
           placeholder='Select Category'
-        />
+        >
+          <AppSelect.Item value='__none'>Select</AppSelect.Item>
+          {categories?.data?.map((c) => (
+            <AppSelect.Item key={c.id} value={c.categoryName}>{c.categoryName}</AppSelect.Item>
+          ))}
+        </AppSelect>
       ),
       className: 'min-w-[200px]'
     },
@@ -270,18 +278,21 @@ export default function AssignManpowerPage({ params }: PageProps) {
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title='Filters'>
-          <AppCombobox
-            value={categoryDraft || '__all'}
-            onValueChange={(v) => setCategoryDraft(v === '__all' ? '' : v)}
-            options={[
-              { value: '__all', label: 'All Categories' },
-              ...(categories?.data?.map((c) => ({ value: c.categoryName, label: c.categoryName })) || [])
-            ]}
-            placeholder='Category'
-          />
+          <AppSelect value={supplierDraft || '__all'} onValueChange={(v) => setSupplierDraft(v === '__all' ? '' : v)} placeholder='Supplier'>
+            <AppSelect.Item value='__all'>All Suppliers</AppSelect.Item>
+            {suppliers?.data?.map((s) => (
+              <AppSelect.Item key={s.id} value={String(s.id)}>{s.supplierName}</AppSelect.Item>
+            ))}
+          </AppSelect>
+          <AppSelect value={categoryDraft || '__all'} onValueChange={(v) => setCategoryDraft(v === '__all' ? '' : v)} placeholder='Category'>
+            <AppSelect.Item value='__all'>All Categories</AppSelect.Item>
+            {categories?.data?.map((c) => (
+              <AppSelect.Item key={c.id} value={c.categoryName}>{c.categoryName}</AppSelect.Item>
+            ))}
+          </AppSelect>
           <NonFormTextInput aria-label='Labour name' placeholder='Labour name...' value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} containerClassName='w-full' />
-          <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !nameDraft && !categoryDraft} className='min-w-21'>Search</AppButton>
-          {(name || category) && (
+          <AppButton size='sm' onClick={applyFilters} disabled={!filtersDirty && !supplierDraft && !nameDraft} className='min-w-21'>Search</AppButton>
+          {(supplierId || name) && (
             <AppButton variant='secondary' size='sm' onClick={resetFilters} className='min-w-21'>Reset</AppButton>
           )}
         </FilterBar>
