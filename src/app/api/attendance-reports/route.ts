@@ -115,53 +115,74 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Step 3: Combine and deduplicate manpower
-    const manpowerMap = new Map<number, any>();
+    // Step 3: Identify all unique (siteId, manpowerId) pairs
+    const siteManpowerPairs = new Map<string, { siteId: number; manpowerId: number; manpower: any; site?: any }>();
 
-    // Add manpower from attendance records (includes transferred-out manpower)
+    // From attendance records (historical or current)
     attendances.forEach((att) => {
-      if (att.manpower && !manpowerMap.has(att.manpowerId)) {
-        manpowerMap.set(att.manpowerId, att.manpower);
+      const key = `${att.siteId}_${att.manpowerId}`;
+      if (!siteManpowerPairs.has(key)) {
+        siteManpowerPairs.set(key, {
+          siteId: att.siteId,
+          manpowerId: att.manpowerId,
+          manpower: att.manpower,
+          site: att.site
+        });
       }
     });
 
-    // Add currently assigned manpower (if not already added)
+    // From current assignments (only for selected siteIds)
     assignedManpower.forEach((mp) => {
-      if (!manpowerMap.has(mp.id)) {
-        manpowerMap.set(mp.id, mp);
-      }
+      mp.siteManpower.forEach((sm: any) => {
+        if (siteIds.includes(sm.siteId)) {
+          const key = `${sm.siteId}_${mp.id}`;
+          if (!siteManpowerPairs.has(key)) {
+            siteManpowerPairs.set(key, {
+              siteId: sm.siteId,
+              manpowerId: mp.id,
+              manpower: mp,
+              site: sm.site
+            });
+          }
+        }
+      });
     });
 
-    // Step 4: Group attendance records by manpowerId
-    const attendanceByManpower = new Map<number, any[]>();
+    // Step 4: Group attendance records by (siteId, manpowerId)
+    const attendanceByPair = new Map<string, any[]>();
     attendances.forEach((att) => {
-      if (!attendanceByManpower.has(att.manpowerId)) {
-        attendanceByManpower.set(att.manpowerId, []);
+      const key = `${att.siteId}_${att.manpowerId}`;
+      if (!attendanceByPair.has(key)) {
+        attendanceByPair.set(key, []);
       }
-      attendanceByManpower.get(att.manpowerId)!.push(att);
+      attendanceByPair.get(key)!.push(att);
     });
 
     // Step 5: Transform data into report format
     const reportData: any[] = [];
 
-    manpowerMap.forEach((mp) => {
-      const mpAttendances = attendanceByManpower.get(mp.id) || [];
+    siteManpowerPairs.forEach((pair) => {
+      const mp = pair.manpower;
+      const mpAttendancesForSite = attendanceByPair.get(`${pair.siteId}_${pair.manpowerId}`) || [];
+
+      // Find relevant siteManpower info for THIS specific site
+      const relevantSiteManpower = mp.siteManpower?.find((sm: any) => sm.siteId === pair.siteId);
 
       // Apply category/skill filters on final data
-      const currentSiteManpower = mp.siteManpower?.[0];
-      if (category && currentSiteManpower?.category?.categoryName !== category && mpAttendances.length === 0) {
-        return; // Skip if no attendance and category doesn't match
+      if (category && relevantSiteManpower?.category?.categoryName !== category && mpAttendancesForSite.length === 0) {
+        return; 
       }
-      if (skillSet && currentSiteManpower?.skillset?.skillsetName !== skillSet && mpAttendances.length === 0) {
-        return; // Skip if no attendance and skill doesn't match
+      if (skillSet && relevantSiteManpower?.skillset?.skillsetName !== skillSet && mpAttendancesForSite.length === 0) {
+        return;
       }
 
-      // Skip if no attendance records
-      if (mpAttendances.length === 0) return;
+      // Skip if no attendance records AND not currently assigned to THIS site
+      const isCurrentlyAssignedToThisSite = relevantSiteManpower?.siteId === pair.siteId && (mp as any).isAssigned;
+      if (mpAttendancesForSite.length === 0 && !isCurrentlyAssignedToThisSite) return;
 
-      // Create attendance map for this manpower
+      // Create attendance map for this site-manpower pair
       const attendanceMap = new Map(
-        mpAttendances.map((att: any) => [
+        mpAttendancesForSite.map((att: any) => [
           att.date.toISOString().split('T')[0],
           att,
         ])
@@ -195,18 +216,20 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Determine site info
-      const siteInfo = currentSiteManpower?.site || mpAttendances[0]?.site;
-      const siteId = siteInfo?.id || mpAttendances[0]?.siteId;
-      const siteName = siteInfo?.site || "Unknown Site";
+      // If no attendance records found for this site in this month, and we're only here 
+      // because of a historical assignment, skip it to avoid cluttering with empty rows
+      if (dailyAttendance.length === 0 && !isCurrentlyAssignedToThisSite) return;
+
+      const siteId = pair.siteId;
+      const siteName = pair.site?.site || "Unknown Site";
 
       reportData.push({
         manpowerId: mp.id,
         manpowerName: `${mp.firstName} ${mp.middleName || ''} ${mp.lastName}`.trim(),
         supplierId: mp.manpowerSupplier?.id ?? 0,
         supplierName: mp.manpowerSupplier?.supplierName ?? "Unknown",
-        category: currentSiteManpower?.category?.categoryName ?? null,
-        skillSet: currentSiteManpower?.skillset?.skillsetName ?? null,
+        category: relevantSiteManpower?.category?.categoryName ?? null,
+        skillSet: relevantSiteManpower?.skillset?.skillsetName ?? null,
         siteId,
         siteName,
         dailyAttendance,

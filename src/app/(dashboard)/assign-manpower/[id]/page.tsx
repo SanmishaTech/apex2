@@ -17,6 +17,7 @@ import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/config/roles";
 import { useQueryParamsState } from "@/hooks/use-query-params-state";
+import { AppCombobox } from "@/components/common/app-combobox";
 
 import type {
   AssignedManpowerItem,
@@ -26,8 +27,8 @@ type ViewRow = AssignedManpowerItem & { __sr: string };
 type ViewQ = {
   page: number;
   perPage: number;
-  supplierId: string;
   name: string;
+  category: string;
   sort: string;
   order: "asc" | "desc";
 };
@@ -51,32 +52,33 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   const [qp, setQp] = useQueryParamsState<ViewQ>({
     page: 1,
     perPage: 10,
-    supplierId: "",
     name: "",
+    category: "",
     sort: "firstName",
     order: "asc",
   });
-  const { page, perPage, supplierId, name, sort, order } = qp;
+  const { page, perPage, name, category, sort, order } = qp;
 
-  const [supplierDraft, setSupplierDraft] = useState(supplierId);
   const [nameDraft, setNameDraft] = useState(name);
-  useEffect(() => setSupplierDraft(supplierId), [supplierId]);
+  const [categoryDraft, setCategoryDraft] = useState("");
   useEffect(() => setNameDraft(name), [name]);
+  useEffect(() => setCategoryDraft(qp.category || ""), [qp.category]);
 
-  const filtersDirty = supplierDraft !== supplierId || nameDraft !== name;
+  const filtersDirty =
+    nameDraft !== name || categoryDraft !== category;
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set("mode", "assigned");
     sp.set("siteId", String(siteId));
-    if (supplierId) sp.set("supplierId", supplierId);
     if (name) sp.set("search", name);
+    if (category) sp.set("category", category);
     sp.set("page", String(page));
     sp.set("perPage", String(perPage));
     sp.set("sort", sort);
     sp.set("order", order);
     return `/api/manpower-assignments?${sp.toString()}`;
-  }, [siteId, supplierId, name, page, perPage, sort, order]);
+  }, [siteId, name, category, page, perPage, sort, order]);
 
   const { data, error, isLoading, mutate } = useSWR<{
     data: AssignedManpowerItem[];
@@ -91,9 +93,6 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
     __sr: String((page - 1) * perPage + idx + 1),
   }));
 
-  const { data: suppliers } = useSWR<{
-    data: { id: number; supplierName: string }[];
-  }>(`/api/manpower-suppliers?perPage=1000`, apiGet);
   const { data: categories } = useSWR<{
     data: { id: number; categoryName: string }[];
   }>(`/api/categories?perPage=1000`, apiGet);
@@ -112,12 +111,16 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
   }, [query]);
 
   function applyFilters() {
-    setQp({ page: 1, supplierId: supplierDraft, name: nameDraft.trim() });
+    setQp({
+      page: 1,
+      name: nameDraft.trim(),
+      category: categoryDraft,
+    });
   }
   function resetFilters() {
-    setSupplierDraft("");
     setNameDraft("");
-    setQp({ page: 1, supplierId: "", name: "" });
+    setCategoryDraft("");
+    setQp({ page: 1, name: "", category: "" });
   }
   function toggleSort(field: string) {
     setQp(
@@ -191,20 +194,14 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       header: "Category",
       sortable: false,
       accessor: (r) => (
-        <AppSelect
+        <AppCombobox
           value={(edits[r.id]?.category as any) ?? r.category ?? ""}
           onValueChange={(v) =>
-            setField(r.id, "category", v === "__none" ? "" : v)
+            setField(r.id, "category", v)
           }
+          options={categories?.data?.map((c) => ({ value: c.categoryName, label: c.categoryName })) || []}
           placeholder="Select Category"
-        >
-          <AppSelect.Item value="__none">Select</AppSelect.Item>
-          {categories?.data?.map((c) => (
-            <AppSelect.Item key={c.id} value={c.categoryName}>
-              {c.categoryName}
-            </AppSelect.Item>
-          ))}
-        </AppSelect>
+        />
       ),
       className: "min-w-[200px]",
     },
@@ -408,18 +405,18 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
       </AppCard.Header>
       <AppCard.Content>
         <FilterBar title="Filters">
-          <AppSelect
-            value={supplierDraft || "__all"}
-            onValueChange={(v) => setSupplierDraft(v === "__all" ? "" : v)}
-            placeholder="Supplier"
-          >
-            <AppSelect.Item value="__all">All Suppliers</AppSelect.Item>
-            {suppliers?.data?.map((s) => (
-              <AppSelect.Item key={s.id} value={String(s.id)}>
-                {s.supplierName}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
+          <AppCombobox
+            value={categoryDraft || "__all"}
+            onValueChange={(v) => setCategoryDraft(v === "__all" ? "" : v)}
+            options={[
+              { value: "__all", label: "All Categories" },
+              ...(categories?.data?.map((c) => ({
+                value: c.categoryName,
+                label: c.categoryName,
+              })) || []),
+            ]}
+            placeholder="Category"
+          />
           <NonFormTextInput
             aria-label="Labour name"
             placeholder="Labour name..."
@@ -430,17 +427,17 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
           <AppButton
             size="sm"
             onClick={applyFilters}
-            disabled={!filtersDirty && !supplierDraft && !nameDraft}
-            className="min-w-[84px]"
+            disabled={!filtersDirty && !nameDraft && !categoryDraft}
+            className="min-w-21"
           >
             Search
           </AppButton>
-          {(supplierId || name) && (
+          {(name || category) && (
             <AppButton
               variant="secondary"
               size="sm"
               onClick={resetFilters}
-              className="min-w-[84px]"
+              className="min-w-21"
             >
               Reset
             </AppButton>

@@ -95,10 +95,11 @@ export async function GET(req: NextRequest) {
       site: true,
       paySlip: {
         include: {
+          details: true, // Needed to check if PT was deducted elsewhere
           manpower: {
             include: {
               manpowerSupplier: true,
-              siteManpower: { select: { siteId: true, ...({ foodCharges: true } as any), ...({ foodCharges2: true } as any) } },
+              siteManpower: { select: { siteId: true, pt: true, ...({ foodCharges: true } as any), ...({ foodCharges2: true } as any) } },
             },
           },
         },
@@ -110,11 +111,31 @@ export async function GET(req: NextRequest) {
   const rows = details.map((d) => {
     const otFromAttendance = otByManpowerSite.get(`${(d as any).paySlip.manpowerId}:${d.siteId}`);
     const otValue = Number(otFromAttendance || 0);
-    const smConfig = ((d as any).paySlip.manpower as any)?.siteManpower?.find((sm: any) => sm.siteId === d.siteId) 
-      || ((d as any).paySlip.manpower as any)?.siteManpower?.[0];
-    const foodCharges = Number(smConfig?.foodCharges ?? 0);
-    const foodCharges2 = Number(smConfig?.foodCharges2 ?? 0);
+    const smConfigs = ((d as any).paySlip.manpower as any)?.siteManpower || [];
+    const smConfig = smConfigs.find((sm: any) => sm.siteId === d.siteId) || smConfigs[0];
+    
+    const foodCharges = Number(d.foodCharges ?? 0);
+    const foodCharges2 = Number(d.foodCharges2 ?? 0);
     const rawTotal = Number(d.total ?? 0);
+
+    const ptValue = Number(d.pt ?? 0);
+    const ptExpected = smConfig?.pt === true;
+    const wasPtDeductedElsewhere = (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.pt || 0) > 0);
+    const isPtAlreadyDeducted = ptExpected && ptValue === 0 && wasPtDeductedElsewhere;
+
+    // MLWF detection
+    const mlwfValue = Number(d.mlwf ?? 0);
+    const mlwfExpected = smConfig?.mlwf === true;
+    const wasMlwfDeductedElsewhere = (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.mlwf || 0) > 0);
+    const isMlwfAlreadyDeducted = mlwfExpected && mlwfValue === 0 && wasMlwfDeductedElsewhere;
+
+    // Food Charges detection: Now much simpler since we store them!
+    const configFood1 = Number(smConfig?.foodCharges || 0);
+    const isFood1AlreadyDeducted = configFood1 > 0 && foodCharges === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges || 0) > 0);
+
+    const configFood2 = Number(smConfig?.foodCharges2 || 0);
+    const isFood2AlreadyDeducted = configFood2 > 0 && foodCharges2 === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges2 || 0) > 0);
+
     return {
       siteId: d.siteId,
       siteName: (d as any).site?.site,
@@ -129,12 +150,16 @@ export async function GET(req: NextRequest) {
       idle: Number(d.idle ?? 0),
       wages: Number(d.wages ?? 0),
       foodCharges,
+      isFood1AlreadyDeducted,
       foodCharges2,
+      isFood2AlreadyDeducted,
       grossWages: Number(d.grossWages ?? 0),
       pf: Number(d.pf ?? 0),
       esic: Number(d.esic ?? 0),
-      pt: Number(d.pt ?? 0),
-      mlwf: Number(d.mlwf ?? 0),
+      pt: ptValue,
+      isPtAlreadyDeducted,
+      mlwf: mlwfValue,
+      isMlwfAlreadyDeducted,
       total: rawTotal,
     };
   });

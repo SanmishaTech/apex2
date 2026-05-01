@@ -431,7 +431,7 @@ export async function GET(req: NextRequest) {
           const ds = fmtDateDDMMYYYYUtc(new Date(e.dt));
           dailyDone[ds] = Number(dailyDone[ds] || 0) + Number(e.qty || 0);
         }
-        const executedQty = orderedQty + monthDone;
+        const executedQty = monthDone;
         const remainingQty = qty - executedQty;
         const amount = Number(r.amount || 0);
         const executedAmount = executedQty * rate;

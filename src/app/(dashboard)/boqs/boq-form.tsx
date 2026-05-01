@@ -696,10 +696,19 @@ export function BoqForm({
                             control={control}
                             name={`items.${index}.qty`}
                             label="Qty"
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0"
                             span={4}
                             spanFrom="md"
+                            onValueChange={(val) => {
+                              const cleaned = val.replace(/[^0-9.]/g, "");
+                              const parts = cleaned.split(".");
+                              if (parts.length > 2) return parts[0] + "." + parts[1];
+                              if (parts[1] && parts[1].length > 2)
+                                return parts[0] + "." + parts[1].slice(0, 2);
+                              return cleaned;
+                            }}
                             onInput={(e) => {
                               const v = (e as React.FormEvent<HTMLInputElement>)
                                 .currentTarget.value;
@@ -707,9 +716,10 @@ export function BoqForm({
                               const oq = Number(
                                 itemsWatch?.[index]?.orderedQty
                               );
+                              const executed = Number(executedQtyByItemId.get(Number(itemsWatch?.[index]?.id)) || 0);
                               const remainingQty =
                                 isFinite(q) && isFinite(oq)
-                                  ? (q - oq).toFixed(2)
+                                  ? (q - oq - executed).toFixed(2)
                                   : "";
                               setValue(
                                 `items.${index}.remainingQty` as any,
@@ -725,10 +735,19 @@ export function BoqForm({
                             control={control}
                             name={`items.${index}.rate`}
                             label="Rate"
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0.00"
                             span={4}
                             spanFrom="md"
+                            onValueChange={(val) => {
+                              const cleaned = val.replace(/[^0-9.]/g, "");
+                              const parts = cleaned.split(".");
+                              if (parts.length > 2) return parts[0] + "." + parts[1];
+                              if (parts[1] && parts[1].length > 2)
+                                return parts[0] + "." + parts[1].slice(0, 2);
+                              return cleaned;
+                            }}
                             onInput={(e) => {
                               const v = (e as React.FormEvent<HTMLInputElement>)
                                 .currentTarget.value;
@@ -791,17 +810,43 @@ export function BoqForm({
                               control={control}
                               name={`items.${index}.orderedQty`}
                               label=""
-                              type="number"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0"
-                              disabled={submitting || mode === "edit"}
-                              className={mode === "edit" ? "bg-gray-700 text-white" : ""}
+                              disabled={submitting}
+                              className=""
+                              onValueChange={(val) => {
+                                const cleaned = val.replace(/[^0-9.]/g, "");
+                                const parts = cleaned.split(".");
+                                if (parts.length > 2) return parts[0] + "." + parts[1];
+                                if (parts[1] && parts[1].length > 2)
+                                  return parts[0] + "." + parts[1].slice(0, 2);
+                                return cleaned;
+                              }}
                               onInput={(e) => {
                                 const v = (
                                   e as React.FormEvent<HTMLInputElement>
                                 ).currentTarget.value;
                                 const r = Number(itemsWatch?.[index]?.rate);
+                                const q = Number(itemsWatch?.[index]?.qty);
                                 const oq = Number(v);
+                                const itemIdRaw = itemsWatch?.[index]?.id;
+                                const itemId = itemIdRaw != null && String(itemIdRaw).trim() !== "" ? Number(itemIdRaw) : NaN;
+                                const executed = Number.isFinite(itemId) ? Number(executedQtyByItemId.get(itemId) || 0) : 0;
+
+                                const remainingQty =
+                                  isFinite(q) && isFinite(oq)
+                                    ? (q - oq - executed).toFixed(2)
+                                    : "";
+
+                                setValue(
+                                  `items.${index}.remainingQty` as any,
+                                  remainingQty,
+                                  {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  }
+                                );
 
                                 const orderedValue =
                                   isFinite(oq) && isFinite(r)
@@ -810,38 +855,10 @@ export function BoqForm({
                                 setValue(
                                   `items.${index}.orderedValue` as any,
                                   orderedValue,
-                                  { shouldValidate: true, shouldDirty: true }
-                                );
-
-                                const q = Number(itemsWatch?.[index]?.qty);
-                                const itemIdRaw = itemsWatch?.[index]?.id;
-                                const itemId =
-                                  itemIdRaw != null &&
-                                  String(itemIdRaw).trim() !== ""
-                                    ? Number(itemIdRaw)
-                                    : NaN;
-                                const executed = Number.isFinite(itemId)
-                                  ? Number(executedQtyByItemId.get(itemId) || 0)
-                                  : 0;
-                                const remainingQty =
-                                  isFinite(q) && isFinite(oq)
-                                    ? (q - oq - Number(executed || 0)).toFixed(2)
-                                    : "";
-                                setValue(
-                                  `items.${index}.remainingQty` as any,
-                                  remainingQty,
-                                  { shouldValidate: true, shouldDirty: true }
-                                );
-
-                                const rq = Number(remainingQty);
-                                const remainingValue =
-                                  isFinite(rq) && isFinite(r)
-                                    ? (rq * r).toFixed(2)
-                                    : "";
-                                setValue(
-                                  `items.${index}.remainingValue` as any,
-                                  remainingValue,
-                                  { shouldValidate: true, shouldDirty: true }
+                                  {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  }
                                 );
                               }}
                             />

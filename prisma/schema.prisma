@@ -1610,6 +1610,8 @@ model PaySlipDetail {
   esic          Decimal? @db.Decimal(12, 2)
   pt            Decimal? @db.Decimal(12, 2)
   mlwf          Decimal? @db.Decimal(12, 2)
+  foodCharges   Decimal? @db.Decimal(12, 2)
+  foodCharges2  Decimal? @db.Decimal(12, 2)
   total         Decimal  @db.Decimal(12, 2)
   amountInWords String?
   createdAt     DateTime @default(now())
