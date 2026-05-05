@@ -289,6 +289,9 @@ export default function IndentsPage() {
         if (!isCreator && can(PERMISSIONS.APPROVE_INDENTS_L1)) {
           baseActions.push({ key: "approve1", label: "Approve 1" });
         }
+        if (!isCreator && can(PERMISSIONS.APPROVE_INDENTS_L2)) {
+          baseActions.push({ key: "approve2", label: "Approve 2" });
+        }
         if (can(PERMISSIONS.SUSPEND_INDENTS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }

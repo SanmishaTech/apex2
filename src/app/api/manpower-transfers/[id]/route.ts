@@ -229,8 +229,8 @@ export async function PATCH(
                   isAssigned: true,
                   assignedDate,
                   assignedById: guardResult.user.id,
-                  isPresent: false,
-                  startDate: null,
+                  isPresent: true,
+                  startDate: assignedDate,
                   endDate: null,
                   // Copy all assignment data from previous site
                   categoryId: previous?.categoryId ?? null,

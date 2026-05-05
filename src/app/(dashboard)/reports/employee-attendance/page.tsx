@@ -233,7 +233,7 @@ export default function EmployeeAttendanceReportPage() {
   }
 
   const { data: employeesData, isLoading: employeesLoading } = useSWR<{ data: EmployeeOption[] }>(
-    "/api/employees?perPage=1000&sort=name&order=asc",
+    "/api/employees?perPage=10000&sort=name&order=asc",
     apiGet
   );
 

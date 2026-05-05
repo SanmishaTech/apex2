@@ -1636,7 +1636,7 @@ model PayrollConfig {
   ptThresholdWomen  Decimal  @default(25000) @db.Decimal(12, 2)
   ptAmountWomen     Decimal  @default(200) @db.Decimal(12, 2)
   mlwfAmount        Decimal  @default(25) @db.Decimal(12, 2)
-  mlwfMonths        String   @default("02,12")
+  mlwfMonths        String   @default("06,12")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

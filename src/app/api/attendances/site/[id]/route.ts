@@ -48,38 +48,45 @@ export async function GET(
         middleName: true,
         lastName: true,
         siteManpower: {
+          where: {
+            siteId,
+            isAssigned: true,
+            isPresent: true,
+          },
+          take: 1,
           select: {
             assignedDate: true,
+          },
+        },
+        attendances: {
+          where: {
+            siteId,
+          },
+          orderBy: { date: 'desc' },
+          take: 1,
+          select: {
+            date: true,
           },
         },
       },
     });
 
-    // Get last attendance for each manpower at this site
-    const manpowerWithAttendance = await Promise.all(
-      manpower.map(async (m) => {
-        const lastAttendance = await prisma.attendance.findFirst({
-          where: {
-            siteId,
-            manpowerId: m.id,
-          },
-          orderBy: { date: 'desc' },
-          select: { date: true },
-        });
+    // Map result to response format
+    const manpowerWithAttendance = manpower.map((m) => {
+      const lastAttendance = m.attendances?.[0];
 
-        return {
-          id: m.id,
-          firstName: m.firstName,
-          middleName: m.middleName,
-          lastName: m.lastName,
-          lastAttendance: lastAttendance?.date.toISOString() || null,
-          assignedAt: m.siteManpower?.[0]?.assignedDate?.toISOString() || null,
-          ot: 0,
-          isPresent: false,
-          isIdle: false,
-        };
-      })
-    );
+      return {
+        id: m.id,
+        firstName: m.firstName,
+        middleName: m.middleName,
+        lastName: m.lastName,
+        lastAttendance: lastAttendance?.date.toISOString() || null,
+        assignedAt: m.siteManpower?.[0]?.assignedDate?.toISOString() || null,
+        ot: 0,
+        isPresent: false,
+        isIdle: false,
+      };
+    });
 
     return Success({
       site,

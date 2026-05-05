@@ -190,28 +190,10 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     aggs.set(key, cur);
   }
 
-  // Group by manpower
-  const byManpower = new Map<number, { manpowerId: number; details: typeof aggs extends Map<any, infer V> ? V[] : never }>();
-  for (const { manpowerId, siteId, presentDays, otDays, idleDays } of aggs.values()) {
-    const item = byManpower.get(manpowerId) ?? { manpowerId, details: [] as any };
-    (item.details as any).push({ manpowerId, siteId, presentDays, otDays, idleDays });
-    byManpower.set(manpowerId, item);
-  }
-
-  // Preload manpower records
-  const manpowerIds = Array.from(byManpower.keys());
-  const manpowerList = await prisma.manpower.findMany({
-    where: { id: { in: manpowerIds.length ? manpowerIds : [0] } },
-  });
-  const manpowerMap = new Map(manpowerList.map((m) => [m.id, m]));
-
-  // Preload site-specific assignment/payroll fields
-  const siteIds = Array.from(new Set(Array.from(aggs.values()).map((a) => a.siteId)));
-  const siteManpowerList = await prisma.siteManpower.findMany({
-    where: {
-      manpowerId: { in: manpowerIds.length ? manpowerIds : [0] },
-      siteId: { in: siteIds.length ? siteIds : [0] },
-    },
+  // Preload site-specific assignment/payroll fields - ONLY active ones (isAssigned: true)
+  // We also use this to ensure workers with food charges but no attendance are included.
+  const activeAssignments = await prisma.siteManpower.findMany({
+    where: { isAssigned: true },
     select: {
       manpowerId: true,
       siteId: true,
@@ -224,9 +206,34 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       foodCharges2: true,
     },
   });
+
   const siteManpowerMap = new Map(
-    siteManpowerList.map((s) => [`${s.manpowerId}:${s.siteId}`, s] as const)
+    activeAssignments.map((s) => [`${s.manpowerId}:${s.siteId}`, s] as const)
   );
+
+  // Combine attendance with active assignments to ensure everyone gets a payslip if needed
+  const allKeys = new Set<string>();
+  for (const key of aggs.keys()) allKeys.add(key);
+  for (const s of activeAssignments) allKeys.add(`${s.manpowerId}:${s.siteId}`);
+
+  // Group by manpower
+  const byManpower = new Map<number, { manpowerId: number; details: any[] }>();
+  for (const key of allKeys) {
+    const [mId, sId] = key.split(":").map(Number);
+    const agg = aggs.get(key as any) ?? { manpowerId: mId, siteId: sId, presentDays: 0, otDays: 0, idleDays: 0 };
+    const item = byManpower.get(mId) ?? { manpowerId: mId, details: [] };
+    item.details.push(agg);
+    byManpower.set(mId, item);
+  }
+
+  // Preload manpower records
+  const manpowerIds = Array.from(byManpower.keys());
+  const manpowerList = await prisma.manpower.findMany({
+    where: { id: { in: manpowerIds.length ? manpowerIds : [0] } },
+  });
+  const manpowerMap = new Map(manpowerList.map((m) => [m.id, m]));
+
+  const siteIds = Array.from(new Set(Array.from(allKeys).map((k) => Number(k.split(":")[1]))));
 
   // Also fetch ManpowerTransferItem for transferred manpower (preserves wage data at transfer time)
   const transferItems = await prisma.manpowerTransferItem.findMany({
@@ -300,120 +307,120 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     await prisma.paySlip.deleteMany({ where: { period: params.period } });
   }
 
-    // Company mode
-    if (modes.includes("company")) {
-      const warnings: string[] = [];
-      await clearExisting("company");
+  // Company mode
+  if (modes.includes("company")) {
+    const warnings: string[] = [];
+    await clearExisting("company");
 
-      const paySlipsToCreate: any[] = [];
-      const monthStr = String(month).padStart(2, "0");
-      const isMlwfMonth = cfg.mlwfMonths.split(",").includes(monthStr);
+    const paySlipsToCreate: any[] = [];
+    const monthStr = String(month).padStart(2, "0");
+    const isMlwfMonth = cfg.mlwfMonths.split(",").includes(monthStr);
 
-      for (const { manpowerId, details } of byManpower.values()) {
-        const mp = manpowerMap.get(manpowerId);
-        if (!mp) continue;
+    for (const { manpowerId, details } of byManpower.values()) {
+      const mp = manpowerMap.get(manpowerId);
+      if (!mp) continue;
 
-        // Calculate total monthly gross to check ESIC threshold
-        let totalGrossMonthly = 0;
-        const siteDataList = (details as any[]).map((d) => {
-          const smp = getSiteManpowerData(manpowerId, d.siteId);
-          if (!smp) return { ...d, smp: null, wage: 0, gross: 0 };
-          const wage = smp.wage ? Number(smp.wage) : 0;
-          const totalDays = d.presentDays + Number(d.otDays);
-          const gross = toFixed2(totalDays * wage);
-          totalGrossMonthly += gross;
-          return { ...d, smp, wage, gross };
-        });
+      // Calculate total monthly gross to check ESIC threshold
+      let totalGrossMonthly = 0;
+      const siteDataList = (details as any[]).map((d) => {
+        const smp = getSiteManpowerData(manpowerId, d.siteId);
+        if (!smp) return { ...d, smp: null, wage: 0, gross: 0 };
+        const wage = smp.wage ? Number(smp.wage) : 0;
+        const totalDays = d.presentDays + Number(d.otDays);
+        const gross = toFixed2(totalDays * wage);
+        totalGrossMonthly += gross;
+        return { ...d, smp, wage, gross };
+      });
 
-        let net = 0;
-        const dets: any[] = [];
-        let mlwfDeducted = false;
-        let ptDeducted = false;
-        let foodCharges1Deducted = false;
-        let foodCharges2Deducted = false;
+      let net = 0;
+      const dets: any[] = [];
+      let mlwfDeducted = false;
+      let ptDeducted = false;
+      let foodCharges1Deducted = false;
+      let foodCharges2Deducted = false;
 
-        for (const data of siteDataList) {
-          if (!data.smp) continue;
-          const { smp, gross, wage } = data;
+      for (const data of siteDataList) {
+        if (!data.smp) continue;
+        const { smp, gross, wage } = data;
 
-          if (!wage) {
-            warnings.push(
-              `Manpower ${manpowerId} has no wage; computed as 0 for site ${data.siteId}`
-            );
-          }
-
-          // 1) PF: Calculate if flag is true (no other condition)
-          const pf = smp.pf ? toFixed2(gross * (Number(cfg.pfPercentage) / 100)) : 0;
-
-          // 2) ESIC: Calculate if flag is true AND total monthly gross <= threshold
-          const esic =
-            smp.esic && totalGrossMonthly <= Number(cfg.esicThreshold)
-              ? toFixed2(gross * (Number(cfg.esicPercentage) / 100))
-              : 0;
-
-          // 3) MLWF: Calculate if flag is true AND is a sanctioned month (deduct once per month)
-          let mlwf = 0;
-          if (smp.mlwf && isMlwfMonth && !mlwfDeducted) {
-            mlwf = Number(cfg.mlwfAmount);
-            mlwfDeducted = true;
-          }
-
-          // 4) PT: Calculate if flag is true AND not already deducted
-          let pt = 0;
-          if (smp.pt) {
-            if (!mp.gender || !mp.gender.trim()) {
-              throw new Error("Can not calculate pt if gender not specified");
-            }
-            if (!ptDeducted) {
-              const isFemale = mp.gender?.toLowerCase() === "female" || mp.gender?.toLowerCase() === "f";
-              if (isFemale) {
-                if (totalGrossMonthly > Number(cfg.ptThresholdWomen)) {
-                  pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmountWomen);
-                }
-              } else {
-                if (totalGrossMonthly > Number(cfg.ptThreshold1) && totalGrossMonthly <= Number(cfg.ptThreshold2)) {
-                  pt = Number(cfg.ptAmount1);
-                } else if (totalGrossMonthly > Number(cfg.ptThreshold2)) {
-                  pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmount2);
-                }
-              }
-              if (pt > 0) ptDeducted = true;
-            }
-          }
-
-          let foodCharge1 = 0;
-          if (Number(smp.foodCharges || 0) > 0 && !foodCharges1Deducted) {
-            foodCharge1 = Number(smp.foodCharges);
-            foodCharges1Deducted = true;
-          }
-
-          let foodCharge2 = 0;
-          if (Number(smp.foodCharges2 || 0) > 0 && !foodCharges2Deducted) {
-            foodCharge2 = Number(smp.foodCharges2);
-            foodCharges2Deducted = true;
-          }
-
-          const foodCharge = foodCharge1 + foodCharge2;
-          const total = toFixed2(gross - pf - esic - pt - mlwf - foodCharge);
-          net += total;
-
-          dets.push({
-            siteId: data.siteId,
-            workingDays: toFixed2(data.presentDays),
-            ot: toFixed2(Number(data.otDays)),
-            idle: toFixed2(data.idleDays),
-            wages: toFixed2(wage),
-            grossWages: toFixed2(gross),
-            pf,
-            esic,
-            pt,
-            mlwf,
-            foodCharges: toFixed2(foodCharge1),
-            foodCharges2: toFixed2(foodCharge2),
-            total: toFixed2(total),
-            amountInWords: amountInWords(total),
-          });
+        if (!wage) {
+          warnings.push(
+            `Manpower ${manpowerId} has no wage; computed as 0 for site ${data.siteId}`
+          );
         }
+
+        // 1) PF: Calculate if flag is true (no other condition)
+        const pf = smp.pf ? toFixed2(gross * (Number(cfg.pfPercentage) / 100)) : 0;
+
+        // 2) ESIC: Calculate if flag is true AND total monthly gross <= threshold
+        const esic =
+          smp.esic && totalGrossMonthly <= Number(cfg.esicThreshold)
+            ? toFixed2(gross * (Number(cfg.esicPercentage) / 100))
+            : 0;
+
+        // 3) MLWF: Calculate if flag is true AND is a sanctioned month (deduct once per month)
+        let mlwf = 0;
+        if (smp.mlwf && isMlwfMonth && !mlwfDeducted) {
+          mlwf = Number(cfg.mlwfAmount);
+          mlwfDeducted = true;
+        }
+
+        // 4) PT: Calculate if flag is true AND not already deducted
+        let pt = 0;
+        if (smp.pt) {
+          if (!mp.gender || !mp.gender.trim()) {
+            throw new Error("Can not calculate pt if gender not specified");
+          }
+          if (!ptDeducted) {
+            const isFemale = mp.gender?.toLowerCase() === "female" || mp.gender?.toLowerCase() === "f";
+            if (isFemale) {
+              if (totalGrossMonthly > Number(cfg.ptThresholdWomen)) {
+                pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmountWomen);
+              }
+            } else {
+              if (totalGrossMonthly > Number(cfg.ptThreshold1) && totalGrossMonthly <= Number(cfg.ptThreshold2)) {
+                pt = Number(cfg.ptAmount1);
+              } else if (totalGrossMonthly > Number(cfg.ptThreshold2)) {
+                pt = month === 2 ? Number(cfg.febPtAmount) : Number(cfg.ptAmount2);
+              }
+            }
+            if (pt > 0) ptDeducted = true;
+          }
+        }
+
+        let foodCharge1 = 0;
+        if (Number(smp.foodCharges || 0) > 0 && !foodCharges1Deducted) {
+          foodCharge1 = Number(smp.foodCharges);
+          foodCharges1Deducted = true;
+        }
+
+        let foodCharge2 = 0;
+        if (Number(smp.foodCharges2 || 0) > 0 && !foodCharges2Deducted) {
+          foodCharge2 = Number(smp.foodCharges2);
+          foodCharges2Deducted = true;
+        }
+
+        const foodCharge = foodCharge1 + foodCharge2;
+        const total = toFixed2(gross - pf - esic - pt - mlwf - foodCharge);
+        net += total;
+
+        dets.push({
+          siteId: data.siteId,
+          workingDays: toFixed2(data.presentDays),
+          ot: toFixed2(Number(data.otDays)),
+          idle: toFixed2(data.idleDays),
+          wages: toFixed2(wage),
+          grossWages: toFixed2(gross),
+          pf,
+          esic,
+          pt,
+          mlwf,
+          foodCharges: toFixed2(foodCharge1),
+          foodCharges2: toFixed2(foodCharge2),
+          total: toFixed2(total),
+          amountInWords: amountInWords(total),
+        });
+      }
       if (dets.length === 0) continue;
       paySlipsToCreate.push({
         manpowerId,

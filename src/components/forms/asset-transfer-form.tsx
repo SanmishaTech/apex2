@@ -88,16 +88,16 @@ export function AssetTransferForm({
   >([]);
 
   // Fetch sites
-  const { data: sitesData } = useSWR("/api/sites?perPage=100", fetcher);
+  const { data: sitesData } = useSWR("/api/sites?perPage=10000", fetcher);
   const sites: Site[] = sitesData?.data || [];
 
   // Fetch assets (only for new transfers, not when viewing existing ones)
   const shouldFetchAssets = !viewOnly && !assetTransfer;
   const assetQuery = shouldFetchAssets
     ? formData.transferType === "New Assign"
-      ? "transferStatus=Available&perPage=100" // Only available assets can be newly assigned
+      ? "transferStatus=Available&perPage=10000" // Only available assets can be newly assigned
       : formData.fromSiteId
-      ? `transferStatus=Assigned&currentSiteId=${formData.fromSiteId}&perPage=100`
+      ? `transferStatus=Assigned&currentSiteId=${formData.fromSiteId}&perPage=10000`
       : null // Only assigned assets at the from site can be transferred
     : null;
 

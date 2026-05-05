@@ -82,7 +82,7 @@ export default function EditAttendancePage() {
     data: AttendanceWithRelations[];
   }>(
     shouldFetch
-      ? `/api/attendances?siteId=${siteId}&fromDate=${fromDate}&toDate=${toDate}&perPage=1000`
+      ? `/api/attendances?siteId=${siteId}&fromDate=${fromDate}&toDate=${toDate}&perPage=10000`
       : null,
     swrFetcher
   );

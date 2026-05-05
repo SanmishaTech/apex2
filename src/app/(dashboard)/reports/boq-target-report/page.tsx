@@ -40,6 +40,7 @@ type ReportResponse = {
   table2: {
     header: string[];
     rows: Array<Array<string | number>>;
+    totalRow: Array<string | number>;
   };
 };
 
@@ -122,13 +123,14 @@ export default function BoqTargetReportPage() {
     if (colIndex === 2 || colIndex === 4 || colIndex === 5) return fmtQty(cell);
     if (colIndex === 6 || colIndex === 7 || colIndex === 8 || colIndex === 9) return fmtInr(cell);
 
-    // Dynamic columns: Month span 2 (qty, qty) + weeks each 4 (qty, amount, qty, amount)
+    // Dynamic columns: Month span 4 (qty, amount, qty, amount) + weeks each 4 (qty, amount, qty, amount)
     const dynIdx = colIndex - fixedCount;
     if (dynIdx < 0) return cell as any;
-
-    if (dynIdx === 0 || dynIdx === 1) return fmtQty(cell);
-
-    const withinWeek = (dynIdx - 2) % 4;
+ 
+    if (dynIdx === 0 || dynIdx === 2) return fmtQty(cell);
+    if (dynIdx === 1 || dynIdx === 3) return fmtInr(cell);
+ 
+    const withinWeek = (dynIdx - 4) % 4;
     if (withinWeek === 0 || withinWeek === 2) return fmtQty(cell);
     if (withinWeek === 1 || withinWeek === 3) return fmtInr(cell);
     return cell as any;
@@ -394,7 +396,7 @@ export default function BoqTargetReportPage() {
                       <thead>
                         {(() => {
                           const fixedCount = 10;
-                          const monthSpan = 2;
+                          const monthSpan = 4;
                           const totalCols = report.table1.headerRow2.length;
                           const weekCount = Math.max(0, (totalCols - fixedCount - monthSpan) / 4);
                           const monthLabel = report.table1.headerRow1[fixedCount] || "Month";
@@ -402,9 +404,11 @@ export default function BoqTargetReportPage() {
                             report.table1.headerRow1[fixedCount + monthSpan + i * 4] || `Week ${i + 1}`
                           );
                           const monthSub1 = report.table1.headerRow2[fixedCount] || "Total Target Qty";
-                          const monthSub2 = report.table1.headerRow2[fixedCount + 1] || "Total Executed Qty";
+                          const monthSub2 = report.table1.headerRow2[fixedCount + 1] || "Total Target Amount";
+                          const monthSub3 = report.table1.headerRow2[fixedCount + 2] || "Total Executed Qty";
+                          const monthSub4 = report.table1.headerRow2[fixedCount + 3] || "Total Executed Amount";
                           const weekSubHeaders = ["Target Qty", "Target Amount", "Executed Qty", "Executed Amount"];
-
+ 
                           return (
                             <>
                               <tr>
@@ -419,14 +423,14 @@ export default function BoqTargetReportPage() {
                                     {h}
                                   </th>
                                 ))}
-
+ 
                                 <th
-                                  colSpan={2}
+                                  colSpan={4}
                                   className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center whitespace-nowrap font-semibold text-slate-900 bg-yellow-300"
                                 >
                                   {monthLabel}
                                 </th>
-
+ 
                                 {weekLabels.map((w, i) => (
                                   <th
                                     key={`wk-${i}`}
@@ -437,13 +441,19 @@ export default function BoqTargetReportPage() {
                                   </th>
                                 ))}
                               </tr>
-
+ 
                               <tr>
                                 <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left whitespace-nowrap font-semibold text-slate-900 bg-yellow-200">
                                   {monthSub1}
                                 </th>
                                 <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left whitespace-nowrap font-semibold text-slate-900 bg-yellow-200">
                                   {monthSub2}
+                                </th>
+                                <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left whitespace-nowrap font-semibold text-slate-900 bg-yellow-200">
+                                  {monthSub3}
+                                </th>
+                                <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-left whitespace-nowrap font-semibold text-slate-900 bg-yellow-200">
+                                  {monthSub4}
                                 </th>
                                 {Array.from({ length: weekCount }).map((_, wi) => (
                                   <Fragment key={`wkshg-${wi}`}>
@@ -512,7 +522,7 @@ export default function BoqTargetReportPage() {
                                 idx <= 9 ? "" : "bg-yellow-100"
                               }`}
                             >
-                              {idx === 8 || idx === 9
+                              {idx === 8 || idx === 9 || idx === 11 || idx === 13
                                 ? (renderAmountWithPct(cell) as any)
                                 : idx === 1
                                   ? (cell as any)
@@ -584,6 +594,20 @@ export default function BoqTargetReportPage() {
                             ))}
                           </tr>
                         ))}
+                        <tr className="font-semibold bg-yellow-100">
+                          {report.table2.totalRow.map((cell, idx) => (
+                            <td
+                              key={`d-t-${idx}`}
+                              className={`border border-slate-200 dark:border-slate-700 px-2 py-2 text-slate-900 ${
+                                idx === 0 ? "sticky left-0 z-30 bg-yellow-100" : ""
+                              } ${idx === 1 ? "whitespace-normal break-words" : "whitespace-nowrap"} ${
+                                idx <= 4 ? "" : "bg-yellow-100"
+                              }`}
+                            >
+                              {renderTable2Cell(cell, idx, report.table2.totalRow.length) as any}
+                            </td>
+                          ))}
+                        </tr>
                       </tbody>
                     </table>
                   </div>
