@@ -565,6 +565,16 @@ export default function WageSheetPage() {
         wsData.push(header1.map(v => ({ v, s: headerStyle })));
         wsData.push(header2.map(v => ({ v, s: headerStyle })));
 
+        let totalWorkingDaysSite = 0;
+        let totalAmountSite = 0;
+        let totalFood1Site = 0;
+        let totalFood2Site = 0;
+        let totalPfSite = 0;
+        let totalEsicSite = 0;
+        let totalPtSite = 0;
+        let totalMlwfSite = 0;
+        let totalNetPayableSite = 0;
+
         // Data Rows
         siteGroup.workers.forEach((w: any, idx: number) => {
           const row: any[] = [
@@ -596,8 +606,8 @@ export default function WageSheetPage() {
           row.push(
             { v: totalWorkingDays, s: numberStyle },
             { v: w.grossWage, s: numberStyle },
-            { v: w.isFood1AlreadyDeducted ? "0.00 (AD)" : w.foodCharges, s: w.isFood1AlreadyDeducted ? centerStyle : numberStyle },
-            { v: w.isFood2AlreadyDeducted ? "0.00 (AD)" : w.foodCharges2, s: w.isFood2AlreadyDeducted ? centerStyle : numberStyle },
+            { v: w.isFood1AlreadyDeducted ? `${w.food1AmountElsewhere} (AD)` : w.foodCharges, s: w.isFood1AlreadyDeducted ? centerStyle : numberStyle },
+            { v: w.isFood2AlreadyDeducted ? `${w.food2AmountElsewhere} (AD)` : w.foodCharges2, s: w.isFood2AlreadyDeducted ? centerStyle : numberStyle },
             { v: w.pf, s: numberStyle },
             { v: w.esic, s: numberStyle },
             { v: w.isPtAlreadyDeducted ? "0 (AD)" : w.pt, s: w.isPtAlreadyDeducted ? centerStyle : numberStyle },
@@ -609,8 +619,48 @@ export default function WageSheetPage() {
             { v: w.bankName || "-", s: leftStyle }
           );
 
+          totalWorkingDaysSite += totalWorkingDays;
+          totalAmountSite += parseFloat(w.grossWage || 0);
+          totalFood1Site += parseFloat(w.foodCharges || 0);
+          totalFood2Site += parseFloat(w.foodCharges2 || 0);
+          totalPfSite += parseFloat(w.pf || 0);
+          totalEsicSite += parseFloat(w.esic || 0);
+          totalPtSite += parseFloat(w.pt || 0);
+          totalMlwfSite += parseFloat(w.lwf || 0);
+          totalNetPayableSite += netPayable;
+
           wsData.push(row);
         });
+
+        // Add Total row
+        const totalRow: any[] = [
+          { v: "TOTAL", s: { ...headerStyle, alignment: { horizontal: "center" } } },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+          { v: "", s: headerStyle },
+        ];
+        for (let d = 0; d < daysInMonth; d++) totalRow.push({ v: "", s: headerStyle });
+
+        totalRow.push(
+          { v: totalWorkingDaysSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalAmountSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalFood1Site, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalFood2Site, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalPfSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalEsicSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalPtSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalMlwfSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } } },
+          { v: totalNetPayableSite, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "E2EFDA" } } } },
+          { v: "", s: { ...headerStyle } },
+          { v: "", s: { ...headerStyle } },
+          { v: "", s: { ...headerStyle } },
+          { v: "", s: { ...headerStyle } }
+        );
+        wsData.push(totalRow);
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -840,8 +890,8 @@ export default function WageSheetPage() {
                       <th className="p-2 text-left">Bank Name</th>
                       <th className="p-2 text-right">Days</th>
                       <th className="p-2 text-right">OT</th>
-                      <th className="p-2 text-right">Food Charges</th>
-                      <th className="p-2 text-right">Food Charges 2</th>
+                      <th className="p-2 text-right">Fooding Advance 1</th>
+                      <th className="p-2 text-right">Fooding Advance 2</th>
                       <th className="p-2 text-right">Wage</th>
                       <th className="p-2 text-right">Gross</th>
                       <th className="p-2 text-right">PF</th>
@@ -866,10 +916,10 @@ export default function WageSheetPage() {
                           {Number(r.ot).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {r.isFood1AlreadyDeducted ? "0.00 (AD)" : Number(r.foodCharges || 0).toFixed(2)}
+                          {r.isFood1AlreadyDeducted ? `${Number(r.food1AmountElsewhere || 0).toFixed(2)} (AD)` : Number(r.foodCharges || 0).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
-                          {r.isFood2AlreadyDeducted ? "0.00 (AD)" : Number(r.foodCharges2 || 0).toFixed(2)}
+                          {r.isFood2AlreadyDeducted ? `${Number(r.food2AmountElsewhere || 0).toFixed(2)} (AD)` : Number(r.foodCharges2 || 0).toFixed(2)}
                         </td>
                         <td className="p-2 text-right">
                           {Number(r.wages).toFixed(2)}
@@ -895,6 +945,44 @@ export default function WageSheetPage() {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-muted/50 font-semibold border-t">
+                    <tr>
+                      <td colSpan={5} className="p-2">Total</td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.workingDays || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.ot || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.foodCharges || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.foodCharges2 || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.wages || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.grossWages || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.pf || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.esic || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.pt || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.mlwf || 0), 0).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-right">
+                        {g.rows.reduce((s: number, r: any) => s + Number(r.total || 0), 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -908,8 +996,8 @@ export default function WageSheetPage() {
               <thead className="bg-muted">
                 <tr>
                   <th className="p-2 text-left">Site</th>
-                  <th className="p-2 text-right">Food Charges</th>
-                  <th className="p-2 text-right">Food Charges 2</th>
+                  <th className="p-2 text-right">Fooding Advance 1</th>
+                  <th className="p-2 text-right">Fooding Advance 2</th>
                   <th className="p-2 text-right">Gross</th>
                   <th className="p-2 text-right">PF</th>
                   <th className="p-2 text-right">ESIC</th>
@@ -941,6 +1029,35 @@ export default function WageSheetPage() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-muted font-semibold border-t">
+                <tr>
+                  <td className="p-2">Grand Total</td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.foodCharges || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.foodCharges2 || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.grossWages || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.pf || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.esic || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.pt || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.mlwf || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="p-2 text-right">
+                    {data.summary.reduce((s: number, r: any) => s + Number(r.total || 0), 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

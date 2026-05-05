@@ -301,7 +301,7 @@ export async function GET(req: NextRequest) {
   ];
 
   const monthHeader = month.split(" ")[0] || month;
-  const headerRow1: string[] = [...fixedHeaders, monthHeader, ""]; // month span 2
+  const headerRow1: string[] = [...fixedHeaders, monthHeader, "", "", ""]; // month span 4
   for (const w of weeks) {
     headerRow1.push(w.label, "", "", ""); // week span 4
   }
@@ -309,7 +309,12 @@ export async function GET(req: NextRequest) {
   const headerRow2: string[] = Array.from({ length: fixedHeaders.length }).map(
     () => ""
   );
-  headerRow2.push("Total Target Qty", "Total Executed Qty");
+  headerRow2.push(
+    "Total Target Qty",
+    "Total Target Amount",
+    "Total Executed Qty",
+    "Total Executed Amount"
+  );
   for (let i = 0; i < weeks.length; i++) {
     headerRow2.push(
       "Target Qty",
@@ -330,7 +335,9 @@ export async function GET(req: NextRequest) {
   let totalOrderedAmount = 0;
   let totalRemainingAmount = 0;
   let totalMonthTargetQty = 0;
+  let totalMonthTargetAmount = 0;
   let totalMonthExecutedQty = 0;
+  let totalMonthExecutedAmount = 0;
   const totalTargetAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
   const totalExecutedAmountByWeekIdx = new Array(weeks.length).fill(0) as number[];
 
@@ -362,7 +369,9 @@ export async function GET(req: NextRequest) {
       Number(fmtRs(orderedAmount)),
       Number(fmtRs(remainingAmount)),
       Number(fmtQty(monthTotalQty)),
+      Number(fmtRs(monthTotalQty * rate)),
       Number(fmtQty(monthExecutedQty)),
+      Number(fmtRs(monthExecutedQty * rate)),
     ];
 
     for (const w of weeks) {
@@ -385,7 +394,9 @@ export async function GET(req: NextRequest) {
       totalOrderedAmount += orderedAmount;
       totalRemainingAmount += remainingAmount;
       totalMonthTargetQty += monthTotalQty;
+      totalMonthTargetAmount += monthTotalQty * rate;
       totalMonthExecutedQty += monthExecutedQty;
+      totalMonthExecutedAmount += monthExecutedQty * rate;
       for (let wi = 0; wi < weeks.length; wi++) {
         const w = weeks[wi];
         const targetQty = Number(
@@ -412,7 +423,9 @@ export async function GET(req: NextRequest) {
     `${fmtRs(totalOrderedAmount)} (${pct(totalOrderedAmount, totalBoqAmount)})`,
     `${fmtRs(totalRemainingAmount)} (${pct(totalRemainingAmount, totalBoqAmount)})`,
     Number(fmtQty(totalMonthTargetQty)),
+    `${fmtRs(totalMonthTargetAmount)} (${pct(totalMonthTargetAmount, totalBoqAmount)})`,
     Number(fmtQty(totalMonthExecutedQty)),
+    `${fmtRs(totalMonthExecutedAmount)} (${pct(totalMonthExecutedAmount, totalMonthTargetAmount)})`,
   ];
   for (let wi = 0; wi < weeks.length; wi++) {
     const weekTargetAmount = totalTargetAmountByWeekIdx[wi];
@@ -439,7 +452,15 @@ export async function GET(req: NextRequest) {
   ];
 
   const rows2: Array<Array<string | number>> = [];
+  let totalTable2BoqQty = 0;
+  let totalTable2ExecutedQty = 0;
+  let totalTable2RemainingQty = 0;
+  const totalTable2Days = new Array(monthIsoDays.length).fill(0) as number[];
+  let totalTable2GrandQty = 0;
+  let totalTable2GrandAmount = 0;
+
   for (const it of boq.items || []) {
+    const isGroup = Boolean((it as any).isGroup);
     const rate = Number((it as any).rate || 0);
     const boqQty = Number((it as any).qty || 0);
     const orderedQty = Number((it as any).orderedQty || 0);
@@ -450,12 +471,18 @@ export async function GET(req: NextRequest) {
     const byIso = doneQtyByItemIdByIso.get(itemId);
 
     let totalDone = 0;
-    const dayCells = monthIsoDays.map((iso) => {
+    const dayCells = monthIsoDays.map((iso, dayIdx) => {
       const v = byIso?.get(iso);
       if (v == null || Number(v) === 0) return "-";
-      totalDone += Number(v);
-      return Number(fmtQty(Number(v)));
+      const q = Number(v);
+      totalDone += q;
+      if (!isGroup) {
+        totalTable2Days[dayIdx] += q;
+      }
+      return Number(fmtQty(q));
     });
+
+    const totalAmount = totalDone * rate;
 
     rows2.push([
       it.activityId || "",
@@ -465,9 +492,28 @@ export async function GET(req: NextRequest) {
       Number(fmtQty(remainingQty)),
       ...dayCells,
       Number(fmtQty(totalDone)),
-      Number(fmtRs(totalDone * rate)),
+      Number(fmtRs(totalAmount)),
     ]);
+
+    if (!isGroup) {
+      totalTable2BoqQty += boqQty;
+      totalTable2ExecutedQty += executedQty;
+      totalTable2RemainingQty += remainingQty;
+      totalTable2GrandQty += totalDone;
+      totalTable2GrandAmount += totalAmount;
+    }
   }
+
+  const totalRow2: Array<string | number> = [
+    "TOTAL",
+    "",
+    Number(fmtQty(totalTable2BoqQty)),
+    Number(fmtQty(totalTable2ExecutedQty)),
+    Number(fmtQty(totalTable2RemainingQty)),
+    ...totalTable2Days.map((v) => (v === 0 ? "-" : Number(fmtQty(v)))),
+    Number(fmtQty(totalTable2GrandQty)),
+    Number(fmtRs(totalTable2GrandAmount)),
+  ];
 
   return NextResponse.json(
     {
@@ -492,6 +538,7 @@ export async function GET(req: NextRequest) {
       table2: {
         header: dailyHeader,
         rows: rows2,
+        totalRow: totalRow2,
       },
     },
     {

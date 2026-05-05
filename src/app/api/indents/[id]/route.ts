@@ -165,15 +165,21 @@ export async function PATCH(
       // Update indent header
       const { indentItems, statusAction, ...indentData } = updateData as any;
 
+      // Fetch current indent state
+      const current: any = await tx.indent.findUnique({
+        where: { id },
+        select: {
+          approvalStatus: true,
+          createdById: true,
+          approved1ById: true,
+        } as any,
+      });
+      if (!current) {
+        throw new Error("BAD_REQUEST: Indent not found");
+      }
+
       // Only allow normal edits when indent is in DRAFT
       if (!statusAction) {
-        const current: any = await tx.indent.findUnique({
-          where: { id },
-          select: { approvalStatus: true } as any,
-        });
-        if (!current) {
-          throw new Error("BAD_REQUEST: Indent not found");
-        }
         if (current.approvalStatus !== "DRAFT") {
           throw new Error("BAD_REQUEST: Only DRAFT indents can be edited");
         }
@@ -189,13 +195,6 @@ export async function PATCH(
 
       // Handle approval workflow actions
       if (statusAction) {
-        const current: any = await tx.indent.findUnique({
-          where: { id },
-          select: { approvalStatus: true, createdById: true, approved1ById: true } as any,
-        });
-        if (!current) {
-          throw new Error("BAD_REQUEST: Indent not found");
-        }
 
         // Prevent creator from approving their own indent
         if (
@@ -273,25 +272,45 @@ export async function PATCH(
             });
           }
         } else if (statusAction === "approve2") {
-          if (current.approvalStatus !== "APPROVED_LEVEL_1") {
+          if (
+            current.approvalStatus !== "APPROVED_LEVEL_1" &&
+            current.approvalStatus !== "DRAFT"
+          ) {
             throw new Error(
-              "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+              "BAD_REQUEST: Only DRAFT or level 1 approved indents can be approved (level 2)"
             );
           }
           // Prevent the same user who approved level 1 from approving level 2
-          if (current.approved1ById === auth.user.id) {
+          if (
+            current.approvalStatus === "APPROVED_LEVEL_1" &&
+            current.approved1ById === auth.user.id
+          ) {
             throw new Error(
               "BAD_REQUEST: Level 1 approver cannot approve level 2"
             );
           }
-          await tx.indent.update({
-            where: { id },
-            data: {
-              approvalStatus: "APPROVED_LEVEL_2",
-              approved2ById: auth.user.id,
-              approved2At: now,
-            } as any,
-          });
+
+          if (current.approvalStatus === "DRAFT") {
+            await tx.indent.update({
+              where: { id },
+              data: {
+                approvalStatus: "APPROVED_LEVEL_2",
+                approved1ById: auth.user.id,
+                approved1At: now,
+                approved2ById: auth.user.id,
+                approved2At: now,
+              } as any,
+            });
+          } else {
+            await tx.indent.update({
+              where: { id },
+              data: {
+                approvalStatus: "APPROVED_LEVEL_2",
+                approved2ById: auth.user.id,
+                approved2At: now,
+              } as any,
+            });
+          }
         } else if (statusAction === "complete") {
           if (current.approvalStatus !== "APPROVED_LEVEL_2") {
             throw new Error(
@@ -427,9 +446,12 @@ export async function PATCH(
                     remark: item.remark ?? null,
                     indentQty: item.indentQty,
                     approved1Qty:
-                      item.approved1Qty !== undefined
-                        ? item.approved1Qty
-                        : undefined,
+                      statusAction === "approve2" &&
+                      current.approvalStatus === "DRAFT"
+                        ? (item.approved2Qty ?? item.approved1Qty)
+                        : item.approved1Qty !== undefined
+                          ? item.approved1Qty
+                          : undefined,
                     approved2Qty:
                       item.approved2Qty !== undefined
                         ? item.approved2Qty

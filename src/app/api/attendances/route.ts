@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const perPage = Math.min(
-      100,
+      10000,
       Math.max(1, Number(searchParams.get("perPage")) || 10)
     );
     const search = searchParams.get("search")?.trim() || "";
@@ -173,6 +173,7 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" },
       page,
       perPage,
+      maxPerPage: 10000,
       select: {
         id: true,
         date: true,
@@ -226,8 +227,8 @@ export async function POST(req: NextRequest) {
 
     const attendanceDate = new Date(date);
 
-    // Use upsert to handle cases where attendance already exists for the date
-    const results = await Promise.all(
+    // Use a transaction for bulk upsert to ensure atomicity and handle large volume reliably
+    const results = await prisma.$transaction(
       attendances.map((att) => {
         const otNum = att.ot === undefined || att.ot === null ? 0 : Number(att.ot);
         const derivedIsPresent = att.isIdle || otNum !== 0 ? true : att.isPresent;
@@ -284,8 +285,8 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { attendances } = editAttendanceSchema.parse(body);
 
-    // Update each attendance record
-    const results = await Promise.all(
+    // Update each attendance record in a single transaction
+    const results = await prisma.$transaction(
       attendances.map((att) => {
         const otNum = att.ot === undefined || att.ot === null ? 0 : Number(att.ot);
         const derivedIsPresent = att.isIdle || otNum !== 0 ? true : att.isPresent;

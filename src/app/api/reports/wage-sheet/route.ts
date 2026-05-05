@@ -99,7 +99,10 @@ export async function GET(req: NextRequest) {
           manpower: {
             include: {
               manpowerSupplier: true,
-              siteManpower: { select: { siteId: true, pt: true, ...({ foodCharges: true } as any), ...({ foodCharges2: true } as any) } },
+              siteManpower: {
+                where: { isAssigned: true },
+                select: { siteId: true, pt: true, ...({ foodCharges: true } as any), ...({ foodCharges2: true } as any) }
+              },
             },
           },
         },
@@ -131,10 +134,24 @@ export async function GET(req: NextRequest) {
 
     // Food Charges detection: Now much simpler since we store them!
     const configFood1 = Number(smConfig?.foodCharges || 0);
-    const isFood1AlreadyDeducted = configFood1 > 0 && foodCharges === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges || 0) > 0);
+    const otherDetailWithFood1 = (d as any).paySlip.details?.find(
+      (other: any) => other.id !== d.id && Number(other.foodCharges || 0) > 0
+    );
+    const isFood1AlreadyDeducted =
+      configFood1 > 0 && foodCharges === 0 && !!otherDetailWithFood1;
+    const food1AmountElsewhere = otherDetailWithFood1
+      ? Number(otherDetailWithFood1.foodCharges)
+      : 0;
 
     const configFood2 = Number(smConfig?.foodCharges2 || 0);
-    const isFood2AlreadyDeducted = configFood2 > 0 && foodCharges2 === 0 && (d as any).paySlip.details?.some((other: any) => other.id !== d.id && Number(other.foodCharges2 || 0) > 0);
+    const otherDetailWithFood2 = (d as any).paySlip.details?.find(
+      (other: any) => other.id !== d.id && Number(other.foodCharges2 || 0) > 0
+    );
+    const isFood2AlreadyDeducted =
+      configFood2 > 0 && foodCharges2 === 0 && !!otherDetailWithFood2;
+    const food2AmountElsewhere = otherDetailWithFood2
+      ? Number(otherDetailWithFood2.foodCharges2)
+      : 0;
 
     return {
       siteId: d.siteId,
@@ -151,8 +168,10 @@ export async function GET(req: NextRequest) {
       wages: Number(d.wages ?? 0),
       foodCharges,
       isFood1AlreadyDeducted,
+      food1AmountElsewhere,
       foodCharges2,
       isFood2AlreadyDeducted,
+      food2AmountElsewhere,
       grossWages: Number(d.grossWages ?? 0),
       pf: Number(d.pf ?? 0),
       esic: Number(d.esic ?? 0),

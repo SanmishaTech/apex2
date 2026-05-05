@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
               include: {
                 manpowerSupplier: true,
                 siteManpower: {
+                  where: { isAssigned: true },
                   select: {
                     siteId: true,
                     categoryId: true,
@@ -224,12 +225,26 @@ export async function GET(req: NextRequest) {
       // Food Charges detection: Now stored in DB
       const foodCharges = Number(detail.foodCharges || 0);
       const foodCharges2 = Number(detail.foodCharges2 || 0);
-      
+      // Food Charges detection: Now much simpler since we store them!
       const configFood1 = Number(siteManpowerForThisSite?.foodCharges || 0);
-      const isFood1AlreadyDeducted = configFood1 > 0 && foodCharges === 0 && (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.foodCharges || 0) > 0);
+      const otherDetailWithFood1 = (detail as any).paySlip.details?.find(
+        (other: any) => other.id !== detail.id && Number(other.foodCharges || 0) > 0
+      );
+      const isFood1AlreadyDeducted =
+        configFood1 > 0 && foodCharges === 0 && !!otherDetailWithFood1;
+      const food1AmountElsewhere = otherDetailWithFood1
+        ? Number(otherDetailWithFood1.foodCharges)
+        : 0;
 
       const configFood2 = Number(siteManpowerForThisSite?.foodCharges2 || 0);
-      const isFood2AlreadyDeducted = configFood2 > 0 && foodCharges2 === 0 && (detail as any).paySlip.details?.some((other: any) => other.id !== detail.id && Number(other.foodCharges2 || 0) > 0);
+      const otherDetailWithFood2 = (detail as any).paySlip.details?.find(
+        (other: any) => other.id !== detail.id && Number(other.foodCharges2 || 0) > 0
+      );
+      const isFood2AlreadyDeducted =
+        configFood2 > 0 && foodCharges2 === 0 && !!otherDetailWithFood2;
+      const food2AmountElsewhere = otherDetailWithFood2
+        ? Number(otherDetailWithFood2.foodCharges2)
+        : 0;
 
       // Use saved PF/ESIC amounts from the payroll detail to ensure exact matching 
       // with DB and respecting thresholds (like ESIC > 21k rule)
@@ -238,7 +253,7 @@ export async function GET(req: NextRequest) {
 
       // Deductions calculation: Simplified since we use stored values
       const totalDeduction = pfAmount + esicAmount + ptValue + mlwfValue + foodCharges + foodCharges2;
-      const payable = Math.max(0, grossWage - totalDeduction);
+      const payable = Number(detail.total || 0);
 
       siteGroup.workers.push({
         manpowerId,
@@ -265,8 +280,10 @@ export async function GET(req: NextRequest) {
         wageRate: Number(detail.wages || 0),
         foodCharges,
         isFood1AlreadyDeducted,
+        food1AmountElsewhere,
         foodCharges2,
         isFood2AlreadyDeducted,
+        food2AmountElsewhere,
         grossWage,
         actualWages: Number(detail.total || 0),
         idleWages: 0,
