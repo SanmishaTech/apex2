@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { AppCard } from "@/components/common/app-card";
 import { FormSection, FormRow } from "@/components/common/app-form";
+import { AppCombobox } from "@/components/common/app-combobox";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -87,9 +88,16 @@ export function AssetTransferForm({
     }>
   >([]);
 
-  // Fetch sites
+  // Fetch sites (assigned sites for fromSiteId)
   const { data: sitesData } = useSWR("/api/sites?perPage=10000", fetcher);
   const sites: Site[] = sitesData?.data || [];
+
+  // Fetch all sites (for toSiteId, same as outward delivery challan)
+  const { data: allSitesData } = useSWR(
+    "/api/sites?allSites=true&perPage=10000",
+    fetcher
+  );
+  const allSites: Site[] = allSitesData?.data || [];
 
   // Fetch assets (only for new transfers, not when viewing existing ones)
   const shouldFetchAssets = !viewOnly && !assetTransfer;
@@ -384,7 +392,7 @@ export function AssetTransferForm({
                 <Label>
                   From Site {formData.transferType === "Transfer" && "*"}
                 </Label>
-                <Select
+                <AppCombobox
                   value={formData.fromSiteId?.toString() || ""}
                   onValueChange={(value) =>
                     setFormData((prev) => ({
@@ -392,19 +400,13 @@ export function AssetTransferForm({
                       fromSiteId: value ? parseInt(value) : null,
                     }))
                   }
+                  options={sites.map((site) => ({
+                    value: site.id.toString(),
+                    label: site.site,
+                  }))}
                   disabled={formData.transferType === "New Assign"}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select from site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites.map((site) => (
-                      <SelectItem key={site.id} value={site.id.toString()}>
-                        {site.site}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select from site"
+                />
                 {errors.fromSiteId && (
                   <p className="text-sm text-red-600">{errors.fromSiteId}</p>
                 )}
@@ -412,7 +414,7 @@ export function AssetTransferForm({
 
               <div className="space-y-2">
                 <Label>To Site *</Label>
-                <Select
+                <AppCombobox
                   value={formData.toSiteId?.toString() || ""}
                   onValueChange={(value) =>
                     setFormData((prev) => ({
@@ -420,20 +422,14 @@ export function AssetTransferForm({
                       toSiteId: value ? parseInt(value) : null,
                     }))
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select to site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites
-                      .filter((site) => site.id !== formData.fromSiteId)
-                      .map((site) => (
-                        <SelectItem key={site.id} value={site.id.toString()}>
-                          {site.site}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  options={allSites
+                    .filter((site) => site.id !== formData.fromSiteId)
+                    .map((site) => ({
+                      value: site.id.toString(),
+                      label: site.site,
+                    }))}
+                  placeholder="Select to site"
+                />
                 {errors.toSiteId && (
                   <p className="text-sm text-red-600">{errors.toSiteId}</p>
                 )}
@@ -445,7 +441,8 @@ export function AssetTransferForm({
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Assets *</Label>
-                <Select
+                <AppCombobox
+                  value=""
                   onValueChange={(value) => {
                     const assetId = parseInt(value);
                     if (!formData.assetIds.includes(assetId)) {
@@ -455,20 +452,15 @@ export function AssetTransferForm({
                       }));
                     }
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assets to transfer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assets
-                      .filter((asset) => !formData.assetIds.includes(asset.id))
-                      .map((asset) => (
-                        <SelectItem key={asset.id} value={asset.id.toString()}>
-                          {asset.assetNo} - {asset.assetName}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  options={assets
+                    .filter((asset) => !formData.assetIds.includes(asset.id))
+                    .map((asset) => ({
+                      value: asset.id.toString(),
+                      label: `${asset.assetNo} - ${asset.assetName}`,
+                    }))}
+                  placeholder="Select assets to transfer"
+                  searchPlaceholder="Search assets..."
+                />
                 {errors.assetIds && (
                   <p className="text-sm text-red-600">{errors.assetIds}</p>
                 )}
