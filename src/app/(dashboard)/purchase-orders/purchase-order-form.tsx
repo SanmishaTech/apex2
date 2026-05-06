@@ -88,6 +88,7 @@ type Item = {
     id: number;
     unitName: string;
   };
+  gstRate?: number | null;
 };
 
 type PurchaseOrderItem = {
@@ -1321,11 +1322,45 @@ export function PurchaseOrderForm({
     }
   };
 
+  const recalculateGst = (vId: number, bId: number) => {
+    if (isApprovalMode) return;
+    const selectedVendor = vendors.find(v => v.id === vId);
+    const selectedBillingAddress = billingAddresses.find(b => b.id === bId);
+    
+    const vendorState = (selectedVendor as any)?.state?.state?.toLowerCase()?.trim() ?? "";
+    const billingState = (selectedBillingAddress as any)?.state?.state?.toLowerCase()?.trim() ?? "";
+
+    const currentItems = form.getValues("purchaseOrderItems") || [];
+    currentItems.forEach((row, index) => {
+      if (row.itemId && Number(row.itemId) > 0) {
+        const selectedItem = itemOptions.find(i => i.id === Number(row.itemId));
+        const gstRate = typeof selectedItem?.gstRate === "number" ? selectedItem.gstRate : 
+                        (selectedItem?.gstRate ? parseFloat(String(selectedItem.gstRate)) : 0);
+                        
+        if (!vendorState || !billingState) {
+          form.setValue(`purchaseOrderItems.${index}.cgstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+          form.setValue(`purchaseOrderItems.${index}.sgstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+          form.setValue(`purchaseOrderItems.${index}.igstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+        } else if (gstRate > 0) {
+          if (vendorState === billingState) {
+            form.setValue(`purchaseOrderItems.${index}.cgstPercent`, gstRate / 2, { shouldDirty: true, shouldValidate: true });
+            form.setValue(`purchaseOrderItems.${index}.sgstPercent`, gstRate / 2, { shouldDirty: true, shouldValidate: true });
+            form.setValue(`purchaseOrderItems.${index}.igstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+          } else {
+            form.setValue(`purchaseOrderItems.${index}.cgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+            form.setValue(`purchaseOrderItems.${index}.sgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+            form.setValue(`purchaseOrderItems.${index}.igstPercent`, gstRate, { shouldDirty: true, shouldValidate: true });
+          }
+        }
+      }
+    });
+  };
+
   // Handle vendor change
   const onVendorChange = (value: string) => {
     const nextVendor = value === "__none" ? 0 : parseInt(value, 10);
     form.setValue("vendorId", nextVendor);
-    form.setValue("billingAddressId", 0);
+    recalculateGst(nextVendor, Number(form.getValues("billingAddressId") || 0));
   };
 
   // Format number input
@@ -1501,6 +1536,7 @@ export function PurchaseOrderForm({
                             onValueChange={(value) => {
                               const next = value === "__none" ? 0 : parseInt(value, 10);
                               field.onChange(next);
+                              recalculateGst(Number(form.getValues("vendorId") || 0), next);
                             }}
                             options={[
                               { value: "__none", label: "Select Billing Address" },
@@ -1745,6 +1781,41 @@ export function PurchaseOrderForm({
                                                 `purchaseOrderItems.${index}.rate`,
                                                 0
                                               );
+                                              
+                                              if (!isApprovalMode) {
+                                                const vId = Number(form.getValues("vendorId") || 0);
+                                                const bId = Number(form.getValues("billingAddressId") || 0);
+                                                
+                                                const selectedItem = itemOptions.find(i => String(i.id) === value);
+                                                const gstRate = typeof selectedItem?.gstRate === "number" ? selectedItem.gstRate : 
+                                                                (selectedItem?.gstRate ? parseFloat(String(selectedItem.gstRate)) : 0);
+                                                
+                                                const selectedVendor = vendors.find(v => v.id === vId);
+                                                const selectedBillingAddress = billingAddresses.find(b => b.id === bId);
+                                                
+                                                const vendorState = (selectedVendor as any)?.state?.state?.toLowerCase()?.trim() ?? "";
+                                                const billingState = (selectedBillingAddress as any)?.state?.state?.toLowerCase()?.trim() ?? "";
+                                                
+                                                if (!vendorState || !billingState) {
+                                                  form.setValue(`purchaseOrderItems.${index}.cgstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+                                                  form.setValue(`purchaseOrderItems.${index}.sgstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+                                                  form.setValue(`purchaseOrderItems.${index}.igstPercent`, undefined as any, { shouldDirty: true, shouldValidate: true });
+                                                } else if (gstRate > 0) {
+                                                  if (vendorState === billingState) {
+                                                    form.setValue(`purchaseOrderItems.${index}.cgstPercent`, gstRate / 2, { shouldDirty: true, shouldValidate: true });
+                                                    form.setValue(`purchaseOrderItems.${index}.sgstPercent`, gstRate / 2, { shouldDirty: true, shouldValidate: true });
+                                                    form.setValue(`purchaseOrderItems.${index}.igstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                  } else {
+                                                    form.setValue(`purchaseOrderItems.${index}.cgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                    form.setValue(`purchaseOrderItems.${index}.sgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                    form.setValue(`purchaseOrderItems.${index}.igstPercent`, gstRate, { shouldDirty: true, shouldValidate: true });
+                                                  }
+                                                } else {
+                                                  form.setValue(`purchaseOrderItems.${index}.cgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                  form.setValue(`purchaseOrderItems.${index}.sgstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                  form.setValue(`purchaseOrderItems.${index}.igstPercent`, 0, { shouldDirty: true, shouldValidate: true });
+                                                }
+                                              }
                                             }
                                           }}
                                           options={[
