@@ -160,12 +160,22 @@ export default function PurchaseOrderApprove2Page() {
   }
 
   return (
-    <PurchaseOrderForm
-      mode="approval2"
-      initial={initialData}
-      mutate={mutate}
-      onSuccess={() => router.push("/purchase-orders")}
-      redirectOnSuccess="/purchase-orders"
-    />
+    <div className="space-y-4">
+      {!purchaseOrder?.isApproved1 && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-700">
+            <strong>Note:</strong> Level 1 approval is pending for this purchase order. 
+            By approving Level 2, Level 1 will be automatically marked as approved by you.
+          </p>
+        </div>
+      )}
+      <PurchaseOrderForm
+        mode="approval2"
+        initial={initialData}
+        mutate={mutate}
+        onSuccess={() => router.push("/purchase-orders")}
+        redirectOnSuccess="/purchase-orders"
+      />
+    </div>
   );
 }

@@ -282,15 +282,17 @@ export async function PATCH(
       if (!rolePerms.includes(PERMISSIONS.APPROVE_CASHBOOKS_L2)) {
         return Forbidden("Missing permission to approve level 2");
       }
-      if (!existing.isApproved1) {
-        return BadRequest("Only level 1 approved cashbook can be approved (level 2)");
-      }
       if (existing.isApproved2) {
         return BadRequest("Cashbook already approved (level 2)");
       }
-      if (existing.approved1ById === auth.user.id) {
-        return BadRequest("Level 1 approver cannot approve level 2");
+      
+      // If level 1 is not approved, auto-approve it
+      if (!existing.isApproved1) {
+        updateData.isApproved1 = true;
+        updateData.approved1ById = auth.user.id;
+        updateData.approved1At = now;
       }
+
       updateData.isApproved2 = true;
       updateData.approved2ById = auth.user.id;
       updateData.approved2At = now;

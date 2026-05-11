@@ -141,14 +141,7 @@ export default function ApproveCashbookBudgetPage() {
   };
 
   // Validation checks
-  if (!data.approved1By) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">This budget must receive first approval before final approval</div>
-      </div>
-    );
-  }
-  
+
   if (data.approvedBy) {
     return (
       <div className="flex items-center justify-center h-64">

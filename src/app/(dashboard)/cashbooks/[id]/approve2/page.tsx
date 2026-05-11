@@ -59,20 +59,15 @@ export default function CashbookApprove2Page() {
   const canApprove = useMemo(() => {
     if (!data?.id) return false;
     if (!can(PERMISSIONS.APPROVE_CASHBOOKS_L2)) return false;
-    if (!data.isApproved1) return false;
     if (data.isApproved2) return false;
 
     // creator cannot approve own cashbook
     if (typeof data.createdById === 'number' && typeof user?.id === 'number' && data.createdById === user.id) {
       return false;
     }
-    // L1 approver cannot approve L2
-    if (typeof data.approved1ById === 'number' && typeof user?.id === 'number' && data.approved1ById === user.id) {
-      return false;
-    }
 
     return true;
-  }, [can, data?.id, data?.isApproved1, data?.isApproved2, data?.createdById, data?.approved1ById, user?.id]);
+  }, [can, data?.id, data?.isApproved2, data?.createdById, user?.id]);
 
   async function handleApprove() {
     if (!data?.id) return;
@@ -130,7 +125,12 @@ export default function CashbookApprove2Page() {
         <AppCard.Content className="space-y-6">
           {!canApprove && (
             <div className="p-3 rounded border bg-muted text-sm text-muted-foreground">
-              This cashbook cannot be approved right now (needs level 1 approval, already approved, or you are not allowed to approve it).
+              This cashbook cannot be approved right now (it may be already approved, or you are not allowed to approve it).
+            </div>
+          )}
+          {canApprove && !data.isApproved1 && (
+            <div className="p-3 rounded border bg-blue-50 text-sm text-blue-600">
+              Note: Level 1 approval is still pending. Performing Level 2 approval will automatically mark Level 1 as approved by you.
             </div>
           )}
 

@@ -62,6 +62,20 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const techPending = (searchParams.get("techApprovalPending") || "").trim().toLowerCase();
+  const commercialPending = (searchParams.get("commercialApprovalPending") || "").trim().toLowerCase();
+  const projectPending = (searchParams.get("projectApprovalPending") || "").trim().toLowerCase();
+
+  if (techPending === "1" || techPending === "true" || techPending === "yes") {
+    (where as any).isTechApprovalDone = false;
+  }
+  if (commercialPending === "1" || commercialPending === "true" || commercialPending === "yes") {
+    (where as any).isCommercialApprovalDone = false;
+  }
+  if (projectPending === "1" || projectPending === "true" || projectPending === "yes") {
+    (where as any).isProjectApprovalDone = false;
+  }
+
   const siteIdFilter = siteIdParam ? Number(siteIdParam) : undefined;
   if (
     siteIdParam &&

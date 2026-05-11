@@ -139,10 +139,12 @@ export default function PurchaseOrdersPage() {
     vendor: "",
     approvalStatus: "",
     poStatus: "",
+    approval1Pending: "",
+    approval2Pending: "",
     sort: "purchaseOrderDate",
     order: "desc",
   });
-  const { page, perPage, search, site, vendor, approvalStatus, poStatus, sort, order } =
+  const { page, perPage, search, site, vendor, approvalStatus, poStatus, approval1Pending, approval2Pending, sort, order } =
     qp as unknown as {
       page: number;
       perPage: number;
@@ -151,6 +153,8 @@ export default function PurchaseOrdersPage() {
       vendor: string;
       approvalStatus: string;
       poStatus: string;
+      approval1Pending: string;
+      approval2Pending: string;
       sort: string;
       order: "asc" | "desc";
     };
@@ -323,6 +327,9 @@ export default function PurchaseOrdersPage() {
         if (can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L1) && !isCreator) {
           baseActions.push({ key: "approve1", label: "Approve 1" });
         }
+        if (can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2) && !isCreator) {
+          baseActions.push({ key: "approve2", label: "Approve 2" });
+        }
         if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }
@@ -331,8 +338,7 @@ export default function PurchaseOrdersPage() {
       case "APPROVED_LEVEL_1":
         if (
           can(PERMISSIONS.APPROVE_PURCHASE_ORDERS_L2) &&
-          !isCreator &&
-          !isL1Approver
+          !isCreator
         ) {
           baseActions.push({ key: "approve2", label: "Approve 2" });
         }
@@ -371,6 +377,8 @@ export default function PurchaseOrdersPage() {
       vendor: vendor,
       approvalStatus: approvalStatus,
       poStatus: poStatus,
+      approval1Pending: approval1Pending,
+      approval2Pending: approval2Pending,
       sort: sort,
       order: order,
     })}`,
@@ -716,18 +724,50 @@ export default function PurchaseOrdersPage() {
             </AppCard.Action>
           )}
 
-          {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) && (
-            <AppCard.Action>
-              <AppButton
-                size="sm"
-                iconName="Plus"
-                type="button"
-                onClick={() => pushWithScrollSave("/purchase-orders/new")}
-              >
-                Add
-              </AppButton>
-            </AppCard.Action>
-          )}
+          <div className="flex items-center gap-2">
+            <AppButton
+              size="sm"
+              variant={approval1Pending === "1" ? "secondary" : "default"}
+              type="button"
+              onClick={() =>
+                setQp({
+                  page: 1,
+                  approval1Pending: approval1Pending === "1" ? "" : "1",
+                  approval2Pending: "",
+                })
+              }
+            >
+              {approval1Pending === "1" ? "Exit Pending Approval 1" : "Pending Approval 1"}
+            </AppButton>
+
+            <AppButton
+              size="sm"
+              variant={approval2Pending === "1" ? "secondary" : "default"}
+              type="button"
+              onClick={() =>
+                setQp({
+                  page: 1,
+                  approval2Pending: approval2Pending === "1" ? "" : "1",
+                  approval1Pending: "",
+                })
+              }
+            >
+              {approval2Pending === "1" ? "Exit Pending Approval 2" : "Pending Approval 2"}
+            </AppButton>
+
+            {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) && (
+              <AppCard.Action>
+                <AppButton
+                  size="sm"
+                  iconName="Plus"
+                  type="button"
+                  onClick={() => pushWithScrollSave("/purchase-orders/new")}
+                >
+                  Add
+                </AppButton>
+              </AppCard.Action>
+            )}
+          </div>
         </div>
       </div>
 
@@ -762,6 +802,8 @@ export default function PurchaseOrdersPage() {
                         vendor: "",
                         approvalStatus: "",
                         poStatus: "",
+                        approval1Pending: "",
+                        approval2Pending: "",
                         page: 1,
                       });
                     }}

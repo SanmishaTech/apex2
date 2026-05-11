@@ -570,19 +570,17 @@ export async function PATCH(
                 "BAD_REQUEST: Missing permission to approve level 2"
               );
             }
-            if (current.approvalStatus !== "APPROVED_LEVEL_1") {
-              throw new Error(
-                "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
-              );
-            }
             if (current.createdById === auth.user.id) {
               throw new Error("BAD_REQUEST: Creator cannot approve level 2");
             }
-            if (current.approved1ById === auth.user.id) {
-              throw new Error(
-                "BAD_REQUEST: Level 1 approver cannot approve level 2"
-              );
+            
+            // If level 1 is not yet approved, auto-approve it by the same user
+            if (!current.isApproved1) {
+              updateData.isApproved1 = true;
+              updateData.approved1ById = auth.user.id;
+              updateData.approved1At = now;
             }
+
             updateData.approvalStatus = "APPROVED_LEVEL_2";
             updateData.isApproved2 = true;
             updateData.approved2ById = auth.user.id;

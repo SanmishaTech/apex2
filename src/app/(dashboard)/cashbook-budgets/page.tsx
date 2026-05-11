@@ -75,8 +75,10 @@ export default function CashbookBudgetsPage() {
 		boqId: '',
 		sort: 'name',
 		order: 'asc',
+		approval1Pending: '',
+		approval2Pending: '',
 	});
-	const { page, perPage, search, month, siteId, boqId, sort, order } =
+	const { page, perPage, search, month, siteId, boqId, sort, order, approval1Pending, approval2Pending } =
 		qp as unknown as {
 			page: number;
 			perPage: number;
@@ -86,6 +88,8 @@ export default function CashbookBudgetsPage() {
 			boqId: string;
 			sort: string;
 			order: 'asc' | 'desc';
+			approval1Pending: string;
+			approval2Pending: string;
 		};
 
 	// Local filter draft state (only applied when clicking Filter)
@@ -119,7 +123,7 @@ export default function CashbookBudgetsPage() {
 		setMonthDraft('');
 		setSiteIdDraft('');
 		setBoqIdDraft('');
-		setQp({ page: 1, search: '', month: '', siteId: '', boqId: '' });
+		setQp({ page: 1, search: '', month: '', siteId: '', boqId: '', approval1Pending: '', approval2Pending: '' });
 	}
 
 	const query = useMemo(() => {
@@ -132,6 +136,8 @@ export default function CashbookBudgetsPage() {
 		if (boqId) sp.set('boqId', boqId);
 		if (sort) sp.set('sort', sort);
 		if (order) sp.set('order', order);
+		if (approval1Pending) sp.set('approval1Pending', approval1Pending);
+		if (approval2Pending) sp.set('approval2Pending', approval2Pending);
 		return `/api/cashbook-budgets?${sp.toString()}`;
 	}, [page, perPage, search, month, siteId, boqId, sort, order]);
 
@@ -263,11 +269,43 @@ export default function CashbookBudgetsPage() {
 				<AppCard.Description>Manage cashbook budgets with detailed line items for financial planning.</AppCard.Description>
 				{can(PERMISSIONS.CREATE_CASHBOOK_BUDGETS) && (
 					<AppCard.Action>
-						<Link href='/cashbook-budgets/new'>
-							<AppButton size='sm' iconName='Plus' type='button'>
-								Add
+						<div className="flex items-center gap-2">
+							<AppButton
+								size="sm"
+								variant={approval1Pending === '1' ? 'secondary' : 'default'}
+								type="button"
+								onClick={() =>
+									setQp({
+										page: 1,
+										approval1Pending: approval1Pending === '1' ? '' : '1',
+										approval2Pending: '',
+									})
+								}
+							>
+								{approval1Pending === '1' ? 'Exit Pending Approval 1' : 'Pending Approval 1'}
 							</AppButton>
-						</Link>
+
+							<AppButton
+								size="sm"
+								variant={approval2Pending === '1' ? 'secondary' : 'default'}
+								type="button"
+								onClick={() =>
+									setQp({
+										page: 1,
+										approval2Pending: approval2Pending === '1' ? '' : '1',
+										approval1Pending: '',
+									})
+								}
+							>
+								{approval2Pending === '1' ? 'Exit Pending Approval 2' : 'Pending Approval 2'}
+							</AppButton>
+
+							<Link href='/cashbook-budgets/new'>
+								<AppButton size='sm' iconName='Plus' type='button'>
+									Add
+								</AppButton>
+							</Link>
+						</div>
 					</AppCard.Action>
 				)}
 			</AppCard.Header>
@@ -357,8 +395,8 @@ export default function CashbookBudgetsPage() {
                         </Link>
                       )}
                       
-                      {/* Approval 2 Button - Second approval only if approved1 but not approved */}
-                      {can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2) && hasApproved1 && !hasApproved && (
+                      {/* Approval 2 Button - Second approval if not done */}
+                      {can(PERMISSIONS.APPROVE_CASHBOOK_BUDGETS_L2) && !hasApproved && (
                         <Link href={`/cashbook-budgets/${budget.id}/approve`}>
                           <AppButton size='sm' variant='default' className='h-8 px-2 bg-green-600 hover:bg-green-700'>
                             Approval 2
@@ -366,8 +404,8 @@ export default function CashbookBudgetsPage() {
                         </Link>
                       )}
                       
-                      {/* Accept Button - only if both approvals done but not accepted */}
-                      {can(PERMISSIONS.ACCEPT_CASHBOOK_BUDGETS) && hasApproved && !hasAccepted && (
+                      {/* Accept Button - only if not accepted */}
+                      {can(PERMISSIONS.ACCEPT_CASHBOOK_BUDGETS) && !hasAccepted && (
                         <AppButton 
                           size='sm' 
                           variant='default' 
