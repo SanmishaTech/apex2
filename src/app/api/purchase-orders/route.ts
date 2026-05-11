@@ -324,11 +324,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Optional filter for approval stage 2
-    if (approved2Filter === "true") {
-      where.isApproved2 = true;
-    } else if (approved2Filter === "false") {
-      where.isApproved2 = false;
+    const approval1Pending = (searchParams.get("approval1Pending") || "")
+      .trim()
+      .toLowerCase();
+    const approval2Pending = (searchParams.get("approval2Pending") || "")
+      .trim()
+      .toLowerCase();
+
+    // Filter by Approval 1 pending
+    if (approval1Pending === "1" || approval1Pending === "true" || approval1Pending === "yes") {
+      where.isApproved1 = { not: true };
+    }
+
+    // Filter by Approval 2 pending
+    if (approval2Pending === "1" || approval2Pending === "true" || approval2Pending === "yes") {
+      where.isApproved2 = { not: true };
     }
 
     if (excludeLinked) {

@@ -70,6 +70,16 @@ export async function GET(req: NextRequest) {
     where.OR = [{ name: { contains: search } }];
   }
 
+  const approval1Pending = (searchParams.get("approval1Pending") || "").trim().toLowerCase();
+  const approval2Pending = (searchParams.get("approval2Pending") || "").trim().toLowerCase();
+
+  if (approval1Pending === "1" || approval1Pending === "true" || approval1Pending === "yes") {
+    (where as any).approved1By = null;
+  }
+  if (approval2Pending === "1" || approval2Pending === "true" || approval2Pending === "yes") {
+    (where as any).approvedBy = null;
+  }
+
   if (assignedSiteIds) {
     if ((where as any).siteId === undefined) {
       (where as any).siteId = {

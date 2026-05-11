@@ -122,17 +122,6 @@ export async function PATCH(
       return Error("Creator cannot approve this overall site budget", 400);
     }
 
-    const hasAnyPriorApprovalByUser =
-      existing.techApprovalById === userId ||
-      existing.commercialApprovalById === userId ||
-      existing.projectApprovalById === userId;
-    if (hasAnyPriorApprovalByUser) {
-      return Error(
-        "You have already performed an approval on this overall site budget",
-        400
-      );
-    }
-
     const updateData: any = {};
 
     if (parsed.statusAction === "approveTech") {
@@ -140,6 +129,12 @@ export async function PATCH(
         return Error("Forbidden", 403);
       }
       if (existing.isTechApprovalDone) return Error("Tech approval already done", 400);
+      
+      // If doing tech approval manually, ensure user hasn't done other stages yet
+      if (existing.commercialApprovalById === userId || existing.projectApprovalById === userId) {
+        return Error("You have already performed a higher-level approval", 400);
+      }
+
       updateData.isTechApprovalDone = true;
       updateData.techApprovalById = userId;
       updateData.techApprovalAt = now;
@@ -149,15 +144,20 @@ export async function PATCH(
       if (!permSet.has(PERMISSIONS.APPROVE_OVERALL_SITE_BUDGETS_COMMERCIAL)) {
         return Error("Forbidden", 403);
       }
-      if (!existing.isTechApprovalDone) {
-        return Error("Tech approval is required before commercial approval", 400);
-      }
       if (existing.isCommercialApprovalDone) {
         return Error("Commercial approval already done", 400);
       }
-      if (existing.techApprovalById === userId) {
-        return Error("Tech approver cannot do commercial approval", 400);
+
+      // If tech approval is not done, auto-approve it
+      if (!existing.isTechApprovalDone) {
+        updateData.isTechApprovalDone = true;
+        updateData.techApprovalById = userId;
+        updateData.techApprovalAt = now;
+      } else {
+        // If tech was already done by someone else, that's fine.
+        // But if tech was already done by ME, we still allow proceeding to Commercial.
       }
+
       updateData.isCommercialApprovalDone = true;
       updateData.commercialApprovalById = userId;
       updateData.commercialApprovalAt = now;
@@ -167,16 +167,22 @@ export async function PATCH(
       if (!permSet.has(PERMISSIONS.APPROVE_OVERALL_SITE_BUDGETS_PROJECT)) {
         return Error("Forbidden", 403);
       }
-      if (!existing.isCommercialApprovalDone) {
-        return Error("Commercial approval is required before project approval", 400);
-      }
       if (existing.isProjectApprovalDone) return Error("Project approval already done", 400);
-      if (existing.techApprovalById === userId) {
-        return Error("Tech approver cannot do project approval", 400);
+
+      // If tech approval is not done, auto-approve it
+      if (!existing.isTechApprovalDone) {
+        updateData.isTechApprovalDone = true;
+        updateData.techApprovalById = userId;
+        updateData.techApprovalAt = now;
       }
-      if (existing.commercialApprovalById === userId) {
-        return Error("Commercial approver cannot do project approval", 400);
+
+      // If commercial approval is not done, auto-approve it
+      if (!existing.isCommercialApprovalDone) {
+        updateData.isCommercialApprovalDone = true;
+        updateData.commercialApprovalById = userId;
+        updateData.commercialApprovalAt = now;
       }
+
       updateData.isProjectApprovalDone = true;
       updateData.projectApprovalById = userId;
       updateData.projectApprovalAt = now;

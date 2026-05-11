@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     // Handle different actions
     if (action === 'approve') {
-      // First approval workflow
+      // Level 2 approval workflow
       if (!budgetItems || budgetItems.length === 0) {
         return Error('Budget items with approved amounts are required', 400);
       }
@@ -96,27 +96,41 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         return sum + Number(item.amount);
       }, 0);
 
-      // Update budget header with approval info
+      const now = new Date();
       const updated = await prisma.$transaction(async (tx) => {
         // Update each budget item with approved amount
         for (const item of budgetItems) {
+          const itemUpdate: any = {
+            approvedAmount: Number(item.approvedAmount || 0),
+          };
+          // If Approval 1 was not done, also set its amount to the same value
+          if (!budget.approved1By) {
+            itemUpdate.approved1Amount = Number(item.approvedAmount || 0);
+          }
           await tx.cashbookBudgetItem.update({
             where: { id: item.id },
-            data: {
-              approvedAmount: Number(item.approvedAmount || 0),
-            },
+            data: itemUpdate,
           });
+        }
+
+        const budgetUpdate: any = {
+          approvedBy: auth.user.id,
+          approvedDatetime: now,
+          approvedBudgetAmount: totalApprovedAmount,
+          totalBudget: totalBudgetAmount,
+        };
+
+        // If Approval 1 was not done, auto-mark it
+        if (!budget.approved1By) {
+          budgetUpdate.approved1By = auth.user.id;
+          budgetUpdate.approved1Datetime = now;
+          budgetUpdate.approved1BudgetAmount = totalApprovedAmount;
         }
 
         // Update budget header
         return tx.cashbookBudget.update({
           where: { id: budgetId },
-          data: {
-            approvedBy: auth.user.id,
-            approvedDatetime: new Date(),
-            approvedBudgetAmount: totalApprovedAmount,
-            totalBudget: totalBudgetAmount,
-          },
+          data: budgetUpdate,
           include: {
             budgetItems: {
               include: {
@@ -139,7 +153,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     if (action === 'approve_1') {
-      // Second approval workflow
+      // Level 1 approval workflow
       if (!budgetItems || budgetItems.length === 0) {
         return Error('Budget items with approved amounts are required', 400);
       }
@@ -198,27 +212,64 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     if (action === 'accept') {
       // Acceptance workflow
-      const updated = await prisma.cashbookBudget.update({
-        where: { id: budgetId },
-        data: {
-          acceptedBy: auth.user.id,
-          acceptedDatetime: new Date(),
-        },
-        include: {
-          budgetItems: {
-            include: {
-              cashbookHead: {
-                select: { id: true, cashbookHeadName: true }
-              }
+      const now = new Date();
+      const userId = auth.user.id;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const budgetUpdate: any = {
+          acceptedBy: userId,
+          acceptedDatetime: now,
+        };
+
+        // If Level 2 approval not done, auto-mark it
+        if (!budget.approvedBy) {
+          const totalAmount = budget.budgetItems.reduce((sum, item) => sum + Number(item.amount), 0);
+          
+          budgetUpdate.approvedBy = userId;
+          budgetUpdate.approvedDatetime = now;
+          budgetUpdate.approvedBudgetAmount = totalAmount;
+
+          // If Level 1 also not done
+          if (!budget.approved1By) {
+            budgetUpdate.approved1By = userId;
+            budgetUpdate.approved1Datetime = now;
+            budgetUpdate.approved1BudgetAmount = totalAmount;
+          }
+
+          // Update items
+          for (const item of budget.budgetItems) {
+            const itemUpdate: any = {
+              approvedAmount: item.amount,
+            };
+            if (!budget.approved1By) {
+              itemUpdate.approved1Amount = item.amount;
             }
-          },
-          site: {
-            select: { id: true, site: true }
-          },
-          boq: {
-            select: { id: true, boqNo: true }
+            await tx.cashbookBudgetItem.update({
+              where: { id: item.id },
+              data: itemUpdate,
+            });
           }
         }
+
+        return tx.cashbookBudget.update({
+          where: { id: budgetId },
+          data: budgetUpdate,
+          include: {
+            budgetItems: {
+              include: {
+                cashbookHead: {
+                  select: { id: true, cashbookHeadName: true }
+                }
+              }
+            },
+            site: {
+              select: { id: true, site: true }
+            },
+            boq: {
+              select: { id: true, boqNo: true }
+            }
+          }
+        });
       });
 
       return Success(updated);

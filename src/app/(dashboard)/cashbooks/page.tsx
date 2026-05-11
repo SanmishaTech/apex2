@@ -425,10 +425,8 @@ export default function CashbooksPage() {
 
         return (
           canApprove2Any &&
-          !!cashbook.isApproved1 &&
           !cashbook.isApproved2 &&
-          !isCreator &&
-          !isL1Approver
+          !isCreator
         );
       })
       .map((r) => r.id);
@@ -538,10 +536,8 @@ export default function CashbooksPage() {
                 approvalMode === "approve1"
                   ? canApprove1Any && !cashbook.isApproved1 && !isCreator
                   : canApprove2Any &&
-                    !!cashbook.isApproved1 &&
                     !cashbook.isApproved2 &&
-                    !isCreator &&
-                    !isL1Approver;
+                    !isCreator;
               return (
                 <div className="flex items-center justify-center">
                   <Checkbox
@@ -897,10 +893,8 @@ export default function CashbooksPage() {
                   !isCreator;
                 const canApprove2 =
                   can(PERMISSIONS.APPROVE_CASHBOOKS_L2) &&
-                  !!cashbook.isApproved1 &&
                   !cashbook.isApproved2 &&
-                  !isCreator &&
-                  !isL1Approver;
+                  !isCreator;
 
                 if (!canView && !canEdit && !canDelete && !canApprove1 && !canApprove2)
                   return null;

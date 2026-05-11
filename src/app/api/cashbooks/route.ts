@@ -177,13 +177,12 @@ export async function GET(req: NextRequest) {
 
     // Filter by Approval 1 pending
     if (approval1Pending === "1" || approval1Pending === "true" || approval1Pending === "yes") {
-      where.isApproved1 = false;
+      where.isApproved1 = { not: true };
     }
 
     // Filter by Approval 2 pending
     if (approval2Pending === "1" || approval2Pending === "true" || approval2Pending === "yes") {
-      where.isApproved1 = true;
-      where.isApproved2 = false;
+      where.isApproved2 = { not: true };
     }
 
     // Optional filter by siteId / boqId

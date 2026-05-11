@@ -67,9 +67,12 @@ export default function OverallSiteBudgetsPage() {
     siteId: "",
     sort: "createdAt",
     order: "desc",
+    techApprovalPending: "",
+    commercialApprovalPending: "",
+    projectApprovalPending: "",
   });
 
-  const { page, perPage, search, siteId, sort, order } =
+  const { page, perPage, search, siteId, sort, order, techApprovalPending, commercialApprovalPending, projectApprovalPending } =
     qp as unknown as {
       page: number;
       perPage: number;
@@ -77,6 +80,9 @@ export default function OverallSiteBudgetsPage() {
       siteId: string;
       sort: string;
       order: "asc" | "desc";
+      techApprovalPending: string;
+      commercialApprovalPending: string;
+      projectApprovalPending: string;
     };
 
   const { can } = usePermissions();
@@ -126,7 +132,7 @@ export default function OverallSiteBudgetsPage() {
   function resetFilters() {
     setSearchDraft("");
     setSiteIdDraft("");
-    setQp({ page: 1, search: "", siteId: "" });
+    setQp({ page: 1, search: "", siteId: "", techApprovalPending: "", commercialApprovalPending: "", projectApprovalPending: "" });
   }
 
   const query = useMemo(() => {
@@ -137,6 +143,9 @@ export default function OverallSiteBudgetsPage() {
     if (siteId) sp.set("siteId", siteId);
     if (sort) sp.set("sort", sort);
     if (order) sp.set("order", order);
+    if (techApprovalPending) sp.set("techApprovalPending", techApprovalPending);
+    if (commercialApprovalPending) sp.set("commercialApprovalPending", commercialApprovalPending);
+    if (projectApprovalPending) sp.set("projectApprovalPending", projectApprovalPending);
     return `/api/overall-site-budgets?${sp.toString()}`;
   }, [page, perPage, search, siteId, sort, order]);
 
@@ -263,11 +272,61 @@ export default function OverallSiteBudgetsPage() {
         <AppCard.Description>Manage overall site budgets.</AppCard.Description>
         {can(PERMISSIONS.CREATE_OVERALL_SITE_BUDGETS) && (
           <AppCard.Action>
-            <Link href="/overall-site-budgets/new">
-              <AppButton size="sm" iconName="Plus" type="button">
-                Add
+            <div className="flex items-center gap-2">
+              <AppButton
+                size="sm"
+                variant={techApprovalPending === "1" ? "secondary" : "default"}
+                type="button"
+                onClick={() =>
+                  setQp({
+                    page: 1,
+                    techApprovalPending: techApprovalPending === "1" ? "" : "1",
+                    commercialApprovalPending: "",
+                    projectApprovalPending: "",
+                  })
+                }
+              >
+                {techApprovalPending === "1" ? "Exit Pending Tech" : "Pending Tech"}
               </AppButton>
-            </Link>
+
+              <AppButton
+                size="sm"
+                variant={commercialApprovalPending === "1" ? "secondary" : "default"}
+                type="button"
+                onClick={() =>
+                  setQp({
+                    page: 1,
+                    commercialApprovalPending: commercialApprovalPending === "1" ? "" : "1",
+                    techApprovalPending: "",
+                    projectApprovalPending: "",
+                  })
+                }
+              >
+                {commercialApprovalPending === "1" ? "Exit Pending Commercial" : "Pending Commercial"}
+              </AppButton>
+
+              <AppButton
+                size="sm"
+                variant={projectApprovalPending === "1" ? "secondary" : "default"}
+                type="button"
+                onClick={() =>
+                  setQp({
+                    page: 1,
+                    projectApprovalPending: projectApprovalPending === "1" ? "" : "1",
+                    techApprovalPending: "",
+                    commercialApprovalPending: "",
+                  })
+                }
+              >
+                {projectApprovalPending === "1" ? "Exit Pending Project" : "Pending Project"}
+              </AppButton>
+
+              <Link href="/overall-site-budgets/new">
+                <AppButton size="sm" iconName="Plus" type="button">
+                  Add
+                </AppButton>
+              </Link>
+            </div>
           </AppCard.Action>
         )}
       </AppCard.Header>
@@ -365,23 +424,15 @@ export default function OverallSiteBudgetsPage() {
                       row.projectApprovalById === userId));
 
                 const showTechApproval =
-                  canApproveTech && !isTechDone && !isCreator && !hasAnyApprovalByUser;
+                  canApproveTech && !isTechDone && !isCreator;
                 const showCommercialApproval =
                   canApproveCommercial &&
-                  isTechDone &&
                   !isCommercialDone &&
-                  !isCreator &&
-                  !hasAnyApprovalByUser &&
-                  !(typeof userId === "number" && row.techApprovalById === userId);
+                  !isCreator;
                 const showProjectApproval =
                   canApproveProject &&
-                  isCommercialDone &&
                   !isProjectDone &&
-                  !isCreator &&
-                  !hasAnyApprovalByUser &&
-                  !(typeof userId === "number" && row.techApprovalById === userId) &&
-                  !(typeof userId === "number" &&
-                    row.commercialApprovalById === userId);
+                  !isCreator;
 
                 const anyAction =
                   canView ||
