@@ -10,6 +10,7 @@ import { paginate } from "@/lib/paginate";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { ROLES } from "@/config/roles";
 
 // Utility to coerce possibly-empty string to null
 function nil(v: any) {
@@ -64,6 +65,38 @@ export async function GET(req: NextRequest) {
 
   const where: any = {};
 
+  // Site-based visibility for non-privileged users
+  const role = auth.user.role;
+  const isPrivileged = role === ROLES.ADMIN || role === ROLES.PROJECT_DIRECTOR;
+  let assignedSiteIds: number[] = [];
+
+  if (!isPrivileged) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId: auth.user.id },
+      select: {
+        siteEmployees: { select: { siteId: true } },
+      },
+    });
+    assignedSiteIds = (employee?.siteEmployees || [])
+      .map((s) => s.siteId)
+      .filter((id): id is number => id !== null);
+
+    if (assignedSiteIds.length === 0) {
+      return Success({
+        data: [],
+        meta: { page, perPage, total: 0, totalPages: 0 },
+      });
+    }
+
+    // Default restriction: only show manpower from assigned sites
+    where.siteManpower = {
+      some: {
+        siteId: { in: assignedSiteIds },
+        isAssigned: true,
+      },
+    };
+  }
+
   // Text search
   if (search) {
     const parts = search.split(/\s+/).filter(Boolean);
@@ -98,6 +131,14 @@ export async function GET(req: NextRequest) {
   if (currentSiteId) {
     const sid = parseInt(currentSiteId);
     if (!Number.isNaN(sid)) {
+      // If user is restricted, ensure the requested site is among assigned sites
+      if (!isPrivileged && !assignedSiteIds.includes(sid)) {
+        return Success({
+          data: [],
+          meta: { page, perPage, total: 0, totalPages: 0 },
+        });
+      }
+
       where.siteManpower = {
         some: {
           siteId: sid,

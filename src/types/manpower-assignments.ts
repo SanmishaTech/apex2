@@ -6,6 +6,7 @@ export interface AssignedManpowerItem {
   supplierId?: number;
   manpowerSupplier?: { id: number; supplierName: string } | null;
   mobileNumber?: string | null;
+  aadharNo?: string | null;
   // Assignment fields (stored on Manpower)
   category?: string | null;
   skillSet?: string | null;

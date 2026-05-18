@@ -273,53 +273,7 @@ export default function OverallSiteBudgetsPage() {
         {can(PERMISSIONS.CREATE_OVERALL_SITE_BUDGETS) && (
           <AppCard.Action>
             <div className="flex items-center gap-2">
-              <AppButton
-                size="sm"
-                variant={techApprovalPending === "1" ? "secondary" : "default"}
-                type="button"
-                onClick={() =>
-                  setQp({
-                    page: 1,
-                    techApprovalPending: techApprovalPending === "1" ? "" : "1",
-                    commercialApprovalPending: "",
-                    projectApprovalPending: "",
-                  })
-                }
-              >
-                {techApprovalPending === "1" ? "Exit Pending Tech" : "Pending Tech"}
-              </AppButton>
 
-              <AppButton
-                size="sm"
-                variant={commercialApprovalPending === "1" ? "secondary" : "default"}
-                type="button"
-                onClick={() =>
-                  setQp({
-                    page: 1,
-                    commercialApprovalPending: commercialApprovalPending === "1" ? "" : "1",
-                    techApprovalPending: "",
-                    projectApprovalPending: "",
-                  })
-                }
-              >
-                {commercialApprovalPending === "1" ? "Exit Pending Commercial" : "Pending Commercial"}
-              </AppButton>
-
-              <AppButton
-                size="sm"
-                variant={projectApprovalPending === "1" ? "secondary" : "default"}
-                type="button"
-                onClick={() =>
-                  setQp({
-                    page: 1,
-                    projectApprovalPending: projectApprovalPending === "1" ? "" : "1",
-                    techApprovalPending: "",
-                    commercialApprovalPending: "",
-                  })
-                }
-              >
-                {projectApprovalPending === "1" ? "Exit Pending Project" : "Pending Project"}
-              </AppButton>
 
               <Link href="/overall-site-budgets/new">
                 <AppButton size="sm" iconName="Plus" type="button">

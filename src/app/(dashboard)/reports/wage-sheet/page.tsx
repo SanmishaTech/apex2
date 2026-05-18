@@ -791,8 +791,8 @@ export default function WageSheetPage() {
   return (
     <Form {...form}>
       <div className="space-y-6">
-        <div className="border rounded-md overflow-hidden">
-          <div className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold">
+        <div className="border rounded-md relative z-10">
+          <div className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold rounded-t-md">
             {title}
           </div>
           <div className="p-4 bg-muted/30">

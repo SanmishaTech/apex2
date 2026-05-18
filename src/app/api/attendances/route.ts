@@ -10,7 +10,12 @@ const allowedOtValues = [-0.25, -0.5, -0.75, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1
 
 // Schema for creating attendance
 const createAttendanceSchema = z.object({
-  date: z.string(),
+  date: z.string().refine((val) => {
+    const date = new Date(val);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return date <= today;
+  }, { message: "Date cannot be in the future" }),
   siteId: z.number().int().positive(),
   attendances: z.array(
     z.object({
@@ -73,29 +78,17 @@ export async function GET(req: NextRequest) {
     // Filter by date if provided (date-only comparison, ignoring time)
     if (date) {
       const targetDate = new Date(date);
-      const startOfDay = new Date(targetDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(targetDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      where.date = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      where.date = targetDate;
     }
 
     // Filter by date range if provided
     if (fromDate || toDate) {
       where.date = where.date || {};
       if (fromDate) {
-        const start = new Date(fromDate);
-        start.setHours(0, 0, 0, 0);
-        where.date.gte = start;
+        where.date.gte = new Date(fromDate);
       }
       if (toDate) {
-        const end = new Date(toDate);
-        end.setHours(23, 59, 59, 999);
-        where.date.lte = end;
+        where.date.lte = new Date(toDate);
       }
     }
 
@@ -227,6 +220,35 @@ export async function POST(req: NextRequest) {
 
     const attendanceDate = new Date(date);
 
+    // Check for conflicts: manpower already present on another site for this date
+    const manpowerIdsToMarkPresent = attendances
+      .filter((att) => {
+        const otNum = att.ot === undefined || att.ot === null ? 0 : Number(att.ot);
+        return att.isIdle || otNum !== 0 || att.isPresent;
+      })
+      .map((att) => att.manpowerId);
+
+    if (manpowerIdsToMarkPresent.length > 0) {
+      const conflict = await prisma.attendance.findFirst({
+        where: {
+          date: attendanceDate,
+          siteId: { not: siteId },
+          manpowerId: { in: manpowerIdsToMarkPresent },
+          isPresent: true,
+        },
+        include: {
+          manpower: { select: { firstName: true, lastName: true } },
+          site: { select: { site: true } },
+        },
+      });
+
+      if (conflict) {
+        return BadRequest(
+          `${conflict.manpower.firstName} ${conflict.manpower.lastName} is already marked present at ${conflict.site.site} on this date.`
+        );
+      }
+    }
+
     // Use a transaction for bulk upsert to ensure atomicity and handle large volume reliably
     const results = await prisma.$transaction(
       attendances.map((att) => {
@@ -284,6 +306,66 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const { attendances } = editAttendanceSchema.parse(body);
+
+    // Check for conflicts: manpower already present on another site for this date
+    const presentUpdates = attendances.filter((a) => {
+      const otNum = a.ot === undefined || a.ot === null ? 0 : Number(a.ot);
+      return a.isIdle || otNum !== 0 || a.isPresent;
+    });
+
+    if (presentUpdates.length > 0) {
+      const targetRecords = await prisma.attendance.findMany({
+        where: { id: { in: presentUpdates.map((u) => u.id) } },
+        select: {
+          id: true,
+          date: true,
+          manpowerId: true,
+          siteId: true,
+          manpower: { select: { firstName: true, lastName: true } },
+        },
+      });
+
+      // Check for internal conflicts in the request
+      const requestMap = new Map<string, number>();
+      for (const r of targetRecords) {
+        const dateKey = r.date.toISOString().split("T")[0];
+        const key = `${dateKey}-${r.manpowerId}`;
+        if (requestMap.has(key) && requestMap.get(key) !== r.siteId) {
+          return BadRequest(
+            `${r.manpower.firstName} ${r.manpower.lastName} cannot be marked present on multiple sites on ${dateKey}.`
+          );
+        }
+        requestMap.set(key, r.siteId);
+      }
+
+      // Check for conflicts with DB (records NOT in this request)
+      const idsInRequest = targetRecords.map((r) => r.id);
+      for (const r of targetRecords) {
+        const conflict = await prisma.attendance.findFirst({
+          where: {
+            id: { notIn: idsInRequest },
+            date: r.date,
+            manpowerId: r.manpowerId,
+            siteId: { not: r.siteId },
+            isPresent: true,
+          },
+          include: {
+            manpower: { select: { firstName: true, lastName: true } },
+            site: { select: { site: true } },
+          },
+        });
+
+        if (conflict) {
+          return BadRequest(
+            `${conflict.manpower.firstName} ${
+              conflict.manpower.lastName
+            } is already marked present at ${
+              conflict.site.site
+            } on ${r.date.toISOString().split("T")[0]}.`
+          );
+        }
+      }
+    }
 
     // Update each attendance record in a single transaction
     const results = await prisma.$transaction(

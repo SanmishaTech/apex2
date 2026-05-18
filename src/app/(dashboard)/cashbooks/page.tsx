@@ -90,50 +90,50 @@ export default function CashbooksPage() {
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-100 dark:bg-gray-800">
-              <tr>
-                <th className="px-3 py-2 text-left">Head</th>
-                <th className="px-3 py-2 text-left">Description</th>
-                <th className="px-3 py-2 text-right">Opening</th>
-                <th className="px-3 py-2 text-right">Received</th>
-                <th className="px-3 py-2 text-right">Paid</th>
-                <th className="px-3 py-2 text-right">Closing</th>
-                <th className="px-3 py-2 text-left">Document</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.cashbookDetails || []).length === 0 ? (
-                <tr className="border-t dark:border-gray-700">
-                  <td colSpan={7} className="px-3 py-3 text-center text-muted-foreground">
-                    No details
-                  </td>
-                </tr>
-              ) : (
-                (data.cashbookDetails || []).map((d, idx) => (
-                  <tr key={(d as any).id ?? idx} className="border-t dark:border-gray-700">
-                    <td className="px-3 py-2">{(d as any)?.cashbookHead?.cashbookHeadName || (d as any)?.cashbookHeadId}</td>
-                    <td className="px-3 py-2">{(d as any)?.description || "-"}</td>
-                    <td className="px-3 py-2 text-right font-mono">{(d as any)?.openingBalance ?? "-"}</td>
-                    <td className="px-3 py-2 text-right font-mono">{(d as any)?.amountReceived ?? "-"}</td>
-                    <td className="px-3 py-2 text-right font-mono">{(d as any)?.amountPaid ?? "-"}</td>
-                    <td className="px-3 py-2 text-right font-mono">{(d as any)?.closingBalance ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      {(d as any)?.documentUrl ? (
-                        <a
-                          className="text-primary underline"
-                          href={resolveDocumentUrl((d as any).documentUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          View
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+                  <tr>
+                    <th className="px-3 py-2 text-left">Head</th>
+                    <th className="px-3 py-2 text-left">Description</th>
+                    <th className="px-3 py-2 text-right">Opening</th>
+                    <th className="px-3 py-2 text-right">Received</th>
+                    <th className="px-3 py-2 text-right">Paid</th>
+                    <th className="px-3 py-2 text-right">Closing</th>
+                    <th className="px-3 py-2 text-left">Document</th>
                   </tr>
-                ))
-              )}
-            </tbody>
+                </thead>
+                <tbody>
+                  {(data.cashbookDetails || []).length === 0 ? (
+                    <tr className="border-t dark:border-gray-700">
+                      <td colSpan={7} className="px-3 py-3 text-center text-muted-foreground">
+                        No details
+                      </td>
+                    </tr>
+                  ) : (
+                    (data.cashbookDetails || []).map((d, idx) => (
+                      <tr key={(d as any).id ?? idx} className="border-t dark:border-gray-700">
+                        <td className="px-3 py-2">{(d as any)?.cashbookHead?.cashbookHeadName || (d as any)?.cashbookHeadId}</td>
+                        <td className="px-3 py-2">{(d as any)?.description || "-"}</td>
+                        <td className="px-3 py-2 text-right font-mono">{(d as any)?.openingBalance ?? "-"}</td>
+                        <td className="px-3 py-2 text-right font-mono">{(d as any)?.amountReceived ?? "-"}</td>
+                        <td className="px-3 py-2 text-right font-mono">{(d as any)?.amountPaid ?? "-"}</td>
+                        <td className="px-3 py-2 text-right font-mono">{(d as any)?.closingBalance ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          {(d as any)?.documentUrl ? (
+                            <a
+                              className="text-primary underline"
+                              href={resolveDocumentUrl((d as any).documentUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
           </div>
@@ -486,74 +486,74 @@ export default function CashbooksPage() {
   const columns: Column<Cashbook>[] = [
     ...(approvalMode
       ? ([
-          {
-            key: "__expand",
-            header: "",
-            accessor: (cashbook) => (
-              <div className="flex items-center justify-center">
-                <AppButton
-                  size="sm"
-                  variant="secondary"
-                  type="button"
-                  onClick={() => toggleExpandedCashbook(cashbook.id)}
-                >
-                  {expandedCashbookIds.has(cashbook.id) ? "Hide" : "Show"}
-                </AppButton>
-              </div>
-            ),
-            sortable: false,
-            className: "w-20",
-            cellClassName: "w-20",
-          },
-        ] as Column<Cashbook>[])
+        {
+          key: "__expand",
+          header: "",
+          accessor: (cashbook) => (
+            <div className="flex items-center justify-center">
+              <AppButton
+                size="sm"
+                variant="secondary"
+                type="button"
+                onClick={() => toggleExpandedCashbook(cashbook.id)}
+              >
+                {expandedCashbookIds.has(cashbook.id) ? "Hide" : "Show"}
+              </AppButton>
+            </div>
+          ),
+          sortable: false,
+          className: "w-20",
+          cellClassName: "w-20",
+        },
+      ] as Column<Cashbook>[])
       : []),
     ...(approvalMode
       ? ([
-          {
-            key: "__select",
-            header: (
+        {
+          key: "__select",
+          header: (
+            <div className="flex items-center justify-center">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                onCheckedChange={(v) => toggleSelectAll(!!v)}
+                disabled={selectableIds.length === 0}
+                aria-label="Select all"
+              />
+            </div>
+          ),
+          accessor: (cashbook) => {
+            const isCreator =
+              typeof cashbook.createdById === "number" &&
+              typeof user?.id === "number" &&
+              cashbook.createdById === user.id;
+
+            const isL1Approver =
+              typeof cashbook.approved1ById === "number" &&
+              typeof user?.id === "number" &&
+              cashbook.approved1ById === user.id;
+
+            const canSelect =
+              approvalMode === "approve1"
+                ? canApprove1Any && !cashbook.isApproved1 && !isCreator
+                : canApprove2Any &&
+                !cashbook.isApproved2 &&
+                !isCreator;
+            return (
               <div className="flex items-center justify-center">
                 <Checkbox
-                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                  onCheckedChange={(v) => toggleSelectAll(!!v)}
-                  disabled={selectableIds.length === 0}
-                  aria-label="Select all"
+                  checked={selectedIds.has(cashbook.id)}
+                  onCheckedChange={(v) => toggleSelectOne(cashbook.id, !!v)}
+                  disabled={!canSelect}
+                  aria-label={`Select cashbook ${cashbook.id}`}
                 />
               </div>
-            ),
-            accessor: (cashbook) => {
-              const isCreator =
-                typeof cashbook.createdById === "number" &&
-                typeof user?.id === "number" &&
-                cashbook.createdById === user.id;
-
-              const isL1Approver =
-                typeof cashbook.approved1ById === "number" &&
-                typeof user?.id === "number" &&
-                cashbook.approved1ById === user.id;
-
-              const canSelect =
-                approvalMode === "approve1"
-                  ? canApprove1Any && !cashbook.isApproved1 && !isCreator
-                  : canApprove2Any &&
-                    !cashbook.isApproved2 &&
-                    !isCreator;
-              return (
-                <div className="flex items-center justify-center">
-                  <Checkbox
-                    checked={selectedIds.has(cashbook.id)}
-                    onCheckedChange={(v) => toggleSelectOne(cashbook.id, !!v)}
-                    disabled={!canSelect}
-                    aria-label={`Select cashbook ${cashbook.id}`}
-                  />
-                </div>
-              );
-            },
-            sortable: false,
-            className: "w-10",
-            cellClassName: "w-10",
+            );
           },
-        ] as Column<Cashbook>[])
+          sortable: false,
+          className: "w-10",
+          cellClassName: "w-10",
+        },
+      ] as Column<Cashbook>[])
       : []),
     {
       key: "voucherNo",
@@ -852,20 +852,20 @@ export default function CashbooksPage() {
               renderExpandedRow={
                 approvalMode
                   ? (row) => (
-                      <div className="rounded-md border bg-background p-4 shadow-sm">
-                        <div className="mb-3 flex items-center justify-between">
-                          <div className="text-sm font-medium text-muted-foreground">
-                            Details for Voucher No:{" "}
-                            <span className="text-foreground font-mono">
-                              {(row as Cashbook).voucherNo || `#${(row as Cashbook).id}`}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="border-l-4 border-primary/70 pl-4">
-                          <ExpandedCashbookDetails cashbookId={(row as Cashbook).id} />
+                    <div className="rounded-md border bg-background p-4 shadow-sm">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="text-sm font-medium text-muted-foreground">
+                          Details for Voucher No:{" "}
+                          <span className="text-foreground font-mono">
+                            {(row as Cashbook).voucherNo || `#${(row as Cashbook).id}`}
+                          </span>
                         </div>
                       </div>
-                    )
+                      <div className="border-l-4 border-primary/70 pl-4">
+                        <ExpandedCashbookDetails cashbookId={(row as Cashbook).id} />
+                      </div>
+                    </div>
+                  )
                   : undefined
               }
               renderRowActions={(cashbook) => {
@@ -961,9 +961,8 @@ export default function CashbooksPage() {
                               onDelete={() => handleDelete(String(cashbook.id))}
                               itemLabel="cashbook"
                               title="Delete cashbook?"
-                              description={`This will permanently remove cashbook voucher ${
-                                cashbook.voucherNo || cashbook.id
-                              }. This action cannot be undone.`}
+                              description={`This will permanently remove cashbook voucher ${cashbook.voucherNo || cashbook.id
+                                }. This action cannot be undone.`}
                             >
                               <span className="w-full">Delete</span>
                             </DeleteButton>

@@ -163,6 +163,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
     },
     { key: '__sr', header: 'Sr. No.', sortable: false, className: 'whitespace-nowrap' },
     { key: 'firstName', header: 'Manpower', sortable: true, accessor: (r) => `${r.firstName}${r.middleName ? ' ' + r.middleName : ''} ${r.lastName}` },
+    { key: 'aadharNo', header: 'Aadhar Card', sortable: false, accessor: (r) => r.aadharNo || 'N/A' },
     {
       key: 'present', header: 'Present', sortable: false, className: 'text-center', cellClassName: 'text-center',
       accessor: (r) => (

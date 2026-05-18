@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
+import { z } from "zod";
 
 // UI Components
 import { AppCard } from "@/components/common/app-card";
@@ -61,6 +62,14 @@ export default function EditAttendancePage() {
     {}
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Frontend validation schema
+  const dateValidation = z.string().refine(
+    (val) => !val || new Date(val) <= new Date(),
+    { message: "Date cannot be in the future" }
+  );
 
   // Fetch sites
   const { data: sitesData } = useSWR<{ data: Site[] }>(
@@ -336,8 +345,10 @@ export default function EditAttendancePage() {
           body: JSON.stringify(updatePayload),
         });
 
-        if (!updateRes.ok)
-          throw new Error("Failed to update existing attendance");
+        if (!updateRes.ok) {
+          const errorData = await updateRes.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to update existing attendance");
+        }
         updateCount = updatesToExisting.length;
       }
 
@@ -355,8 +366,10 @@ export default function EditAttendancePage() {
           body: JSON.stringify(createPayload),
         });
 
-        if (!createRes.ok)
-          throw new Error(`Failed to create attendance for ${date}`);
+        if (!createRes.ok) {
+          const errorData = await createRes.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to create attendance for ${date}`);
+        }
         createCount += attendances.length;
       }
 
@@ -367,9 +380,9 @@ export default function EditAttendancePage() {
       toast.success(message.join(", "));
       setEdits({});
       refetchAttendances();
-    } catch (error) {
-      console.error("Save error:", error);
-      toast.error((error as Error).message || "Failed to save attendance");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to save attendance");
     } finally {
       setIsSaving(false);
     }
@@ -432,20 +445,25 @@ export default function EditAttendancePage() {
               <input
                 type="date"
                 value={fromDate}
-                max={new Date().toISOString().split("T")[0]}
+                max={today}
                 onChange={(e) => {
                   const newDate = e.target.value;
-                  if (toDate && newDate) {
-                    const d1 = new Date(newDate);
-                    const d2 = new Date(toDate);
-                    const diffTime = Math.abs(d2.getTime() - d1.getTime());
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                    if (diffDays > 2) {
-                      toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
-                      return;
+                  try {
+                    dateValidation.parse(newDate);
+                    if (toDate && newDate) {
+                      const d1 = new Date(newDate);
+                      const d2 = new Date(toDate);
+                      const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                      if (diffDays > 2) {
+                        toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
+                        return;
+                      }
                     }
+                    setFromDate(newDate);
+                  } catch (err: any) {
+                    toast.error(err.errors?.[0]?.message || "Invalid date");
                   }
-                  setFromDate(newDate);
                 }}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
@@ -460,20 +478,25 @@ export default function EditAttendancePage() {
                 type="date"
                 value={toDate}
                 min={fromDate || undefined}
-                max={new Date().toISOString().split("T")[0]}
+                max={today}
                 onChange={(e) => {
                   const newDate = e.target.value;
-                  if (fromDate && newDate) {
-                    const d1 = new Date(fromDate);
-                    const d2 = new Date(newDate);
-                    const diffTime = Math.abs(d2.getTime() - d1.getTime());
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                    if (diffDays > 2) {
-                      toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
-                      return;
+                  try {
+                    dateValidation.parse(newDate);
+                    if (fromDate && newDate) {
+                      const d1 = new Date(fromDate);
+                      const d2 = new Date(newDate);
+                      const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                      if (diffDays > 2) {
+                        toast.error(`Only 2 days can be selected in total (${diffDays} days selected)`);
+                        return;
+                      }
                     }
+                    setToDate(newDate);
+                  } catch (err: any) {
+                    toast.error(err.errors?.[0]?.message || "Invalid date");
                   }
-                  setToDate(newDate);
                 }}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
