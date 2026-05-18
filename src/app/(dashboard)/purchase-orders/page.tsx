@@ -725,35 +725,7 @@ export default function PurchaseOrdersPage() {
           )}
 
           <div className="flex items-center gap-2">
-            <AppButton
-              size="sm"
-              variant={approval1Pending === "1" ? "secondary" : "default"}
-              type="button"
-              onClick={() =>
-                setQp({
-                  page: 1,
-                  approval1Pending: approval1Pending === "1" ? "" : "1",
-                  approval2Pending: "",
-                })
-              }
-            >
-              {approval1Pending === "1" ? "Exit Pending Approval 1" : "Pending Approval 1"}
-            </AppButton>
 
-            <AppButton
-              size="sm"
-              variant={approval2Pending === "1" ? "secondary" : "default"}
-              type="button"
-              onClick={() =>
-                setQp({
-                  page: 1,
-                  approval2Pending: approval2Pending === "1" ? "" : "1",
-                  approval1Pending: "",
-                })
-              }
-            >
-              {approval2Pending === "1" ? "Exit Pending Approval 2" : "Pending Approval 2"}
-            </AppButton>
 
             {can(PERMISSIONS.CREATE_PURCHASE_ORDERS) && (
               <AppCard.Action>

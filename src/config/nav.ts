@@ -183,6 +183,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.EDIT_ATTENDANCES,
       },
       {
+        title: "Edit Manpower Attendance",
+        href: "/edit-attendance-manpower",
+        icon: Edit3,
+        permission: PERMISSIONS.EDIT_ATTENDANCES,
+      },
+      {
         title: "Payslips",
         href: "/payslips",
         icon: Receipt,
