@@ -47,30 +47,15 @@ const editSchema = z
     siteId: z.string().min(1, "Site is required"),
     boqId: z.string().min(1, "BOQ is required"),
     month: z.string().min(1, "Month is required"),
-    week: z.string().min(1, "Week is required"),
-    fromTargetDate: z.string().min(1, "From target date is required"),
-    toTargetDate: z.string().min(1, "To target date is required"),
     details: z
       .array(
         z.object({
           boqItemId: z.string().min(1),
-          dailyTargetQty: z.string().optional().default(""),
+          totalMonthQty: z.string().optional().default(""),
         })
       )
       .default([]),
-  })
-  .refine(
-    (data) => {
-      if (data.fromTargetDate && data.toTargetDate) {
-        return new Date(data.fromTargetDate) <= new Date(data.toTargetDate);
-      }
-      return true;
-    },
-    {
-      message: "To target date must be after or equal to from target date",
-      path: ["toTargetDate"],
-    }
-  );
+  });
 
 const createSchema = z
   .object({
@@ -215,15 +200,12 @@ function toEditSubmitPayload(data: EditFormValues) {
     siteId: data.siteId && data.siteId !== "" ? parseInt(data.siteId) : null,
     boqId: data.boqId && data.boqId !== "" ? parseInt(data.boqId) : null,
     month: data.month,
-    week: data.week,
-    fromTargetDate: dateInputToIsoUtc(data.fromTargetDate),
-    toTargetDate: dateInputToIsoUtc(data.toTargetDate),
     details: (data.details || []).map((d) => ({
       boqItemId: parseInt(d.boqItemId),
-      dailyTargetQty:
-        d.dailyTargetQty === "" || d.dailyTargetQty === undefined
+      totalMonthQty:
+        d.totalMonthQty === "" || d.totalMonthQty === undefined
           ? null
-          : Number(d.dailyTargetQty),
+          : Number(d.totalMonthQty),
     })),
   };
 }
@@ -457,13 +439,10 @@ export function BoqTargetsForm({
           siteId: initial?.siteId ? String(initial.siteId) : "",
           boqId: initial?.boqId ? String(initial.boqId) : "",
           month: initial?.month ? String(initial.month) : "",
-          week: initial?.week ? String(initial.week) : "",
-          fromTargetDate: toDateInputDateOnly(initial?.fromTargetDate ?? null),
-          toTargetDate: toDateInputDateOnly(initial?.toTargetDate ?? null),
           details: (initial?.boqTargetDetails || []).map((d) => ({
             boqItemId: String(d.BoqItemId),
-            dailyTargetQty:
-              d.dailyTargetQty == null ? "" : Number(d.dailyTargetQty as any).toFixed(2),
+            totalMonthQty:
+              d.totalMonthQty == null ? "" : Number(d.totalMonthQty as any).toFixed(2),
           })),
         }) as any,
   });
@@ -476,7 +455,6 @@ export function BoqTargetsForm({
   const selectedSiteId = form.watch("siteId");
   const selectedBoqId = form.watch("boqId");
   const selectedMonth = form.watch("month");
-  const selectedWeek = isCreate ? "" : (form.watch("week") as string);
 
   const monthOptions = useMemo(() => buildMonthYearOptions(), []);
   const weekOptions = useMemo(
@@ -537,10 +515,10 @@ export function BoqTargetsForm({
       const boqQty = Number(item?.qty || 0);
       const unitName = item?.unit?.unitName || "—";
       const isGroup = Boolean(item?.isGroup);
-      const dailyTargetQty = Number(d?.dailyTargetQty || 0);
-      return { boqItemId: id, item, boqQty, unitName, isGroup, dailyTargetQty };
+      const targetQty = isCreate ? Number(d?.dailyTargetQty || 0) : Number((d as any)?.totalMonthQty || 0);
+      return { boqItemId: id, item, boqQty, unitName, isGroup, targetQty };
     });
-  }, [detailsWatch, itemsById]);
+  }, [detailsWatch, itemsById, isCreate]);
 
   // When Site changes, clear BOQ + items
   useEffect(() => {
@@ -558,22 +536,6 @@ export function BoqTargetsForm({
 
     if (prevSiteId !== selectedSiteId) setPrevSiteId(selectedSiteId);
   }, [selectedSiteId, prevSiteId, form, replace]);
-
-  // When Month changes, reset week and date range
-  useEffect(() => {
-    if (isCreate) return;
-    if (!selectedMonth) {
-      form.setValue("week", "", { shouldDirty: true, shouldValidate: false });
-      form.setValue("fromTargetDate", "", { shouldDirty: true, shouldValidate: false });
-      form.setValue("toTargetDate", "", { shouldDirty: true, shouldValidate: false });
-      return;
-    }
-    if (selectedWeek && weekOptions.every((w) => w.value !== selectedWeek)) {
-      form.setValue("week", "", { shouldDirty: true, shouldValidate: false });
-      form.setValue("fromTargetDate", "", { shouldDirty: true, shouldValidate: false });
-      form.setValue("toTargetDate", "", { shouldDirty: true, shouldValidate: false });
-    }
-  }, [selectedMonth, selectedWeek, weekOptions, form]);
 
   // When Month changes (create), reset all week date ranges
   useEffect(() => {
@@ -622,19 +584,6 @@ export function BoqTargetsForm({
     }
   }, [isCreate, createWeekBounds, weeksWatch, form]);
 
-  // When Week changes, auto-set from/to date
-  useEffect(() => {
-    if (isCreate) return;
-    if (!selectedMonth || !selectedWeek) return;
-    const existingFrom = String(form.getValues("fromTargetDate") || "");
-    const existingTo = String(form.getValues("toTargetDate") || "");
-    if (existingFrom && existingTo) return;
-    const range = computeWeekDateRange(selectedMonth, selectedWeek);
-    if (!range) return;
-    form.setValue("fromTargetDate", range.from, { shouldDirty: true, shouldValidate: false });
-    form.setValue("toTargetDate", range.to, { shouldDirty: true, shouldValidate: false });
-  }, [selectedMonth, selectedWeek, form]);
-
   // Populate details table whenever BOQ items are available
   useEffect(() => {
     const current = (form.getValues("details") || []) as any[];
@@ -648,24 +597,31 @@ export function BoqTargetsForm({
     const qtyByItemId = new Map<string, string>();
     current.forEach((d) => {
       if (!d?.boqItemId) return;
-      qtyByItemId.set(String(d.boqItemId), String(d.dailyTargetQty ?? ""));
+      qtyByItemId.set(String(d.boqItemId), String(isCreate ? d.dailyTargetQty ?? "" : d.totalMonthQty ?? ""));
     });
 
     // Bring in persisted values from initial payload (edit) when current is empty
     if (!current.length && Array.isArray(initial?.boqTargetDetails)) {
       initial.boqTargetDetails.forEach((d) => {
         const k = String(d.BoqItemId);
-        const v = d.dailyTargetQty == null ? "" : Number(d.dailyTargetQty as any).toFixed(2);
+        const v = d.totalMonthQty == null ? "" : Number(d.totalMonthQty as any).toFixed(2);
         qtyByItemId.set(k, v);
       });
     }
 
     const next = boqItems.map((it: any) => {
       const key = String(it.id);
-      return {
-        boqItemId: key,
-        dailyTargetQty: qtyByItemId.get(key) ?? "",
-      };
+      if (isCreate) {
+        return {
+          boqItemId: key,
+          dailyTargetQty: qtyByItemId.get(key) ?? "",
+        };
+      } else {
+        return {
+          boqItemId: key,
+          totalMonthQty: qtyByItemId.get(key) ?? "",
+        };
+      }
     });
 
     const isSame =
@@ -673,11 +629,11 @@ export function BoqTargetsForm({
       current.every(
         (d, i) =>
           String(d?.boqItemId ?? "") === String((next[i] as any)?.boqItemId ?? "") &&
-          String(d?.dailyTargetQty ?? "") === String((next[i] as any)?.dailyTargetQty ?? "")
+          (isCreate ? String(d?.dailyTargetQty ?? "") === String((next[i] as any)?.dailyTargetQty ?? "") : String(d?.totalMonthQty ?? "") === String((next[i] as any)?.totalMonthQty ?? ""))
       );
 
     if (!isSame) replace(next as any);
-  }, [selectedBoqId, boqItems, replace, form, initial?.boqTargetDetails]);
+  }, [selectedBoqId, boqItems, replace, form, initial?.boqTargetDetails, isCreate]);
 
   async function onSubmit(data: CreateFormValues | EditFormValues) {
     setSubmitting(true);
@@ -748,14 +704,10 @@ export function BoqTargetsForm({
           siteId: d.siteId && d.siteId !== "" ? parseInt(d.siteId) : null,
           boqId: d.boqId && d.boqId !== "" ? parseInt(d.boqId) : null,
           month: d.month,
-          week: d.week,
-          fromTargetDate: dateInputToIsoUtc(d.fromTargetDate),
-          toTargetDate: dateInputToIsoUtc(d.toTargetDate),
-          recalculateMonth: true,
           details: (d.details || []).map((x) => ({
             boqItemId: parseInt(x.boqItemId),
-            dailyTargetQty:
-              x.dailyTargetQty === "" || x.dailyTargetQty === undefined ? null : Number(x.dailyTargetQty),
+            totalMonthQty:
+              x.totalMonthQty === "" || x.totalMonthQty === undefined ? null : Number(x.totalMonthQty),
           })),
         };
         const res = await apiPatch("/api/boq-targets", { id: initial.id, ...payload });
@@ -782,11 +734,6 @@ export function BoqTargetsForm({
 
   const siteLabel = siteOptions.find((o) => o.value === selectedSiteId)?.label || "";
   const boqLabel = boqOptions.find((o) => o.value === selectedBoqId)?.label || "";
-  const fromTargetDateVal = isCreate ? "" : (form.watch("fromTargetDate") as string);
-  const toTargetDateVal = isCreate ? "" : (form.watch("toTargetDate") as string);
-  const fromTargetDateDisplay = isCreate ? "" : formatDDMMYYYY(fromTargetDateVal);
-  const toTargetDateDisplay = isCreate ? "" : formatDDMMYYYY(toTargetDateVal);
-
   function isValidQtyInput(v: string) {
     if (v === "") return true;
     return /^\d*(\.\d{0,2})?$/.test(v);
@@ -794,7 +741,8 @@ export function BoqTargetsForm({
 
   function setQtyAtIndex(idx: number, next: string) {
     if (!isValidQtyInput(next)) return;
-    form.setValue(`details.${idx}.dailyTargetQty` as any, next, {
+    const fieldName = isCreate ? `details.${idx}.dailyTargetQty` : `details.${idx}.totalMonthQty`;
+    form.setValue(fieldName as any, next, {
       shouldDirty: true,
       shouldValidate: false,
     });
@@ -898,13 +846,7 @@ export function BoqTargetsForm({
                     </div>
                   ))}
                 </div>
-              ) : (
-                <FormRow cols={3} from="md">
-                  <ReadonlyField label="Week" value={selectedWeek} />
-                  <ReadonlyField label="From Target Date" value={fromTargetDateDisplay} />
-                  <ReadonlyField label="To Target Date" value={toTargetDateDisplay} />
-                </FormRow>
-              )}
+              ) : null}
             </FormSection>
 
             <FormSection legend="Target Items">
@@ -917,13 +859,13 @@ export function BoqTargetsForm({
                         <th className="text-left font-medium px-3 py-2">Description of item</th>
                         <th className="text-left font-medium px-3 py-2">Unit</th>
                         <th className="text-right font-medium px-3 py-2">BOQ Qty</th>
-                        <th className="text-right font-medium px-3 py-2">{isCreate ? "Target Qty" : "Daily Target Qty"}</th>
+                        <th className="text-right font-medium px-3 py-2">{isCreate ? "Target Qty" : "Month Target Qty"}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(computedRows || []).map((row, idx) => {
                         const desc = `${row?.item?.item || ""}`;
-                        const qtyValue = ((detailsWatch?.[idx] as any)?.dailyTargetQty ?? "").toString();
+                        const qtyValue = isCreate ? ((detailsWatch?.[idx] as any)?.dailyTargetQty ?? "").toString() : ((detailsWatch?.[idx] as any)?.totalMonthQty ?? "").toString();
                         return (
                           <tr key={row.boqItemId} className="border-t">
                             <td className="px-3 py-2 align-top whitespace-nowrap">

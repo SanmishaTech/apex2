@@ -153,24 +153,19 @@ export default function BoqTargetsPage() {
   const [searchDraft, setSearchDraft] = useState(search);
   const [siteIdDraft, setSiteIdDraft] = useState(siteId);
   const [monthDraft, setMonthDraft] = useState(month);
-  const [weekDraft, setWeekDraft] = useState(week);
 
   const monthOptions = useMemo(() => buildMonthYearOptions(), []);
-  const weekOptions = useMemo(() => buildWeekOptions(monthDraft), [monthDraft]);
 
-  // Sync drafts when query params change externally (e.g., back navigation)
   useEffect(() => {
     setSearchDraft(search);
     setSiteIdDraft(siteId);
     setMonthDraft(month);
-    setWeekDraft(week);
-  }, [search, siteId, month, week]);
+  }, [search, siteId, month]);
 
   const filtersDirty =
     searchDraft !== search ||
     siteIdDraft !== siteId ||
-    monthDraft !== month ||
-    weekDraft !== week;
+    monthDraft !== month;
 
   function applyFilters() {
     setQp({
@@ -178,7 +173,7 @@ export default function BoqTargetsPage() {
       search: searchDraft.trim(),
       siteId: siteIdDraft,
       month: monthDraft,
-      week: weekDraft,
+      week: '',
     });
   }
 
@@ -186,7 +181,6 @@ export default function BoqTargetsPage() {
     setSearchDraft('');
     setSiteIdDraft('');
     setMonthDraft('');
-    setWeekDraft('');
     setQp({ page: 1, search: '', siteId: '', month: '', week: '' });
   }
 
@@ -251,30 +245,6 @@ export default function BoqTargetsPage() {
       header: 'Month',
       sortable: true,
       accessor: (r) => r.month || '—',
-      className: 'whitespace-nowrap',
-      cellClassName: 'whitespace-nowrap',
-    },
-    {
-      key: 'week',
-      header: 'Week',
-      sortable: true,
-      accessor: (r) => r.week || '—',
-      className: 'whitespace-nowrap',
-      cellClassName: 'whitespace-nowrap',
-    },
-    {
-      key: 'fromTargetDate',
-      header: 'From Target Date',
-      sortable: true,
-      accessor: (r) => (r.fromTargetDate ? formatDDMMYYYY(r.fromTargetDate) : '—'),
-      className: 'whitespace-nowrap',
-      cellClassName: 'whitespace-nowrap',
-    },
-    {
-      key: 'toTargetDate',
-      header: 'To Target Date',
-      sortable: true,
-      accessor: (r) => (r.toTargetDate ? formatDDMMYYYY(r.toTargetDate) : '—'),
       className: 'whitespace-nowrap',
       cellClassName: 'whitespace-nowrap',
     },
@@ -348,29 +318,12 @@ export default function BoqTargetsPage() {
             onValueChange={(v) => {
               const next = v === ALL_VALUE ? '' : v;
               setMonthDraft(next);
-              if (!next) setWeekDraft('');
             }}
             placeholder='All Months'
             triggerClassName='h-9 min-w-[160px]'
           >
             <AppSelect.Item value={ALL_VALUE}>All Months</AppSelect.Item>
             {monthOptions.map((opt) => (
-              <AppSelect.Item key={opt.value} value={opt.value}>
-                {opt.label}
-              </AppSelect.Item>
-            ))}
-          </AppSelect>
-
-          <AppSelect
-            label='Week'
-            value={weekDraft || undefined}
-            onValueChange={(v) => setWeekDraft(v === ALL_VALUE ? '' : v)}
-            placeholder={monthDraft ? 'All Weeks' : 'Select Month'}
-            triggerClassName='h-9 min-w-[140px]'
-            disabled={!monthDraft}
-          >
-            <AppSelect.Item value={ALL_VALUE}>All Weeks</AppSelect.Item>
-            {weekOptions.map((opt) => (
               <AppSelect.Item key={opt.value} value={opt.value}>
                 {opt.label}
               </AppSelect.Item>
@@ -392,7 +345,7 @@ export default function BoqTargetsPage() {
           >
             Filter
           </AppButton>
-          {(filtersDirty || search || siteId || month || week || searchDraft || siteIdDraft || monthDraft || weekDraft) && (
+          {(filtersDirty || search || siteId || month || searchDraft || siteIdDraft || monthDraft) && (
             <AppButton
               variant='secondary'
               size='sm'
@@ -424,7 +377,7 @@ export default function BoqTargetsPage() {
                     onDelete={() => handleDelete(row.id)}
                     itemLabel='BOQ Target'
                     title='Delete BOQ Target?'
-                    description={`This will permanently remove BOQ Target "${row.month || ''} ${row.week || ''}". This action cannot be undone.`}
+                    description={`This will permanently remove BOQ Target for "${row.month || ''}". This action cannot be undone.`}
                   />
                 )}
               </div>

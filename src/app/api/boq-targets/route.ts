@@ -38,8 +38,7 @@ const updateSchema = createSchema
       .array(
         z.object({
           boqItemId: z.coerce.number().int().positive(),
-          totalMonthQty: z.coerce.number().nonnegative().optional(),
-          dailyTargetQty: z.coerce.number().nonnegative().optional().nullable(),
+          totalMonthQty: z.coerce.number().nonnegative().optional().nullable(),
         })
       )
       .optional(),
@@ -53,6 +52,31 @@ const updateSchema = createSchema
     },
     { message: "fromTargetDate must be before or equal to toTargetDate", path: ["toTargetDate"] }
   );
+
+function inclusiveDays(from: Date, to: Date): number {
+  const fromUtc = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const toUtc = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  const ms = toUtc - fromUtc;
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
+  return Math.max(0, days);
+}
+
+function allocateProportional2dp(total: number, weights: number[], weightSum: number) {
+  if (weightSum === 0) return weights.map(() => 0);
+  const totalCents = Math.round(Number(total) * 100);
+  const raw = weights.map((w) => (totalCents * (w / weightSum)));
+  const base = raw.map((v) => Math.floor(v));
+  let remaining = totalCents - base.reduce((a, b) => a + b, 0);
+  const order = raw
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < order.length && remaining > 0; k++) {
+    base[order[k].i] += 1;
+    remaining -= 1;
+    if (k === order.length - 1) k = -1;
+  }
+  return base.map((c) => Number((c / 100).toFixed(2)));
+}
 
 // GET /api/boq-targets - List BOQ targets with pagination and search
 export async function GET(req: NextRequest) {
@@ -72,7 +96,6 @@ export async function GET(req: NextRequest) {
   type BoqTargetWhere = {
     OR?: {
       month?: { contains: string };
-      week?: { contains: string };
       site?: { site: { contains: string } };
       boq?: { boqNo: { contains: string } };
     }[];
@@ -80,11 +103,10 @@ export async function GET(req: NextRequest) {
     month?: string;
     week?: string;
   };
-  const where: BoqTargetWhere = {};
+  const where: BoqTargetWhere = { week: "1st Week" };
   if (search) {
     where.OR = [
       { month: { contains: search } },
-      { week: { contains: search } },
       { site: { site: { contains: search } } },
       { boq: { boqNo: { contains: search } } },
     ];
@@ -95,7 +117,6 @@ export async function GET(req: NextRequest) {
     return Error("Invalid siteId", 400);
   }
   if (monthParam) where.month = monthParam;
-  if (weekParam) where.week = weekParam;
 
   const sortableFields = new Set(["month", "week", "fromTargetDate", "toTargetDate", "createdAt"]);
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { createdAt: "desc" };
@@ -313,123 +334,61 @@ export async function PATCH(req: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await tx.boqTarget.update({
-        where: { id: parsed.id },
-        data: {
-          ...(parsed.siteId !== undefined ? { siteId: nextSiteId } : {}),
-          ...(parsed.boqId !== undefined ? { boqId: nextBoqId } : {}),
-          ...(parsed.month !== undefined ? { month: nextMonth } : {}),
-          ...(parsed.week !== undefined ? { week: nextWeek } : {}),
-          ...(parsed.fromTargetDate !== undefined ? { fromTargetDate: nextFrom } : {}),
-          ...(parsed.toTargetDate !== undefined ? { toTargetDate: nextTo } : {}),
-          updatedById: auth.user.id,
-        } as any,
-        select: { id: true },
+      // Find all 4 targets for this month
+      const allTargets = await tx.boqTarget.findMany({
+        where: { siteId: existing.siteId, boqId: existing.boqId, month: existing.month },
+        orderBy: { week: 'asc' },
+        select: { id: true, fromTargetDate: true, toTargetDate: true }
       });
 
-      const shouldRecalc = Boolean(parsed.recalculateMonth);
+      if (!allTargets.length) {
+        throw new globalThis.Error("No BOQ targets found for selected month");
+      }
+
       if (Array.isArray(parsed.details)) {
-        // Update this week's quantities first
-        const existingDetails = await tx.boqTargetDetail.findMany({
-          where: { boqTargetId: parsed.id },
-          select: { id: true, BoqItemId: true },
-        });
-        const byItemId = new Map<number, number>();
-        existingDetails.forEach((d) => byItemId.set(Number(d.BoqItemId), Number(d.id)));
+        const weekDays = allTargets.map(t => inclusiveDays(new Date(t.fromTargetDate), new Date(t.toTargetDate)));
+        const monthDays = weekDays.reduce((a, b) => a + b, 0);
 
-        for (const d of parsed.details || []) {
+        for (const d of parsed.details) {
           const boqItemId = Number(d.boqItemId);
-          const dailyTargetQty =
-            d.dailyTargetQty === null || d.dailyTargetQty === undefined
-              ? null
-              : (Number(d.dailyTargetQty) as any);
-          const totalMonthQty = (d as any).totalMonthQty;
+          const totalMonthQty = d.totalMonthQty === null || d.totalMonthQty === undefined ? null : Number(d.totalMonthQty);
+          
+          if (totalMonthQty !== null) {
+            const alloc = allocateProportional2dp(totalMonthQty, weekDays, monthDays);
 
-          const existingDetailId = byItemId.get(boqItemId);
-          if (existingDetailId) {
-            await tx.boqTargetDetail.update({
-              where: { id: existingDetailId },
-              data: {
-                dailyTargetQty,
-                ...(totalMonthQty !== undefined ? { totalMonthQty: Number(totalMonthQty) as any } : {}),
-              } as any,
-              select: { id: true },
-            });
-          } else {
-            // Only create if value provided; otherwise keep DB clean.
-            if (dailyTargetQty !== null) {
-              await tx.boqTargetDetail.create({
-                data: {
-                  boqTargetId: parsed.id,
-                  BoqItemId: boqItemId,
-                  totalMonthQty: Number(totalMonthQty ?? 0) as any,
-                  dailyTargetQty,
-                } as any,
-                select: { id: true },
+            for (let i = 0; i < allTargets.length; i++) {
+              const targetId = allTargets[i].id;
+              const dailyTargetQty = alloc[i];
+
+              const existingDetail = await tx.boqTargetDetail.findFirst({
+                where: { boqTargetId: targetId, BoqItemId: boqItemId },
+                select: { id: true }
               });
+
+              if (existingDetail) {
+                await tx.boqTargetDetail.update({
+                  where: { id: existingDetail.id },
+                  data: { dailyTargetQty, totalMonthQty } as any
+                });
+              } else {
+                await tx.boqTargetDetail.create({
+                  data: {
+                    boqTargetId: targetId,
+                    BoqItemId: boqItemId,
+                    dailyTargetQty,
+                    totalMonthQty
+                  } as any
+                });
+              }
             }
-          }
-        }
-
-        // Recalculate monthly total (sum of all week quantities) and persist to all 4 week records
-        if (shouldRecalc) {
-          const itemIds = Array.from(new Set((parsed.details || []).map((d) => Number(d.boqItemId)))).filter(
-            (v) => Number.isFinite(v) && v > 0
-          );
-
-          const monthTargets = await tx.boqTarget.findMany({
-            where: { siteId: nextSiteId, boqId: nextBoqId, month: nextMonth },
-            select: { id: true },
-          });
-          const monthTargetIds = monthTargets.map((t) => Number(t.id)).filter((v) => Number.isFinite(v) && v > 0);
-          if (!monthTargetIds.length) {
-            throw new globalThis.Error("No BOQ targets found for selected month");
-          }
-
-          const grouped = await tx.boqTargetDetail.groupBy({
-            by: ["BoqItemId"],
-            where: {
-              BoqItemId: { in: itemIds },
-              boqTargetId: { in: monthTargetIds },
-            },
-            _sum: { dailyTargetQty: true },
-          });
-
-          const sumByItemId = new Map<number, number>();
-          grouped.forEach((g) => {
-            const id = Number(g.BoqItemId);
-            const sum = g._sum?.dailyTargetQty == null ? 0 : Number(g._sum.dailyTargetQty as any);
-            sumByItemId.set(id, sum);
-          });
-
-          for (const itemId of itemIds) {
-            const total = sumByItemId.get(itemId) ?? 0;
-            await tx.boqTargetDetail.updateMany({
-              where: {
-                BoqItemId: itemId,
-                boqTargetId: { in: monthTargetIds },
-              },
-              data: { totalMonthQty: total as any },
-            });
           }
         }
       }
 
-      const updated = await tx.boqTarget.findUnique({
+      return tx.boqTarget.findUnique({
         where: { id: parsed.id },
-        select: {
-          id: true,
-          siteId: true,
-          boqId: true,
-          month: true,
-          week: true,
-          fromTargetDate: true,
-          toTargetDate: true,
-          createdAt: true,
-          updatedAt: true,
-        } as any,
+        select: { id: true }
       });
-      return updated;
     });
 
     return Success(result);
