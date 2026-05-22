@@ -955,6 +955,33 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const fullPOForAudit = await tx.purchaseOrder.findUnique({
+        where: { id: poId },
+        include: { 
+          purchaseOrderDetails: true,
+          poPaymentTerms: true,
+          poAdditionalCharge: true,
+        },
+      });
+
+      const currentUser = await tx.user.findUnique({
+        where: { id: auth.user.id },
+        select: { name: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          module: "PurchaseOrder",
+          revisionNo: fullPOForAudit?.revision || 1,
+          createdById: auth.user.id,
+          createdByName: currentUser?.name || "Unknown",
+          userId: auth.user.id.toString(),
+          recordId: poId.toString(),
+          action: "CREATED",
+          newData: fullPOForAudit as any,
+        },
+      });
+
       return poWithItems;
     });
 

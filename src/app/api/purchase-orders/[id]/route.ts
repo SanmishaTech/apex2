@@ -113,7 +113,7 @@ const updateSchema = z.object({
     )
     .optional(),
   statusAction: z
-    .enum(["approve1", "approve2", "complete", "suspend", "unsuspend"])
+    .enum(["approve1", "approve2", "complete", "suspend", "unsuspend", "removeApproval"])
     .optional(),
   amount: z.coerce.number().optional(),
   totalCgstAmount: z.coerce.number().optional(),
@@ -418,6 +418,15 @@ export async function PATCH(
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const oldPOForAudit = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { 
+          purchaseOrderDetails: true,
+          poPaymentTerms: true,
+          poAdditionalCharge: true,
+        },
+      });
+
       let autoApproved2 = false;
       // Update purchase order header
       const {
@@ -632,6 +641,174 @@ export async function PATCH(
             } else {
               updateData.approvalStatus = "DRAFT";
             }
+          } else if (statusAction === "removeApproval") {
+            if (!has(PERMISSIONS.REMOVE_PURCHASE_ORDERS_APPROVALS)) {
+              throw new Error(
+                "BAD_REQUEST: Missing permission to remove approvals"
+              );
+            }
+            if (current.approvalStatus === "DRAFT") {
+              throw new Error("BAD_REQUEST: Cannot remove approval from DRAFT");
+            }
+
+            updateData.approvalStatus = "DRAFT";
+            updateData.isApproved1 = false;
+            updateData.approved1ById = null;
+            updateData.approved1At = null;
+            updateData.isApproved2 = false;
+            updateData.approved2ById = null;
+            updateData.approved2At = null;
+            updateData.isComplete = false;
+            updateData.completedById = null;
+            updateData.completedAt = null;
+            updateData.isApproved2Printed = false;
+            updateData.purchaseOrderfilePath = null;
+
+            const currentPo = await tx.purchaseOrder.findUnique({
+              where: { id },
+              select: {
+                revision: true,
+                transitInsuranceStatus: true,
+                transitInsuranceAmount: true,
+                pfStatus: true,
+                pfCharges: true,
+                gstReverseStatus: true,
+                gstReverseAmount: true,
+              }
+            });
+            updateData.revision = (currentPo?.revision || 0) + 1;
+
+            const details = await tx.purchaseOrderDetail.findMany({
+              where: { purchaseOrderId: id }
+            });
+
+            let newPoAmount = 0;
+            let newTotalCgst = 0;
+            let newTotalSgst = 0;
+            let newTotalIgst = 0;
+
+            const poIndentLinks = await tx.purchaseOrderIndent.findMany({
+              where: { purchaseOrderId: id },
+              select: { indentId: true },
+            });
+            const linkedIndentIds = Array.from(
+              new Set(
+                (poIndentLinks || [])
+                  .map((x) => Number(x.indentId))
+                  .filter((n) => Number.isFinite(n) && n > 0)
+              )
+            );
+
+            for (const item of details) {
+              const qtyToUse = item.orderedQty ? Number(item.orderedQty) : Number(item.qty || 0);
+              const rate = Number(item.rate || 0);
+              const discountPercent = Number(item.discountPercent || 0);
+
+              const grossAmount = qtyToUse * rate;
+              const disAmt = (grossAmount * discountPercent) / 100;
+              const taxableAmount = grossAmount - disAmt;
+
+              const cgstAmt = (taxableAmount * Number(item.cgstPercent || 0)) / 100;
+              const sgstAmt = (taxableAmount * Number(item.sgstPercent || 0)) / 100;
+              const igstAmt = (taxableAmount * Number(item.igstPercent || 0)) / 100;
+
+              const finalAmount = taxableAmount + cgstAmt + sgstAmt + igstAmt;
+
+              await tx.purchaseOrderDetail.update({
+                where: { id: item.id },
+                data: {
+                  qty: qtyToUse,
+                  approved1Qty: null,
+                  approved2Qty: null,
+                  disAmt,
+                  cgstAmt,
+                  sgstAmt,
+                  igstAmt,
+                  amount: finalAmount,
+                }
+              });
+
+              newTotalCgst += cgstAmt;
+              newTotalSgst += sgstAmt;
+              newTotalIgst += igstAmt;
+              newPoAmount += finalAmount;
+
+              // Reconcile Indent allocations if this item was from an indent
+              const existingAllocations = await tx.indentItemPO.findMany({
+                where: { purchaseOrderDetailId: item.id }
+              });
+
+              if (existingAllocations.length > 0) {
+                await tx.indentItemPO.deleteMany({
+                  where: { purchaseOrderDetailId: item.id }
+                });
+
+                if (linkedIndentIds.length > 0 && qtyToUse > 0) {
+                  const candidates = await tx.indentItem.findMany({
+                    where: {
+                      indentId: { in: linkedIndentIds },
+                      itemId: item.itemId,
+                    },
+                    select: {
+                      id: true,
+                      approved2Qty: true,
+                      indent: { select: { indentDate: true, id: true } },
+                      indentItemPOs: { select: { orderedQty: true } },
+                    },
+                    orderBy: [
+                      { indent: { indentDate: "asc" } },
+                      { indentId: "asc" },
+                      { id: "asc" },
+                    ],
+                  });
+
+                  let need = qtyToUse;
+                  for (const c of candidates) {
+                    if (!(need > 0)) break;
+                    const cap = Number(c.approved2Qty || 0);
+                    const already = (c.indentItemPOs || []).reduce(
+                      (s, x) => s + Number(x.orderedQty || 0),
+                      0
+                    );
+                    const remaining = Math.max(0, cap - already);
+                    if (!(remaining > 0)) continue;
+
+                    const take = Math.min(remaining, need);
+                    await tx.indentItemPO.create({
+                      data: {
+                        indentItemId: c.id,
+                        purchaseOrderDetailId: item.id,
+                        orderedQty: take as any,
+                      },
+                    });
+                    need -= take;
+                  }
+                }
+              }
+            }
+
+            const extraCharges = await tx.poAdditionalCharge.findMany({
+              where: { purchaseOrderId: id }
+            });
+            const extraAmount = extraCharges.reduce((acc, curr) => acc + Number(curr.amountWithGst || 0), 0);
+
+            let overallAmount = newPoAmount + extraAmount;
+
+            if (currentPo?.transitInsuranceStatus === "EXCLUSIVE") {
+               overallAmount += Number(currentPo.transitInsuranceAmount || 0);
+            }
+            if (currentPo?.pfStatus === "EXCLUSIVE") {
+               overallAmount += Number(currentPo.pfCharges || 0);
+            }
+            if (currentPo?.gstReverseStatus === "EXCLUSIVE") {
+               overallAmount += Number(currentPo.gstReverseAmount || 0);
+            }
+
+            updateData.totalCgstAmount = newTotalCgst;
+            updateData.totalSgstAmount = newTotalSgst;
+            updateData.totalIgstAmount = newTotalIgst;
+            updateData.amount = overallAmount;
+            poData.amount = overallAmount;
           }
         }
 
@@ -711,13 +888,13 @@ export async function PATCH(
 
       // Update or create purchase order items
       if (purchaseOrderItems && purchaseOrderItems.length > 0) {
-        // Get existing item IDs to identify which ones to delete
+        // Get existing item IDs to identify which ones to delete and to fetch existing orderedQty
         const existingItems = await tx.purchaseOrderDetail.findMany({
           where: { purchaseOrderId: id },
-          select: { id: true },
+          select: { id: true, orderedQty: true },
         });
 
-        const existingItemIds = new Set(existingItems.map((item) => item.id));
+        const existingItemMap = new Map(existingItems.map((item) => [item.id, item]));
         const updatedItemIds = new Set<number>();
 
         // Process each item in the request
@@ -747,7 +924,15 @@ export async function PATCH(
             updatedAt: new Date(),
           };
 
-          if (item.id && existingItemIds.has(item.id)) {
+          if (item.id && existingItemMap.has(item.id)) {
+            // Protect orderedQty during approvals
+            if (statusAction === "approve1" || statusAction === "approve2" || statusAction === "complete") {
+              const originalOrderedQty = existingItemMap.get(item.id)?.orderedQty;
+              if (originalOrderedQty !== undefined && originalOrderedQty !== null) {
+                itemData.orderedQty = originalOrderedQty;
+              }
+            }
+
             // Update existing item
             await tx.purchaseOrderDetail.update({
               where: { id: item.id },
@@ -1147,6 +1332,39 @@ export async function PATCH(
         },
       });
 
+      const newPOForAudit = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { 
+          purchaseOrderDetails: true,
+          poPaymentTerms: true,
+          poAdditionalCharge: true,
+        },
+      });
+
+      const currentUser = await tx.user.findUnique({
+        where: { id: auth.user.id },
+        select: { name: true },
+      });
+
+      let auditAction = "UPDATED";
+      if (statusAction === "approve1") auditAction = "APPROVED_LEVEL_1";
+      else if (statusAction === "approve2") auditAction = "APPROVED_LEVEL_2";
+      else if (statusAction === "removeApproval") auditAction = "REVOKED_APPROVAL";
+
+      await tx.auditLog.create({
+        data: {
+          module: "PurchaseOrder",
+          revisionNo: newPOForAudit?.revision || 1,
+          createdById: auth.user.id,
+          createdByName: currentUser?.name || "Unknown",
+          userId: auth.user.id.toString(),
+          recordId: id.toString(),
+          action: auditAction as any,
+          oldData: oldPOForAudit as any,
+          newData: newPOForAudit as any,
+        },
+      });
+
       return updatedPO;
     });
 
@@ -1196,17 +1414,45 @@ export async function DELETE(
     }
 
     // Use a transaction to ensure data consistency
-    await prisma.$transaction([
+    await prisma.$transaction(async (tx) => {
+      const oldPOForAudit = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { 
+          purchaseOrderDetails: true,
+          poPaymentTerms: true,
+          poAdditionalCharge: true,
+        },
+      });
+
       // First delete all related purchase order details
-      prisma.purchaseOrderDetail.deleteMany({
+      await tx.purchaseOrderDetail.deleteMany({
         where: { purchaseOrderId: id },
-      }),
+      });
 
       // Then delete the purchase order
-      prisma.purchaseOrder.delete({
+      await tx.purchaseOrder.delete({
         where: { id },
-      }),
-    ]);
+      });
+
+      const currentUser = await tx.user.findUnique({
+        where: { id: auth.user.id },
+        select: { name: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          module: "PurchaseOrder",
+          revisionNo: oldPOForAudit?.revision || 1,
+          createdById: auth.user.id,
+          createdByName: currentUser?.name || "Unknown",
+          userId: auth.user.id.toString(),
+          recordId: id.toString(),
+          action: "DELETED",
+          oldData: oldPOForAudit as any,
+          newData: {},
+        },
+      });
+    });
 
     return Success({ success: true });
   } catch (error) {

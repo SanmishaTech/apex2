@@ -310,13 +310,14 @@ export default function PurchaseOrdersPage() {
     s?: string,
     isSuspended?: boolean,
     isCreator?: boolean,
-    isL1Approver?: boolean
+    isL1Approver?: boolean,
+    isComplete?: boolean
   ): Array<{
-    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
+    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend" | "removeApproval";
     label: string;
   }> {
     const baseActions: Array<{
-      key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend";
+      key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend" | "removeApproval";
       label: string;
     }> = [];
 
@@ -345,6 +346,9 @@ export default function PurchaseOrdersPage() {
         if (can(PERMISSIONS.EDIT_PURCHASE_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }
+        if (can(PERMISSIONS.REMOVE_PURCHASE_ORDERS_APPROVALS)) {
+          baseActions.push({ key: "removeApproval", label: "Remove Approval" });
+        }
         break;
 
       case "APPROVED_LEVEL_2":
@@ -353,6 +357,9 @@ export default function PurchaseOrdersPage() {
         }
         if (can(PERMISSIONS.SUSPEND_PURCHASE_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
+        }
+        if (can(PERMISSIONS.REMOVE_PURCHASE_ORDERS_APPROVALS) && !isComplete && !isSuspended) {
+          baseActions.push({ key: "removeApproval", label: "Remove Approval" });
         }
         break;
 
@@ -430,7 +437,7 @@ export default function PurchaseOrdersPage() {
 
   const openApproval = (
     id: number,
-    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend"
+    key: "approve1" | "approve2" | "complete" | "suspend" | "unsuspend" | "removeApproval"
   ) => {
     // Navigate to approval page for approve1 and approve2
     if (key === "approve1") {
@@ -923,13 +930,14 @@ export default function PurchaseOrdersPage() {
                           po.approvalStatus,
                           po.isSuspended,
                           po.createdById === user?.id,
-                          po.approved1ById === user?.id
+                          po.approved1ById === user?.id,
+                          po.isComplete
                         );
                         if (actions.length === 0) return null;
                         const hasIdc =
                           Number((po as any)?.inwardDeliveryChallanCount || 0) > 0;
                         const filtered = hasIdc
-                          ? actions.filter((a) => a.key !== "suspend")
+                          ? actions.filter((a) => a.key !== "suspend" && a.key !== "removeApproval")
                           : actions;
                         return filtered.map((a) => (
                           <DropdownMenuItem
@@ -991,6 +999,8 @@ export default function PurchaseOrdersPage() {
               {statusAction.action === "suspend" && "Suspend Purchase Order"}
               {statusAction.action === "unsuspend" &&
                 "Unsuspend Purchase Order"}
+              {statusAction.action === "removeApproval" &&
+                "Remove Approval"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1000,7 +1010,8 @@ export default function PurchaseOrdersPage() {
                 <strong>{statusAction.po?.purchaseOrderNo}</strong>?
               </p>
               {(statusAction.action === "suspend" ||
-                statusAction.action === "complete") && (
+                statusAction.action === "complete" ||
+                statusAction.action === "removeApproval") && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                   <p className="text-sm text-yellow-800 font-medium">
                     ⚠️ Warning: This action cannot be reverted.
@@ -1008,7 +1019,8 @@ export default function PurchaseOrdersPage() {
                 </div>
               )}
               {statusAction.action !== "suspend" &&
-                statusAction.action !== "complete" && (
+                statusAction.action !== "complete" && 
+                statusAction.action !== "removeApproval" && (
                   <Textarea
                     placeholder="Remarks (optional)"
                     value={remarks}
@@ -1031,6 +1043,7 @@ export default function PurchaseOrdersPage() {
               {statusAction.action === "complete" && "Mark as Complete"}
               {statusAction.action === "suspend" && "Suspend"}
               {statusAction.action === "unsuspend" && "Unsuspend"}
+              {statusAction.action === "removeApproval" && "Remove Approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
