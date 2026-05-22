@@ -27,6 +27,9 @@ import { apiGet } from "@/lib/api-client";
 import { formatDateForInput } from "@/lib/locales";
 import { Plus, Trash2, File, X, Eye } from "lucide-react";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/config/roles";
+import { useMemo } from "react";
 import type { SitesResponse } from "@/types/sites";
 import type {
   CreateCashbookRequest,
@@ -109,8 +112,62 @@ const cashbookDetailSchema = z.object({
   documentUrl: z.string().optional(),
 });
 
-const createInputSchema = z.object({
-  voucherDate: z.string().min(1, "Voucher date is required"),
+const getCreateInputSchema = (allowBackDated: boolean) => z.object({
+  voucherDate: z.string().min(1, "Voucher date is required").superRefine((val, ctx) => {
+    const selectedDate = new Date(val);
+    const today = new Date();
+    
+    // Reset times to start of day for accurate date comparison
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    // Rule 1: Cannot select future dates
+    if (selectedDate > today) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cannot select future dates",
+      });
+      return;
+    }
+
+    if (allowBackDated) return;
+
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    const selectedMonth = selectedDate.getMonth();
+    const selectedYear = selectedDate.getFullYear();
+
+    // Rule 3: If current date is between 1 to 5, can select last month date
+    if (currentDay >= 1 && currentDay <= 5) {
+      let lastMonth = currentMonth - 1;
+      let lastMonthYear = currentYear;
+      if (lastMonth < 0) {
+        lastMonth = 11;
+        lastMonthYear--;
+      }
+      
+      const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
+      const isLastMonth = selectedYear === lastMonthYear && selectedMonth === lastMonth;
+      
+      if (!isCurrentMonth && !isLastMonth) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Can only select dates from current or last month",
+        });
+      }
+      return;
+    }
+    
+    // Rule 2: Only current month dates
+    if (selectedYear !== currentYear || selectedMonth !== currentMonth) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Can only select dates from current month",
+      });
+    }
+  }),
   siteId: z.preprocess(
     (v) => String(v ?? ""),
     z
@@ -181,10 +238,14 @@ export function CashbookForm({
     {}
   );
   const { backWithScrollRestore } = useScrollRestoration("cashbooks-list");
+  const { can } = usePermissions();
+  const allowBackDated = can(PERMISSIONS.ALLOW_BACK_DATED_ENTRIES_CASHBOOK);
+
+  const formSchema = useMemo(() => getCreateInputSchema(allowBackDated), [allowBackDated]);
 
   // Form setup
   const form = useForm<FormData>({
-    resolver: zodResolver(createInputSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       voucherDate: initial?.voucherDate
         ? formatDateForInput(initial.voucherDate)
@@ -668,7 +729,7 @@ export function CashbookForm({
     setIsSubmitting(true);
     try {
       // Validate and transform using Zod schema
-      const transformedData = createInputSchema.parse(values);
+      const transformedData = formSchema.parse(values);
 
       const payload: CreateCashbookRequest = {
         voucherDate: transformedData.voucherDate,
@@ -1110,6 +1171,30 @@ export function CashbookForm({
     </div>
   );
 
+  const todayDate = new Date();
+  const currentDayStr = todayDate.getDate();
+  const currentMonthStr = todayDate.getMonth();
+  const currentYearStr = todayDate.getFullYear();
+  
+  // Format YYYY-MM-DD avoiding timezone offset issues
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const maxDateStr = `${currentYearStr}-${pad(currentMonthStr + 1)}-${pad(currentDayStr)}`;
+  
+  let minDateStr: string | undefined;
+  
+  if (!allowBackDated) {
+    let minMonthStr = currentMonthStr;
+    let minYearStr = currentYearStr;
+    if (currentDayStr >= 1 && currentDayStr <= 5) {
+      minMonthStr -= 1;
+      if (minMonthStr < 0) {
+        minMonthStr = 11;
+        minYearStr -= 1;
+      }
+    }
+    minDateStr = `${minYearStr}-${pad(minMonthStr + 1)}-01`;
+  }
+
   return (
     <AppCard>
       <AppCard.Header>
@@ -1148,7 +1233,7 @@ export function CashbookForm({
                     <FormItem>
                       <FormLabel>Voucher Date *</FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" disabled={mode === "edit"} />
+                        <Input {...field} type="date" min={minDateStr} max={maxDateStr} disabled={mode === "edit"} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
