@@ -133,7 +133,8 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   subContractorInvoicesCreated SubContractorInvoice[] @relation("SubContractorInvoiceCreated")
   subContractorInvoicesUpdated SubContractorInvoice[] @relation("SubContractorInvoiceUpdated")
   subContractorInvoicesAuthorized SubContractorInvoice[] @relation("SubContractorInvoiceAuthorized")
-  
+  auditLogsCreated AuditLog[] @relation("AuditLogCreated")
+
 
   @@map("users")
 }
@@ -3605,3 +3606,38 @@ model SubContractorInvoiceDetailLog {
   @@map("subcontractor_invoice_detail_logs")
 }
 
+
+
+enum moduleName {
+  PurchaseOrder
+}
+
+enum actionType {
+  CREATED
+  UPDATED
+  DELETED
+  APPROVED_LEVEL_1
+  APPROVED_LEVEL_2
+  REVOKED_APPROVAL
+}
+
+model AuditLog {
+  id            Int        @id @default(autoincrement())
+  // Fields from original ActivityLog
+  module        moduleName
+  revisionNo    Int        @default(1)
+  createdById   Int
+  createdByName String
+  createdBy     User       @relation("AuditLogCreated", fields: [createdById], references: [id], onDelete: Restrict)
+
+  // Fields from @explita/prisma-audit-log
+  userId    String
+  recordId  String
+  action    actionType
+  oldData   Json?
+  newData   Json
+  createdAt DateTime   @default(now())
+
+  @@index([module, recordId])
+  @@map("audit_logs")
+}
