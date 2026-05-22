@@ -83,6 +83,9 @@ export default function EditSitePage() {
         deliveryAddresses: site.siteDeliveryAddresses
           ? site.siteDeliveryAddresses.map((a) => ({
               id: a.id,
+              contactPersonName: a.contactPersonName ?? "",
+              contactPersonEmail: a.contactPersonEmail ?? "",
+              contactPersonMobile: a.contactPersonMobile ?? "",
               addressLine1: a.addressLine1 ?? "",
               addressLine2: a.addressLine2 ?? "",
               stateId: a.stateId ?? null,

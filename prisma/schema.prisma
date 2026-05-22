@@ -1798,6 +1798,9 @@ model SiteContactPerson {
 model SiteDeliveryAddress {
   id           Int      @id @default(autoincrement())
   siteId       Int     
+  contactPersonName String?
+  contactPersonEmail String?
+  contactPersonMobile String?
   addressLine1 String?
   addressLine2 String?
   stateId      Int?

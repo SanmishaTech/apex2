@@ -52,6 +52,9 @@ const createSchema = z.object({
   deliveryAddresses: z
     .array(
       z.object({
+        contactPersonName: z.string().optional().nullable(),
+        contactPersonEmail: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+        contactPersonMobile: z.string().regex(/^\d{10}$/, "Contact number must be exactly 10 digits").optional().nullable().or(z.literal("")),
         addressLine1: z.string().optional().nullable(),
         addressLine2: z.string().optional().nullable(),
         stateId: z.number().optional().nullable(),
@@ -430,6 +433,9 @@ export async function POST(req: NextRequest) {
 
       // Handle delivery addresses (sent as JSON string in multipart form)
       let deliveryAddressesData: Array<{
+        contactPersonName?: string | null;
+        contactPersonEmail?: string | null;
+        contactPersonMobile?: string | null;
         addressLine1?: string | null;
         addressLine2?: string | null;
         stateId?: number | null;
@@ -594,6 +600,9 @@ export async function POST(req: NextRequest) {
         await prisma.siteDeliveryAddress.createMany({
           data: validatedData.deliveryAddresses.map((addr) => ({
             siteId: site.id,
+            contactPersonName: addr.contactPersonName || null,
+            contactPersonEmail: addr.contactPersonEmail || null,
+            contactPersonMobile: addr.contactPersonMobile || null,
             addressLine1: addr.addressLine1 || null,
             addressLine2: addr.addressLine2 || null,
             stateId: addr.stateId ?? null,
