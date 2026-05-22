@@ -62,13 +62,19 @@ export async function DELETE(
   if (isNaN(id)) return Error('Invalid ID', 400);
 
   try {
-    // Check if BOQ target exists
     const existing = await prisma.boqTarget.findUnique({ where: { id } });
     if (!existing) return Error('BOQ Target not found', 404);
 
     await prisma.$transaction(async (tx) => {
-      await tx.boqTargetDetail.deleteMany({ where: { boqTargetId: id } });
-      await tx.boqTarget.delete({ where: { id } });
+      // Find all 4 targets for this month
+      const monthTargets = await tx.boqTarget.findMany({
+        where: { siteId: existing.siteId, boqId: existing.boqId, month: existing.month },
+        select: { id: true }
+      });
+      const ids = monthTargets.map(t => t.id);
+
+      await tx.boqTargetDetail.deleteMany({ where: { boqTargetId: { in: ids } } });
+      await tx.boqTarget.deleteMany({ where: { id: { in: ids } } });
     });
     return Success({ message: 'BOQ Target deleted successfully' });
   } catch (err) {
