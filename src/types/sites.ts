@@ -57,6 +57,9 @@ export interface Site {
   siteDeliveryAddresses?: Array<{
     id: number;
     siteId: number;
+    contactPersonName?: string | null;
+    contactPersonEmail?: string | null;
+    contactPersonMobile?: string | null;
     addressLine1?: string | null;
     addressLine2?: string | null;
     stateId?: number | null;

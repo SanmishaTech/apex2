@@ -336,6 +336,9 @@ export async function GET(
       },
       siteDeliveryAddress: {
         select: {
+          contactPersonName: true,
+          contactPersonEmail: true,
+          contactPersonMobile: true,
           addressLine1: true,
           addressLine2: true,
           pinCode: true,
@@ -518,20 +521,19 @@ export async function GET(
   ];
 
   const deliver = purchaseOrder.siteDeliveryAddress;
-  const firstSiteContact = (purchaseOrder.site as any)?.siteContactPersons?.[0];
   const deliverLines = [
     { text: "Delivery/Shipping Address :", bold: true },
     { text: safeText(deliver?.addressLine1) },
     { text: safeText(deliver?.addressLine2) },
     { text: safeText(deliver?.state?.state) },
     {
-      text: `Contact Person : ${safeText(firstSiteContact?.name)}`,
+      text: `Contact Person : ${safeText(deliver?.contactPersonName)}`,
     },
     {
-      text: `Contact No : ${safeText(firstSiteContact?.contactNo)}`,
+      text: `Contact No : ${safeText(deliver?.contactPersonMobile)}`,
     },
     {
-      text: `Email Id : ${safeText(firstSiteContact?.email)}`,
+      text: `Email Id : ${safeText(deliver?.contactPersonEmail)}`,
     },
   ];
 

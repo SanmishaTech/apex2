@@ -69,6 +69,9 @@ export interface SiteFormInitialData {
   siteContactPersons?: SiteContactPerson[];
   deliveryAddresses?: Array<{
     id?: number;
+    contactPersonName?: string;
+    contactPersonEmail?: string;
+    contactPersonMobile?: string;
     addressLine1?: string;
     addressLine2?: string;
     stateId?: number | null;
@@ -185,6 +188,9 @@ export function SiteForm({
       .array(
         z.object({
           id: z.union([z.number(), z.string()]).optional(),
+          contactPersonName: z.string().optional().nullable(),
+          contactPersonEmail: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+          contactPersonMobile: z.string().regex(/^\d{10}$/, "Contact number must be exactly 10 digits").optional().nullable().or(z.literal("")),
           addressLine1: z.string().optional().nullable(),
           addressLine2: z.string().optional().nullable(),
           stateId: z.number().optional().nullable(),
@@ -311,6 +317,9 @@ export function SiteForm({
       ? initial.deliveryAddresses
       : [
           {
+            contactPersonName: "",
+            contactPersonEmail: "",
+            contactPersonMobile: "",
             addressLine1: initial?.addressLine1 || "",
             addressLine2: initial?.addressLine2 || "",
             stateId: initial?.stateId ?? null,
@@ -1031,6 +1040,28 @@ export function SiteForm({
                         Delivery Address {idx + 1}
                       </div>
 
+                      <FormRow cols={3}>
+                        <TextInput
+                          control={control}
+                          name={`deliveryAddresses.${idx}.contactPersonName`}
+                          label="Contact Person Name"
+                          placeholder="Enter contact person name"
+                        />
+                        <TextInput
+                          control={control}
+                          name={`deliveryAddresses.${idx}.contactPersonEmail`}
+                          label="Email"
+                          placeholder="Enter email"
+                          type="email"
+                        />
+                        <TextInput
+                          control={control}
+                          name={`deliveryAddresses.${idx}.contactPersonMobile`}
+                          label="Mobile No"
+                          placeholder="Enter mobile number"
+                        />
+                      </FormRow>
+
                       <FormRow cols={1}>
                         <TextInput
                           control={control}
@@ -1112,6 +1143,9 @@ export function SiteForm({
                     onClick={() =>
                       appendAddress({
                         id: undefined,
+                        contactPersonName: "",
+                        contactPersonEmail: "",
+                        contactPersonMobile: "",
                         addressLine1: "",
                         addressLine2: "",
                         stateId: null,

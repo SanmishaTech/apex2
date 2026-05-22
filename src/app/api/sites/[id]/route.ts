@@ -35,6 +35,9 @@ const updateSchema = z.object({
     .array(
       z.object({
         id: z.number().optional(),
+        contactPersonName: z.string().optional().nullable(),
+        contactPersonEmail: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+        contactPersonMobile: z.string().regex(/^\d{10}$/, "Contact number must be exactly 10 digits").optional().nullable().or(z.literal("")),
         addressLine1: z.string().optional().nullable(),
         addressLine2: z.string().optional().nullable(),
         stateId: z.number().optional().nullable(),
@@ -364,6 +367,9 @@ export async function PATCH(
     const deliveryAddressesSchema = z.array(
       z.object({
         id: z.number().optional(),
+        contactPersonName: z.string().optional().nullable(),
+        contactPersonEmail: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+        contactPersonMobile: z.string().regex(/^\d{10}$/, "Contact number must be exactly 10 digits").optional().nullable().or(z.literal("")),
         addressLine1: z.string().optional().nullable(),
         addressLine2: z.string().optional().nullable(),
         stateId: z.number().optional().nullable(),
@@ -526,6 +532,9 @@ export async function PATCH(
             const updateResult = await tx.siteDeliveryAddress.updateMany({
               where: { id: addr.id, siteId: id },
               data: {
+                contactPersonName: addr.contactPersonName || null,
+                contactPersonEmail: addr.contactPersonEmail || null,
+                contactPersonMobile: addr.contactPersonMobile || null,
                 addressLine1: addr.addressLine1 || null,
                 addressLine2: addr.addressLine2 || null,
                 stateId: addr.stateId ?? null,
@@ -537,6 +546,9 @@ export async function PATCH(
               await tx.siteDeliveryAddress.create({
                 data: {
                   siteId: id,
+                  contactPersonName: addr.contactPersonName || null,
+                  contactPersonEmail: addr.contactPersonEmail || null,
+                  contactPersonMobile: addr.contactPersonMobile || null,
                   addressLine1: addr.addressLine1 || null,
                   addressLine2: addr.addressLine2 || null,
                   stateId: addr.stateId ?? null,
@@ -549,6 +561,9 @@ export async function PATCH(
             await tx.siteDeliveryAddress.create({
               data: {
                 siteId: id,
+                contactPersonName: addr.contactPersonName || null,
+                contactPersonEmail: addr.contactPersonEmail || null,
+                contactPersonMobile: addr.contactPersonMobile || null,
                 addressLine1: addr.addressLine1 || null,
                 addressLine2: addr.addressLine2 || null,
                 stateId: addr.stateId ?? null,
