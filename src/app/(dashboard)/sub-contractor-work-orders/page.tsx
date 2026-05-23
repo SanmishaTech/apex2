@@ -255,8 +255,7 @@ export default function SubContractorWorkOrdersPage() {
                 <Printer className="mr-2 h-4 w-4" /> Print
               </DropdownMenuItem>
             )}
-            {/* Show Edit only until approved level 1 is done */}
-            {row.status !== "APPROVED_LEVEL_1" && row.status !== "APPROVED_LEVEL_2" && (
+            {(!row.status || row.status === "DRAFT") && !row.isSuspended && !row.isCompleted && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}`)}>
                 <FileText className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
@@ -285,7 +284,7 @@ export default function SubContractorWorkOrdersPage() {
                 <FileText className="mr-2 h-4 w-4" /> Approve 1
               </DropdownMenuItem>
             )}
-            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2) && row.status === "APPROVED_LEVEL_1" && row.createdById !== user?.id && row.approved1ById !== user?.id && (
+            {can(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2) && (!row.status || row.status === "DRAFT" || row.status === "HOLD" || row.status === "APPROVED_LEVEL_1") && row.createdById !== user?.id && (row.status === "DRAFT" || row.status === "HOLD" || !row.status || row.approved1ById !== user?.id) && (
               <DropdownMenuItem onClick={() => pushWithScrollSave(`/sub-contractor-work-orders/${row.id}/approve2`)}>
                 <FileText className="mr-2 h-4 w-4" /> Approve 2
               </DropdownMenuItem>

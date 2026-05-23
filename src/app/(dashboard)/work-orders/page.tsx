@@ -242,6 +242,9 @@ export default function WorkOrdersPage() {
         if (can(PERMISSIONS.APPROVE_WORK_ORDERS_L1) && !isCreator) {
           baseActions.push({ key: "approve1", label: "Approve 1" });
         }
+        if (can(PERMISSIONS.APPROVE_WORK_ORDERS_L2) && !isCreator) {
+          baseActions.push({ key: "approve2", label: "Approve 2" });
+        }
         if (can(PERMISSIONS.SUSPEND_WORK_ORDERS)) {
           baseActions.push({ key: "suspend", label: "Suspend" });
         }
@@ -658,11 +661,13 @@ export default function WorkOrdersPage() {
                       >
                         View
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => pushWithScrollSave(`/work-orders/${po.id}/edit`)}
-                      >
-                        Edit
-                      </DropdownMenuItem>
+                      {(!po.approvalStatus || po.approvalStatus === "DRAFT") && !po.isSuspended && !po.isComplete && (
+                        <DropdownMenuItem
+                          onClick={() => pushWithScrollSave(`/work-orders/${po.id}/edit`)}
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                      )}
                       {getAvailableActions(
                         po.approvalStatus,
                         po.isSuspended,

@@ -10,7 +10,7 @@ import { AppCard } from '@/components/common/app-card';
 
 export default function EditAssetCategoryPage() {
   useProtectPage();
-  
+
   const params = useParams<{ id?: string | string[] }>();
   const id = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const [initial, setInitial] = useState<AssetCategoryFormInitialData | null>(null);
@@ -18,7 +18,7 @@ export default function EditAssetCategoryPage() {
 
   useEffect(() => {
     if (!id) return;
-    
+
     async function fetchAssetCategory() {
       try {
         const data = await apiGet(`/api/asset-categories/${id}`) as {
