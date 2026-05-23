@@ -179,12 +179,6 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
         `${r.firstName}${r.middleName ? " " + r.middleName : ""} ${r.lastName}`,
     },
     {
-      key: "aadharNo",
-      header: "Aadhar Card",
-      sortable: false,
-      accessor: (r) => r.aadharNo || "N/A",
-    },
-    {
       key: "present",
       header: "Present",
       sortable: false,

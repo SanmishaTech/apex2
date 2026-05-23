@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import {
   Form,
@@ -77,7 +77,7 @@ const indentItemSchema = z.object({
   ),
 });
 
-const createInputSchema = z.object({
+const getCreateInputSchema = (budgetMap: Record<string, { total: number, remaining: number }>) => z.object({
   indentDate: z.string().min(1, "Indent date is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
@@ -95,7 +95,20 @@ const createInputSchema = z.object({
   ),
   remarks: z.string().optional(),
   indentItems: z
-    .array(indentItemSchema)
+    .array(
+      indentItemSchema.superRefine((val, ctx) => {
+        const budget = budgetMap[String(val.itemId)];
+        if (budget) {
+          if (val.indentQty > budget.remaining) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Max allowed is ${budget.remaining}`,
+              path: ["indentQty"],
+            });
+          }
+        }
+      })
+    )
     .min(1, "At least one item is required"),
 });
 
@@ -123,9 +136,14 @@ export function IndentForm({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const budgetMapRef = useRef<Record<string, { total: number; remaining: number }>>({});
+
   // Form setup
   const form = useForm<FormData>({
-    resolver: zodResolver(createInputSchema) as any, // Type assertion to handle the generic type issue
+    resolver: async (data, context, options) => {
+      const schema = getCreateInputSchema(budgetMapRef.current);
+      return zodResolver(schema)(data, context, options);
+    },
     defaultValues: {
       indentDate: initial?.indentDate
         ? formatDateForInput(initial.indentDate)
@@ -165,15 +183,36 @@ export function IndentForm({
     name: "indentItems",
   });
 
+  const watchedSiteId = useWatch({
+    control: form.control,
+    name: "siteId",
+  });
+
   // Fetch sites, items, and units for dropdowns
   const { data: sitesData } = useSWR<SitesResponse>(
     "/api/sites?perPage=100",
     apiGet
   );
+  
   const { data: itemsData } = useSWR<ItemsResponse>(
-    "/api/items?perPage=5000",
+    watchedSiteId && watchedSiteId !== "__none" 
+      ? `/api/items?perPage=5000&siteId=${watchedSiteId}&onlyBudgetItems=true` 
+      : null,
     apiGet
   );
+
+  const { data: budgetResponse } = useSWR<Record<string, {total: number, remaining: number}>>(
+    watchedSiteId && watchedSiteId !== "__none"
+      ? `/api/indents/budget-availability?siteId=${watchedSiteId}${initial?.id ? `&excludeIndentId=${initial.id}` : ""}`
+      : null,
+    apiGet
+  );
+
+  const budgetMap = budgetResponse || {};
+
+  useEffect(() => {
+    budgetMapRef.current = budgetMap;
+  }, [budgetMap]);
 
   const siteOptions = (sitesData?.data || [])
     .filter((s) => s.id && s.site)
@@ -252,7 +291,8 @@ export function IndentForm({
     try {
       // Validate and transform using Zod schema
 
-      const transformedData = createInputSchema.parse(values);
+      const schema = getCreateInputSchema(budgetMapRef.current);
+      const transformedData = schema.parse(values);
 
       // Ensure dates are in YYYY-MM-DD format for the API
       const formatDateForApi = (dateString: string) => {
@@ -405,6 +445,20 @@ export function IndentForm({
                       </FormControl>
                       <div className="min-h-5">
                         <FormMessage className="text-xs" />
+                        {(() => {
+                          const itemId = watchedIndentItems?.[index]?.itemId;
+                          if (itemId && itemId !== "__none") {
+                            const budget = budgetMap[String(itemId)];
+                            if (budget) {
+                              return (
+                                <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
+                                  Total: {budget.total} | Remaining: {budget.remaining}
+                                </p>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                       </div>
                     </FormItem>
                   )}

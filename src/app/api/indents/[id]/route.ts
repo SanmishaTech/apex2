@@ -142,6 +142,8 @@ export async function GET(
   }
 }
 
+import { validateBudgetQuantities } from "@/lib/budget-validation";
+
 // PATCH /api/indents/[id] - Update indent
 export async function PATCH(
   req: NextRequest,
@@ -159,6 +161,18 @@ export async function PATCH(
 
     if (Object.keys(updateData).length === 0) {
       return BadRequest("No valid fields to update");
+    }
+
+    const existingIndent = await prisma.indent.findUnique({
+      where: { id },
+      select: { siteId: true },
+    });
+    if (!existingIndent) return NotFound("Indent not found");
+
+    const siteId = updateData.siteId ?? existingIndent.siteId;
+
+    if (updateData.indentItems && updateData.indentItems.length > 0) {
+      await validateBudgetQuantities(siteId, updateData.indentItems as any, id);
     }
 
     const result = await prisma.$transaction(async (tx) => {

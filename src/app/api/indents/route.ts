@@ -37,6 +37,8 @@ const createSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
+import { validateBudgetQuantities } from "@/lib/budget-validation";
+
 // Auto-generate indent number
 async function generateIndentNo(): Promise<string> {
   const count = await prisma.indent.count();
@@ -210,6 +212,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsedData = createSchema.parse(body);
 
+    // Validate quantities against budget
+    await validateBudgetQuantities(parsedData.siteId, parsedData.indentItems);
+
     // Generate auto-increment indent number
     const indentNo = await generateIndentNo();
 
@@ -313,6 +318,12 @@ export async function POST(req: NextRequest) {
     }
     if (error.code === "P2002") {
       return ApiError("Indent number already exists", 409);
+    }
+    if (
+      typeof error?.message === "string" &&
+      error.message.startsWith("BAD_REQUEST:")
+    ) {
+      return BadRequest(error.message.replace("BAD_REQUEST: ", ""));
     }
     console.error("Create indent error:", error);
     return ApiError("Failed to create indent");

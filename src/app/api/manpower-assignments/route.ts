@@ -133,7 +133,6 @@ export async function GET(req: NextRequest) {
         supplierId: true,
         manpowerSupplier: { select: { id: true, supplierName: true } },
         mobileNumber: true,
-        aadharNo: true,
         isAssigned: true,
         siteManpower: {
           where: mode === 'assigned' && siteId ? { siteId } : undefined,
