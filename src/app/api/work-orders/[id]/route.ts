@@ -307,6 +307,32 @@ export async function PATCH(
         throw new Error("BAD_REQUEST: Missing permission to edit work orders");
       }
 
+      const currentWO: any = await tx.workOrder.findUnique({
+        where: { id },
+        select: {
+          approvalStatus: true,
+          isApproved1: true,
+          isApproved2: true,
+          isComplete: true,
+          createdById: true,
+          approved1ById: true,
+        } as any,
+      });
+
+      if (!currentWO) {
+        throw new Error("NOT_FOUND: Work order not found");
+      }
+
+      const isNormalUpdate = !statusAction && (
+        Object.keys(woData).some(k => k !== 'remarks' && k !== 'billStatus') ||
+        (workOrderItems !== undefined) ||
+        (nextPaymentTermIds !== undefined)
+      );
+
+      if (isNormalUpdate && currentWO.approvalStatus && currentWO.approvalStatus !== "DRAFT") {
+        throw new Error("BAD_REQUEST: Cannot edit work order once approval 1, complete, or suspend is done");
+      }
+
       // Update basic fields if provided
       if (Object.keys(woData).length > 0 || statusAction) {
         const updateData: any = { ...woData };
@@ -339,31 +365,15 @@ export async function PATCH(
             }
           }
 
-          const current: any = await tx.workOrder.findUnique({
-            where: { id },
-            select: {
-              approvalStatus: true,
-              isApproved1: true,
-              isApproved2: true,
-              isComplete: true,
-              createdById: true,
-              approved1ById: true,
-            } as any,
-          });
-
-          if (!current) {
-            throw new Error("NOT_FOUND: Work order not found");
-          }
-
           const now = new Date();
 
           if (statusAction === "approve1") {
-            if (current.approvalStatus !== "DRAFT") {
+            if (currentWO.approvalStatus !== "DRAFT") {
               throw new Error(
                 "BAD_REQUEST: Only DRAFT can be approved (level 1)"
               );
             }
-            if (current.createdById === auth.user.id) {
+            if (currentWO.createdById === auth.user.id) {
               throw new Error("BAD_REQUEST: Creator cannot approve level 1");
             }
             updateData.approvalStatus = "APPROVED_LEVEL_1";
@@ -371,25 +381,32 @@ export async function PATCH(
             updateData.approved1ById = auth.user.id;
             updateData.approved1At = now;
           } else if (statusAction === "approve2") {
-            if (current.approvalStatus !== "APPROVED_LEVEL_1") {
+            if (currentWO.approvalStatus !== "APPROVED_LEVEL_1" && currentWO.approvalStatus !== "DRAFT") {
               throw new Error(
-                "BAD_REQUEST: Only level 1 approved can be approved (level 2)"
+                "BAD_REQUEST: Only DRAFT or level 1 approved can be approved (level 2)"
               );
             }
-            if (current.createdById === auth.user.id) {
+            if (currentWO.createdById === auth.user.id) {
               throw new Error("BAD_REQUEST: Creator cannot approve level 2");
             }
-            if (current.approved1ById === auth.user.id) {
+            if (currentWO.approved1ById === auth.user.id) {
               throw new Error(
                 "BAD_REQUEST: Level 1 approver cannot approve level 2"
               );
             }
+
+            if (!currentWO.isApproved1) {
+              updateData.isApproved1 = true;
+              updateData.approved1ById = auth.user.id;
+              updateData.approved1At = now;
+            }
+
             updateData.approvalStatus = "APPROVED_LEVEL_2";
             updateData.isApproved2 = true;
             updateData.approved2ById = auth.user.id;
             updateData.approved2At = now;
           } else if (statusAction === "complete") {
-            if (current.approvalStatus !== "APPROVED_LEVEL_2") {
+            if (currentWO.approvalStatus !== "APPROVED_LEVEL_2") {
               throw new Error(
                 "BAD_REQUEST: Only level 2 approved can be completed"
               );
@@ -399,7 +416,7 @@ export async function PATCH(
             updateData.completedAt = now;
             updateData.isComplete = true;
           } else if (statusAction === "suspend") {
-            if (current.approvalStatus === "COMPLETED") {
+            if (currentWO.approvalStatus === "COMPLETED") {
               throw new Error(
                 "BAD_REQUEST: Completed work order cannot be suspended"
               );
@@ -411,11 +428,11 @@ export async function PATCH(
           } else if (statusAction === "unsuspend") {
             updateData.isSuspended = false;
             // Restore the correct approval status based on approval flags
-            if (current.isComplete) {
+            if (currentWO.isComplete) {
               updateData.approvalStatus = "COMPLETED";
-            } else if (current.isApproved2) {
+            } else if (currentWO.isApproved2) {
               updateData.approvalStatus = "APPROVED_LEVEL_2";
-            } else if (current.isApproved1) {
+            } else if (currentWO.isApproved1) {
               updateData.approvalStatus = "APPROVED_LEVEL_1";
             } else {
               updateData.approvalStatus = "DRAFT";
@@ -478,7 +495,7 @@ export async function PATCH(
             remark: item.remark || null,
             qty: item.qty,
             orderedQty: item.orderedQty ?? null,
-            approved1Qty: item.approved1Qty ?? null,
+            approved1Qty: (statusAction === "approve2" && !currentWO.isApproved1) ? (item.approved2Qty ?? null) : (item.approved1Qty ?? null),
             approved2Qty: item.approved2Qty ?? null,
             rate: item.rate,
             cgstPercent: item.cgstPercent || 0,

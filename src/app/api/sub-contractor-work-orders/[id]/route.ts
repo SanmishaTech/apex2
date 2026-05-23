@@ -143,9 +143,18 @@ export async function PATCH(
         } else if (statusAction === "approve2") {
           if (!permSet.has(PERMISSIONS.APPROVE_SUB_CONTRACTOR_WORK_ORDERS_L2)) throw new Error("No L2 permission");
           if (isCreator) throw new Error("Creator cannot approve the work order");
-          if (!current.isApproved1) throw new Error("Work order must be approved at level 1 before level 2");
+          if (current.status !== "APPROVED_LEVEL_1" && current.status !== "DRAFT" && current.status !== "HOLD" && current.status !== null) {
+            throw new Error("Work order must be DRAFT, HOLD, or APPROVED_LEVEL_1 to approve level 2");
+          }
           if (current.approved1ById === auth.user.id) throw new Error("User who performed approve1 cannot perform approve2");
           if (current.isApproved2) throw new Error("Work order already approved at level 2");
+
+          if (!current.isApproved1) {
+            dataToUpdate.isApproved1 = true;
+            dataToUpdate.approved1ById = auth.user.id;
+            dataToUpdate.approved1At = now;
+          }
+
           dataToUpdate.status = "APPROVED_LEVEL_2";
           dataToUpdate.isApproved2 = true;
           dataToUpdate.approved2ById = auth.user.id;
@@ -181,9 +190,14 @@ export async function PATCH(
       }
 
       // If this is a normal update (not a statusAction) and approval level 1 is already done, block edits
-      const isNormalUpdate = !statusAction;
-      if (isNormalUpdate && current.isApproved1) {
-        throw new Error("Cannot edit work order after approval level 1");
+      const isNormalUpdate = !statusAction && (
+        Object.keys(baseData).length > 0 ||
+        (workOrderItems !== undefined) ||
+        (paymentTermIds !== undefined)
+      );
+
+      if (isNormalUpdate && current.status && current.status !== "DRAFT") {
+        throw new Error("Cannot edit work order once approval 1, complete, or suspend is done");
       }
 
       const updated = await tx.subContractorWorkOrder.update({
