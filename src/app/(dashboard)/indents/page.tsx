@@ -695,6 +695,15 @@ export default function IndentsPage() {
     apiGet
   );
 
+  const approvalSiteId = (approvalIndent as any)?.siteId || approvalIndent?.site?.id;
+  const { data: budgetResponse } = useSWR<Record<string, {total: number, remaining: number}>>(
+    approvalOpen && approvalSiteId && approvalIndentId
+      ? `/api/indents/budget-availability?siteId=${approvalSiteId}&excludeIndentId=${approvalIndentId}`
+      : null,
+    apiGet
+  );
+  const budgetMap = budgetResponse || {};
+
   // Editable fields per item
   type EditFields = {
     indentQty: number;
@@ -852,6 +861,11 @@ export default function IndentsPage() {
                 : parseQty((it as any).indentQty);
           if (Number.isNaN(aq)) {
             toast.error("Approved quantity is required for all items");
+            return;
+          }
+          const budget = budgetMap[String(it.itemId)];
+          if (budget && aq > budget.remaining) {
+            toast.error("Please fix budget validation errors before submitting.");
             return;
           }
         }
@@ -1248,62 +1262,95 @@ export default function IndentsPage() {
                         <td className="p-3 align-top">
                           <div className="max-w-[320px] whitespace-normal break-words">
                             {it.item?.item} ({it.item?.itemCode})
+                            {(() => {
+                               const budget = budgetMap[String(it.itemId)];
+                               if (budget) {
+                                 return (
+                                   <div className="text-xs text-muted-foreground mt-1">
+                                     Total: {budget.total} | Remaining: {budget.remaining}
+                                   </div>
+                                 );
+                               }
+                               return null;
+                            })()}
                           </div>
                         </td>
-                        <td className="p-3 whitespace-nowrap">
-                          {it.item?.unit?.unitName}
+                        <td className="p-3 align-top whitespace-nowrap">
+                          <div className="pt-2">{it.item?.unit?.unitName}</div>
                         </td>
-                        <td className="p-3 whitespace-nowrap">
-                          {Number(it.indentQty || 0).toFixed(2)}
+                        <td className="p-3 align-top whitespace-nowrap">
+                          <div className="pt-2">{Number(it.indentQty || 0).toFixed(2)}</div>
                         </td>
-                        <td className="p-3 whitespace-nowrap w-[160px]">
+                        <td className="p-3 align-top w-[160px]">
                           {approvalAction === "approve1" ? (
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              required
-                              value={
-                                itemEdits[it.id]?.approved1Qty ??
-                                Number(it.indentQty ?? 0).toFixed(2)
-                              }
-                              placeholder={Number(it.indentQty ?? 0).toFixed(2)}
-                              className="w-[140px]"
-                              onChange={(e) => {
-                                const next = e.target.value;
-                                if (/^\d*(\.\d{0,2})?$/.test(next)) {
-                                  setEdit(it.id, "approved1Qty", next);
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                value={
+                                  itemEdits[it.id]?.approved1Qty ??
+                                  Number(it.indentQty ?? 0).toFixed(2)
                                 }
-                              }}
-                            />
+                                placeholder={Number(it.indentQty ?? 0).toFixed(2)}
+                                className="w-[140px]"
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  if (/^\d*(\.\d{0,2})?$/.test(next)) {
+                                    setEdit(it.id, "approved1Qty", next);
+                                  }
+                                }}
+                              />
+                              {(() => {
+                                 const budget = budgetMap[String(it.itemId)];
+                                 const aqRaw = itemEdits[it.id]?.approved1Qty ?? Number(it.indentQty ?? 0).toFixed(2);
+                                 const aq = parseFloat(String(aqRaw));
+                                 if (budget && !Number.isNaN(aq) && aq > budget.remaining) {
+                                   return <span className="text-xs text-destructive">Max allowed is {budget.remaining}</span>;
+                                 }
+                                 return null;
+                              })()}
+                            </div>
                           ) : (
-                            Number(it.approved1Qty || 0).toFixed(2)
+                            <div className="pt-2">{Number(it.approved1Qty || 0).toFixed(2)}</div>
                           )}
                         </td>
                         {approvalAction === "approve2" && (
-                          <td className="p-3 whitespace-nowrap w-[160px]">
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              required
-                              value={
-                                itemEdits[it.id]?.approved2Qty ??
-                                Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(2)
-                              }
-                              placeholder={Number(
-                                it.approved1Qty ?? it.indentQty ?? 0
-                              ).toFixed(2)}
-                              className="w-[140px]"
-                              onChange={(e) => {
-                                const next = e.target.value;
-                                if (/^\d*(\.\d{0,2})?$/.test(next)) {
-                                  setEdit(it.id, "approved2Qty", next);
+                          <td className="p-3 align-top w-[160px]">
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                value={
+                                  itemEdits[it.id]?.approved2Qty ??
+                                  Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(2)
                                 }
-                              }}
-                            />
+                                placeholder={Number(
+                                  it.approved1Qty ?? it.indentQty ?? 0
+                                ).toFixed(2)}
+                                className="w-[140px]"
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  if (/^\d*(\.\d{0,2})?$/.test(next)) {
+                                    setEdit(it.id, "approved2Qty", next);
+                                  }
+                                }}
+                              />
+                              {(() => {
+                                 const budget = budgetMap[String(it.itemId)];
+                                 const aqRaw = itemEdits[it.id]?.approved2Qty ?? Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(2);
+                                 const aq = parseFloat(String(aqRaw));
+                                 if (budget && !Number.isNaN(aq) && aq > budget.remaining) {
+                                   return <span className="text-xs text-destructive">Max allowed is {budget.remaining}</span>;
+                                 }
+                                 return null;
+                              })()}
+                            </div>
                           </td>
                         )}
 
-                        <td className="p-3 w-[320px]">
+                        <td className="p-3 align-top w-[320px]">
                           <Textarea
                             value={itemEdits[it.id]?.remark ?? it.remark ?? ""}
                             onChange={(e) =>

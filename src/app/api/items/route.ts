@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
   const search = (searchParams.get("search") || "").trim();
   const sort = (searchParams.get("sort") || "itemCode") as string;
   const order = (searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+  const siteIdStr = searchParams.get("siteId");
+  const onlyBudgetItems = searchParams.get("onlyBudgetItems") === "true";
 
   type ItemWhere = {
     OR?: { 
@@ -43,6 +45,7 @@ export async function GET(req: NextRequest) {
       item?: { contains: string };
       hsnCode?: { contains: string };
     }[];
+    overallSiteBudgetItems?: any;
   };
   const where: ItemWhere = {};
   if (search) {
@@ -51,6 +54,21 @@ export async function GET(req: NextRequest) {
       { item: { contains: search } },
       { hsnCode: { contains: search } },
     ];
+  }
+
+  if (onlyBudgetItems && siteIdStr) {
+    const siteId = parseInt(siteIdStr, 10);
+    if (!isNaN(siteId)) {
+      where.overallSiteBudgetItems = {
+        some: {
+          overallSiteBudgetDetail: {
+            overallSiteBudget: {
+              siteId: siteId,
+            }
+          }
+        }
+      };
+    }
   }
 
   const sortableFields = new Set(["itemCode", "item", "gstRate", "createdAt"]);
