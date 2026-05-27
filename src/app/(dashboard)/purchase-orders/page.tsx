@@ -71,6 +71,7 @@ type PurchaseOrder = {
   billStatus?: string;
   createdAt: string;
   updatedAt: string;
+  revision?: number | null;
 };
 
 type PurchaseOrdersResponse = {
@@ -603,6 +604,14 @@ export default function PurchaseOrdersPage() {
           <div>{row.purchaseOrderNo}</div>
         </div>
       ),
+    },
+    {
+      key: "revision",
+      header: "Rev.",
+      sortable: false,
+      className: "whitespace-nowrap",
+      cellClassName: "whitespace-nowrap",
+      accessor: (row) => row.revision ?? "-",
     },
     {
       key: "createdAt",

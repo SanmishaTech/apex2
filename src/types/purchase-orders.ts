@@ -32,6 +32,15 @@ export interface Vendor {
   contactPerson?: string | null;
   mobile1?: string | null;
   email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  pincode?: string | null;
+  city?: {
+    city: string;
+  } | null;
+  state?: {
+    state: string;
+  } | null;
 }
 
 export interface BillingAddress {

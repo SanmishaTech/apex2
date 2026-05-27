@@ -307,7 +307,26 @@ export default function PurchaseOrderViewPage() {
                   />
                 </FormRow>
 
-                <FormRow cols={2}>
+                <FormRow cols={3}>
+                  <div className="space-y-3 min-w-0">
+                    <div className="text-sm font-semibold">Vendor Address</div>
+                    <div className="text-sm whitespace-pre-wrap break-words">
+                      {data.vendor?.addressLine1 ?? "—"}
+                      {data.vendor?.addressLine2
+                        ? `\n${data.vendor.addressLine2}`
+                        : ""}
+                      {data.vendor?.city?.city
+                        ? `\n${data.vendor.city.city}`
+                        : ""}
+                      {data.vendor?.state?.state
+                        ? `\n${data.vendor.state.state}`
+                        : ""}
+                      {data.vendor?.pincode
+                        ? ` - ${data.vendor.pincode}`
+                        : ""}
+                    </div>
+                  </div>
+
                   <div className="space-y-3 min-w-0">
                     <div className="text-sm font-semibold">Billing Address</div>
                     <div className="text-sm whitespace-pre-wrap break-words">
