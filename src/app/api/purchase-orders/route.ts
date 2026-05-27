@@ -384,6 +384,7 @@ export async function GET(req: NextRequest) {
         createdById: true,
         approved1ById: true,
         approved2ById: true,
+        revision: true,
         createdBy: {
           select: {
             id: true,

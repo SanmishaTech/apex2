@@ -226,6 +226,19 @@ export async function GET(
           select: {
             id: true,
             vendorName: true,
+            addressLine1: true,
+            addressLine2: true,
+            pincode: true,
+            city: {
+              select: {
+                city: true,
+              },
+            },
+            state: {
+              select: {
+                state: true,
+              },
+            },
           },
         },
         createdBy: {
