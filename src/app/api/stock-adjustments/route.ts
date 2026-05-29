@@ -244,14 +244,18 @@ export async function POST(req: NextRequest) {
 
         if (allBatchReq.length > 0) {
           const uniqueKeys = Array.from(
-            new Set(allBatchReq.map((b: any) => `${b.itemId}::${b.batchNumber}`))
+            new Set(allBatchReq.map((b: any) => `${b.itemId}::${b.batchNumber}::${b.batchExpiryDate || ""}`))
           );
           const batches = await tx.siteItemBatch.findMany({
             where: {
               siteId: Number(siteId),
               OR: uniqueKeys.map((k) => {
-                const [itemIdStr, batchNumber] = String(k).split("::");
-                return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+                const [itemIdStr, batchNumber, expiryDate] = String(k).split("::");
+                return { 
+                  itemId: Number(itemIdStr), 
+                  batchNumber: String(batchNumber),
+                  ...(expiryDate ? { expiryDate } : {})
+                };
               }),
             },
             select: {
@@ -268,12 +272,12 @@ export async function POST(req: NextRequest) {
 
           const byKey = new Map<string, any>();
           for (const b of batches) {
-            byKey.set(`${Number(b.itemId)}::${String(b.batchNumber)}`, b);
+            byKey.set(`${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`, b);
           }
 
           const issuedByKey = new Map<string, number>();
           for (const r of allBatchReq) {
-            const key = `${Number(r.itemId)}::${String(r.batchNumber)}`;
+            const key = `${Number(r.itemId)}::${String(r.batchNumber)}::${r.batchExpiryDate || ""}`;
             const prev = issuedByKey.get(key) || 0;
             issuedByKey.set(
               key,
@@ -298,7 +302,7 @@ export async function POST(req: NextRequest) {
 
           // Expiry date validation: required for NEW batches when receiving
           for (const r of allBatchReq) {
-            const key = `${Number(r.itemId)}::${String(r.batchNumber)}`;
+            const key = `${Number(r.itemId)}::${String(r.batchNumber)}::${r.batchExpiryDate || ""}`;
             const existing = byKey.get(key);
             const receivedQty = Number(r.batchReceivedQty || 0);
             if (!existing && receivedQty > 0) {
@@ -363,20 +367,25 @@ export async function POST(req: NextRequest) {
               .map((b: any) => ({
                 itemId: Number(d.itemId),
                 batchNumber: String(b?.batchNumber || "").trim(),
+                batchExpiryDate: String(b?.batchExpiryDate || "").trim(),
               }))
               .filter((x: any) => !!x.batchNumber);
           })
           .filter(Boolean);
         const distinctBatchKeys = Array.from(
-          new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`))
+          new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}::${b.batchExpiryDate || ""}`))
         );
         const existingBatchesForRates = distinctBatchKeys.length
           ? await tx.siteItemBatch.findMany({
               where: {
                 siteId: Number(siteId),
                 OR: distinctBatchKeys.map((k) => {
-                  const [itemIdStr, batchNumber] = String(k).split("::");
-                  return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+                  const [itemIdStr, batchNumber, expiryDate] = String(k).split("::");
+                  return { 
+                    itemId: Number(itemIdStr), 
+                    batchNumber: String(batchNumber),
+                    ...(expiryDate ? { expiryDate } : {})
+                  };
                 }),
               },
               select: {
@@ -393,7 +402,7 @@ export async function POST(req: NextRequest) {
           : [];
         const existingBatchByItemAndNo = new Map<string, (typeof existingBatchesForRates)[number]>();
         existingBatchesForRates.forEach((b) =>
-          existingBatchByItemAndNo.set(`${Number(b.itemId)}::${String(b.batchNumber)}`, b)
+          existingBatchByItemAndNo.set(`${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`, b)
         );
 
         for (const d of detailsCreate) {
@@ -458,7 +467,8 @@ export async function POST(req: NextRequest) {
               const issuedB = Number(Number(b.batchIssuedQty || 0).toFixed(4));
               const receivedB = Number(Number(b.batchReceivedQty || 0).toFixed(4));
               const bn = String(b.batchNumber);
-              const existing = existingBatchByItemAndNo.get(`${Number(d.itemId)}::${bn}`);
+              const exp = String(b.batchExpiryDate || "");
+              const existing = existingBatchByItemAndNo.get(`${Number(d.itemId)}::${bn}::${exp}`);
               const unitRate =
                 mode === "ISSUE"
                   ? Number(Number(existing?.unitRate ?? 0).toFixed(2))
@@ -523,12 +533,14 @@ export async function POST(req: NextRequest) {
 
           if (batches.length === 0) continue;
 
-          // Load existing batches for item
           const existingBatches = await tx.siteItemBatch.findMany({
             where: {
               siteId: Number(siteId),
               itemId: Number(d.itemId),
-              batchNumber: { in: batches.map((b: any) => String(b.batchNumber)) },
+              OR: batches.map((b: any) => ({
+                batchNumber: String(b.batchNumber),
+                ...(b.expiryDate ? { expiryDate: b.expiryDate } : {})
+              }))
             },
             select: {
               id: true,
@@ -541,7 +553,7 @@ export async function POST(req: NextRequest) {
             },
           });
           const existingByNo = new Map<string, any>();
-          existingBatches.forEach((b: any) => existingByNo.set(String(b.batchNumber), b));
+          existingBatches.forEach((b: any) => existingByNo.set(`${String(b.batchNumber)}::${b.expiryDate || ""}`, b));
 
           // Need siteItemId for creating new batches on receive
           const siteItem = await tx.siteItem.findFirst({
@@ -551,10 +563,11 @@ export async function POST(req: NextRequest) {
 
           for (const b of batches) {
             const bn = String(b.batchNumber);
+            const exp = String(b.expiryDate || "");
             const issuedQty = Number(Number(b.issuedQty || 0).toFixed(4));
             const receivedQty = Number(Number(b.receivedQty || 0).toFixed(4));
 
-            const existing = existingByNo.get(bn);
+            const existing = existingByNo.get(`${bn}::${exp}`);
             const unitRate = Number(Number(b.unitRate || 0).toFixed(2));
             const amount = Number(Number(b.amount || 0).toFixed(2));
 
@@ -577,19 +590,13 @@ export async function POST(req: NextRequest) {
             if (existing) {
               const prevQty = Number(existing.closingQty ?? 0);
               const prevValue = Number(existing.closingValue ?? 0);
-              const nextQty = Math.max(
-                0,
-                Number((prevQty - issuedQty + receivedQty).toFixed(4))
-              );
+              const nextQty = Number((prevQty - issuedQty + receivedQty).toFixed(4));
               const deltaValue =
                 issuedQty > 0
                   ? -Number((issuedQty * unitRate).toFixed(2))
                   : Number((receivedQty * unitRate).toFixed(2));
-              const nextValue = Math.max(
-                0,
-                Number((prevValue + deltaValue).toFixed(2))
-              );
-              const nextRate = nextQty > 0 ? Number((nextValue / nextQty).toFixed(4)) : 0;
+              const nextValue = Number((prevValue + deltaValue).toFixed(2));
+              const nextRate = nextQty !== 0 ? Number((nextValue / nextQty).toFixed(4)) : 0;
               await tx.siteItemBatch.update({
                 where: { id: existing.id },
                 data: {
@@ -724,7 +731,7 @@ export async function POST(req: NextRequest) {
             );
             baseStock = closingStock;
             baseValue = closingValue;
-            baseUnitRate = closingStock > 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
+            baseUnitRate = closingStock !== 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
           }
 
           // Persist SiteItem

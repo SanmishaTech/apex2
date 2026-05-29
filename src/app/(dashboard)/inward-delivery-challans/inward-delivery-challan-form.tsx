@@ -79,8 +79,8 @@ const baseSchema = z
           batches: z
             .array(
               z.object({
-                batchNumber: z.string().optional(),
-                expiryDate: z.string().optional(),
+                batchNumber: z.string().min(1, "Batch Number is required"),
+                expiryDate: z.string().min(1, "Expiry Date is required"),
                 receivingQty: z.string().optional(),
               })
             )
@@ -148,7 +148,11 @@ function ExpiryReceivingBatchesEditor({
   const byBatchNo = useMemo(() => {
     const m = new Map<string, SiteItemBatchOption>();
     (batchesData?.data || []).forEach((b) => {
-      if (b?.batchNumber) m.set(String(b.batchNumber), b);
+      if (!b?.batchNumber) return;
+      const bn = String(b.batchNumber).trim();
+      const exp = b.expiryDate ? String(b.expiryDate).trim() : "";
+      const val = exp ? `${bn}|${exp}` : bn;
+      m.set(val, b);
     });
     return m;
   }, [batchesData?.data]);
@@ -179,12 +183,18 @@ function ExpiryReceivingBatchesEditor({
     append({ batchNumber: "", expiryDate: "", receivingQty: "" } as any);
   }
 
-  const batchOptions = useMemo(
-    () => Array.from(new Set((batchesData?.data || []).map((b) => String(b.batchNumber))))
-      .filter(Boolean)
-      .sort(),
-    [batchesData?.data]
-  );
+  const batchOptions = useMemo(() => {
+    const optsMap = new Map<string, { label: string; value: string }>();
+    (batchesData?.data || []).forEach((b) => {
+      if (!b?.batchNumber) return;
+      const bn = String(b.batchNumber).trim();
+      const exp = b.expiryDate ? String(b.expiryDate).trim() : "";
+      const val = exp ? `${bn}|${exp}` : bn;
+      const label = exp ? `${bn} - ${exp}` : bn;
+      optsMap.set(val, { label, value: val });
+    });
+    return Array.from(optsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [batchesData?.data]);
 
   return (
     <div className="mt-2 rounded-md border bg-muted/10 p-3">
@@ -298,7 +308,7 @@ function toSubmitPayload(
         const parsedBatches = Array.isArray((it as any).batches)
           ? ((it as any).batches as any[])
               .map((b) => ({
-                batchNumber: String(b?.batchNumber || "").trim(),
+                batchNumber: String(b?.batchNumber || "").trim().split("|")[0],
                 expiryDate: String(b?.expiryDate || "").trim(),
                 receivingQty:
                   b?.receivingQty && String(b.receivingQty).trim() !== ""

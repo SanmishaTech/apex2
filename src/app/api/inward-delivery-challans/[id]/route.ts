@@ -552,9 +552,9 @@ export async function PATCH(
             const prevVal = Number(sib.closingValue || 0);
             const decQty = Number(ob.qty || 0);
             const decVal = Number(ob.amount || 0);
-            const nextQty = Math.max(0, Number((prevQty - decQty).toFixed(2)));
-            const nextVal = Math.max(0, Number((prevVal - decVal).toFixed(2)));
-            const nextRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+            const nextQty = Number((prevQty - decQty).toFixed(2));
+            const nextVal = Number((prevVal - decVal).toFixed(2));
+            const nextRate = nextQty !== 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
 
             await tx.siteItemBatch.update({
               where: { id: sib.id },
@@ -639,7 +639,7 @@ export async function PATCH(
 
         // Create new details
         if (filteredDetails.length > 0) {
-          const createdDetails: Array<{ id: number; poDetailsId: number; rate: number }> = [];
+          const createdDetails: Array<{ id: number; poDetailsId: number; rate: number; receivingQty: number; }> = [];
           for (const detail of filteredDetails as any[]) {
             const row = await tx.inwardDeliveryChallanDetail.create({
               data: {
@@ -649,12 +649,13 @@ export async function PATCH(
                 rate: detail.rate,
                 amount: detail.amount,
               },
-              select: { id: true, poDetailsId: true, rate: true },
+              select: { id: true, poDetailsId: true, rate: true, receivingQty: true },
             });
             createdDetails.push({
               id: row.id,
               poDetailsId: Number(row.poDetailsId),
               rate: Number(row.rate || 0),
+              receivingQty: Number(row.receivingQty || 0),
             });
           }
 
@@ -700,7 +701,13 @@ export async function PATCH(
                     Number.isFinite(b.receivingQty) &&
                     b.receivingQty > 0
                 );
-              if (cleaned.length === 0) continue;
+
+              const parentQty = Number((det as any).receivingQty ?? 0);
+              const totalBatchQty = cleaned.reduce((sum, b) => sum + b.receivingQty, 0);
+
+              if (cleaned.length === 0 || Math.abs(totalBatchQty - parentQty) > 0.001) {
+                throw new Error(`Batch number and valid expiry date (YYYY-MM) are required and must match the total receiving quantity for expiry items.`);
+              }
 
               const siteItem = await tx.siteItem.findFirst({
                 where: { siteId: updated.siteId, itemId },
@@ -756,7 +763,7 @@ export async function PATCH(
                   const prevVal = Number(existingBatch.closingValue || 0);
                   const nextQty = Number((prevQty + Number(b.receivingQty || 0)).toFixed(2));
                   const nextVal = Number((prevVal + amount).toFixed(2));
-                  const nextRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+                  const nextRate = nextQty !== 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
                   await tx.siteItemBatch.update({
                     where: { id: existingBatch.id },
                     data: {

@@ -640,8 +640,15 @@ export async function POST(req: NextRequest) {
                   Number.isFinite(b.receivingQty) &&
                   b.receivingQty > 0
               );
-            if (cleaned.length > 0)
-              incomingBatchesByPoDetailsId.set(poDetailsId, cleaned);
+
+            const parentQty = Number(detail?.receivingQty ?? 0);
+            const totalBatchQty = cleaned.reduce((sum, b) => sum + b.receivingQty, 0);
+
+            if (cleaned.length === 0 || Math.abs(totalBatchQty - parentQty) > 0.001) {
+              throw new Error(`Batch number and valid expiry date (YYYY-MM) are required and must match the total receiving quantity for expiry items.`);
+            }
+
+            incomingBatchesByPoDetailsId.set(poDetailsId, cleaned);
           }
 
           detailsCreateDataBase = filteredDetails.map((detail: any) => {
@@ -759,7 +766,7 @@ export async function POST(req: NextRequest) {
               ).id;
 
           for (const b of batches) {
-            const existingBatch = await tx.siteItemBatch.findFirst({
+            const existingBatches = await tx.siteItemBatch.findMany({
               where: { siteItemId, batchNumber: b.batchNumber },
               select: {
                 id: true,
@@ -769,11 +776,13 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            // Validate expiry date when selecting existing batch
-            if (existingBatch && String(existingBatch.expiryDate || "") !== String(b.expiryDate || "")) {
-              throw new Error(
-                `Expiry date mismatch for batch ${b.batchNumber}. Expected ${existingBatch.expiryDate}`
-              );
+            // Find an exact match for both batch number and expiry date. 
+            // Also fallback to a batch without an expiry date if the user didn't provide one.
+            let existingBatch = existingBatches.find(
+              (eb) => String(eb.expiryDate || "") === String(b.expiryDate || "")
+            );
+            if (!existingBatch && !b.expiryDate && existingBatches.length > 0) {
+              existingBatch = existingBatches[0];
             }
 
             const amount = Number((unitRate * Number(b.receivingQty || 0)).toFixed(2));
@@ -807,7 +816,7 @@ export async function POST(req: NextRequest) {
               const prevVal = Number(existingBatch.closingValue || 0);
               const nextQty = Number((prevQty + Number(b.receivingQty || 0)).toFixed(2));
               const nextVal = Number((prevVal + amount).toFixed(2));
-              const nextUnitRate = nextQty > 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
+              const nextUnitRate = nextQty !== 0 ? Number((nextVal / nextQty).toFixed(2)) : 0;
               await tx.siteItemBatch.update({
                 where: { id: existingBatch.id },
                 data: {
@@ -887,7 +896,7 @@ export async function POST(req: NextRequest) {
             const closingStock = Number(Number(totals.qty || 0).toFixed(4));
             const closingValue = Number(Number(totals.value || 0).toFixed(4));
             const unitRate =
-              closingStock > 0
+              closingStock !== 0
                 ? Number((closingValue / closingStock).toFixed(4))
                 : 0;
             await tx.siteItem.create({
@@ -910,7 +919,7 @@ export async function POST(req: NextRequest) {
               (prevValue + (totals.value || 0)).toFixed(4)
             );
             const unitRate =
-              nextStock > 0 ? Number((nextValue / nextStock).toFixed(4)) : 0;
+              nextStock !== 0 ? Number((nextValue / nextStock).toFixed(4)) : 0;
             await tx.siteItem.update({
               where: { id: existing.id },
               data: {

@@ -517,7 +517,10 @@ export async function POST(req: NextRequest) {
             const existingBatches = await tx.siteItemBatch.findMany({
               where: {
                 siteItemId: siteItem.id,
-                batchNumber: { in: cleanedBatches.map((b) => b.batchNumber) },
+                OR: cleanedBatches.map((b) => ({
+                  batchNumber: String(b.batchNumber),
+                  ...(b.expiryDate ? { expiryDate: String(b.expiryDate) } : {})
+                }))
               },
               select: {
                 batchNumber: true,
@@ -527,11 +530,11 @@ export async function POST(req: NextRequest) {
               },
             });
             const byBatch = new Map<string, (typeof existingBatches)[number]>(
-              existingBatches.map((b) => [String(b.batchNumber), b])
+              existingBatches.map((b) => [`${String(b.batchNumber)}::${String(b.expiryDate || "")}`, b])
             );
 
             for (const b of cleanedBatches) {
-              const foundBatch = byBatch.get(b.batchNumber);
+              const foundBatch = byBatch.get(`${String(b.batchNumber)}::${String(b.expiryDate || "")}`);
               if (!foundBatch) {
                 throw new Error(`Batch not found: ${b.batchNumber}`);
               }

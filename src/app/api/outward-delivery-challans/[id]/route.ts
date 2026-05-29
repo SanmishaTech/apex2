@@ -771,7 +771,7 @@ export async function PATCH(
           if (!isExpiry) {
             if (fromInfo) {
               const prev = Number(fromInfo.closingStock || 0);
-              const newStock = Math.max(prev - qty, 0);
+              const newStock = (prev - qty);
               const newValue = Number(issueRate) * newStock;
               await tx.siteItem.update({
                 where: { id: fromInfo.id },
@@ -891,9 +891,9 @@ export async function PATCH(
                   `Batch qty cannot exceed from-site batch closing qty (${prevFromQty}) for batch ${bn}`
                 );
               }
-              const nextFromQty = Math.max(0, Number((prevFromQty - bQty).toFixed(2)));
-              const nextFromVal = Math.max(0, Number((prevFromVal - bAmount).toFixed(2)));
-              const nextFromRate = nextFromQty > 0 ? Number((nextFromVal / nextFromQty).toFixed(2)) : 0;
+              const nextFromQty = Number((prevFromQty - bQty).toFixed(2));
+              const nextFromVal = Number((prevFromVal - bAmount).toFixed(2));
+              const nextFromRate = nextFromQty !== 0 ? Number((nextFromVal / nextFromQty).toFixed(2)) : 0;
               await tx.siteItemBatch.update({
                 where: { id: fromBatch.id },
                 data: {
@@ -928,7 +928,7 @@ export async function PATCH(
                 const prevToVal = Number(toBatch.closingValue || 0);
                 const nextToQty = Number((prevToQty + bQty).toFixed(2));
                 const nextToVal = Number((prevToVal + bAmount).toFixed(2));
-                const nextToRate = nextToQty > 0 ? Number((nextToVal / nextToQty).toFixed(2)) : 0;
+                const nextToRate = nextToQty !== 0 ? Number((nextToVal / nextToQty).toFixed(2)) : 0;
                 await tx.siteItemBatch.update({
                   where: { id: toBatch.id },
                   data: {
@@ -956,7 +956,7 @@ export async function PATCH(
                   .reduce((acc: number, r: any) => acc + Number(r?.closingValue ?? 0), 0)
                   .toFixed(2)
               );
-              const unitRate = closingStock > 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
+              const unitRate = closingStock !== 0 ? Number((closingValue / closingStock).toFixed(4)) : 0;
               await tx.siteItem.update({
                 where: { id: siteItemId },
                 data: {
