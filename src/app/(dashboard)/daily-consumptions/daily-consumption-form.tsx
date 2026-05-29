@@ -78,7 +78,7 @@ function BatchRows({
 }: {
   control: any;
   index: number;
-  batchOptions: string[];
+  batchOptions: { label: string; value: string }[];
   batchInfo: Map<string, any>;
 }) {
   const { fields: batchFields, append: appendBatch, remove: removeBatch } = useFieldArray({
@@ -116,8 +116,8 @@ function BatchRows({
                 placeholder="Select batch"
               >
                 {batchOptions.map((o) => (
-                  <AppSelect.Item key={o} value={o}>
-                    {o}
+                  <AppSelect.Item key={o.value} value={o.value}>
+                    {o.label}
                   </AppSelect.Item>
                 ))}
               </AppSelect>
@@ -203,7 +203,10 @@ export default function DailyConsumptionForm() {
       const itemId = Number(r.itemId);
       const inner = new Map<string, any>();
       ((r.siteItemBatches as any[]) || []).forEach((b: any) => {
-        inner.set(String(b.batchNumber), b);
+        const bn = String(b.batchNumber || "").trim();
+        const exp = b.expiryDate ? String(b.expiryDate) : "";
+        const val = exp ? `${bn}|${exp}` : bn;
+        inner.set(val, b);
       });
       map.set(itemId, inner);
     });
@@ -211,13 +214,22 @@ export default function DailyConsumptionForm() {
   }, [siteItemRows]);
 
   const batchOptionsByItemId = useMemo(() => {
-    const map = new Map<number, string[]>();
+    const map = new Map<number, { label: string; value: string }[]>();
     siteItemRows.forEach((r: any) => {
       const itemId = Number(r.itemId);
-      const opts = ((r.siteItemBatches as any[]) || [])
-        .map((b: any) => String(b.batchNumber || "").trim())
-        .filter((v: string) => !!v);
-      map.set(itemId, Array.from(new Set(opts)).sort());
+      const optsMap = new Map<string, { label: string; value: string }>();
+      
+      ((r.siteItemBatches as any[]) || []).forEach((b: any) => {
+        const bn = String(b.batchNumber || "").trim();
+        if (!bn) return;
+        const exp = b.expiryDate ? String(b.expiryDate) : "";
+        const val = exp ? `${bn}|${exp}` : bn;
+        const label = exp ? `${bn} - ${exp}` : bn;
+        optsMap.set(val, { label, value: val });
+      });
+      
+      const opts = Array.from(optsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+      map.set(itemId, opts);
     });
     return map;
   }, [siteItemRows]);
@@ -350,10 +362,16 @@ export default function DailyConsumptionForm() {
           const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
 
           const batchRows = (r.batches || [])
-            .map((b) => ({
-              batchNumber: String(b.batchNumber || "").trim(),
-              qty: b.qty && b.qty !== "" ? Number(b.qty) : 0,
-            }))
+            .map((b) => {
+              const fullVal = String(b.batchNumber || "").trim();
+              const batchNumber = fullVal.split("|")[0];
+              const expiryDate = fullVal.split("|")[1] || "";
+              return {
+                batchNumber,
+                expiryDate,
+                qty: b.qty && b.qty !== "" ? Number(b.qty) : 0,
+              };
+            })
             .filter((b) => !!b.batchNumber && Number(b.qty) > 0);
 
           const qty = isExpiry

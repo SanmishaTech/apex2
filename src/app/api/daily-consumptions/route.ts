@@ -64,6 +64,7 @@ const createSchema = z.object({
           .array(
             z.object({
               batchNumber: z.string().optional().default(""),
+              expiryDate: z.string().optional(),
               qty: z.number().nonnegative().default(0),
             })
           )
@@ -258,6 +259,7 @@ export async function POST(req: NextRequest) {
           (d.dcDetailBatches || []).map((b: any) => ({
             itemId: Number(d.itemId),
             batchNumber: String(b?.batchNumber || "").trim(),
+            expiryDate: b?.expiryDate ? String(b.expiryDate).trim() : "",
             qty: Number(b?.qty ?? 0),
           }))
         )
@@ -265,7 +267,7 @@ export async function POST(req: NextRequest) {
 
       if (batchesForValidation.length > 0) {
         const batchKeys = batchesForValidation.map(
-          (b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`
+          (b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`
         );
         const distinctKeys = Array.from(new Set(batchKeys));
 
@@ -273,27 +275,32 @@ export async function POST(req: NextRequest) {
           where: {
             siteId: siteIdForValidation,
             OR: distinctKeys.map((k) => {
-              const [itemIdStr, batchNumber] = String(k).split("::");
-              return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+              const [itemIdStr, batchNumber, expiryDate] = String(k).split("::");
+              return { 
+                itemId: Number(itemIdStr), 
+                batchNumber: String(batchNumber),
+                ...(expiryDate ? { expiryDate } : {})
+              };
             }),
           },
           select: {
             id: true,
             itemId: true,
             batchNumber: true,
+            expiryDate: true,
             closingQty: true,
           },
         });
 
         const closingByItemBatch = new Map<string, number>();
         for (const b of siteItemBatches) {
-          const key = `${Number(b.itemId)}::${String(b.batchNumber)}`;
+          const key = `${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`;
           closingByItemBatch.set(key, Number(b.closingQty ?? 0));
         }
 
         const requestedByItemBatch = new Map<string, number>();
         for (const b of batchesForValidation) {
-          const key = `${Number(b.itemId)}::${String(b.batchNumber)}`;
+          const key = `${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`;
           const prev = requestedByItemBatch.get(key) || 0;
           requestedByItemBatch.set(key, Number((prev + Number(b.qty || 0)).toFixed(4)));
         }
@@ -410,30 +417,35 @@ export async function POST(req: NextRequest) {
             .map((b: any) => ({
               itemId,
               batchNumber: String(b?.batchNumber || "").trim(),
+              expiryDate: b?.expiryDate ? String(b.expiryDate).trim() : "",
             }))
             .filter((b: any) => !!b.batchNumber);
         })
         .filter(Boolean);
 
       const distinctBatchKeys = Array.from(
-        new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}`))
+        new Set(batchReq.map((b: any) => `${Number(b.itemId)}::${String(b.batchNumber)}::${b.expiryDate || ""}`))
       );
       const batchMeta = distinctBatchKeys.length
         ? await tx.siteItemBatch.findMany({
             where: {
               siteId: Number(siteId),
               OR: distinctBatchKeys.map((k) => {
-                const [itemIdStr, batchNumber] = String(k).split("::");
-                return { itemId: Number(itemIdStr), batchNumber: String(batchNumber) };
+                const [itemIdStr, batchNumber, expiryDate] = String(k).split("::");
+                return { 
+                  itemId: Number(itemIdStr), 
+                  batchNumber: String(batchNumber),
+                  ...(expiryDate ? { expiryDate } : {})
+                };
               }),
             },
-            select: { itemId: true, batchNumber: true, unitRate: true },
+            select: { itemId: true, batchNumber: true, expiryDate: true, unitRate: true },
           })
         : [];
       const batchUnitRateByKey = new Map<string, number>();
       for (const b of batchMeta) {
         batchUnitRateByKey.set(
-          `${Number((b as any).itemId)}::${String((b as any).batchNumber)}`,
+          `${Number((b as any).itemId)}::${String((b as any).batchNumber)}::${(b as any).expiryDate || ""}`,
           Number((b as any).unitRate ?? 0)
         );
       }
@@ -448,10 +460,11 @@ export async function POST(req: NextRequest) {
           const agg = dcBatches.reduce(
             (acc: { qty: number; amount: number }, r: any) => {
               const bn = String(r?.batchNumber || "").trim();
+              const exp = r?.expiryDate ? String(r.expiryDate).trim() : "";
               const q = Number(Number(r?.qty ?? 0).toFixed(4));
               if (!bn || !(q > 0)) return acc;
               const unitRate = Number(
-                Number(batchUnitRateByKey.get(`${itemId}::${bn}`) ?? 0).toFixed(2)
+                Number(batchUnitRateByKey.get(`${itemId}::${bn}::${exp}`) ?? 0).toFixed(2)
               );
               const amt = Number((q * unitRate).toFixed(2));
               return {
@@ -550,6 +563,7 @@ export async function POST(req: NextRequest) {
           const batches = (d.dcDetailBatches || [])
             .map((b: any) => ({
               batchNumber: String(b?.batchNumber || "").trim(),
+              expiryDate: b?.expiryDate ? String(b.expiryDate).trim() : "",
               qty: Number(b?.qty ?? 0),
             }))
             .filter((b: any) => !!b.batchNumber && Number(b.qty) > 0);
@@ -560,7 +574,10 @@ export async function POST(req: NextRequest) {
             where: {
               siteId: Number(siteId),
               itemId: Number(d.itemId),
-              batchNumber: { in: batches.map((b: any) => String(b.batchNumber)) },
+              OR: batches.map((b: any) => ({
+                batchNumber: String(b.batchNumber),
+                ...(b.expiryDate ? { expiryDate: b.expiryDate } : {})
+              }))
             },
             select: {
               id: true,
@@ -573,10 +590,10 @@ export async function POST(req: NextRequest) {
           });
 
           const byBatch = new Map<string, any>();
-          siteItemBatches.forEach((b: any) => byBatch.set(String(b.batchNumber), b));
+          siteItemBatches.forEach((b: any) => byBatch.set(`${String(b.batchNumber)}::${b.expiryDate || ""}`, b));
 
           for (const b of batches) {
-            const existingBatch = byBatch.get(String(b.batchNumber));
+            const existingBatch = byBatch.get(`${String(b.batchNumber)}::${b.expiryDate || ""}`);
             if (!existingBatch) continue;
             const unitRate = Number(existingBatch.unitRate ?? 0);
             const qty = Number(Number(b.qty || 0).toFixed(4));
@@ -594,7 +611,7 @@ export async function POST(req: NextRequest) {
             });
 
             const prevQty = Number(existingBatch.closingQty ?? 0);
-            const nextQty = Math.max(0, Number((prevQty - qty).toFixed(4)));
+            const nextQty = Number((prevQty - qty).toFixed(4));
             const nextValue = Number((nextQty * unitRate).toFixed(2));
             await tx.siteItemBatch.update({
               where: { id: existingBatch.id },
@@ -657,7 +674,7 @@ export async function POST(req: NextRequest) {
                   .toFixed(2)
               );
               const unitRate =
-                closingStock > 0
+                closingStock !== 0
                   ? Number((closingValue / closingStock).toFixed(4))
                   : 0;
               await tx.siteItem.update({
@@ -673,7 +690,7 @@ export async function POST(req: NextRequest) {
             }
 
             const prevStock = Number(existing.closingStock || 0);
-            const newStock = Math.max(0, Number((prevStock - d.qty).toFixed(4)));
+            const newStock = Number((prevStock - d.qty).toFixed(4));
             const newValue = Number((newStock * d.rate).toFixed(2));
             await tx.siteItem.update({
               where: { id: (existing as any).id },
@@ -701,7 +718,7 @@ export async function POST(req: NextRequest) {
                   .toFixed(2)
               );
               const unitRate =
-                closingStock > 0
+                closingStock !== 0
                   ? Number((closingValue / closingStock).toFixed(4))
                   : 0;
               await tx.siteItem.create({

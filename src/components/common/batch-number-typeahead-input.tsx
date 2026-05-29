@@ -21,7 +21,7 @@ interface BatchNumberTypeaheadInputProps<T extends FieldValues> {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  options: string[];
+  options: (string | { label: string; value: string })[];
   className?: string;
   inputClassName?: string;
   onSelectOption?: (value: string) => void;
@@ -40,10 +40,17 @@ function BatchNumberTypeaheadInputInner({
   onChange: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
-  options: string[];
+  options: (string | { label: string; value: string })[];
   inputClassName?: string;
   onSelectOption?: (value: string) => void;
 }) {
+  const normalizedOptions = React.useMemo(() => {
+    return options.map((o) => {
+      if (typeof o === "string") return { label: o, value: o };
+      return o;
+    });
+  }, [options]);
+
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const anchorRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -60,14 +67,16 @@ function BatchNumberTypeaheadInputInner({
 
   React.useEffect(() => {
     const next = String(value || "");
-    setTakeInput(next);
-    setSelected(next ? { value: next, label: next } : null);
-  }, [value]);
+    const option = normalizedOptions.find((o) => o.value === next);
+    const label = option ? option.label : next;
+    setTakeInput(label);
+    setSelected(next ? { value: next, label } : null);
+  }, [value, normalizedOptions]);
 
   const normalized = takeInput.toLowerCase();
-  const filtered = options
+  const filtered = normalizedOptions
     .filter((o) =>
-      String(o || "")
+      String(o.label || "")
         .toLowerCase()
         .includes(normalized)
     )
@@ -75,7 +84,13 @@ function BatchNumberTypeaheadInputInner({
 
   const handleBlur = () => {
     setOpen(false);
-    setTakeInput(selected?.label || String(value || "") || "");
+    if (selected?.label) {
+      setTakeInput(selected.label);
+    } else {
+      const next = String(value || "");
+      const option = normalizedOptions.find((o) => o.value === next);
+      setTakeInput(option ? option.label : next);
+    }
   };
 
   React.useEffect(() => {
@@ -114,13 +129,13 @@ function BatchNumberTypeaheadInputInner({
         if (!open) setOpen(true);
 
         if (event.key === "Enter" && input.value !== "") {
-          const optionToSelect = options.find(
-            (o) => String(o || "").toLowerCase() === input.value.toLowerCase()
+          const optionToSelect = normalizedOptions.find(
+            (o) => String(o.label || "").toLowerCase() === input.value.toLowerCase() || String(o.value || "").toLowerCase() === input.value.toLowerCase()
           );
 
-          const next = optionToSelect ? String(optionToSelect) : input.value;
+          const next = optionToSelect ? String(optionToSelect.value) : input.value;
           onChange(next);
-          setSelected({ value: next, label: next });
+          setSelected({ value: next, label: optionToSelect ? optionToSelect.label : next });
           if (optionToSelect) onSelectOption?.(next);
           setOpen(false);
           setTimeout(() => inputRef.current?.blur(), 0);
@@ -173,20 +188,20 @@ function BatchNumberTypeaheadInputInner({
                   {filtered.length > 0 ? (
                     <CommandGroup>
                       {filtered.map((o) => {
-                        const isSelected = selected?.value === o;
+                        const isSelected = selected?.value === o.value;
                         return (
                           <CommandItem
-                            key={o}
-                            value={o}
+                            key={o.value + o.label}
+                            value={o.label}
                             onMouseDown={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
                             }}
                             onSelect={() => {
-                              const next = String(o);
+                              const next = String(o.value);
                               setTakeInput(next);
                               onChange(next);
-                              setSelected({ value: next, label: next });
+                              setSelected({ value: next, label: o.label });
                               onSelectOption?.(next);
                               setOpen(false);
                               setTimeout(() => inputRef.current?.blur(), 0);
@@ -197,7 +212,7 @@ function BatchNumberTypeaheadInputInner({
                             )}
                           >
                             {isSelected ? <Check className="w-4" /> : null}
-                            {o}
+                            {o.label}
                           </CommandItem>
                         );
                       })}

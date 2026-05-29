@@ -180,10 +180,10 @@ export async function POST(req: NextRequest) {
                   const deltaStock = Number(d.openingStock || 0) - prevOpeningStock;
                   const deltaValue = Number(d.openingValue || 0) - prevOpeningValue;
 
-                  const nextClosingStock = Math.max(0, prevClosingStock + deltaStock);
-                  const nextClosingValue = Math.max(0, prevClosingValue + deltaValue);
+                  const nextClosingStock = prevClosingStock + deltaStock;
+                  const nextClosingValue = prevClosingValue + deltaValue;
                   const nextUnitRate =
-                    Number.isFinite(nextClosingStock) && nextClosingStock > 0
+                    Number.isFinite(nextClosingStock) && nextClosingStock !== 0
                       ? nextClosingValue / nextClosingStock
                       : 0;
 
@@ -324,10 +324,10 @@ export async function POST(req: NextRequest) {
                 const deltaQty = Number(b.openingQty || 0) - prevOpeningQty;
                 const deltaVal = Number(b.openingValue || 0) - prevOpeningValue;
 
-                const nextClosingQty = Math.max(0, prevClosingQty + deltaQty);
-                const nextClosingValue = Math.max(0, prevClosingValue + deltaVal);
+                const nextClosingQty = prevClosingQty + deltaQty;
+                const nextClosingValue = prevClosingValue + deltaVal;
                 const nextUnitRate =
-                  Number.isFinite(nextClosingQty) && nextClosingQty > 0
+                  Number.isFinite(nextClosingQty) && nextClosingQty !== 0
                     ? nextClosingValue / nextClosingQty
                     : 0;
 
@@ -385,10 +385,10 @@ export async function POST(req: NextRequest) {
               });
             }
 
-            const nextClosingQty = Math.max(0, prevClosingQty - prevOpeningQty);
-            const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);
+            const nextClosingQty = prevClosingQty - prevOpeningQty;
+            const nextClosingValue = prevClosingValue - prevOpeningValue;
             const nextUnitRate =
-              Number.isFinite(nextClosingQty) && nextClosingQty > 0
+              Number.isFinite(nextClosingQty) && nextClosingQty !== 0
                 ? nextClosingValue / nextClosingQty
                 : 0;
 
@@ -427,11 +427,12 @@ export async function POST(req: NextRequest) {
             openingValue: true,
             closingStock: true,
             closingValue: true,
+            item: { select: { isExpiryDate: true } },
           },
         });
 
         for (const si of excludedSiteItems) {
-          const isExpiryItem = Boolean(isExpiryByItemId.get(Number((si as any).itemId)));
+          const isExpiryItem = Boolean((si as any).item?.isExpiryDate);
           const prevOpeningStock = Number(si.openingStock || 0);
           const prevOpeningValue = Number(si.openingValue || 0);
           const prevClosingStock = Number(si.closingStock || 0);
@@ -450,10 +451,10 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          const nextClosingStock = Math.max(0, prevClosingStock - prevOpeningStock);
-          const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);
+          const nextClosingStock = prevClosingStock - prevOpeningStock;
+          const nextClosingValue = prevClosingValue - prevOpeningValue;
           const nextUnitRate =
-            Number.isFinite(nextClosingStock) && nextClosingStock > 0
+            Number.isFinite(nextClosingStock) && nextClosingStock !== 0
               ? nextClosingValue / nextClosingStock
               : 0;
 
@@ -509,10 +510,10 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          const nextClosingQty = Math.max(0, prevClosingQty - prevOpeningQty);
-          const nextClosingValue = Math.max(0, prevClosingValue - prevOpeningValue);
+          const nextClosingQty = prevClosingQty - prevOpeningQty;
+          const nextClosingValue = prevClosingValue - prevOpeningValue;
           const nextUnitRate =
-            Number.isFinite(nextClosingQty) && nextClosingQty > 0
+            Number.isFinite(nextClosingQty) && nextClosingQty !== 0
               ? nextClosingValue / nextClosingQty
               : 0;
 

@@ -89,20 +89,27 @@ function BatchRows({
   const byBatchNo = useMemo(() => {
     const m = new Map<string, any>();
     (batchesData?.data || []).forEach((b: any) => {
-      if (b?.batchNumber) m.set(String(b.batchNumber), b);
+      if (!b?.batchNumber) return;
+      const bn = String(b.batchNumber).trim();
+      const exp = b.expiryDate ? String(b.expiryDate).trim() : "";
+      const val = exp ? `${bn}|${exp}` : bn;
+      m.set(val, b);
     });
     return m;
   }, [batchesData?.data]);
 
-  const batchOptions = useMemo(
-    () =>
-      (Array.from(
-        new Set((batchesData?.data || []).map((b: any) => String(b.batchNumber)))
-      )
-        .filter(Boolean)
-        .sort() as string[]),
-    [batchesData?.data]
-  );
+  const batchOptions = useMemo(() => {
+    const optsMap = new Map<string, { label: string; value: string }>();
+    (batchesData?.data || []).forEach((b: any) => {
+      if (!b?.batchNumber) return;
+      const bn = String(b.batchNumber).trim();
+      const exp = b.expiryDate ? String(b.expiryDate).trim() : "";
+      const val = exp ? `${bn}|${exp}` : bn;
+      const label = exp ? `${bn} - ${exp}` : bn;
+      optsMap.set(val, { label, value: val });
+    });
+    return Array.from(optsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [batchesData?.data]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -614,7 +621,8 @@ export default function StockAdjustmentForm() {
             const errors: Array<{ path: string; message: string }> = [];
             // no direct map here; rely on server-side validation as source of truth
             (r.batches || []).forEach((b: any, bIndex: number) => {
-              const bn = String(b?.batchNumber || "").trim();
+              const fullBn = String(b?.batchNumber || "").trim();
+              const bn = fullBn.split("|")[0];
               const bIssued = b?.issuedQty && b.issuedQty !== "" ? Number(b.issuedQty) : 0;
               const bReceived = b?.receivedQty && b.receivedQty !== "" ? Number(b.receivedQty) : 0;
               const bRate = b?.unitRate && b.unitRate !== "" ? Number(b.unitRate) : 0;
@@ -745,16 +753,20 @@ export default function StockAdjustmentForm() {
               : Number(r.amount || 0),
           remarks: (r.remarks || "").trim() || undefined,
           saDetailBatches: (r.batches || [])
-            .map((b: any) => ({
-              batchNumber: String(b?.batchNumber || "").trim(),
-              batchExpiryDate: String(b?.expiryDate || "").trim(),
+            .map((b: any) => {
+              const fullVal = String(b?.batchNumber || "").trim();
+              const batchNumber = fullVal.split("|")[0];
+              return {
+                batchNumber,
+                batchExpiryDate: String(b?.expiryDate || "").trim(),
               batchIssuedQty:
                 b?.issuedQty && b.issuedQty !== "" ? Number(b.issuedQty) : 0,
               batchReceivedQty:
                 b?.receivedQty && b.receivedQty !== "" ? Number(b.receivedQty) : 0,
               batchUnitRate:
                 b?.unitRate && b.unitRate !== "" ? Number(b.unitRate) : 0,
-            }))
+              };
+            })
             .filter(
               (b: any) =>
                 !!b.batchNumber &&
