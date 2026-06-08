@@ -873,16 +873,11 @@ export async function PATCH(
               const bAmount = Number((unitRate * bQty).toFixed(2));
 
               const fromBatch = await tx.siteItemBatch.findFirst({
-                where: { siteItemId: fromSiteItem.id, batchNumber: bn },
+                where: { siteItemId: fromSiteItem.id, batchNumber: bn, expiryDate: exp },
                 select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
               });
               if (!fromBatch) {
-                throw new Error(`From-site batch not found: ${bn}`);
-              }
-              if (String(fromBatch.expiryDate || "") !== exp) {
-                throw new Error(
-                  `Expiry date mismatch for batch ${bn}. Expected ${fromBatch.expiryDate}`
-                );
+                throw new Error(`From-site batch not found: ${bn} with expiry ${exp}`);
               }
               const prevFromQty = Number(fromBatch.closingQty || 0);
               const prevFromVal = Number(fromBatch.closingValue || 0);

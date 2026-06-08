@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
               submittedBatchNumbers.add(batchNumber);
 
               const existingBatch = await tx.siteItemBatch.findFirst({
-                where: { siteItemId, batchNumber },
+                where: { siteItemId, batchNumber, expiryDate: String(b.expiryDate || "").trim() },
                 select: {
                   id: true,
                   openingQty: true,

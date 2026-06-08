@@ -146,10 +146,13 @@ export default function AcceptOutwardDeliveryChallanPage() {
           .reduce((acc: number, b: any) => acc + Number(b?.batchReceivedQty || 0), 0)
           .toFixed(2)
       );
-      setValue(`details.${idx}.receivedQty` as any, String(total), {
-        shouldValidate: false,
-        shouldDirty: true,
-      });
+      const currentVal = watchedDetails?.[idx]?.receivedQty;
+      if (String(currentVal) !== String(total)) {
+        setValue(`details.${idx}.receivedQty` as any, String(total), {
+          shouldValidate: false,
+          shouldDirty: true,
+        });
+      }
     });
   }, [challan, watchedDetails, setValue]);
 

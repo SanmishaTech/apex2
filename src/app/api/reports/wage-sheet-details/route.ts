@@ -257,9 +257,7 @@ export async function GET(req: NextRequest) {
 
       siteGroup.workers.push({
         manpowerId,
-        manpowerName: `${manpower?.firstName || ""} ${
-          manpower?.lastName || ""
-        }`.trim(),
+        manpowerName: [manpower?.firstName, manpower?.middleName, manpower?.lastName].filter(Boolean).join(" "),
         designation: siteManpowerForThisSite?.category?.categoryName || "",
         unaNo: manpower?.unaNo || "",
         esicNo: manpower?.esicNo || "",

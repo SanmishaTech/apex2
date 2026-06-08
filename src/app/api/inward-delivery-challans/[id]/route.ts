@@ -543,6 +543,7 @@ export async function PATCH(
               where: {
                 siteItemId: siteItem.id,
                 batchNumber: String(ob.batchNumber),
+                expiryDate: String(ob.expiryDate || "").trim(),
               },
               select: { id: true, closingQty: true, closingValue: true },
             });
@@ -724,14 +725,9 @@ export async function PATCH(
 
               for (const b of cleaned) {
                 const existingBatch = await tx.siteItemBatch.findFirst({
-                  where: { siteItemId, batchNumber: b.batchNumber },
+                  where: { siteItemId, batchNumber: b.batchNumber, expiryDate: b.expiryDate },
                   select: { id: true, expiryDate: true, closingQty: true, closingValue: true },
                 });
-                if (existingBatch && String(existingBatch.expiryDate || "") !== b.expiryDate) {
-                  throw new Error(
-                    `Expiry date mismatch for batch ${b.batchNumber}. Expected ${existingBatch.expiryDate}`
-                  );
-                }
 
                 const amount = Number((det.rate * Number(b.receivingQty || 0)).toFixed(2));
                 await tx.inwardDeliveryChallanDetailBatch.create({

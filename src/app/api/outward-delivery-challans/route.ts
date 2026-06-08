@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
                 documentName: String(doc.documentName || ""),
                 documentUrl:
                   typeof doc.documentUrl === "string" &&
-                  doc.documentUrl.trim() !== ""
+                    doc.documentUrl.trim() !== ""
                     ? doc.documentUrl
                     : undefined,
                 index,
@@ -334,20 +334,20 @@ export async function POST(req: NextRequest) {
         (payloadData as any)?.outwardDeliveryChallanDocuments
       )
         ? (payloadData as any).outwardDeliveryChallanDocuments.map(
-            (doc: any, index: number) => ({
-              id:
-                typeof doc?.id === "number" && Number.isFinite(doc.id)
-                  ? doc.id
-                  : undefined,
-              documentName: String(doc?.documentName || ""),
-              documentUrl:
-                typeof doc?.documentUrl === "string" &&
+          (doc: any, index: number) => ({
+            id:
+              typeof doc?.id === "number" && Number.isFinite(doc.id)
+                ? doc.id
+                : undefined,
+            documentName: String(doc?.documentName || ""),
+            documentUrl:
+              typeof doc?.documentUrl === "string" &&
                 doc.documentUrl.trim() !== ""
-                  ? doc.documentUrl
-                  : undefined,
-              index,
-            })
-          )
+                ? doc.documentUrl
+                : undefined,
+            index,
+          })
+        )
         : [];
     }
 
@@ -460,26 +460,26 @@ export async function POST(req: NextRequest) {
             : [];
           const cleanedBatches = isExpiry
             ? batches
-                .map((b) => ({
-                  batchNumber: String(b?.batchNumber || "").trim(),
-                  expiryDate: String(b?.expiryDate || "").trim(),
-                  challanQty: Number(b?.challanQty ?? 0),
-                }))
-                .filter(
-                  (b) =>
-                    !!b.batchNumber &&
-                    /^\d{4}-\d{2}$/.test(b.expiryDate) &&
-                    Number.isFinite(b.challanQty) &&
-                    b.challanQty > 0
-                )
+              .map((b) => ({
+                batchNumber: String(b?.batchNumber || "").trim(),
+                expiryDate: String(b?.expiryDate || "").trim(),
+                challanQty: Number(b?.challanQty ?? 0),
+              }))
+              .filter(
+                (b) =>
+                  !!b.batchNumber &&
+                  /^\d{4}-\d{2}$/.test(b.expiryDate) &&
+                  Number.isFinite(b.challanQty) &&
+                  b.challanQty > 0
+              )
             : [];
 
           const totalQty = cleanedBatches.length
             ? Number(
-                cleanedBatches
-                  .reduce((acc, b) => acc + Number(b.challanQty || 0), 0)
-                  .toFixed(2)
-              )
+              cleanedBatches
+                .reduce((acc, b) => acc + Number(b.challanQty || 0), 0)
+                .toFixed(2)
+            )
             : Number(d.challanQty ?? 0);
 
           let detailRate = Number(unitRateByItemId.get(itemId) ?? 0);
@@ -530,18 +530,13 @@ export async function POST(req: NextRequest) {
               },
             });
             const byBatch = new Map<string, (typeof existingBatches)[number]>(
-              existingBatches.map((b) => [`${String(b.batchNumber)}::${String(b.expiryDate || "")}`, b])
+              existingBatches.map((b) => [`${String(b.batchNumber).trim().toUpperCase()}::${String(b.expiryDate || "").trim()}`, b])
             );
 
             for (const b of cleanedBatches) {
-              const foundBatch = byBatch.get(`${String(b.batchNumber)}::${String(b.expiryDate || "")}`);
+              const foundBatch = byBatch.get(`${String(b.batchNumber).trim().toUpperCase()}::${String(b.expiryDate || "").trim()}`);
               if (!foundBatch) {
                 throw new Error(`Batch not found: ${b.batchNumber}`);
-              }
-              if (String(foundBatch.expiryDate || "") !== b.expiryDate) {
-                throw new Error(
-                  `Expiry date mismatch for batch ${b.batchNumber}. Expected ${foundBatch.expiryDate}`
-                );
               }
               const closingQty = Number(foundBatch.closingQty || 0);
               if (Number(b.challanQty) > closingQty) {
