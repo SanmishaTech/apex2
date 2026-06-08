@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
       siteId: d.siteId,
       siteName: (d as any).site?.site,
       manpowerId: (d as any).paySlip.manpowerId,
-      manpowerName: `${(d as any).paySlip.manpower?.firstName ?? ""} ${(d as any).paySlip.manpower?.lastName ?? ""}`.trim(),
+      manpowerName: [(d as any).paySlip.manpower?.firstName, (d as any).paySlip.manpower?.middleName, (d as any).paySlip.manpower?.lastName].filter(Boolean).join(" "),
       supplier: (d as any).paySlip.manpower?.manpowerSupplier?.supplierName ?? null,
       accountNumber: (d as any).paySlip.manpower?.accountNumber ?? null,
       ifscCode: (d as any).paySlip.manpower?.ifscCode ?? null,

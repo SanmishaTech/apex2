@@ -351,7 +351,7 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/reports/rent-registration",
     permissions: [PERMISSIONS.VIEW_RENTS],
   },
-  { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.READ_PAYSLIPS] },
+  { prefix: "/reports/wage-sheet", permissions: [PERMISSIONS.VIEW_WAGES_REPORT] },
   {
     prefix: "/reports/cashbook-budget",
     permissions: [PERMISSIONS.VIEW_CASHBOOK_BUDGET_REPORT],
@@ -994,6 +994,12 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     prefix: "/api/reports/stock-report-excel",
     methods: {
       GET: [PERMISSIONS.VIEW_STOCK_REPORT],
+    },
+  },
+  {
+    prefix: "/api/reports/wage-sheet",
+    methods: {
+      GET: [PERMISSIONS.VIEW_WAGES_REPORT],
     },
   },
   {
