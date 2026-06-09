@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME,
   description: process.env.NEXT_PUBLIC_APP_DESCRIPTION,
   manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
   themeColor: "#0b1220",
 };
 

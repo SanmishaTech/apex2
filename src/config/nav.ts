@@ -171,6 +171,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.VIEW_MANPOWER_TRANSFERS,
       },
       {
+        title: "Manpower Food Charges",
+        href: "/manpower-food-charges",
+        icon: Receipt,
+        permission: PERMISSIONS.VIEW_MANPOWER_FOOD_CHARGES,
+      },
+      {
         title: "Attendances",
         href: "/attendances",
         icon: ClipboardCheck,
