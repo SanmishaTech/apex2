@@ -134,7 +134,8 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   subContractorInvoicesUpdated SubContractorInvoice[] @relation("SubContractorInvoiceUpdated")
   subContractorInvoicesAuthorized SubContractorInvoice[] @relation("SubContractorInvoiceAuthorized")
   auditLogsCreated AuditLog[] @relation("AuditLogCreated")
-
+  manpowerFoodChargesCreated ManpowerFoodCharges[] @relation("ManpowerFoodChargesCreated")
+  manpowerFoodChargesUpdated ManpowerFoodCharges[] @relation("ManpowerFoodChargesUpdated")
 
   @@map("users")
 }
@@ -397,6 +398,7 @@ model Site {
   overallSiteBudgets           OverallSiteBudget[]
   subContractorWorkOrders      SubContractorWorkOrder[]
   subcontractorInvoice    SubContractorInvoice[]
+  manpowerFoodCharges ManpowerFoodCharges[]
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
@@ -1131,6 +1133,7 @@ model Manpower {
   manpowerDocuments     ManpowerDocument[]
   siteManpower      SiteManpower[]
   siteManpowerLogs SiteManpowerLog[]
+  manpowerFoodChargesDetails ManpowerFoodChargesDetail[]
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
@@ -3642,4 +3645,36 @@ model AuditLog {
 
   @@index([module, recordId])
   @@map("audit_logs")
+}
+
+model ManpowerFoodCharges {
+  id          Int     @id @default(autoincrement())
+  siteId      Int
+  site        Site    @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  monthYear   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById Int
+  updatedById Int
+  createdBy   User    @relation("ManpowerFoodChargesCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User    @relation("ManpowerFoodChargesUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  CreatedByName String
+  UpdatedByName String
+  manpowerFoodChargesDetails ManpowerFoodChargesDetail[]
+  @@unique([siteId,monthYear])
+  @@map("manpower_food_charges")
+}
+
+model ManpowerFoodChargesDetail {
+  id      Int     @id @default(autoincrement())
+  manpowerFoodChargesId   Int
+  manpowerFoodCharges     ManpowerFoodCharges @relation(fields: [manpowerFoodChargesId], references: [id], onDelete: Restrict)
+  manpowerId Int
+  manpower Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  foodCharges1 Decimal? @db.Decimal(12, 2)
+  foodCharges2 Decimal? @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("manpower_food_charges_detail")
 }

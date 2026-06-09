@@ -321,6 +321,19 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
     prefix: "/assign-employees",
     permissions: [PERMISSIONS.VIEW_EMPLOYEE_ASSIGNMENTS],
   },
+  // Manpower Food Charges
+  {
+    prefix: "/manpower-food-charges/new",
+    permissions: [PERMISSIONS.CREATE_MANPOWER_FOOD_CHARGES],
+  },
+  {
+    prefix: "/manpower-food-charges/",
+    permissions: [PERMISSIONS.READ_MANPOWER_FOOD_CHARGES],
+  },
+  {
+    prefix: "/manpower-food-charges",
+    permissions: [PERMISSIONS.VIEW_MANPOWER_FOOD_CHARGES],
+  },
   // Manpower Transfers
   {
     prefix: "/manpower-transfers/new",
@@ -577,6 +590,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.CREATE_BOQS],
       PATCH: [PERMISSIONS.EDIT_BOQS],
       DELETE: [PERMISSIONS.DELETE_BOQS],
+    },
+  },
+  {
+    prefix: "/api/manpower-food-charges",
+    methods: {
+      GET: [PERMISSIONS.READ_MANPOWER_FOOD_CHARGES],
+      POST: [PERMISSIONS.CREATE_MANPOWER_FOOD_CHARGES],
+      PATCH: [PERMISSIONS.EDIT_MANPOWER_FOOD_CHARGES],
+      DELETE: [PERMISSIONS.DELETE_MANPOWER_FOOD_CHARGES],
     },
   },
   {
