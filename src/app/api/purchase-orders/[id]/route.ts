@@ -79,6 +79,7 @@ const updateSchema = z.object({
     .transform((val) => new Date(val))
     .optional(),
   siteId: z.number().optional(),
+  companyId: z.number().optional(),
   vendorId: z.number().optional(),
   billingAddressId: z.number().optional(),
   siteDeliveryAddressId: z.number().optional(),
@@ -169,6 +170,7 @@ export async function GET(
         purchaseOrderDate: true,
         deliveryDate: true,
         siteId: true,
+        companyId: true,
         vendorId: true,
         billingAddressId: true,
         siteDeliveryAddressId: true,
@@ -220,6 +222,12 @@ export async function GET(
           select: {
             id: true,
             site: true,
+          },
+        },
+        company: {
+          select: {
+            id: true,
+            companyName: true,
           },
         },
         vendor: {
@@ -497,6 +505,10 @@ export async function PATCH(
       // Update basic fields if provided
       if (Object.keys(poData).length > 0 || statusAction) {
         const updateData: any = { ...poData };
+        
+        if (updateData.companyId === 0) {
+          updateData.companyId = null;
+        }
 
         if (nextPaymentTermIds !== undefined) {
           updateData.paymentTermId =

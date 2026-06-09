@@ -260,7 +260,7 @@ model Company {
   stateId      Int?
   cityId       Int?
   pinCode      String?
-
+  
   // Logo
   logoUrl String?
 
@@ -282,7 +282,7 @@ model Company {
   city  City?  @relation(fields: [cityId], references: [id])
   sites Site[]
   companyDocuments CompanyDocument[]
-
+  purchaseOrders   PurchaseOrder[]
   @@index([companyName])
   @@index([shortName])
   @@index([closed])
@@ -1929,6 +1929,8 @@ model PurchaseOrder {
   id                      Int       @id @default(autoincrement())
   siteId                  Int
   site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete:Restrict)
   siteDeliveryAddressId                  Int
   siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
   paymentTermId           Int?

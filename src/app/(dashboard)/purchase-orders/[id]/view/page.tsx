@@ -282,6 +282,7 @@ export default function PurchaseOrderViewPage() {
                     </div>
                   </div>
                   <Field label="Delivery Date" value={header?.deliveryDate ?? "—"} />
+                  <Field label="Company" value={data.company?.companyName ?? "—"} />
                   <Field label="Site" value={data.site?.site ?? "—"} />
                   <div className="space-y-1 min-w-0">
                     <div className="text-xs text-muted-foreground">PO Status</div>

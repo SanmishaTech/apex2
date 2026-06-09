@@ -52,6 +52,7 @@ const createSchema = z.object({
   indentId: z.coerce.number().optional(),
   indentIds: z.array(z.coerce.number()).optional().default([]),
   siteId: z.coerce.number().min(1, "Site is required"),
+  companyId: z.coerce.number().optional(),
   vendorId: z.coerce.number().min(1, "Vendor is required"),
   billingAddressId: z.coerce.number().min(1, "Billing Address is required"),
   siteDeliveryAddressId: z.coerce
@@ -529,6 +530,7 @@ export async function POST(req: NextRequest) {
         purchaseOrderDate: parsedData.purchaseOrderDate,
         deliveryDate: parsedData.deliveryDate,
         siteId: parsedData.siteId,
+        companyId: parsedData.companyId || null,
         vendorId: parsedData.vendorId,
         billingAddressId: parsedData.billingAddressId,
         siteDeliveryAddressId: parsedData.siteDeliveryAddressId,

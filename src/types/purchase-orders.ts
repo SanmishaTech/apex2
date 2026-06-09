@@ -162,6 +162,11 @@ export interface PurchaseOrder {
   gstReverseAmount: number | null | undefined | string;
   // Relations
   site: Site;
+  companyId?: number | null;
+  company?: {
+    id: number;
+    companyName: string;
+  } | null;
   vendor: Vendor;
   billingAddress: BillingAddress;
   siteDeliveryAddress: SiteDeliveryAddress;
