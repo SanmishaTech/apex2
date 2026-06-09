@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const monthRaw = sp.get("month");
   const employeeIdRaw = sp.get("employeeId");
+  const attendanceStatus = sp.get("attendanceStatus");
 
   if (!monthRaw) {
     return NextResponse.json(
@@ -202,6 +203,23 @@ export async function GET(req: NextRequest) {
           ? Math.max(0, (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60))
           : 0;
         const workDuration = formatWorkDuration(inTime, outTime);
+
+        let isLate = false;
+        if (inTime) {
+          const istTime = new Date(inTime.getTime() + 5.5 * 60 * 60 * 1000);
+          const hours = istTime.getUTCHours();
+          const minutes = istTime.getUTCMinutes();
+          if (hours > 10 || (hours === 10 && minutes > 15)) {
+            isLate = true;
+          }
+        }
+
+        if (attendanceStatus === "late" && inTime && !isLate) {
+          continue;
+        }
+        if (attendanceStatus === "no-attendance") {
+          continue;
+        }
 
         result.push({
           date: formatDate(base.date),
