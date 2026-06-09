@@ -119,6 +119,7 @@ type PurchaseOrderFormInitialData = {
   deliveryDate?: string;
   siteId?: number | null;
   vendorId?: number | null;
+  companyId?: number | null;
   billingAddressId?: number | null;
   siteDeliveryAddressId?: number | null;
   paymentTermIds?: number[] | null;
@@ -229,6 +230,10 @@ const createInputSchema = z.object({
       "Site is required"
     )
     .transform((val) => parseInt(val)),
+  companyId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val === "__none" || !val ? 0 : parseInt(String(val)))),
   vendorId: z
     .union([z.string(), z.number()])
     .transform((val) => String(val))
@@ -353,6 +358,11 @@ export function PurchaseOrderForm({
     ApiListResponse<BillingAddress>
   >("/api/billing-addresses?perPage=10000", apiGet);
 
+  const { data: companiesData } = useSWR<any>(
+    "/api/companies?perPage=1000",
+    apiGet
+  );
+
   const { data: paymentTermsData } = useSWR<ApiListResponse<PaymentTerm>>(
     "/api/payment-terms?perPage=1000",
     apiGet
@@ -449,6 +459,7 @@ export function PurchaseOrderForm({
       purchaseOrderDate: formatDateField(initial?.purchaseOrderDate, today),
       deliveryDate: formatDateField(initial?.deliveryDate),
       siteId: initial?.siteId ?? 0,
+      companyId: initial?.companyId ?? 0,
       vendorId: initial?.vendorId ?? 0,
       billingAddressId: initial?.billingAddressId ?? 0,
       siteDeliveryAddressId: initial?.siteDeliveryAddressId ?? 0,
@@ -739,6 +750,7 @@ export function PurchaseOrderForm({
   // }, [defaultValues.poStatus, form, isApprovalMode]);
 
   const siteValue = form.watch("siteId");
+  const companyValue = form.watch("companyId");
   const items = form.watch("purchaseOrderItems");
   const vendorValue = form.watch("vendorId");
   const billingAddressValue = form.watch("billingAddressId");
@@ -772,6 +784,7 @@ export function PurchaseOrderForm({
           },
         ]
       : sites;
+  const companies = companiesData?.data ?? [];
   const vendors = vendorsData?.data ?? [];
   const billingAddresses = billingAddressesData?.data ?? [];
   const siteDeliveryAddresses = siteDetailData?.siteDeliveryAddresses ?? [];
@@ -1420,6 +1433,38 @@ export function PurchaseOrderForm({
                   disabled={isApprovalMode}
                 />
                  </div>
+                     <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Company
+                  </label>
+                  <AppSelect
+                    value={
+                      companyValue && companyValue > 0
+                        ? companyValue.toString()
+                        : "__none"
+                    }
+                    onValueChange={(value) => {
+                      const next = value === "__none" ? 0 : parseInt(value, 10);
+                      form.setValue("companyId", next);
+                    }}
+                    placeholder="Select Company"
+                    disabled={isEdit || isApprovalMode}
+                  >
+                    <AppSelect.Item key="company-none" value="__none">
+                      Select Company
+                    </AppSelect.Item>
+                    {companies.map((company: any) => (
+                      <AppSelect.Item key={company.id} value={company.id.toString()}>
+                        {company.companyName}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  {errors.companyId ? (
+                    <p className="text-sm text-destructive mt-2">
+                      {errors.companyId.message as string}
+                    </p>
+                  ) : null}
+                </div>
                      <div>
                   <label className="block text-sm font-medium mb-2">
                     Site<span className="ml-0.5 text-destructive">*</span>

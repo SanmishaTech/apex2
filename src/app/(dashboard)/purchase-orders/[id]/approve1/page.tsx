@@ -32,6 +32,7 @@ export default function PurchaseOrderApprove1Page() {
       purchaseOrderDate: purchaseOrder.purchaseOrderDate,
       deliveryDate: purchaseOrder.deliveryDate,
       siteId: purchaseOrder.site?.id,
+      companyId: purchaseOrder.companyId ?? undefined,
       vendorId: purchaseOrder.vendor?.id,
       billingAddressId: purchaseOrder.billingAddress?.id,
       siteDeliveryAddressId: purchaseOrder.siteDeliveryAddress?.id,

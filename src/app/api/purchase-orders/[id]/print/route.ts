@@ -205,6 +205,15 @@ export async function GET(
       remarks: true,
       terms: true,
       paymentTermsInDays: true,
+      companyId: true,
+      company: {
+        select: {
+          companyName: true,
+          contactPerson: true,
+          contactNo: true,
+          logoUrl: true,
+        },
+      },
       paymentTerm: {
         select: {
           description: true,
@@ -440,7 +449,9 @@ export async function GET(
   const logoWidth = 78;
   const logoY = margin;
   try {
-    const companyLogoUrl = (purchaseOrder.site as any)?.company?.logoUrl;
+    const companyLogoUrl = purchaseOrder.companyId
+      ? purchaseOrder.company?.logoUrl
+      : (purchaseOrder.site as any)?.company?.logoUrl;
     const logo = await loadLogoDataUrl(companyLogoUrl);
     if (logo) {
       const logoX = pageWidth - margin - logoWidth;
@@ -1057,8 +1068,9 @@ export async function GET(
   doc.text(ackLines as any, padX, cursorY);
   cursorY = cursorY + ackHeight + 6;
 
-  const forCompanyName =
-    safeText((purchaseOrder.site as any)?.company?.companyName) !== "-"
+  const forCompanyName = purchaseOrder.companyId
+    ? purchaseOrder.company?.companyName || ""
+    : safeText((purchaseOrder.site as any)?.company?.companyName) !== "-"
       ? safeText((purchaseOrder.site as any)?.company?.companyName)
       : "Dynasoure Concrete Treatment Pvt Ltd.";
   doc.setFont("helvetica", "bold");
