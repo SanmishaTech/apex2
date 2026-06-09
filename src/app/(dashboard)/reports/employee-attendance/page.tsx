@@ -249,7 +249,8 @@ export default function EmployeeAttendanceReportPage() {
 
   const [employeeId, setEmployeeId] = useState<string>("");
   const [month, setMonth] = useState<string>("");
-  const [appliedFilters, setAppliedFilters] = useState<{month: string, employeeId: string} | null>(null);
+  const [attendanceStatus, setAttendanceStatus] = useState<string>("all");
+  const [appliedFilters, setAppliedFilters] = useState<{month: string, employeeId: string, attendanceStatus: string} | null>(null);
 
   const [qp, setQp] = useQueryParamsState({
     page: 1,
@@ -269,6 +270,9 @@ export default function EmployeeAttendanceReportPage() {
     const params = new URLSearchParams();
     params.set("month", appliedFilters.month);
     if (appliedFilters.employeeId) params.set("employeeId", appliedFilters.employeeId);
+    if (appliedFilters.attendanceStatus && appliedFilters.attendanceStatus !== "all") {
+      params.set("attendanceStatus", appliedFilters.attendanceStatus);
+    }
     params.set("page", String(page));
     params.set("perPage", String(perPage));
     return `/api/reports/employee-attendance?${params.toString()}`;
@@ -318,6 +322,9 @@ export default function EmployeeAttendanceReportPage() {
       const params = new URLSearchParams();
       params.set("month", appliedFilters.month);
       if (appliedFilters.employeeId) params.set("employeeId", appliedFilters.employeeId);
+      if (appliedFilters.attendanceStatus && appliedFilters.attendanceStatus !== "all") {
+        params.set("attendanceStatus", appliedFilters.attendanceStatus);
+      }
       const res = await apiGet(`/api/reports/employee-attendance?${params.toString()}`);
       fullData = (res as any).data || [];
     } catch {
@@ -407,6 +414,11 @@ export default function EmployeeAttendanceReportPage() {
     if (appliedFilters.employeeId) {
       const emp = employeeOptions.find(e => e.value === appliedFilters.employeeId);
       doc.text(`Employee: ${emp?.label || "—"}`, 14, y);
+      y += 5;
+    }
+    if (appliedFilters.attendanceStatus && appliedFilters.attendanceStatus !== "all") {
+      const statusLabel = appliedFilters.attendanceStatus === "late" ? "Late (> 10:15 AM)" : "No Attendance";
+      doc.text(`Filter: ${statusLabel}`, 14, y);
       y += 5;
     }
     y += 3;
@@ -586,7 +598,7 @@ export default function EmployeeAttendanceReportPage() {
     }
 
     setQp({ page: 1 });
-    setAppliedFilters({ month, employeeId });
+    setAppliedFilters({ month, employeeId, attendanceStatus });
   };
 
   return (
@@ -599,7 +611,7 @@ export default function EmployeeAttendanceReportPage() {
       </AppCard.Header>
       <AppCard.Content>
         <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div>
               <label className="text-xs font-medium">Month *</label>
               <div className="mt-1">
@@ -628,7 +640,25 @@ export default function EmployeeAttendanceReportPage() {
               </div>
             </div>
 
-            <div className="md:col-span-2 flex justify-end gap-2">
+            <div>
+              <label className="text-xs font-medium">Attendance Status</label>
+              <div className="mt-1">
+                <AppCombobox
+                  value={attendanceStatus}
+                  onValueChange={(v) => setAttendanceStatus(v)}
+                  options={[
+                    { value: "all", label: "All Records" },
+                    { value: "late", label: "Late (> 10:15 AM)" },
+                    { value: "no-attendance", label: "No Attendance" },
+                  ]}
+                  placeholder="All Records"
+                  searchPlaceholder="Search status..."
+                  emptyText="No status found."
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-3 flex justify-end gap-2">
               <AppButton type="button" onClick={handleSearch} disabled={isLoading || !canView}>
                 Search
               </AppButton>
