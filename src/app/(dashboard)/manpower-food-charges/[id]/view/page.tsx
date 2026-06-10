@@ -10,7 +10,7 @@ import { toast } from '@/lib/toast';
 export default function ViewManpowerFoodChargesPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const { data, error, isLoading } = useSWR<any>(
     id ? `/api/manpower-food-charges/${id}` : null,

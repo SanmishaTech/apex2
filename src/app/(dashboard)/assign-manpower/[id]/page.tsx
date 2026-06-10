@@ -179,6 +179,13 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
         `${r.firstName}${r.middleName ? " " + r.middleName : ""} ${r.lastName}`,
     },
     {
+      key: "aadharNo",
+      header: "Aadhar Number",
+      sortable: false,
+      accessor: (r) => r.aadharNo || "—",
+      className: "whitespace-nowrap",
+    },
+    {
       key: "present",
       header: "Present",
       sortable: false,

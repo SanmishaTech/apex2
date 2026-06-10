@@ -22,23 +22,25 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 type FormValues = {
   siteIds: string[];
+  categoryIds: string[];
 };
 
 export default function WageSheetPage() {
   const search = useSearchParams();
   const [period, setPeriod] = useState("");
   const mode = "company";
-  const [categoryId, setCategoryId] = useState<string>("");
   const [pf, setPf] = useState<string>("");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     defaultValues: {
       siteIds: [],
+      categoryIds: [],
     },
   });
 
   const selectedSiteIds = form.watch("siteIds");
+  const selectedCategoryIds = form.watch("categoryIds");
 
   // Build last 24 months options MM-YYYY
   const periodOptions = useMemo(() => {
@@ -59,7 +61,11 @@ export default function WageSheetPage() {
     const p = search?.get("period");
     if (p) setPeriod(p);
     const cat = search?.get("categoryId");
-    if (cat) setCategoryId(cat);
+    if (cat) {
+      form.setValue("categoryIds", cat.split(",").map(v => v.trim()).filter(Boolean));
+    } else {
+      form.setValue("categoryIds", []);
+    }
     const pfParam = search?.get("pf");
     if (pfParam === "true" || pfParam === "false") setPf(pfParam);
 
@@ -98,11 +104,12 @@ export default function WageSheetPage() {
     if (period) params.set("period", period);
     const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
     if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-    if (categoryId) params.set("categoryId", categoryId);
+    const categoryIdsCsv = (selectedCategoryIds || []).filter(Boolean).join(",");
+    if (categoryIdsCsv) params.set("categoryId", categoryIdsCsv);
     if (pf) params.set("pf", pf);
     const qs = params.toString();
     return "/api/reports/wage-sheet" + (qs ? `?${qs}` : "");
-  }, [period, selectedSiteIds, categoryId, pf]);
+  }, [period, selectedSiteIds, selectedCategoryIds, pf]);
 
   const { data, isLoading } = useSWR(query, fetcher);
 
@@ -174,6 +181,7 @@ export default function WageSheetPage() {
         "Designation",
         "UNA No",
         "ESIC No",
+        "A/C Holder Name",
         "Account No",
         "IFSC",
         "Bank",
@@ -239,7 +247,7 @@ export default function WageSheetPage() {
         if (item.isSupplierHeader) {
           // Add supplier totals for previous group if exists
           if (supplierTotals) {
-            const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
+            const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", "", ""];
             for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
             supplierTotalRow.push(
               supplierTotals.workingDays.toFixed(2),
@@ -253,7 +261,7 @@ export default function WageSheetPage() {
           }
 
           // Add supplier header row as a regular row with merged cells
-          const supplierHeaderRow = new Array(9 + daysInMonth + 7).fill("");
+          const supplierHeaderRow = new Array(10 + daysInMonth + 7).fill("");
           supplierHeaderRow[1] = item.supplierName; // Put supplier name in second column
           body.push(supplierHeaderRow);
 
@@ -278,6 +286,7 @@ export default function WageSheetPage() {
           worker.designation || "-",
           worker.unaNo || "-",
           worker.esicNo || "-",
+          worker.accountHolderName || "-",
           worker.accountNumber || "-",
           worker.ifscCode || "-",
           worker.bankName || "-",
@@ -332,7 +341,7 @@ export default function WageSheetPage() {
 
       // Add final supplier totals
       if (supplierTotals) {
-        const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", ""];
+        const supplierTotalRow: any[] = ["", "Total", "", "", "", "", "", "", "", ""];
         for (let i = 0; i < daysInMonth; i++) supplierTotalRow.push("");
         supplierTotalRow.push(
           supplierTotals.workingDays.toFixed(2),
@@ -347,7 +356,7 @@ export default function WageSheetPage() {
       }
 
       // Add Grand Total row
-      const grandTotalRow: any[] = ["", "Grand Total", "", "", "", "", "", "", ""];
+      const grandTotalRow: any[] = ["", "Grand Total", "", "", "", "", "", "", "", ""];
       for (let i = 0; i < daysInMonth; i++) grandTotalRow.push("");
 
       // Grand totals
@@ -369,19 +378,20 @@ export default function WageSheetPage() {
         2: { cellWidth: 18 }, // Designation
         3: { cellWidth: 15 }, // UNA No
         4: { cellWidth: 15 }, // ESIC No
-        5: { cellWidth: 20 }, // Account No
-        6: { cellWidth: 15 }, // IFSC
-        7: { cellWidth: 20 }, // Bank
-        8: { cellWidth: 18 }, // Skill Set
+        5: { cellWidth: 20 }, // Account Holder Name
+        6: { cellWidth: 20 }, // Account No
+        7: { cellWidth: 15 }, // IFSC
+        8: { cellWidth: 20 }, // Bank
+        9: { cellWidth: 18 }, // Skill Set
       };
 
       // Day columns - very narrow
-      for (let i = 9; i < 9 + daysInMonth; i++) {
+      for (let i = 10; i < 10 + daysInMonth; i++) {
         columnStyles[i] = { cellWidth: 5, halign: "center" };
       }
 
       // Summary columns
-      const summaryStart = 9 + daysInMonth;
+      const summaryStart = 10 + daysInMonth;
 
       // Column widths
       columnStyles[summaryStart] = { cellWidth: 16 }; // Working Days
@@ -471,7 +481,8 @@ export default function WageSheetPage() {
     params.set("period", period);
     const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
     if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-    if (categoryId) params.set("categoryId", categoryId);
+    const categoryIdsCsv = (selectedCategoryIds || []).filter(Boolean).join(",");
+    if (categoryIdsCsv) params.set("categoryId", categoryIdsCsv);
     if (pf) params.set("pf", pf);
     const url = `/reports/wage-sheet?${params.toString()}`;
     window.open(url, "_blank");
@@ -490,7 +501,8 @@ export default function WageSheetPage() {
       params.set("period", period);
       const siteIdsCsv = (selectedSiteIds || []).filter(Boolean).join(",");
       if (siteIdsCsv) params.set("siteIds", siteIdsCsv);
-      if (categoryId) params.set("categoryId", categoryId);
+      const categoryIdsCsv = (selectedCategoryIds || []).filter(Boolean).join(",");
+      if (categoryIdsCsv) params.set("categoryId", categoryIdsCsv);
       if (pf) params.set("pf", pf);
 
       const res = await fetch(`/api/reports/wage-sheet-details?${params.toString()}`);
@@ -519,7 +531,7 @@ export default function WageSheetPage() {
         }).replace(',', '');
 
         const siteLabel = siteGroup.siteName || "All Sites";
-        const filterText = `Site: ${siteLabel} | Period: ${monthName} ${yyyy} | PF: ${pf || 'All'} | Category: ${categoryId ? categories.data?.data?.find((c: any) => String(c.id) === categoryId)?.categoryName : 'All'}`;
+        const filterText = `Site: ${siteLabel} | Period: ${monthName} ${yyyy} | PF: ${pf || 'All'} | Category: ${selectedCategoryIds && selectedCategoryIds.length > 0 ? selectedCategoryIds.map(id => categories.data?.data?.find((c: any) => String(c.id) === id)?.categoryName).filter(Boolean).join(", ") : 'All'}`;
         
         // Row 1: Title
         wsData.push([{ v: "MONTHLY WAGE SHEET", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" } } }]);
@@ -558,9 +570,9 @@ export default function WageSheetPage() {
           "Remarks",
           "Account Details"
         );
-        header2.push("", "", "", "", "", "", "", "", "", "", "Account No");
-        header1.push("", ""); // Space for IFSC and Bank Name in row 5
-        header2.push("IFSC", "Bank Name");
+        header2.push("", "", "", "", "", "", "", "", "", "", "Account Holder Name");
+        header1.push("", "", ""); // Space for Account No, IFSC and Bank Name in row 5
+        header2.push("Account No", "IFSC", "Bank Name");
 
         wsData.push(header1.map(v => ({ v, s: headerStyle })));
         wsData.push(header2.map(v => ({ v, s: headerStyle })));
@@ -614,6 +626,7 @@ export default function WageSheetPage() {
             { v: w.isMlwfAlreadyDeducted ? "0.00 (AD)" : w.lwf, s: w.isMlwfAlreadyDeducted ? centerStyle : numberStyle },
             { v: netPayable, s: { ...numberStyle, font: { bold: true }, fill: { fgColor: { rgb: "E2EFDA" } } } },
             { v: "", s: leftStyle }, // Remarks
+            { v: w.accountHolderName || "-", s: leftStyle },
             { v: w.accountNumber || "-", s: leftStyle },
             { v: w.ifscCode || "-", s: leftStyle },
             { v: w.bankName || "-", s: leftStyle }
@@ -658,6 +671,7 @@ export default function WageSheetPage() {
           { v: "", s: { ...headerStyle } },
           { v: "", s: { ...headerStyle } },
           { v: "", s: { ...headerStyle } },
+          { v: "", s: { ...headerStyle } },
           { v: "", s: { ...headerStyle } }
         );
         wsData.push(totalRow);
@@ -674,7 +688,7 @@ export default function WageSheetPage() {
         // Header Merges
         for (let c = 0; c < 8; c++) merges.push({ s: { r: 4, c }, e: { r: 5, c } }); // Sr.no to Rate
         for (let c = 8 + daysInMonth; c < 8 + daysInMonth + 10; c++) merges.push({ s: { r: 4, c }, e: { r: 5, c } }); // Working Days to Remarks
-        merges.push({ s: { r: 4, c: 8 + daysInMonth + 10 }, e: { r: 4, c: 8 + daysInMonth + 12 } }); // Account Details label
+        merges.push({ s: { r: 4, c: 8 + daysInMonth + 10 }, e: { r: 4, c: 8 + daysInMonth + 13 } }); // Account Details label
 
         ws["!merges"] = merges;
 
@@ -701,6 +715,7 @@ export default function WageSheetPage() {
           { wch: 8 },  // MLWF
           { wch: 12 }, // Net Payable
           { wch: 20 }, // Remarks
+          { wch: 25 }, // Account Holder Name
           { wch: 20 }, // Account No
           { wch: 15 }, // IFSC
           { wch: 20 }  // Bank Name
@@ -820,22 +835,17 @@ export default function WageSheetPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="block text-sm mb-1">Category</label>
-              <Select value={categoryId || "all"} onValueChange={(v) => setCategoryId(v === "all" ? "" : v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="---" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {categories.data?.data?.map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.categoryName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <MultiSelectInput
+              control={form.control}
+              name="categoryIds"
+              label="Category"
+              placeholder="All Categories"
+              options={(categories.data?.data || []).map((c: any) => ({
+                value: String(c.id),
+                label: c.categoryName,
+              }))}
+              className="w-full"
+            />
             <div>
               <label className="block text-sm mb-1">PF</label>
               <Select value={pf || "all"} onValueChange={(v) => setPf(v === "all" ? "" : v)}>
@@ -885,6 +895,7 @@ export default function WageSheetPage() {
                     <tr>
                       <th className="p-2 text-left">Manpower</th>
                       <th className="p-2 text-left">Supplier</th>
+                      <th className="p-2 text-left">A/C Holder Name</th>
                       <th className="p-2 text-left">Account Number</th>
                       <th className="p-2 text-left">IFSC Code</th>
                       <th className="p-2 text-left">Bank Name</th>
@@ -906,6 +917,7 @@ export default function WageSheetPage() {
                       <tr key={idx} className="border-t">
                         <td className="p-2">{r.manpowerName}</td>
                         <td className="p-2">{r.supplier ?? ""}</td>
+                        <td className="p-2">{r.accountHolderName}</td>
                         <td className="p-2">{r.accountNumber}</td>
                         <td className="p-2">{r.ifscCode}</td>
                         <td className="p-2">{r.bankName}</td>
@@ -947,7 +959,7 @@ export default function WageSheetPage() {
                   </tbody>
                   <tfoot className="bg-muted/50 font-semibold border-t">
                     <tr>
-                      <td colSpan={5} className="p-2">Total</td>
+                      <td colSpan={6} className="p-2">Total</td>
                       <td className="p-2 text-right">
                         {g.rows.reduce((s: number, r: any) => s + Number(r.workingDays || 0), 0).toFixed(2)}
                       </td>

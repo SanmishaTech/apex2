@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
   }
 
   const siteManpowerIs: Record<string, unknown> = {};
-  if (categoryId) siteManpowerIs.categoryId = Number(categoryId);
+  if (categoryId) {
+    const categoryIds = categoryId.split(",").map(Number).filter(n => Number.isFinite(n) && n > 0);
+    if (categoryIds.length > 0) siteManpowerIs.categoryId = { in: categoryIds };
+  }
   if (pf === "true" || pf === "false") siteManpowerIs.pf = pf === "true";
 
   const siteIds = (siteIdsCsv || "")
@@ -157,6 +160,7 @@ export async function GET(req: NextRequest) {
       manpowerId: (d as any).paySlip.manpowerId,
       manpowerName: [(d as any).paySlip.manpower?.firstName, (d as any).paySlip.manpower?.middleName, (d as any).paySlip.manpower?.lastName].filter(Boolean).join(" "),
       supplier: (d as any).paySlip.manpower?.manpowerSupplier?.supplierName ?? null,
+      accountHolderName: (d as any).paySlip.manpower?.accountHolderName ?? null,
       accountNumber: (d as any).paySlip.manpower?.accountNumber ?? null,
       ifscCode: (d as any).paySlip.manpower?.ifscCode ?? null,
       bankName: (d as any).paySlip.manpower?.bank ?? null,

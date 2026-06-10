@@ -35,6 +35,7 @@ export type ManpowerListItem = {
   wage: string | null; // Prisma Decimal serialized
   bank: string | null;
   branch: string | null;
+  accountHolderName: string | null;
   accountNumber: string | null;
   ifscCode: string | null;
   pfNo: string | null;
@@ -161,6 +162,7 @@ export default function ManpowerPage() {
         'Wage': item.wage || '',
         'Bank': item.bank || '',
         'Branch': item.branch || '',
+        'Account Holder Name': item.accountHolderName || '',
         'Account Number': item.accountNumber || '',
         'IFSC Code': item.ifscCode || '',
         'PF No': item.pfNo || '',
@@ -207,6 +209,7 @@ export default function ManpowerPage() {
         { wch: 12 }, // Wage
         { wch: 20 }, // Bank
         { wch: 20 }, // Branch
+        { wch: 25 }, // Account Holder Name
         { wch: 18 }, // Account Number
         { wch: 12 }, // IFSC Code
         { wch: 12 }, // PF No

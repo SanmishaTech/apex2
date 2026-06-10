@@ -32,6 +32,7 @@ export async function GET(
         mobileNumber: true,
         bank: true,
         branch: true,
+        accountHolderName: true,
         accountNumber: true,
         ifscCode: true,
         pfNo: true,
