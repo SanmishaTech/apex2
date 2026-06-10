@@ -103,8 +103,6 @@ export default function AssignManpowerPage({ params }: PageProps) {
           category: row.category ?? undefined,
           skillSet: row.skillSet ?? undefined,
           wage: row.wage ?? undefined,
-          foodCharges: row.foodCharges ?? undefined,
-          foodCharges2: row.foodCharges2 ?? undefined,
           esic: asBool(row.esic),
           pf: row.pf ?? false,
           pt: asBool(row.pt),
@@ -132,8 +130,6 @@ export default function AssignManpowerPage({ params }: PageProps) {
             category: row.category ?? undefined,
             skillSet: row.skillSet ?? undefined,
             wage: row.wage ?? undefined,
-            foodCharges: row.foodCharges ?? undefined,
-            foodCharges2: row.foodCharges2 ?? undefined,
             esic: asBool(row.esic),
             pf: row.pf ?? false,
             pt: asBool(row.pt),
@@ -208,18 +204,7 @@ export default function AssignManpowerPage({ params }: PageProps) {
           onChange={(e) => setField(r.id, 'wage', e.currentTarget.value)} />
       )
     },
-    {
-      key: 'foodCharges', header: 'Food Charges', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
-        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String(selected[r.id]?.foodCharges ?? r.foodCharges ?? '')}
-          onChange={(e) => setField(r.id, 'foodCharges', e.currentTarget.value)} />
-      )
-    },
-    {
-      key: 'foodCharges2', header: 'Food Charges 2', sortable: false, className: 'text-right', cellClassName: 'text-right', accessor: (r) => (
-        <input type='number' min='0' className='w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring' value={String(selected[r.id]?.foodCharges2 ?? r.foodCharges2 ?? '')}
-          onChange={(e) => setField(r.id, 'foodCharges2', e.currentTarget.value)} />
-      )
-    },
+
     {
       key: 'pf', header: 'PF', sortable: false, className: 'text-center', cellClassName: 'text-center', accessor: (r) => (
         <input type='checkbox' checked={asBool(selected[r.id]?.pf ?? r.pf)} onChange={(e) => setField(r.id, 'pf', e.currentTarget.checked)} />

@@ -62,8 +62,6 @@ export async function GET(
             category: { select: { id: true, categoryName: true } },
             skillset: { select: { id: true, skillsetName: true } },
             wage: true,
-            ...({ foodCharges: true } as any),
-            ...({ foodCharges2: true } as any),
             pf: true,
             esic: true,
             pt: true,
@@ -111,8 +109,6 @@ export async function PATCH(
       }
     }
     if (body.wage !== undefined) assignmentData.wage = asNonNegativeDecimal(body.wage) as any;
-    if (body.foodCharges !== undefined) assignmentData.foodCharges = asNonNegativeDecimal(body.foodCharges) as any;
-    if (body.foodCharges2 !== undefined) assignmentData.foodCharges2 = asNonNegativeDecimal(body.foodCharges2) as any;
     if (body.pf !== undefined) assignmentData.pf = !!body.pf;
     if (body.esic !== undefined) assignmentData.esic = !!body.esic;
     if (body.pt !== undefined) assignmentData.pt = !!body.pt;
@@ -256,8 +252,6 @@ export async function PATCH(
                     categoryId: existing.categoryId,
                     skillsetId: existing.skillsetId,
                     wage: existing.wage,
-                    foodCharges: existing.foodCharges,
-                    foodCharges2: existing.foodCharges2,
                     pf: existing.pf,
                     esic: existing.esic,
                     pt: existing.pt,

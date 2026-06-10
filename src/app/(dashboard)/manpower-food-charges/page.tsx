@@ -17,7 +17,7 @@ import { PERMISSIONS } from '@/config/roles';
 import { formatRelativeTime, formatDate } from '@/lib/locales';
 import { useQueryParamsState } from '@/hooks/use-query-params-state';
 import Link from 'next/link';
-import { EditButton } from '@/components/common/icon-button';
+import { EditButton, ViewButton } from '@/components/common/icon-button';
 import type { SitesResponse } from '@/types/sites';
 
 // Types
@@ -57,9 +57,10 @@ function buildMonthYearOptions(): Array<{ value: string; label: string }> {
   ];
   const opts: Array<{ value: string; label: string }> = [];
   for (const y of years) {
-    for (const m of names) {
-      const label = `${m} ${y}`;
-      opts.push({ value: label, label });
+    for (let mIndex = 0; mIndex < names.length; mIndex++) {
+      const label = `${names[mIndex]} ${y}`;
+      const value = `${String(mIndex + 1).padStart(2, "0")}-${y}`;
+      opts.push({ value, label });
     }
   }
   return opts;
@@ -161,14 +162,6 @@ export default function ManpowerFoodChargesPage() {
   }
 
   const columns: Column<ManpowerFoodChargesListItem>[] = [
-    {
-      key: 'site',
-      header: 'Site',
-      sortable: false,
-      accessor: (r) => r.site?.site || '—',
-      className: 'whitespace-nowrap',
-      cellClassName: 'whitespace-nowrap',
-    },
     {
       key: 'monthYear',
       header: 'Month',
@@ -291,6 +284,9 @@ export default function ManpowerFoodChargesPage() {
             if (!can(PERMISSIONS.EDIT_MANPOWER_FOOD_CHARGES) && !can(PERMISSIONS.DELETE_MANPOWER_FOOD_CHARGES)) return null;
             return (
               <div className='flex'>
+                <Link href={`/manpower-food-charges/${row.id}/view`}>
+                  <ViewButton tooltip='View Manpower Food Charges' aria-label='View Manpower Food Charges' />
+                </Link>
                 {can(PERMISSIONS.EDIT_MANPOWER_FOOD_CHARGES) && (
                   <Link href={`/manpower-food-charges/${row.id}/edit`}>
                     <EditButton tooltip='Edit Manpower Food Charges' aria-label='Edit Manpower Food Charges' />

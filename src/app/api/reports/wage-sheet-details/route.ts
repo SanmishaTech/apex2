@@ -68,8 +68,7 @@ export async function GET(req: NextRequest) {
                 categoryId: true,
                 pf: true,
                 esic: true,
-                ...({ foodCharges: true } as any),
-                ...({ foodCharges2: true } as any),
+
                 category: { select: { categoryName: true } },
                 skillset: { select: { skillsetName: true } },
               },
@@ -113,8 +112,7 @@ export async function GET(req: NextRequest) {
                     pf: true,
                     esic: true,
                     pt: true,
-                    ...({ foodCharges: true } as any),
-                    ...({ foodCharges2: true } as any),
+
                     category: { select: { categoryName: true } },
                     skillset: { select: { skillsetName: true } },
                   },
@@ -225,23 +223,19 @@ export async function GET(req: NextRequest) {
       // Food Charges detection: Now stored in DB
       const foodCharges = Number(detail.foodCharges || 0);
       const foodCharges2 = Number(detail.foodCharges2 || 0);
-      // Food Charges detection: Now much simpler since we store them!
-      const configFood1 = Number(siteManpowerForThisSite?.foodCharges || 0);
+      // Food Charges detection is now based entirely on the payslip detail
       const otherDetailWithFood1 = (detail as any).paySlip.details?.find(
         (other: any) => other.id !== detail.id && Number(other.foodCharges || 0) > 0
       );
-      const isFood1AlreadyDeducted =
-        configFood1 > 0 && foodCharges === 0 && !!otherDetailWithFood1;
+      const isFood1AlreadyDeducted = foodCharges === 0 && !!otherDetailWithFood1;
       const food1AmountElsewhere = otherDetailWithFood1
         ? Number(otherDetailWithFood1.foodCharges)
         : 0;
 
-      const configFood2 = Number(siteManpowerForThisSite?.foodCharges2 || 0);
       const otherDetailWithFood2 = (detail as any).paySlip.details?.find(
         (other: any) => other.id !== detail.id && Number(other.foodCharges2 || 0) > 0
       );
-      const isFood2AlreadyDeducted =
-        configFood2 > 0 && foodCharges2 === 0 && !!otherDetailWithFood2;
+      const isFood2AlreadyDeducted = foodCharges2 === 0 && !!otherDetailWithFood2;
       const food2AmountElsewhere = otherDetailWithFood2
         ? Number(otherDetailWithFood2.foodCharges2)
         : 0;
