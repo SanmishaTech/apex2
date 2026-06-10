@@ -7,7 +7,6 @@ import { ROLES } from "@/config/roles";
 import { z } from "zod";
 
 const createSchema = z.object({
-  siteId: z.coerce.number().int().positive(),
   monthYear: z.string().min(1).max(50),
   details: z
     .array(
@@ -52,45 +51,22 @@ export async function GET(req: NextRequest) {
   type WhereType = {
     OR?: {
       monthYear?: { contains: string };
-      site?: { site: { contains: string } };
     }[];
-    siteId?: number | { in: number[] };
     monthYear?: string;
   };
   const where: WhereType = {};
   if (search) {
     where.OR = [
       { monthYear: { contains: search } },
-      { site: { site: { contains: search } } },
     ];
   }
 
-  const siteIdFilter = siteIdParam ? Number(siteIdParam) : undefined;
-  if (siteIdParam && (siteIdFilter === undefined || !Number.isFinite(siteIdFilter) || siteIdFilter <= 0)) {
-    return Error("Invalid siteId", 400);
-  }
   if (monthParam) where.monthYear = monthParam;
 
   const sortableFields = new Set(["monthYear", "createdAt"]);
   const orderBy: Record<string, "asc" | "desc"> = sortableFields.has(sort) ? { [sort]: order } : { createdAt: "desc" };
 
-  if ((auth as any).user?.role !== ROLES.ADMIN) {
-    const employee = await prisma.employee.findFirst({
-      where: { userId: (auth as any).user?.id },
-      select: { siteEmployees: { select: { siteId: true } } },
-    });
-    const assignedSiteIds: number[] = (employee?.siteEmployees || [])
-      .map((s) => s.siteId)
-      .filter((v): v is number => typeof v === "number");
-
-    if (typeof siteIdFilter === "number") {
-      (where as any).siteId = assignedSiteIds.includes(siteIdFilter) ? siteIdFilter : { in: [-1] };
-    } else {
-      (where as any).siteId = { in: assignedSiteIds.length > 0 ? assignedSiteIds : [-1] };
-    }
-  } else {
-    if (typeof siteIdFilter === "number") where.siteId = siteIdFilter;
-  }
+  // Admin or normal users can see food charges now because there's no site filtering anymore.
 
   const result = await paginate({
     model: prisma.manpowerFoodCharges as any,
@@ -100,8 +76,6 @@ export async function GET(req: NextRequest) {
     perPage,
     select: {
       id: true,
-      siteId: true,
-      site: { select: { id: true, site: true } },
       monthYear: true,
       createdAt: true,
       updatedAt: true,
@@ -124,7 +98,6 @@ export async function POST(req: NextRequest) {
     const monthVal = parsed.monthYear.trim();
     const existingCombo = await prisma.manpowerFoodCharges.findFirst({
       where: {
-        siteId: parsed.siteId,
         monthYear: monthVal,
       },
       select: { id: true },
@@ -141,7 +114,6 @@ export async function POST(req: NextRequest) {
 
     const created = await prisma.manpowerFoodCharges.create({
       data: {
-        siteId: parsed.siteId,
         monthYear: monthVal,
         createdById: auth.user.id,
         updatedById: auth.user.id,
@@ -153,7 +125,6 @@ export async function POST(req: NextRequest) {
       } as any,
       select: {
         id: true,
-        siteId: true,
         monthYear: true,
         createdAt: true,
         updatedAt: true,
@@ -183,18 +154,15 @@ export async function PATCH(req: NextRequest) {
       where: { id: parsed.id },
       select: {
         id: true,
-        siteId: true,
         monthYear: true,
       },
     });
     if (!existing) return Error("Manpower Food Charges not found", 404);
 
-    const nextSiteId = parsed.siteId ?? existing.siteId;
     const nextMonth = parsed.monthYear !== undefined ? parsed.monthYear.trim() : existing.monthYear;
 
     const existingCombo = await prisma.manpowerFoodCharges.findFirst({
       where: {
-        siteId: nextSiteId,
         monthYear: nextMonth,
         id: { not: parsed.id },
       },
@@ -244,7 +212,6 @@ export async function PATCH(req: NextRequest) {
       return tx.manpowerFoodCharges.update({
         where: { id: parsed.id },
         data: {
-          siteId: nextSiteId,
           monthYear: nextMonth,
           updatedById: auth.user.id,
           UpdatedByName: userName,

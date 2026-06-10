@@ -252,38 +252,7 @@ export default function ViewAssignedManpowerPage({ params }: PageProps) {
         />
       ),
     },
-    {
-      key: "foodCharges",
-      header: "Food Charges",
-      sortable: false,
-      className: "text-right",
-      cellClassName: "text-right",
-      accessor: (r) => (
-        <input
-          type="number"
-          min="0"
-          className="w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-          value={String((edits[r.id]?.foodCharges as any) ?? r.foodCharges ?? "")}
-          onChange={(e) => setField(r.id, "foodCharges", e.currentTarget.value)}
-        />
-      ),
-    },
-    {
-      key: "foodCharges2",
-      header: "Food Charges 2",
-      sortable: false,
-      className: "text-right",
-      cellClassName: "text-right",
-      accessor: (r) => (
-        <input
-          type="number"
-          min="0"
-          className="w-24 text-right border border-input bg-background text-foreground placeholder:text-muted-foreground rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-          value={String((edits[r.id]?.foodCharges2 as any) ?? r.foodCharges2 ?? "")}
-          onChange={(e) => setField(r.id, "foodCharges2", e.currentTarget.value)}
-        />
-      ),
-    },
+
     {
       key: "pf",
       header: "PF",

@@ -18,8 +18,6 @@ export async function GET(
       where: { id },
       select: {
         id: true,
-        siteId: true,
-        site: { select: { id: true, site: true } },
         monthYear: true,
         createdAt: true,
         updatedAt: true,
@@ -28,7 +26,7 @@ export async function GET(
             id: true,
             manpowerFoodChargesId: true,
             manpowerId: true,
-            manpower: { select: { id: true, firstName: true, lastName: true } },
+            manpower: { select: { id: true, firstName: true, lastName: true, aadharNo: true, mobileNumber: true } },
             foodCharges1: true,
             foodCharges2: true,
           },

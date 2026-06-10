@@ -143,8 +143,6 @@ export async function GET(req: NextRequest) {
             siteId: true,
             isPresent: true,
             wage: true,
-            ...({ foodCharges: true } as any),
-            ...({ foodCharges2: true } as any),
             pf: true,
             esic: true,
             pt: true,
@@ -170,8 +168,6 @@ export async function GET(req: NextRequest) {
               currentSiteId: sm?.siteId ?? null,
               assignedAt: sm?.assignedDate ?? null,
               wage: sm?.wage ?? null,
-              foodCharges: sm?.foodCharges ?? null,
-              foodCharges2: sm?.foodCharges2 ?? null,
               pf: sm?.pf ?? false,
               esic: sm?.esic ?? false,
               pt: sm?.pt ?? false,
@@ -237,8 +233,6 @@ export async function POST(req: NextRequest) {
             categoryId,
             skillsetId,
             wage: asNonNegativeDecimal(i.wage) as any,
-            foodCharges: asNonNegativeDecimal(i.foodCharges) as any,
-            foodCharges2: asNonNegativeDecimal(i.foodCharges2) as any,
             pf: !!i.pf,
             esic: !!i.esic,
             pt: !!i.pt,
@@ -319,8 +313,6 @@ export async function PATCH(req: NextRequest) {
                 updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
               }
               if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
-              if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
-              if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
               if (i.pf !== undefined) updateData.pf = !!i.pf;
               if (i.esic !== undefined) updateData.esic = !!i.esic;
               if (i.pt !== undefined) updateData.pt = !!i.pt;
@@ -341,8 +333,6 @@ export async function PATCH(req: NextRequest) {
                 categoryId: existing.categoryId,
                 skillsetId: existing.skillsetId,
                 wage: existing.wage,
-                foodCharges: existing.foodCharges,
-                foodCharges2: existing.foodCharges2,
                 pf: existing.pf,
                 esic: existing.esic,
                 pt: existing.pt,
@@ -355,8 +345,6 @@ export async function PATCH(req: NextRequest) {
                 data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
               }
               if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
-              if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
-              if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
               if (i.pf !== undefined) data.pf = !!i.pf;
               if (i.esic !== undefined) data.esic = !!i.esic;
               if (i.pt !== undefined) data.pt = !!i.pt;
@@ -384,8 +372,6 @@ export async function PATCH(req: NextRequest) {
               updateData.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
             }
             if (i.wage !== undefined) updateData.wage = asNonNegativeDecimal(i.wage) as any;
-            if (i.foodCharges !== undefined) updateData.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
-            if (i.foodCharges2 !== undefined) updateData.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
             if (i.pf !== undefined) updateData.pf = !!i.pf;
             if (i.esic !== undefined) updateData.esic = !!i.esic;
             if (i.pt !== undefined) updateData.pt = !!i.pt;
@@ -404,8 +390,6 @@ export async function PATCH(req: NextRequest) {
             data.skillsetId = await resolveSkillsetId(tx, i.skillsetId ?? i.skillSet);
           }
           if (i.wage !== undefined) data.wage = asNonNegativeDecimal(i.wage) as any;
-          if (i.foodCharges !== undefined) data.foodCharges = asNonNegativeDecimal(i.foodCharges) as any;
-          if (i.foodCharges2 !== undefined) data.foodCharges2 = asNonNegativeDecimal(i.foodCharges2) as any;
           if (i.pf !== undefined) data.pf = !!i.pf;
           if (i.esic !== undefined) data.esic = !!i.esic;
           if (i.pt !== undefined) data.pt = !!i.pt;

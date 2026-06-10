@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const perPage = Math.min(
-    1000,
+    10000,
     Math.max(1, Number(searchParams.get("perPage")) || 10)
   );
   const search = (searchParams.get("search") || "").trim();
@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
     orderBy,
     page,
     perPage,
-    maxPerPage: 1000,
+    maxPerPage: 10000,
     select: {
       id: true,
       firstName: true,
@@ -201,8 +201,6 @@ export async function GET(req: NextRequest) {
             isPresent: true,
             assignedDate: true,
             wage: true,
-            ...({ foodCharges: true } as any),
-            ...({ foodCharges2: true } as any),
             pf: true,
             esic: true,
             pt: true,
@@ -230,8 +228,6 @@ export async function GET(req: NextRequest) {
             category: sm?.category?.categoryName ?? null,
             skillSet: sm?.skillset?.skillsetName ?? null,
             wage: sm?.wage ?? null,
-            foodCharges: sm?.foodCharges ?? null,
-            foodCharges2: sm?.foodCharges2 ?? null,
             pf: sm?.pf ?? false,
             esic: sm?.esic ?? false,
             pt: sm?.pt ?? false,

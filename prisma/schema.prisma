@@ -398,7 +398,6 @@ model Site {
   overallSiteBudgets           OverallSiteBudget[]
   subContractorWorkOrders      SubContractorWorkOrder[]
   subcontractorInvoice    SubContractorInvoice[]
-  manpowerFoodCharges ManpowerFoodCharges[]
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
@@ -1147,8 +1146,6 @@ model SiteManpower {
   categoryId   Int?
   skillsetId   Int?
   wage         Decimal? @db.Decimal(10, 2) 
-  foodCharges  Decimal? @db.Decimal(10, 2) 
-  foodCharges2  Decimal? @db.Decimal(10, 2) 
 
   pf           Boolean  @default(false)
   esic          Boolean  @default(false)
@@ -3649,9 +3646,7 @@ model AuditLog {
 
 model ManpowerFoodCharges {
   id          Int     @id @default(autoincrement())
-  siteId      Int
-  site        Site    @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  monthYear   String
+  monthYear   String  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById Int
@@ -3661,7 +3656,6 @@ model ManpowerFoodCharges {
   CreatedByName String
   UpdatedByName String
   manpowerFoodChargesDetails ManpowerFoodChargesDetail[]
-  @@unique([siteId,monthYear])
   @@map("manpower_food_charges")
 }
 

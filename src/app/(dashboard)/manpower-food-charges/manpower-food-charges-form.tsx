@@ -14,11 +14,11 @@ import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import type { SitesResponse } from "@/types/sites";
-import { ComboboxInput } from "@/components/common/combobox-input";
+import { FilterBar } from "@/components/common";
+import { Pagination } from "@/components/common/pagination";
 
 export interface ManpowerFoodChargesFormInitialData {
   id?: number;
-  siteId?: number | null;
   monthYear?: string | null;
   manpowerFoodChargesDetails?: Array<{
     id?: number;
@@ -38,13 +38,15 @@ export interface ManpowerFoodChargesFormProps {
 }
 
 const formSchema = z.object({
-  siteId: z.string().min(1, "Site is required"),
   monthYear: z.string().min(1, "Month is required"),
   details: z
     .array(
       z.object({
         manpowerId: z.string().min(1),
         manpowerName: z.string().optional(),
+        aadharNo: z.string().optional(),
+        currentSiteName: z.string().optional(),
+        currentSiteId: z.number().nullable().optional(),
         foodCharges1: z.string().optional().default(""),
         foodCharges2: z.string().optional().default(""),
       })
@@ -72,13 +74,15 @@ function buildMonthYearOptions(): Array<{ value: string; label: string }> {
     "December",
   ];
   const currentMonthStr = `${names[now.getMonth()]} ${now.getFullYear()}`;
+  const currentMonthValue = `${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`;
   const opts: Array<{ value: string; label: string }> = [];
-  opts.push({ value: currentMonthStr, label: currentMonthStr });
+  opts.push({ value: currentMonthValue, label: currentMonthStr });
   for (const y of years) {
-    for (const m of names) {
-      const label = `${m} ${y}`;
+    for (let mIndex = 0; mIndex < names.length; mIndex++) {
+      const label = `${names[mIndex]} ${y}`;
       if (label !== currentMonthStr) {
-        opts.push({ value: label, label });
+        const value = `${String(mIndex + 1).padStart(2, "0")}-${y}`;
+        opts.push({ value, label });
       }
     }
   }
@@ -98,21 +102,33 @@ export function ManpowerFoodChargesForm({
   const [submitting, setSubmitting] = useState(false);
   const isCreate = mode === "create";
 
+  const { data: manpowerData, isLoading: isLoadingManpower } = useSWR<any>(
+    `/api/manpower?perPage=10000`,
+    apiGet
+  );
+
   const { data: sitesData } = useSWR<SitesResponse>(
     "/api/sites?perPage=100",
     apiGet
   );
+
+  const siteOptions = (sitesData?.data || []).map((s) => ({
+    value: String(s.id),
+    label: s.site,
+  }));
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
-      siteId: initial?.siteId ? String(initial.siteId) : "",
       monthYear: initial?.monthYear ? String(initial.monthYear) : "",
       details: (initial?.manpowerFoodChargesDetails || []).map((d) => ({
         manpowerId: String(d.manpowerId),
         manpowerName: d.manpower ? `${d.manpower.firstName} ${d.manpower.lastName}` : "",
+        aadharNo: "-",
+        currentSiteName: "-",
+        currentSiteId: null,
         foodCharges1: d.foodCharges1 == null ? "" : Number(d.foodCharges1).toFixed(2),
         foodCharges2: d.foodCharges2 == null ? "" : Number(d.foodCharges2).toFixed(2),
       })),
@@ -122,18 +138,16 @@ export function ManpowerFoodChargesForm({
   const { control, handleSubmit } = form;
   const { replace } = useFieldArray({ control, name: "details" });
 
-  const selectedSiteId = form.watch("siteId");
   const monthOptions = useMemo(() => buildMonthYearOptions(), []);
 
-  // Fetch assigned manpower
-  const { data: manpowerAssigned } = useSWR<any>(
-    selectedSiteId ? `/api/manpower-assignments?mode=assigned&siteId=${selectedSiteId}&perPage=10000` : null,
-    apiGet
-  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilterSiteId, setSelectedFilterSiteId] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
 
-    if (manpowerAssigned?.data) {
+    if (manpowerData?.data) {
       const existingDetails = form.getValues("details") || [];
       const qtyMap = new Map();
       const qtyMap2 = new Map();
@@ -145,11 +159,14 @@ export function ManpowerFoodChargesForm({
 
       const nextMap = new Map();
 
-      manpowerAssigned.data.forEach((m: any) => {
+      manpowerData.data.forEach((m: any) => {
         const id = String(m.id);
         nextMap.set(id, {
           manpowerId: id,
           manpowerName: `${m.firstName} ${m.lastName || ""}`.trim(),
+          aadharNo: m.aadharNo || "-",
+          currentSiteName: m.currentSiteName || "-",
+          currentSiteId: m.currentSiteId || null,
           foodCharges1: qtyMap.get(id) ?? "",
           foodCharges2: qtyMap2.get(id) ?? "",
         });
@@ -162,6 +179,9 @@ export function ManpowerFoodChargesForm({
             nextMap.set(id, {
               manpowerId: id,
               manpowerName: d.manpowerName || "Unknown Manpower",
+              aadharNo: d.aadharNo || "-",
+              currentSiteName: d.currentSiteName || "-",
+              currentSiteId: d.currentSiteId || null,
               foodCharges1: d.foodCharges1 ?? "",
               foodCharges2: d.foodCharges2 ?? "",
             });
@@ -172,13 +192,12 @@ export function ManpowerFoodChargesForm({
       const nextArr = Array.from(nextMap.values()).sort((a, b) => a.manpowerName.localeCompare(b.manpowerName));
       replace(nextArr);
     }
-  }, [manpowerAssigned?.data, replace, form, isCreate, selectedSiteId]);
+  }, [manpowerData?.data, replace, form, isCreate]);
 
   async function onSubmit(data: FormValues) {
     setSubmitting(true);
     try {
       const payload = {
-        siteId: parseInt(data.siteId),
         monthYear: data.monthYear,
         details: data.details.map((d) => ({
           manpowerId: parseInt(d.manpowerId),
@@ -206,19 +225,33 @@ export function ManpowerFoodChargesForm({
     }
   }
 
-  const siteOptions = (sitesData?.data || []).map((s) => ({
-    value: String(s.id),
-    label: s.site,
-  }));
-
-  const siteLabel = siteOptions.find((o) => o.value === selectedSiteId)?.label || "";
+  const detailsWatch = useWatch({ control, name: "details" });
 
   function isValidQtyInput(v: string) {
     if (v === "") return true;
     return /^\d*(\.\d{0,2})?$/.test(v);
   }
 
-  const detailsWatch = useWatch({ control, name: "details" });
+  const filteredDetails = useMemo(() => {
+    return (detailsWatch || [])
+      .map((d, index) => ({ ...d, originalIndex: index }))
+      .filter((d) => {
+        const matchSearch = (d.manpowerName || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const matchSite = selectedFilterSiteId ? d.currentSiteId === Number(selectedFilterSiteId) : true;
+        return matchSearch && matchSite;
+      });
+  }, [detailsWatch, searchTerm, selectedFilterSiteId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDetails.length / itemsPerPage));
+  const paginatedDetails = filteredDetails.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <Form {...form}>
@@ -233,17 +266,7 @@ export function ManpowerFoodChargesForm({
         <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <AppCard.Content>
             <FormSection legend="Information">
-              <FormRow cols={2} from="md">
-                <ComboboxInput
-                  control={control}
-                  name="siteId"
-                  label="Site"
-                  required
-                  options={siteOptions}
-                  placeholder="Select Site"
-                  disabled={!isCreate}
-                />
-
+              <FormRow cols={1} from="md">
                 <AppSelect
                   control={control}
                   name="monthYear"
@@ -261,26 +284,70 @@ export function ManpowerFoodChargesForm({
               </FormRow>
             </FormSection>
 
-            {detailsWatch && detailsWatch.length > 0 && (
+            {isLoadingManpower ? (
+              <div className="p-4 text-center text-muted-foreground">Loading manpower...</div>
+            ) : detailsWatch && detailsWatch.length > 0 ? (
               <FormSection legend="Manpower Details">
-                <div className="overflow-x-auto">
+                <FilterBar title="Filter Manpower">
+                  <AppSelect
+                    label="Site"
+                    value={selectedFilterSiteId}
+                    onValueChange={(v) => {
+                      setSelectedFilterSiteId(v === "__ALL__" ? "" : v);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="All Sites"
+                    triggerClassName="h-9 min-w-[180px]"
+                  >
+                    <AppSelect.Item value="__ALL__">All Sites</AppSelect.Item>
+                    {siteOptions.map((opt) => (
+                      <AppSelect.Item key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </AppSelect.Item>
+                    ))}
+                  </AppSelect>
+                  <div className="w-full sm:w-[250px] flex items-end">
+                    <input
+                      type="text"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Search manpower name..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                </FilterBar>
+
+                <div className="overflow-x-auto mt-4">
                   <table className="w-full text-sm border-collapse border border-border">
                     <thead>
                       <tr className="bg-muted/50 border-b border-border">
                         <th className="p-2 text-center font-semibold w-12 border-r border-border">#</th>
-                        <th className="p-2 text-left font-semibold">Manpower</th>
-                        <th className="p-2 text-right font-semibold w-32">Food Charges 1</th>
+                        <th className="p-2 text-left font-semibold border-r border-border">Manpower</th>
+                        <th className="p-2 text-left font-semibold border-r border-border">Aadhar No</th>
+                        <th className="p-2 text-left font-semibold border-r border-border">Site</th>
+                        <th className="p-2 text-right font-semibold w-32 border-r border-border">Food Charges 1</th>
                         <th className="p-2 text-right font-semibold w-32">Food Charges 2</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {detailsWatch.map((d, i) => (
+                      {paginatedDetails.map((d, index) => {
+                        const i = d.originalIndex;
+                        return (
                         <tr key={d?.manpowerId || i} className="border-b border-border hover:bg-muted/30">
                           <td className="p-2 border-r border-border font-medium text-center text-muted-foreground">
-                            {i + 1}
+                            {(currentPage - 1) * itemsPerPage + index + 1}
                           </td>
                           <td className="p-2 border-r border-border font-medium">
                             {d?.manpowerName || "Unknown Manpower"}
+                          </td>
+                          <td className="p-2 border-r border-border">
+                            {d?.aadharNo || "-"}
+                          </td>
+                          <td className="p-2 border-r border-border text-muted-foreground">
+                            {d?.currentSiteName || "-"}
                           </td>
                           <td className="p-2 border-r border-border">
                             <input
@@ -309,16 +376,30 @@ export function ManpowerFoodChargesForm({
                             />
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
+
+                <div className="mt-4 flex justify-end">
+                  <Pagination
+                    page={currentPage}
+                    totalPages={totalPages}
+                    total={filteredDetails.length}
+                    perPage={itemsPerPage}
+                    onPerPageChange={(val) => {
+                      setItemsPerPage(val);
+                      setCurrentPage(1);
+                    }}
+                    onPageChange={(p) => setCurrentPage(p)}
+                    showPageNumbers
+                    maxButtons={5}
+                  />
+                </div>
               </FormSection>
-            )}
-            
-            {detailsWatch.length === 0 && selectedSiteId && (
+            ) : (
               <div className="text-center text-muted-foreground p-4">
-                No manpower found for this site.
+                No manpower found.
               </div>
             )}
           </AppCard.Content>

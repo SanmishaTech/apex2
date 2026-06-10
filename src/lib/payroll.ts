@@ -202,8 +202,6 @@ export async function generatePayroll(params: GeneratePayrollParams) {
       esic: true,
       pt: true,
       mlwf: true,
-      foodCharges: true,
-      foodCharges2: true,
     },
   });
 
@@ -215,6 +213,28 @@ export async function generatePayroll(params: GeneratePayrollParams) {
   const allKeys = new Set<string>();
   for (const key of aggs.keys()) allKeys.add(key);
   for (const s of activeAssignments) allKeys.add(`${s.manpowerId}:${s.siteId}`);
+
+  // Fetch food charges from the new tables
+  const foodChargeDetails = await prisma.manpowerFoodChargesDetail.findMany({
+    where: {
+      manpowerFoodCharges: {
+        monthYear: params.period,
+      },
+    },
+    select: {
+      manpowerId: true,
+      foodCharges1: true,
+      foodCharges2: true,
+    },
+  });
+
+  const foodChargeMap = new Map<number, { f1: number; f2: number }>();
+  for (const f of foodChargeDetails) {
+    foodChargeMap.set(f.manpowerId, {
+      f1: Number(f.foodCharges1 || 0),
+      f2: Number(f.foodCharges2 || 0),
+    });
+  }
 
   // Group by manpower
   const byManpower = new Map<number, { manpowerId: number; details: any[] }>();
@@ -272,8 +292,6 @@ export async function generatePayroll(params: GeneratePayrollParams) {
     esic: boolean;
     pt: boolean;
     mlwf: boolean;
-    foodCharges: number | Decimal | null;
-    foodCharges2: number | Decimal | null;
   };
 
   const getSiteManpowerData = (manpowerId: number, siteId: number): SiteManpowerData | null => {
@@ -291,8 +309,6 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         esic: Boolean(transfer.esic),
         pt: Boolean(transfer.pt),
         mlwf: Boolean(transfer.mlwf),
-        foodCharges: 0,
-        foodCharges2: 0,
       };
     }
     // Note: SiteManpowerLog is no longer used in business logic (kept for audit only)
@@ -389,14 +405,15 @@ export async function generatePayroll(params: GeneratePayrollParams) {
         }
 
         let foodCharge1 = 0;
-        if (Number(smp.foodCharges || 0) > 0 && !foodCharges1Deducted) {
-          foodCharge1 = Number(smp.foodCharges);
+        const siteFoodCharge = foodChargeMap.get(manpowerId);
+        if (siteFoodCharge && siteFoodCharge.f1 > 0 && !foodCharges1Deducted) {
+          foodCharge1 = siteFoodCharge.f1;
           foodCharges1Deducted = true;
         }
 
         let foodCharge2 = 0;
-        if (Number(smp.foodCharges2 || 0) > 0 && !foodCharges2Deducted) {
-          foodCharge2 = Number(smp.foodCharges2);
+        if (siteFoodCharge && siteFoodCharge.f2 > 0 && !foodCharges2Deducted) {
+          foodCharge2 = siteFoodCharge.f2;
           foodCharges2Deducted = true;
         }
 
