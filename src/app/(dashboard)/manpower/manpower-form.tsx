@@ -33,6 +33,7 @@ export interface ManpowerInitialData {
   mobileNumber?: string | null;
   bank?: string | null;
   branch?: string | null;
+  accountHolderName?: string | null;
   accountNumber?: string | null;
   ifscCode?: string | null;
   pfNo?: string | null;
@@ -99,6 +100,7 @@ const schema = z.object({
   // Bank
   bank: z.string().optional(),
   branch: z.string().optional(),
+  accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   pfNo: z.string().optional(),
@@ -162,6 +164,7 @@ export default function ManpowerForm({
       // Bank
       bank: initial?.bank || "",
       branch: initial?.branch || "",
+      accountHolderName: initial?.accountHolderName || "",
       accountNumber: initial?.accountNumber || "",
       ifscCode: initial?.ifscCode || "",
       pfNo: initial?.pfNo || "",
@@ -234,6 +237,8 @@ export default function ManpowerForm({
       if (values.mobileNumber) fd.append("mobileNumber", values.mobileNumber);
       if (values.bank) fd.append("bank", values.bank);
       if (values.branch) fd.append("branch", values.branch);
+      if (values.accountHolderName)
+        fd.append("accountHolderName", values.accountHolderName);
       if (values.accountNumber)
         fd.append("accountNumber", values.accountNumber);
       if (values.ifscCode) fd.append("ifscCode", values.ifscCode);
@@ -426,11 +431,20 @@ export default function ManpowerForm({
               <FormRow className="grid-cols-12">
                 <TextInput
                   control={control}
+                  name="accountHolderName"
+                  label="Account Holder Name"
+                  placeholder="Account holder name"
+                  itemClassName="col-span-6"
+                />
+                <TextInput
+                  control={control}
                   name="accountNumber"
                   label="Account Number"
                   placeholder="Account number"
                   itemClassName="col-span-6"
                 />
+              </FormRow>
+              <FormRow className="grid-cols-12">
                 <TextInput
                   control={control}
                   name="ifscCode"
@@ -438,8 +452,6 @@ export default function ManpowerForm({
                   placeholder="IFSC code"
                   itemClassName="col-span-6"
                 />
-              </FormRow>
-              <FormRow className="grid-cols-12">
                 <TextInput
                   control={control}
                   name="pfNo"

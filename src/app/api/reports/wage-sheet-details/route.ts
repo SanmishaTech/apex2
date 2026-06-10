@@ -39,7 +39,10 @@ export async function GET(req: NextRequest) {
         : [];
 
     const siteManpowerIs: Record<string, unknown> = {};
-    if (categoryId) siteManpowerIs.categoryId = Number(categoryId);
+    if (categoryId) {
+      const categoryIds = categoryId.split(",").map(Number).filter(n => Number.isFinite(n) && n > 0);
+      if (categoryIds.length > 0) siteManpowerIs.categoryId = { in: categoryIds };
+    }
     if (pf === "true" || pf === "false") siteManpowerIs.pf = pf === "true";
 
     // Fetch attendance records for the period
@@ -260,6 +263,7 @@ export async function GET(req: NextRequest) {
         skillSet: siteManpowerForThisSite?.skillset?.skillsetName || "",
         supplierId: manpower?.supplierId || 0,
         supplierName: manpower?.manpowerSupplier?.supplierName || "",
+        accountHolderName: manpower?.accountHolderName || "",
         accountNumber: manpower?.accountNumber || "",
         ifscCode: manpower?.ifscCode || "",
         bankName: manpower?.bank || "",

@@ -1091,7 +1091,7 @@ model Manpower {
   supplierId       Int
   manpowerSupplier ManpowerSupplier @relation(fields: [supplierId], references: [id])
   dateOfBirth      DateTime?
-
+  
   // Contact details
   address      String?  @db.Text
   location     String?
@@ -1105,6 +1105,7 @@ model Manpower {
   pfNo          String?
   esicNo        String?
   unaNo         String?
+  accountHolderName String?
 
   // Other details with document URLs stored in /uploads/manpower
   panNumber                 String?

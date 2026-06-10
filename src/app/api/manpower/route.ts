@@ -180,6 +180,7 @@ export async function GET(req: NextRequest) {
       mobileNumber: true,
       bank: true,
       branch: true,
+      accountHolderName: true,
       accountNumber: true,
       ifscCode: true,
       pfNo: true,
@@ -278,6 +279,7 @@ export async function POST(req: NextRequest) {
         mobileNumber: get("mobileNumber"),
         bank: get("bank"),
         branch: get("branch"),
+        accountHolderName: get("accountHolderName"),
         accountNumber: get("accountNumber"),
         ifscCode: get("ifscCode"),
         pfNo: get("pfNo"),
@@ -384,6 +386,7 @@ export async function POST(req: NextRequest) {
           mobileNumber: nil(body.mobileNumber) as any,
           bank: nil(body.bank) as any,
           branch: nil(body.branch) as any,
+          accountHolderName: nil(body.accountHolderName) as any,
           accountNumber: nil(body.accountNumber) as any,
           ifscCode: nil(body.ifscCode) as any,
           pfNo: nil(body.pfNo) as any,
@@ -486,6 +489,7 @@ export async function PATCH(req: NextRequest) {
         mobileNumber: get("mobileNumber"),
         bank: get("bank"),
         branch: get("branch"),
+        accountHolderName: get("accountHolderName"),
         accountNumber: get("accountNumber"),
         ifscCode: get("ifscCode"),
         pfNo: get("pfNo"),
@@ -585,6 +589,7 @@ export async function PATCH(req: NextRequest) {
     set("mobileNumber", body.mobileNumber);
     set("bank", body.bank);
     set("branch", body.branch);
+    set("accountHolderName", body.accountHolderName);
     set("accountNumber", body.accountNumber);
     set("ifscCode", body.ifscCode);
     set("pfNo", body.pfNo);
