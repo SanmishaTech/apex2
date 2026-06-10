@@ -77,7 +77,7 @@ const indentItemSchema = z.object({
   ),
 });
 
-const getCreateInputSchema = (budgetMap: Record<string, { total: number, remaining: number }>) => z.object({
+const getCreateInputSchema = () => z.object({
   indentDate: z.string().min(1, "Indent date is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
@@ -95,20 +95,7 @@ const getCreateInputSchema = (budgetMap: Record<string, { total: number, remaini
   ),
   remarks: z.string().optional(),
   indentItems: z
-    .array(
-      indentItemSchema.superRefine((val, ctx) => {
-        const budget = budgetMap[String(val.itemId)];
-        if (budget) {
-          if (val.indentQty > budget.remaining) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Max allowed is ${budget.remaining}`,
-              path: ["indentQty"],
-            });
-          }
-        }
-      })
-    )
+    .array(indentItemSchema)
     .min(1, "At least one item is required"),
 });
 
@@ -141,7 +128,7 @@ export function IndentForm({
   // Form setup
   const form = useForm<FormData>({
     resolver: async (data, context, options) => {
-      const schema = getCreateInputSchema(budgetMapRef.current);
+      const schema = getCreateInputSchema();
       return zodResolver(schema)(data, context, options);
     },
     defaultValues: {
@@ -291,7 +278,7 @@ export function IndentForm({
     try {
       // Validate and transform using Zod schema
 
-      const schema = getCreateInputSchema(budgetMapRef.current);
+      const schema = getCreateInputSchema();
       const transformedData = schema.parse(values);
 
       // Ensure dates are in YYYY-MM-DD format for the API
@@ -445,20 +432,7 @@ export function IndentForm({
                       </FormControl>
                       <div className="min-h-5">
                         <FormMessage className="text-xs" />
-                        {(() => {
-                          const itemId = watchedIndentItems?.[index]?.itemId;
-                          if (itemId && itemId !== "__none") {
-                            const budget = budgetMap[String(itemId)];
-                            if (budget) {
-                              return (
-                                <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
-                                  Total: {budget.total} | Remaining: {budget.remaining}
-                                </p>
-                              );
-                            }
-                          }
-                          return null;
-                        })()}
+
                       </div>
                     </FormItem>
                   )}

@@ -863,11 +863,6 @@ export default function IndentsPage() {
             toast.error("Approved quantity is required for all items");
             return;
           }
-          const budget = budgetMap[String(it.itemId)];
-          if (budget && aq > budget.remaining) {
-            toast.error("Please fix budget validation errors before submitting.");
-            return;
-          }
         }
       }
 
@@ -1262,17 +1257,7 @@ export default function IndentsPage() {
                         <td className="p-3 align-top">
                           <div className="max-w-[320px] whitespace-normal break-words">
                             {it.item?.item} ({it.item?.itemCode})
-                            {(() => {
-                               const budget = budgetMap[String(it.itemId)];
-                               if (budget) {
-                                 return (
-                                   <div className="text-xs text-muted-foreground mt-1">
-                                     Total: {budget.total} | Remaining: {budget.remaining}
-                                   </div>
-                                 );
-                               }
-                               return null;
-                            })()}
+
                           </div>
                         </td>
                         <td className="p-3 align-top whitespace-nowrap">
@@ -1301,15 +1286,7 @@ export default function IndentsPage() {
                                   }
                                 }}
                               />
-                              {(() => {
-                                 const budget = budgetMap[String(it.itemId)];
-                                 const aqRaw = itemEdits[it.id]?.approved1Qty ?? Number(it.indentQty ?? 0).toFixed(2);
-                                 const aq = parseFloat(String(aqRaw));
-                                 if (budget && !Number.isNaN(aq) && aq > budget.remaining) {
-                                   return <span className="text-xs text-destructive">Max allowed is {budget.remaining}</span>;
-                                 }
-                                 return null;
-                              })()}
+
                             </div>
                           ) : (
                             <div className="pt-2">{Number(it.approved1Qty || 0).toFixed(2)}</div>
@@ -1337,15 +1314,7 @@ export default function IndentsPage() {
                                   }
                                 }}
                               />
-                              {(() => {
-                                 const budget = budgetMap[String(it.itemId)];
-                                 const aqRaw = itemEdits[it.id]?.approved2Qty ?? Number(it.approved1Qty ?? it.indentQty ?? 0).toFixed(2);
-                                 const aq = parseFloat(String(aqRaw));
-                                 if (budget && !Number.isNaN(aq) && aq > budget.remaining) {
-                                   return <span className="text-xs text-destructive">Max allowed is {budget.remaining}</span>;
-                                 }
-                                 return null;
-                              })()}
+
                             </div>
                           </td>
                         )}

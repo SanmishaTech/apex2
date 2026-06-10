@@ -142,7 +142,6 @@ export async function GET(
   }
 }
 
-import { validateBudgetQuantities } from "@/lib/budget-validation";
 
 // PATCH /api/indents/[id] - Update indent
 export async function PATCH(
@@ -171,9 +170,6 @@ export async function PATCH(
 
     const siteId = updateData.siteId ?? existingIndent.siteId;
 
-    if (updateData.indentItems && updateData.indentItems.length > 0) {
-      await validateBudgetQuantities(siteId, updateData.indentItems as any, id);
-    }
 
     const result = await prisma.$transaction(async (tx) => {
       // Update indent header
