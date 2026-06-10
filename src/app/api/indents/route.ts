@@ -37,7 +37,6 @@ const createSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
-import { validateBudgetQuantities } from "@/lib/budget-validation";
 
 // Auto-generate indent number
 async function generateIndentNo(): Promise<string> {
@@ -211,9 +210,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsedData = createSchema.parse(body);
-
-    // Validate quantities against budget
-    await validateBudgetQuantities(parsedData.siteId, parsedData.indentItems);
 
     // Generate auto-increment indent number
     const indentNo = await generateIndentNo();
