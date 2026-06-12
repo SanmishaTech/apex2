@@ -49,6 +49,7 @@ const updateSchema = z.object({
   statusAction: z
     .enum(["approve1", "approve2", "complete", "suspend", "unsuspend"])
     .optional(),
+  isTransfer: z.boolean().optional(),
 });
 
 // GET /api/indents/[id] - Get single indent
@@ -71,6 +72,7 @@ export async function GET(
         indentDate: true,
         siteId: true,
         priority: true,
+        isTransfer: true,
         approvalStatus: true,
         suspended: true,
         approved1ById: true,
@@ -120,10 +122,29 @@ export async function GET(
             approved1Qty: true,
             approved2Qty: true,
             indentItemPOs: {
+              where: {
+                purchaseOrderDetail: {
+                  purchaseOrder: {
+                    isSuspended: false,
+                    approvalStatus: { not: "SUSPENDED" },
+                  },
+                },
+              },
               select: {
                 id: true,
                 orderedQty: true,
                 purchaseOrderDetailId: true,
+                purchaseOrderDetail: {
+                  select: {
+                    qty: true,
+                  },
+                },
+              },
+            },
+            indentItemODCs: {
+              select: {
+                id: true,
+                transferQty: true,
               },
             },
           },
@@ -236,6 +257,11 @@ export async function PATCH(
             throw new Error("BAD_REQUEST: Missing permission to suspend/unsuspend indent");
           }
         }
+        if (updateData.isTransfer === true) {
+          if (!(rolePerms as string[]).includes(PERMISSIONS.TRANSFER_INDENTS)) {
+            throw new Error("BAD_REQUEST: Missing permission to mark indent for transfer");
+          }
+        }
         const now = new Date();
         if (statusAction === "approve1") {
           if (current.approvalStatus !== "DRAFT") {
@@ -253,6 +279,7 @@ export async function PATCH(
                 approved1At: now,
                 approved2ById: auth.user.id,
                 approved2At: now,
+                isTransfer: updateData.isTransfer !== undefined ? updateData.isTransfer : undefined,
               } as any,
             });
             // If items present: set approved2Qty to provided or fallback to approved1Qty
@@ -309,6 +336,7 @@ export async function PATCH(
                 approved1At: now,
                 approved2ById: auth.user.id,
                 approved2At: now,
+                isTransfer: updateData.isTransfer !== undefined ? updateData.isTransfer : undefined,
               } as any,
             });
           } else {
@@ -318,6 +346,7 @@ export async function PATCH(
                 approvalStatus: "APPROVED_LEVEL_2",
                 approved2ById: auth.user.id,
                 approved2At: now,
+                isTransfer: updateData.isTransfer !== undefined ? updateData.isTransfer : undefined,
               } as any,
             });
           }
@@ -457,7 +486,7 @@ export async function PATCH(
                     indentQty: item.indentQty,
                     approved1Qty:
                       statusAction === "approve2" &&
-                      current.approvalStatus === "DRAFT"
+                        current.approvalStatus === "DRAFT"
                         ? (item.approved2Qty ?? item.approved1Qty)
                         : item.approved1Qty !== undefined
                           ? item.approved1Qty
@@ -486,6 +515,7 @@ export async function PATCH(
           deliveryDate: true,
           siteId: true,
           priority: true,
+          isTransfer: true,
           approvalStatus: true,
           remarks: true,
           createdAt: true,
@@ -510,6 +540,12 @@ export async function PATCH(
                   id: true,
                   orderedQty: true,
                   purchaseOrderDetailId: true,
+                },
+              },
+              indentItemODCs: {
+                select: {
+                  id: true,
+                  transferQty: true,
                 },
               },
             },

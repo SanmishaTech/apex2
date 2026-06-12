@@ -805,7 +805,13 @@ export async function POST(req: NextRequest) {
               approved2Qty: true,
               item: { select: { itemCode: true, item: true } },
               indent: { select: { indentDate: true, id: true } },
-              indentItemPOs: { select: { orderedQty: true } },
+              indentItemPOs: {
+                where: {
+                  purchaseOrderDetail: { purchaseOrder: { isSuspended: false, approvalStatus: { not: "SUSPENDED" } } },
+                },
+                select: { orderedQty: true },
+              },
+              indentItemODCs: { select: { transferQty: true } },
             },
             orderBy: [
               { indent: { indentDate: "asc" } },
@@ -824,21 +830,29 @@ export async function POST(req: NextRequest) {
           let totalRemaining = 0;
           for (const c of candidates) {
             const cap = toNum(c.approved2Qty);
-            const already = (c.indentItemPOs || []).reduce(
+            const alreadyOrdered = (c.indentItemPOs || []).reduce(
               (s, x) => s + toNum(x.orderedQty),
               0
             );
-            totalRemaining += Math.max(0, cap - already);
+            const alreadyTransferred = (c.indentItemODCs || []).reduce(
+              (s, x) => s + toNum(x.transferQty),
+              0
+            );
+            totalRemaining += Math.max(0, cap - alreadyOrdered - alreadyTransferred);
           }
 
           for (const c of candidates) {
             if (!(need > 0)) break;
             const cap = toNum(c.approved2Qty);
-            const already = (c.indentItemPOs || []).reduce(
+            const alreadyOrdered = (c.indentItemPOs || []).reduce(
               (s, x) => s + toNum(x.orderedQty),
               0
             );
-            const remaining = Math.max(0, cap - already);
+            const alreadyTransferred = (c.indentItemODCs || []).reduce(
+              (s, x) => s + toNum(x.transferQty),
+              0
+            );
+            const remaining = Math.max(0, cap - alreadyOrdered - alreadyTransferred);
             if (!(remaining > 0)) continue;
 
             const take = Math.min(remaining, need);

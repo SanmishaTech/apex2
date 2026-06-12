@@ -10,7 +10,6 @@ datasource db {
 
 // Approval status for Indents: two-step approval and completion
 
-
 model User {
   id                        Int                @id @default(autoincrement())
   name                      String?
@@ -41,37 +40,35 @@ model User {
   cashbookBudgetsApproved1  CashbookBudget[]   @relation("CashbookBudgetApproved1")
   cashbookBudgetsAccepted   CashbookBudget[]   @relation("CashbookBudgetAccepted")
 
-  siteEmployeesAssigned             SiteEmployee[]    @relation("siteAssignedBy")
+  siteEmployeesAssigned SiteEmployee[] @relation("siteAssignedBy")
 
-  siteEmployeesAssignedLogs          SiteEmployeeLog[]  @relation("siteAssignedByLogs")
+  siteEmployeesAssignedLogs   SiteEmployeeLog[] @relation("siteAssignedByLogs")
   siteEmployeesUnassignedLogs SiteEmployeeLog[] @relation("siteUnassignedByLogs")
 
   indentCreated Indent[] @relation("IndentCreated")
   indentUpdated Indent[] @relation("IndentUpdated")
 
-  purchaseOrdersCreated PurchaseOrder[] @relation("POCreated")
-  purchaseOrdersUpdated PurchaseOrder[] @relation("POUpdated")
+  purchaseOrdersCreated   PurchaseOrder[] @relation("POCreated")
+  purchaseOrdersUpdated   PurchaseOrder[] @relation("POUpdated")
   purchaseOrdersApproved1 PurchaseOrder[] @relation("POApproved1By")
   purchaseOrdersApproved2 PurchaseOrder[] @relation("POApproved2By")
   purchaseOrdersCompleted PurchaseOrder[] @relation("POCompletedBy")
   purchaseOrdersSuspended PurchaseOrder[] @relation("POSuspendedBy")
 
-  workOrdersCreated WorkOrder[] @relation("WOCreated")
-  workOrdersUpdated WorkOrder[] @relation("WOUpdated")
+  workOrdersCreated   WorkOrder[] @relation("WOCreated")
+  workOrdersUpdated   WorkOrder[] @relation("WOUpdated")
   workOrdersApproved1 WorkOrder[] @relation("WOApproved1By")
   workOrdersApproved2 WorkOrder[] @relation("WOApproved2By")
   workOrdersCompleted WorkOrder[] @relation("WOCompletedBy")
   workOrdersSuspended WorkOrder[] @relation("WOSuspendedBy")
 
-
   inwardDeliveryChallansCreated InwardDeliveryChallan[] @relation("IDCCreated")
   inwardDeliveryChallansUpdated InwardDeliveryChallan[] @relation("IDCUpdated")
 
-
-  outwardDeliveryChallanCreated OutwardDeliveryChallan[] @relation("ODCCreated")
-  outwardDeliveryChallanUpdated OutwardDeliveryChallan[] @relation("ODCUpdated")
+  outwardDeliveryChallanCreated     OutwardDeliveryChallan[] @relation("ODCCreated")
+  outwardDeliveryChallanUpdated     OutwardDeliveryChallan[] @relation("ODCUpdated")
   outwardDeliveryChallanApproved1By OutwardDeliveryChallan[] @relation("ODCApproved1By")
-  outwardDeliveryChallanAcceptedBy OutwardDeliveryChallan[] @relation("ODCAcceptedBy")
+  outwardDeliveryChallanAcceptedBy  OutwardDeliveryChallan[] @relation("ODCAcceptedBy")
 
   dailyConsumptionCreated DailyConsumption[] @relation("ConsumptionCreated")
   dailyConsumptionUpdated DailyConsumption[] @relation("ConsumptionUpdated")
@@ -91,24 +88,24 @@ model User {
   overallSiteBudgetCreated OverallSiteBudget[] @relation("OverallSiteBudgetCreated")
   overallSiteBudgetUpdated OverallSiteBudget[] @relation("OverallSiteBudgetUpdated")
 
-  cashbookCreated Cashbook[] @relation("CashbookCreated")
-  cashbookUpdated Cashbook[] @relation("CashbookUpdated")
+  cashbookCreated   Cashbook[] @relation("CashbookCreated")
+  cashbookUpdated   Cashbook[] @relation("CashbookUpdated")
   cashbookApproved1 Cashbook[] @relation("CashbookApproved1By")
   cashbookApproved2 Cashbook[] @relation("CashbookApproved2By")
-  
-  userRoles UserRole[]
+
+  userRoles       UserRole[]
   userPermissions UserPermission[]
 
-  siteManpowerAssigned             SiteManpower[]    @relation("SiteManpowerAssigned")
+  siteManpowerAssigned SiteManpower[] @relation("SiteManpowerAssigned")
 
-siteManpowerAssignedLogs          SiteManpowerLog[]  @relation("siteManpowerAssignedByLogs")
-siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedByLogs")
-  openingStockLogs OpeningStockLog[] @relation("OpeningStockLogCreated")
+  siteManpowerAssignedLogs   SiteManpowerLog[] @relation("siteManpowerAssignedByLogs")
+  siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedByLogs")
+  openingStockLogs           OpeningStockLog[] @relation("OpeningStockLogCreated")
 
-  overallSiteBudgetTechApprovals OverallSiteBudget[] @relation("OverallSiteBudgetTechApprovalBy")
-  overallSiteBudgetCommercialApprovals OverallSiteBudget[] @relation("OverallSiteBudgetCommercialApprovalBy")
-  overallSiteBudgetProjectApprovals OverallSiteBudget[] @relation("OverallSiteBudgetProjectApprovalBy")
-  employeeAttendances  EmployeeAttendance[]
+  overallSiteBudgetTechApprovals       OverallSiteBudget[]  @relation("OverallSiteBudgetTechApprovalBy")
+  overallSiteBudgetCommercialApprovals OverallSiteBudget[]  @relation("OverallSiteBudgetCommercialApprovalBy")
+  overallSiteBudgetProjectApprovals    OverallSiteBudget[]  @relation("OverallSiteBudgetProjectApprovalBy")
+  employeeAttendances                  EmployeeAttendance[]
 
   leadPeriodCreated LeadPeriod[] @relation("LeadPeriodCreated")
   leadPeriodUpdated LeadPeriod[] @relation("LeadPeriodUpdated")
@@ -116,26 +113,26 @@ siteManpowerUnassignedLogs SiteManpowerLog[] @relation("siteManpowerUnassignedBy
   subContractorCreated SubContractor[] @relation("SubContractorCreated")
   subContractorUpdated SubContractor[] @relation("SubContractorUpdated")
 
-  subContractorWorkOrderCreated SubContractorWorkOrder[] @relation("SubContractorWorkOrderCreated")
-  subContractorWorkOrderUpdated SubContractorWorkOrder[] @relation("SubContractorWorkOrderUpdated")
+  subContractorWorkOrderCreated   SubContractorWorkOrder[] @relation("SubContractorWorkOrderCreated")
+  subContractorWorkOrderUpdated   SubContractorWorkOrder[] @relation("SubContractorWorkOrderUpdated")
   subContractorWorkOrderApproved1 SubContractorWorkOrder[] @relation("SubContractorWorkOrderApproved1By")
   subContractorWorkOrderApproved2 SubContractorWorkOrder[] @relation("SubContractorWorkOrderApproved2By")
   subContractorWorkOrderSuspended SubContractorWorkOrder[] @relation("SubContractorWorkOrderSuspendedBy")
   subContractorWorkOrderCompleted SubContractorWorkOrder[] @relation("SubContractorWorkOrderCompletedBy")
-  
+
   subContractorWorkOrderBillsCreated SubContractorWorkOrderBill[] @relation("SWOBillCreated")
   subContractorWorkOrderBillsUpdated SubContractorWorkOrderBill[] @relation("SWOBillUpdated")
-  
-  salesInvoicesCreated SalesInvoice[] @relation("SalesInvoiceCreated")
-  salesInvoicesUpdated SalesInvoice[] @relation("SalesInvoiceUpdated")
-  SalesInvoiceAuthorized SalesInvoice[] @relation("SalesInvoiceAuthorized")  
 
-  subContractorInvoicesCreated SubContractorInvoice[] @relation("SubContractorInvoiceCreated")
-  subContractorInvoicesUpdated SubContractorInvoice[] @relation("SubContractorInvoiceUpdated")
+  salesInvoicesCreated   SalesInvoice[] @relation("SalesInvoiceCreated")
+  salesInvoicesUpdated   SalesInvoice[] @relation("SalesInvoiceUpdated")
+  SalesInvoiceAuthorized SalesInvoice[] @relation("SalesInvoiceAuthorized")
+
+  subContractorInvoicesCreated    SubContractorInvoice[] @relation("SubContractorInvoiceCreated")
+  subContractorInvoicesUpdated    SubContractorInvoice[] @relation("SubContractorInvoiceUpdated")
   subContractorInvoicesAuthorized SubContractorInvoice[] @relation("SubContractorInvoiceAuthorized")
-  auditLogsCreated AuditLog[] @relation("AuditLogCreated")
-  manpowerFoodChargesCreated ManpowerFoodCharges[] @relation("ManpowerFoodChargesCreated")
-  manpowerFoodChargesUpdated ManpowerFoodCharges[] @relation("ManpowerFoodChargesUpdated")
+  auditLogsCreated                AuditLog[]             @relation("AuditLogCreated")
+  manpowerFoodChargesCreated      ManpowerFoodCharges[]  @relation("ManpowerFoodChargesCreated")
+  manpowerFoodChargesUpdated      ManpowerFoodCharges[]  @relation("ManpowerFoodChargesUpdated")
 
   @@map("users")
 }
@@ -155,13 +152,12 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String  @unique
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?          @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   users       UserRole[]
   permissions RolePermission[]
 
@@ -170,14 +166,14 @@ model Role {
 }
 
 model Permission {
-  id          Int      @id @default(autoincrement())
-  permissionName         String   @unique
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  permissionName String   @unique
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  roles       RolePermission[]
-  users       UserPermission[]
+  roles RolePermission[]
+  users UserPermission[]
 
   @@index([permissionName])
   @@index([id])
@@ -232,15 +228,15 @@ model City {
   updatedAt DateTime @updatedAt
 
   // Relations
-  stateId          Int
-  state            State           @relation(fields: [stateId], references: [id], onDelete: Restrict)
-  companies        Company[]
-  sites            Site[]
-  employees        Employee[]
-  billingAddresses BillingAddress[]
-  vendors          Vendor[]
+  stateId               Int
+  state                 State                 @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  companies             Company[]
+  sites                 Site[]
+  employees             Employee[]
+  billingAddresses      BillingAddress[]
+  vendors               Vendor[]
   siteDeliveryAddresses SiteDeliveryAddress[]
-  subContractors   SubContractor[]
+  subContractors        SubContractor[]
 
   @@map("cities")
 }
@@ -261,7 +257,7 @@ model Company {
   stateId      Int?
   cityId       Int?
   pinCode      String?
-  
+
   // Logo
   logoUrl String?
 
@@ -279,11 +275,12 @@ model Company {
   updatedAt DateTime @updatedAt
 
   // Relations
-  state State? @relation(fields: [stateId], references: [id])
-  city  City?  @relation(fields: [cityId], references: [id])
-  sites Site[]
+  state            State?            @relation(fields: [stateId], references: [id])
+  city             City?             @relation(fields: [cityId], references: [id])
+  sites            Site[]
   companyDocuments CompanyDocument[]
   purchaseOrders   PurchaseOrder[]
+
   @@index([companyName])
   @@index([shortName])
   @@index([closed])
@@ -303,7 +300,7 @@ enum SiteStatus {
 // Site master data for location/branch management
 model Site {
   id        Int     @id @default(autoincrement())
-  siteCode     String?  @unique
+  siteCode  String? @unique
   site      String  @unique
   shortName String?
 
@@ -311,20 +308,19 @@ model Site {
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
 
-  zoneId    Int?
-  zone      Zone?    @relation(fields: [zoneId], references: [id])
+  zoneId Int?
+  zone   Zone? @relation(fields: [zoneId], references: [id])
 
   // Status Flags
-  status          SiteStatus  //Ongoing,Hold,Closed,Completed,Mobilization stage
+  status SiteStatus //Ongoing,Hold,Closed,Completed,Mobilization stage
 
   // File Upload
-  attachCopyUrl String?
-  startDate    DateTime? @db.Date()
-  endDate      DateTime? @db.Date()
+  attachCopyUrl            String?
+  startDate                DateTime? @db.Date()
+  endDate                  DateTime? @db.Date()
   completionPeriodInMonths Int?
-  extension1EndDate DateTime? @db.Date()
-  extension2EndDate DateTime? @db.Date()
-
+  extension1EndDate        DateTime? @db.Date()
+  extension2EndDate        DateTime? @db.Date()
 
   // Address Details
   addressLine1 String?
@@ -346,10 +342,10 @@ model Site {
   updatedAt DateTime @updatedAt
 
   // Relations
-  state              State?      @relation(fields: [stateId], references: [id])
-  city               City?       @relation(fields: [cityId], references: [id])
+  state              State?           @relation(fields: [stateId], references: [id])
+  city               City?            @relation(fields: [cityId], references: [id])
   // Back-relation for Employee.reportingSite
-  reportingEmployees Employee[]  @relation("ReportingSite")
+  reportingEmployees Employee[]       @relation("ReportingSite")
   // Back-relation for Boq.site
   boqs               Boq[]
   // Back-relation for BoqTarget.site
@@ -357,55 +353,55 @@ model Site {
   // Back-relation for CashbookBudget.site
   cashbookBudgets    CashbookBudget[]
 
-  indents         Indent[]
+  indents    Indent[]
   workOrders WorkOrder[]
 
-  siteBudgets           SiteBudget[]
+  siteBudgets            SiteBudget[]
   // Back-relation for Rent.site
-  rents                 Rent[]
+  rents                  Rent[]
   // Back-relation for Cashbook.site
-  cashbooks             Cashbook[]
+  cashbooks              Cashbook[]
   // Back-relation for Asset.currentSite
-  assets                Asset[]
-  assetTransfersFrom    AssetTransfer[]    @relation("FromSiteTransfers")
-  assetTransfersTo      AssetTransfer[]    @relation("ToSiteTransfers")
-  manpowerTransfersFrom ManpowerTransfer[] @relation("FromSiteManpowerTransfers")
-  manpowerTransfersTo   ManpowerTransfer[] @relation("ToSiteManpowerTransfers")
-  attendances           Attendance[]       @relation("SiteAttendances")
-  paySlipDetails        PaySlipDetail[]
-  dailyProgresses       DailyProgress[]
-  siteEmployees        SiteEmployee[]
-  siteEmployeeLogs     SiteEmployeeLog[]
-  siteContactPersons   SiteContactPerson[]
-  siteDeliveryAddresses SiteDeliveryAddress[]
-  purchaseOrders PurchaseOrder[]
+  assets                 Asset[]
+  assetTransfersFrom     AssetTransfer[]         @relation("FromSiteTransfers")
+  assetTransfersTo       AssetTransfer[]         @relation("ToSiteTransfers")
+  manpowerTransfersFrom  ManpowerTransfer[]      @relation("FromSiteManpowerTransfers")
+  manpowerTransfersTo    ManpowerTransfer[]      @relation("ToSiteManpowerTransfers")
+  attendances            Attendance[]            @relation("SiteAttendances")
+  paySlipDetails         PaySlipDetail[]
+  dailyProgresses        DailyProgress[]
+  siteEmployees          SiteEmployee[]
+  siteEmployeeLogs       SiteEmployeeLog[]
+  siteContactPersons     SiteContactPerson[]
+  siteDeliveryAddresses  SiteDeliveryAddress[]
+  purchaseOrders         PurchaseOrder[]
   inwardDeliveryChallans InwardDeliveryChallan[]
-  stockLedgers StockLedger[]
-  siteItems SiteItem[]
+  stockLedgers           StockLedger[]
+  siteItems              SiteItem[]
 
-  outwardDeliveryFromSite OutwardDeliveryChallan[] @relation("ODCFromSite")
+  outwardDeliveryFromSite      OutwardDeliveryChallan[] @relation("ODCFromSite")
   outwardDeliveryChallanToSite OutwardDeliveryChallan[] @relation("ODCToSite")
 
   DailyConsumptions DailyConsumption[]
 
-  stockAdjustments  StockAdjustment[]
-  siteManpowers     SiteManpower[]
+  stockAdjustments StockAdjustment[]
+  siteManpowers    SiteManpower[]
   siteManpowerLogs SiteManpowerLog[]
   siteItemBatches  SiteItemBatch[]
-  leadPeriods LeadPeriod[]
-  salesInvoices SalesInvoice[]
+  leadPeriods      LeadPeriod[]
+  salesInvoices    SalesInvoice[]
 
-  overallSiteBudgets           OverallSiteBudget[]
-  subContractorWorkOrders      SubContractorWorkOrder[]
+  overallSiteBudgets      OverallSiteBudget[]
+  subContractorWorkOrders SubContractorWorkOrder[]
   subcontractorInvoice    SubContractorInvoice[]
+
   @@index([site])
   @@index([shortName])
   @@index([siteCode])
   @@index([companyId])
   @@index([stateId])
   @@index([cityId])
-    @@index([zoneId])
-
+  @@index([zoneId])
   @@map("sites")
 }
 
@@ -439,23 +435,23 @@ model RentType {
 
 // Employee master data for workforce management
 model Employee {
-  id   Int    @id @default(autoincrement())
-  employeeNumber String @unique
-  name String
-  designationId Int?
-  designation Designation? @relation(fields: [designationId], references: [id], onDelete:Restrict)
-  previousWorkExperience String?
-  emergencyContactPerson String?
-  emergencyContactNo String?
+  id                       Int          @id @default(autoincrement())
+  employeeNumber           String       @unique
+  name                     String
+  designationId            Int?
+  designation              Designation? @relation(fields: [designationId], references: [id], onDelete: Restrict)
+  previousWorkExperience   String?
+  emergencyContactPerson   String?
+  emergencyContactNo       String?
   emergencyContactRelation String?
-  joinDate DateTime?
+  joinDate                 DateTime?
   // User Relation (each employee is linked to a user account)
-  userId Int?  @unique
-  user   User? @relation(fields: [userId], references: [id])
+  userId                   Int?         @unique
+  user                     User?        @relation(fields: [userId], references: [id])
 
   // Department Relation
   departmentId Int?
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete:Restrict)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
   // Reporting Site
   reportingSiteId           Int?
@@ -473,12 +469,12 @@ model Employee {
 
   // Address Details
   correspondenceAddress String?
-  permanentAddress String?
-  stateId      Int?
-  state        State?  @relation(fields: [stateId], references: [id])
-  cityId       Int?
-  city         City?   @relation(fields: [cityId], references: [id])
-  pincode      String?
+  permanentAddress      String?
+  stateId               Int?
+  state                 State?  @relation(fields: [stateId], references: [id])
+  cityId                Int?
+  city                  City?   @relation(fields: [cityId], references: [id])
+  pincode               String?
 
   // Contact Details
   mobile1 String?
@@ -492,18 +488,18 @@ model Employee {
   cinNo   String?
 
   // Travel/Reporting Details
-  airTravelClass     String?
-  railwayTravelClass String?
-  busTravelClass     String?
-  reporting1Id       Int?
-  reporting2Id       Int?
-  reporting1         Employee?  @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
-  reporting2         Employee?  @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
-  subordinates1      Employee[] @relation("EmployeeReporting1")
-  subordinates2      Employee[] @relation("EmployeeReporting2")
-  siteEmployees      SiteEmployee[]
-  siteEmployeesLogs  SiteEmployeeLog[]
-  employeeDocuments  EmployeeDocument[]
+  airTravelClass      String?
+  railwayTravelClass  String?
+  busTravelClass      String?
+  reporting1Id        Int?
+  reporting2Id        Int?
+  reporting1          Employee?            @relation("EmployeeReporting1", fields: [reporting1Id], references: [id])
+  reporting2          Employee?            @relation("EmployeeReporting2", fields: [reporting2Id], references: [id])
+  subordinates1       Employee[]           @relation("EmployeeReporting1")
+  subordinates2       Employee[]           @relation("EmployeeReporting2")
+  siteEmployees       SiteEmployee[]
+  siteEmployeesLogs   SiteEmployeeLog[]
+  employeeDocuments   EmployeeDocument[]
   employeeAttendances EmployeeAttendance[]
 
   // Leave Details
@@ -514,8 +510,8 @@ model Employee {
   balancePaidLeaves   Int?
   balanceCasualLeaves Int?
 
-  employeeImage String?  @db.LongText 
-  signatureImage String?  @db.LongText  
+  employeeImage  String? @db.LongText
+  signatureImage String? @db.LongText
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -534,25 +530,25 @@ model Employee {
 }
 
 model EmployeeAttendance {
-  id          Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  date        DateTime @db.Date()
+  date DateTime @db.Date()
 
-  employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict  )
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
-
-  type        AttendanceType
-  time        DateTime
+  type AttendanceType
+  time DateTime
 
   imageUrl    String
-  address     String? @db.Text
-  latitude    Decimal @db.Decimal(10, 7)
-  longitude   Decimal @db.Decimal(10, 7)
-  accuracy Decimal     @db.Decimal(8, 2)
-  createdById   Int
-  createdBy    User  @relation(fields: [createdById], references: [id], onDelete: Restrict  )
+  address     String?  @db.Text
+  latitude    Decimal  @db.Decimal(10, 7)
+  longitude   Decimal  @db.Decimal(10, 7)
+  accuracy    Decimal  @db.Decimal(8, 2)
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
+
   @@unique([date, employeeId, type])
   @@index([date, employeeId])
   @@index([employeeId, time])
@@ -575,7 +571,6 @@ model Category {
   updatedAt    DateTime @updatedAt
 
   siteManpowers SiteManpower[]
-
 
   @@index([categoryName])
   @@map("categories")
@@ -616,29 +611,28 @@ model State {
   updatedAt DateTime @updatedAt
 
   // Relations
-  cities           City[]
-  companies        Company[]
-  sites            Site[]
-  employees        Employee[]
-  billingAddresses BillingAddress[]
-  vendors          Vendor[]
+  cities                City[]
+  companies             Company[]
+  sites                 Site[]
+  employees             Employee[]
+  billingAddresses      BillingAddress[]
+  vendors               Vendor[]
   siteDeliveryAddresses SiteDeliveryAddress[]
-  subContractors   SubContractor[]
+  subContractors        SubContractor[]
 
   @@map("states")
 }
 
-
 model Designation {
-  id        Int      @id @default(autoincrement())
-  designationName     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  designationName String   @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
- 
-  employees        Employee[]
-  
+
+  employees Employee[]
+
   @@map("designations")
 }
 
@@ -650,10 +644,11 @@ model Unit {
   updatedAt DateTime @updatedAt
 
   // Relations
-  boqItems    BoqItem[]
-  items       Item[]
-  workOrderDetails  WorkOrderDetail[]
+  boqItems                      BoqItem[]
+  items                         Item[]
+  workOrderDetails              WorkOrderDetail[]
   subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
+
   @@map("units")
 }
 
@@ -717,9 +712,9 @@ model Asset {
   updatedAt DateTime @updatedAt
 
   // Relations
-  assetGroup    AssetGroup          @relation(fields: [assetGroupId], references: [id])
-  assetCategory AssetCategory       @relation(fields: [assetCategoryId], references: [id])
-  transferItems AssetTransferItem[]
+  assetGroup     AssetGroup          @relation(fields: [assetGroupId], references: [id])
+  assetCategory  AssetCategory       @relation(fields: [assetCategoryId], references: [id])
+  transferItems  AssetTransferItem[]
   assetDocuments AssetDocument[]
 
   @@index([assetNo])
@@ -754,7 +749,7 @@ model Item {
   id             Int           @id @default(autoincrement())
   itemCode       String        @unique // auto-generated
   hsnCode        String?
-  item           String          
+  item           String
   itemCategoryId Int?
   itemCategory   ItemCategory? @relation(fields: [itemCategoryId], references: [id])
   unitId         Int?
@@ -770,16 +765,16 @@ model Item {
   // Relations
   indentItems IndentItem[]
 
-    purchaseOrderDetails PurchaseOrderDetail[] 
-   stockLedgers StockLedger[]
-   siteItems    SiteItem[]
-   outwardDeliveryChallanDetails  OutwardDeliveryChallanDetail[]
-    dailyConsumptionDetails DailyConsumptionDetail[]
-    stockAdjustmentDetail   StockAdjustmentDetail[]
-    siteBudgetItems SiteBudgetItem[]
-    siteItemBatches  SiteItemBatch[]
-    leadPeriodDetails LeadPeriodDetail[]
-    overallSiteBudgetItems OverallSiteBudgetItem[]
+  purchaseOrderDetails          PurchaseOrderDetail[]
+  stockLedgers                  StockLedger[]
+  siteItems                     SiteItem[]
+  outwardDeliveryChallanDetails OutwardDeliveryChallanDetail[]
+  dailyConsumptionDetails       DailyConsumptionDetail[]
+  stockAdjustmentDetail         StockAdjustmentDetail[]
+  siteBudgetItems               SiteBudgetItem[]
+  siteItemBatches               SiteItemBatch[]
+  leadPeriodDetails             LeadPeriodDetail[]
+  overallSiteBudgetItems        OverallSiteBudgetItem[]
 
   @@index([itemCode])
   @@index([itemCategoryId])
@@ -811,10 +806,11 @@ model BillingAddress {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  purchaseOrders PurchaseOrder[]
-  workOrders WorkOrder[]
+  purchaseOrders          PurchaseOrder[]
+  workOrders              WorkOrder[]
   subContractorWorkOrders SubContractorWorkOrder[]
-  salesInvoices SalesInvoice[]
+  salesInvoices           SalesInvoice[]
+
   @@index([companyName])
   @@map("billing_addresses")
 }
@@ -850,17 +846,18 @@ model Vendor {
   cstTinNumber     String?
   gstNumber        String?
   cinNumber        String?
-  serviceTaxNumber  String?
+  serviceTaxNumber String?
   stateCode        String?
   itemCategories   VendorItemCategory[]
   bankAccounts     VendorBankAccount[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  purchaseOrders PurchaseOrder[]
-    workOrders WorkOrder[]
-    inwardDeliveryChallans InwardDeliveryChallan[]
-    subContractorWorkOrders SubContractorWorkOrder[]
+  purchaseOrders          PurchaseOrder[]
+  workOrders              WorkOrder[]
+  inwardDeliveryChallans  InwardDeliveryChallan[]
+  subContractorWorkOrders SubContractorWorkOrder[]
+
   @@index([vendorName])
   @@index([email])
   @@index([gstNumber])
@@ -903,17 +900,17 @@ model VendorBankAccount {
 
 // Bill of Quantity (BOQ)
 model Boq {
-  id                            Int         @id @default(autoincrement())
-  boqNo                         String?     @unique // auto-generated like BOQ-00001
+  id                            Int                      @id @default(autoincrement())
+  boqNo                         String?                  @unique // auto-generated like BOQ-00001
   siteId                        Int?
-  site                          Site?       @relation(fields: [siteId], references: [id])
-  workName                      String? @db.Text
+  site                          Site?                    @relation(fields: [siteId], references: [id])
+  workName                      String?                  @db.Text
   workOrderNo                   String?
   workOrderDate                 DateTime?
   startDate                     DateTime?
   endDate                       DateTime?
-  totalWorkValue                Decimal?    @db.Decimal(12, 2)
-  gstRate                       Decimal?    @db.Decimal(5, 2)
+  totalWorkValue                Decimal?                 @db.Decimal(12, 2)
+  gstRate                       Decimal?                 @db.Decimal(5, 2)
   agreementNo                   String?
   agreementStatus               String?
   completionPeriod              String?
@@ -925,8 +922,8 @@ model Boq {
   performanceSecurityMode       String?
   performanceSecurityDocumentNo String?
   performanceSecurityPeriod     String?
-  createdAt                     DateTime    @default(now())
-  updatedAt                     DateTime    @updatedAt
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
   // Relations
   items                         BoqItem[]
   targets                       BoqTarget[]
@@ -939,12 +936,13 @@ model Boq {
   // Back-relation for PurchaseOrder.boq
   // daily progress
   dailyProgresses               DailyProgress[]
-  boqBills BOQBill[]
-  siteBudgets SiteBudget[]
-  overallSiteBudgets           OverallSiteBudget[]
+  boqBills                      BOQBill[]
+  siteBudgets                   SiteBudget[]
+  overallSiteBudgets            OverallSiteBudget[]
   workOrders                    WorkOrder[]
   subContractorWorkOrders       SubContractorWorkOrder[]
-  salesInvoices SalesInvoice[]
+  salesInvoices                 SalesInvoice[]
+
   @@index([siteId])
   @@index([boqNo])
   @@map("boqs")
@@ -957,24 +955,25 @@ model BoqItem {
   boq          Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
   activityId   String
   clientSrNo   String
-  item         String  @db.Text// long description
+  item         String   @db.Text // long description
   unitId       Int?
   unit         Unit?    @relation(fields: [unitId], references: [id])
-  qty          Decimal @db.Decimal(12, 2)   @default(0.00)
-  rate         Decimal @db.Decimal(12, 2)@default(0.00)
-  amount       Decimal @db.Decimal(14, 2) @default(0.00)
-  orderedQty   Decimal @db.Decimal(12, 2) @default(0.00)
-  orderedValue Decimal @db.Decimal(12, 2) @default(0.00)
+  qty          Decimal  @default(0.00) @db.Decimal(12, 2)
+  rate         Decimal  @default(0.00) @db.Decimal(12, 2)
+  amount       Decimal  @default(0.00) @db.Decimal(14, 2)
+  orderedQty   Decimal  @default(0.00) @db.Decimal(12, 2)
+  orderedValue Decimal  @default(0.00) @db.Decimal(12, 2)
   isGroup      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  dailyProgressDetails DailyProgressDetail[]
-  boqBillDetails BOQBillDetail[]
-  boqTargetDetails  BoqTargetDetail[]
-  overallSiteBudgetDetails OverallSiteBudgetDetail[]
+  dailyProgressDetails          DailyProgressDetail[]
+  boqBillDetails                BOQBillDetail[]
+  boqTargetDetails              BoqTargetDetail[]
+  overallSiteBudgetDetails      OverallSiteBudgetDetail[]
   subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
-  salesInvoiceDetails SalesInvoiceDetail[]
+  salesInvoiceDetails           SalesInvoiceDetail[]
+
   @@index([boqId])
   @@index([unitId])
   @@map("boq_items")
@@ -989,17 +988,18 @@ model BoqTarget {
   boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
   month          String
   week           String
-  fromTargetDate DateTime  @db.Date()
-  toTargetDate   DateTime   @db.Date()
-  createdById      Int
-  updatedById      Int
+  fromTargetDate DateTime @db.Date()
+  toTargetDate   DateTime @db.Date()
+  createdById    Int
+  updatedById    Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  boqTargetDetails  BoqTargetDetail[]
-  createdBy User @relation("BOQTargetCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("BOQTargetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  boqTargetDetails BoqTargetDetail[]
+  createdBy        User              @relation("BOQTargetCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy        User              @relation("BOQTargetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
+  @@unique([siteId, boqId, month, week])
   @@index([createdById])
   @@index([updatedById])
   @@index([siteId])
@@ -1008,21 +1008,19 @@ model BoqTarget {
   @@index([toTargetDate])
   @@index([month])
   @@index([week])
-  @@unique([siteId, boqId, month, week])
-
   @@map("boq_targets")
 }
 
 model BoqTargetDetail {
-  id             Int      @id @default(autoincrement())
-  boqTargetId          Int
-  boqTarget            BoqTarget      @relation(fields: [boqTargetId], references: [id], onDelete: Restrict)
-  BoqItemId     Int 
-  boqItem            BoqItem      @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
-  totalMonthQty  Decimal @db.Decimal(12, 2)
-  dailyTargetQty  Decimal?  @db.Decimal(12, 2)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  boqTargetId    Int
+  boqTarget      BoqTarget @relation(fields: [boqTargetId], references: [id], onDelete: Restrict)
+  BoqItemId      Int
+  boqItem        BoqItem   @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
+  totalMonthQty  Decimal   @db.Decimal(12, 2)
+  dailyTargetQty Decimal?  @db.Decimal(12, 2)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([boqTargetId])
   @@index([BoqItemId])
@@ -1091,20 +1089,20 @@ model Manpower {
   supplierId       Int
   manpowerSupplier ManpowerSupplier @relation(fields: [supplierId], references: [id])
   dateOfBirth      DateTime?
-  
+
   // Contact details
-  address      String?  @db.Text
-  location     String?
-  mobileNumber String?
-  gender       String?
+  address           String? @db.Text
+  location          String?
+  mobileNumber      String?
+  gender            String?
   // Bank details
-  bank          String?
-  branch        String?
-  accountNumber String?
-  ifscCode      String?
-  pfNo          String?
-  esicNo        String?
-  unaNo         String?
+  bank              String?
+  branch            String?
+  accountNumber     String?
+  ifscCode          String?
+  pfNo              String?
+  esicNo            String?
+  unaNo             String?
   accountHolderName String?
 
   // Other details with document URLs stored in /uploads/manpower
@@ -1121,52 +1119,55 @@ model Manpower {
   watch                     Boolean @default(false)
 
   // Assignment tracking fields
-  
-  isAssigned    Boolean   @default(false)
+
+  isAssigned Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transferItems ManpowerTransferItem[]
-  attendances   Attendance[]           @relation("ManpowerAttendances")
-  paySlips      PaySlip[]
-  manpowerDocuments     ManpowerDocument[]
-  siteManpower      SiteManpower[]
-  siteManpowerLogs SiteManpowerLog[]
+  transferItems              ManpowerTransferItem[]
+  attendances                Attendance[]                @relation("ManpowerAttendances")
+  paySlips                   PaySlip[]
+  manpowerDocuments          ManpowerDocument[]
+  siteManpower               SiteManpower[]
+  siteManpowerLogs           SiteManpowerLog[]
   manpowerFoodChargesDetails ManpowerFoodChargesDetail[]
+
   @@index([supplierId])
   @@index([firstName, lastName])
   @@index([isAssigned])
   @@map("manpower")
 }
-model SiteManpower {
-  id           Int      @id @default(autoincrement())
-  siteId       Int    
-  manpowerId   Int
-  isPresent    Boolean  @default(false)   
-  categoryId   Int?
-  skillsetId   Int?
-  wage         Decimal? @db.Decimal(10, 2) 
 
-  pf           Boolean  @default(false)
-  esic          Boolean  @default(false)
-  pt           Boolean  @default(false)
-  mlwf         Boolean  @default(false)
+model SiteManpower {
+  id         Int      @id @default(autoincrement())
+  siteId     Int
+  manpowerId Int
+  isPresent  Boolean  @default(false)
+  categoryId Int?
+  skillsetId Int?
+  wage       Decimal? @db.Decimal(10, 2)
+
+  pf           Boolean   @default(false)
+  esic         Boolean   @default(false)
+  pt           Boolean   @default(false)
+  mlwf         Boolean   @default(false)
   // Presence period tracking
   startDate    DateTime?
   endDate      DateTime?
   // end
   assignedDate DateTime
-  assignedById   Int
-  isAssigned    Boolean 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  manpower    Manpower @relation(fields: [manpowerId], references: [id],onDelete: Restrict)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("SiteManpowerAssigned", fields: [assignedById], references: [id], onDelete: Restrict)
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  skillset    SkillSet?   @relation(fields: [skillsetId], references: [id], onDelete: Restrict)
+  assignedById Int
+  isAssigned   Boolean
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  manpower   Manpower  @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  site       Site      @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User      @relation("SiteManpowerAssigned", fields: [assignedById], references: [id], onDelete: Restrict)
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  skillset   SkillSet? @relation(fields: [skillsetId], references: [id], onDelete: Restrict)
+
   @@index([siteId])
   @@index([categoryId])
   @@index([skillsetId])
@@ -1178,22 +1179,21 @@ model SiteManpower {
 }
 
 model SiteManpowerLog {
-  id           Int      @id @default(autoincrement())
-  siteId       Int
-  manpowerId   Int
-  assignedDate DateTime
+  id             Int       @id @default(autoincrement())
+  siteId         Int
+  manpowerId     Int
+  assignedDate   DateTime
   assignedById   Int
   unassignedDate DateTime?
   unassignedById Int?
- 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("siteManpowerAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
-  unassignedBy User? @relation("siteManpowerUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  manpower     Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy   User     @relation("siteManpowerAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
+  unassignedBy User?    @relation("siteManpowerUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([manpowerId])
@@ -1201,7 +1201,6 @@ model SiteManpowerLog {
   @@index([unassignedById])
   @@map("site_manpower_logs")
 }
-
 
 // Payment Terms master data
 model PaymentTerm {
@@ -1211,43 +1210,44 @@ model PaymentTerm {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  purchaseOrders PurchaseOrder[]
-  poPaymentTerms POPaymentTerm[]
-  woPaymentTerms WOPaymentTerm[]
+  purchaseOrders                     PurchaseOrder[]
+  poPaymentTerms                     POPaymentTerm[]
+  woPaymentTerms                     WOPaymentTerm[]
   subContractorWorkOrderPaymentTerms SubContractorWorkOrderPaymentTerm[]
+
   @@index([paymentTerm])
   @@map("payment_terms")
 }
 
 model POPaymentTerm {
-  id          Int      @id @default(autoincrement())
-  purchaseOrderId      Int
-  paymentTermId Int  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  purchaseOrderId Int
+  paymentTermId   Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete:Restrict)
-  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  paymentTerm   PaymentTerm   @relation(fields: [paymentTermId], references: [id], onDelete: Restrict)
 
+  @@unique([purchaseOrderId, paymentTermId])
   @@index([purchaseOrderId])
   @@index([paymentTermId])
-  @@unique([purchaseOrderId, paymentTermId])
   @@map("po_payment_terms")
 }
 
 model WOPaymentTerm {
-  id          Int      @id @default(autoincrement())
-  workOrderId      Int
-  paymentTermId Int  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  workOrderId   Int
+  paymentTermId Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete:Restrict)
-  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+  workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete: Restrict)
 
+  @@unique([workOrderId, paymentTermId])
   @@index([workOrderId])
   @@index([paymentTermId])
-  @@unique([workOrderId, paymentTermId])
   @@map("wo_payment_terms")
 }
 
@@ -1268,37 +1268,37 @@ model CashbookHead {
 
 // Cashbook Budgets master data
 model CashbookBudget {
-  id                      Int      @id @default(autoincrement())
+  id                      Int     @id @default(autoincrement())
   name                    String
   month                   String
   siteId                  Int?
-  site                    Site?    @relation(fields: [siteId], references: [id])
+  site                    Site?   @relation(fields: [siteId], references: [id])
   boqId                   Int?
-  boq                     Boq?     @relation(fields: [boqId], references: [id])
+  boq                     Boq?    @relation(fields: [boqId], references: [id])
   attachCopyUrl           String?
-  approved1Remarks        String?  @db.Text
-  remarksForFinalApproval String?  @db.Text
-  totalBudget             Decimal  @default(0) @db.Decimal(12, 2) 
-  
+  approved1Remarks        String? @db.Text
+  remarksForFinalApproval String? @db.Text
+  totalBudget             Decimal @default(0) @db.Decimal(12, 2)
+
   // Approval workflow - First approval
-  approvedBy              Int?
-  approvedBy_user         User?    @relation("CashbookBudgetApproved", fields: [approvedBy], references: [id])
-  approvedDatetime        DateTime?
-  approvedBudgetAmount    Decimal? @db.Decimal(12, 2) @default(0.00)
-  
+  approvedBy           Int?
+  approvedBy_user      User?     @relation("CashbookBudgetApproved", fields: [approvedBy], references: [id])
+  approvedDatetime     DateTime?
+  approvedBudgetAmount Decimal?  @default(0.00) @db.Decimal(12, 2)
+
   // Approval workflow - Second approval
-  approved1By             Int?
-  approved1By_user        User?    @relation("CashbookBudgetApproved1", fields: [approved1By], references: [id])
-  approved1Datetime       DateTime?
-  approved1BudgetAmount   Decimal? @db.Decimal(12, 2) @default(0.00)
-  
+  approved1By           Int?
+  approved1By_user      User?     @relation("CashbookBudgetApproved1", fields: [approved1By], references: [id])
+  approved1Datetime     DateTime?
+  approved1BudgetAmount Decimal?  @default(0.00) @db.Decimal(12, 2)
+
   // Acceptance workflow
-  acceptedBy              Int?
-  acceptedBy_user         User?    @relation("CashbookBudgetAccepted", fields: [acceptedBy], references: [id])
-  acceptedDatetime        DateTime?
-  
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  acceptedBy       Int?
+  acceptedBy_user  User?     @relation("CashbookBudgetAccepted", fields: [acceptedBy], references: [id])
+  acceptedDatetime DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   budgetItems CashbookBudgetItem[]
@@ -1321,7 +1321,7 @@ model CashbookBudgetItem {
   description     String?        @db.Text
   amount          Decimal        @db.Decimal(12, 2)
   approvedAmount  Decimal?       @db.Decimal(12, 2)
-  approved1Amount Decimal?       @db.Decimal(12, 2)  
+  approved1Amount Decimal?       @db.Decimal(12, 2)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -1329,9 +1329,6 @@ model CashbookBudgetItem {
   @@index([cashbookHeadId])
   @@map("cashbook_budget_items")
 }
-
-
-
 
 // Rent master data for rental agreement management
 model Rent {
@@ -1356,10 +1353,10 @@ model Rent {
   rentAmount       Decimal?        @db.Decimal(12, 2)
 
   // Monthly Tracking Fields
-  srNo        Int? // Serial number for the month
-  listStatus  String? // 'First', 'Last', or null for middle months
-  dueDate     DateTime? // Actual due date for this month's rent
-  status      String? @default("Unpaid") // 'Paid' or 'Unpaid'
+  srNo       Int? // Serial number for the month
+  listStatus String? // 'First', 'Last', or null for middle months
+  dueDate    DateTime? // Actual due date for this month's rent
+  status     String?   @default("Unpaid") // 'Paid' or 'Unpaid'
 
   // Bank Details
   bank        String?
@@ -1368,12 +1365,12 @@ model Rent {
   accountName String?
   ifscCode    String?
 
-  paymentMethod  String?
-  utrNumber  String?
-  chequeNumber String?
-  chequeDate DateTime?
-  bankDetails String?
-  paymentDate DateTime?
+  paymentMethod String?
+  utrNumber     String?
+  chequeNumber  String?
+  chequeDate    DateTime?
+  bankDetails   String?
+  paymentDate   DateTime?
 
   // File Upload
   momCopyUrl String? // MOM Copy file path
@@ -1401,7 +1398,7 @@ model Cashbook {
   id Int @id @default(autoincrement())
 
   // Header Details
-  voucherNo            String    @unique // auto-generated like VCH-00001
+  voucherNo            String   @unique // auto-generated like VCH-00001
   voucherDate          DateTime @db.Date()
   siteId               Int?
   site                 Site?    @relation(fields: [siteId], references: [id])
@@ -1409,24 +1406,22 @@ model Cashbook {
   boq                  Boq?     @relation(fields: [boqId], references: [id])
   attachVoucherCopyUrl String? // File upload for voucher copy
 
+  createdById Int
+  updatedById Int
 
-createdById      Int
-updatedById      Int
-
-
-  isApproved1             Boolean  @default(false)
-  approved1ById  Int?
-  approved1By    User?                @relation("CashbookApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
-  approved1At    DateTime?
-   isApproved2             Boolean  @default(false)
-   approved2ById  Int?
-  approved2By    User?                @relation("CashbookApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
-  approved2At    DateTime?
+  isApproved1     Boolean          @default(false)
+  approved1ById   Int?
+  approved1By     User?            @relation("CashbookApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At     DateTime?
+  isApproved2     Boolean          @default(false)
+  approved2ById   Int?
+  approved2By     User?            @relation("CashbookApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  approved2At     DateTime?
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-createdBy User @relation("CashbookCreated", fields: [createdById], references: [id], onDelete: Restrict)
-updatedBy User @relation("CashbookUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdBy       User             @relation("CashbookCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User             @relation("CashbookUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
   // Relations
   cashbookDetails CashbookDetail[]
 
@@ -1445,11 +1440,11 @@ model CashbookDetail {
   cashbookHeadId Int
   cashbookHead   CashbookHead @relation(fields: [cashbookHeadId], references: [id])
   description    String?      @db.Text
-  openingBalance       Decimal?     @db.Decimal(12, 2)
-  closingBalance        Decimal?     @db.Decimal(12, 2)
-  amountReceived       Decimal?     @db.Decimal(12, 2)
-  amountPaid        Decimal?     @db.Decimal(12, 2)
-  documentUrl    String?        @db.Text
+  openingBalance Decimal?     @db.Decimal(12, 2)
+  closingBalance Decimal?     @db.Decimal(12, 2)
+  amountReceived Decimal?     @db.Decimal(12, 2)
+  amountPaid     Decimal?     @db.Decimal(12, 2)
+  documentUrl    String?      @db.Text
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1478,7 +1473,7 @@ model AssetTransfer {
   updatedAt      DateTime  @updatedAt
 
   // Relations
-  transferItems AssetTransferItem[]
+  transferItems          AssetTransferItem[]
   assetTransferDocuments AssetTransferDocument[]
 
   @@index([challanNo])
@@ -1528,20 +1523,20 @@ model Attendance {
 
 // Manpower Transfer for transferring assigned manpower between sites
 model ManpowerTransfer {
-  id             Int       @id @default(autoincrement())
-  challanNo      String    @unique // auto-generated like MPT-00001
-  challanDate    DateTime
-  fromSiteId     Int
-  fromSite       Site      @relation("FromSiteManpowerTransfers", fields: [fromSiteId], references: [id])
-  toSiteId       Int
-  toSite         Site      @relation("ToSiteManpowerTransfers", fields: [toSiteId], references: [id])
-  status         String    @default("Pending") // Pending, Accepted, Rejected
-  approvedById   Int? // User who approved/rejected
-  approvedBy     User?     @relation("ManpowerTransferApprovals", fields: [approvedById], references: [id])
-  approvedAt     DateTime?
-  remarks        String?   @db.Text
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           Int       @id @default(autoincrement())
+  challanNo    String    @unique // auto-generated like MPT-00001
+  challanDate  DateTime
+  fromSiteId   Int
+  fromSite     Site      @relation("FromSiteManpowerTransfers", fields: [fromSiteId], references: [id])
+  toSiteId     Int
+  toSite       Site      @relation("ToSiteManpowerTransfers", fields: [toSiteId], references: [id])
+  status       String    @default("Pending") // Pending, Accepted, Rejected
+  approvedById Int? // User who approved/rejected
+  approvedBy   User?     @relation("ManpowerTransferApprovals", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  remarks      String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
   transferItems ManpowerTransferItem[]
@@ -1625,22 +1620,22 @@ model PaySlipDetail {
 }
 
 model PayrollConfig {
-  id                Int      @id @default(1)
-  hoursPerDay       Decimal  @default(8) @db.Decimal(6, 2)
-  pfPercentage      Decimal  @default(12.00) @db.Decimal(6, 2)
-  esicThreshold     Decimal  @default(21000) @db.Decimal(12, 2)
-  esicPercentage    Decimal  @default(0.75) @db.Decimal(6, 2)
-  ptThreshold1      Decimal  @default(7500) @db.Decimal(12, 2)
-  ptAmount1         Decimal  @default(175) @db.Decimal(12, 2)
-  ptThreshold2      Decimal  @default(10000) @db.Decimal(12, 2)
-  ptAmount2         Decimal  @default(200) @db.Decimal(12, 2)
-  febPtAmount       Decimal  @default(300) @db.Decimal(12, 2)
-  ptThresholdWomen  Decimal  @default(25000) @db.Decimal(12, 2)
-  ptAmountWomen     Decimal  @default(200) @db.Decimal(12, 2)
-  mlwfAmount        Decimal  @default(25) @db.Decimal(12, 2)
-  mlwfMonths        String   @default("06,12")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               Int      @id @default(1)
+  hoursPerDay      Decimal  @default(8) @db.Decimal(6, 2)
+  pfPercentage     Decimal  @default(12.00) @db.Decimal(6, 2)
+  esicThreshold    Decimal  @default(21000) @db.Decimal(12, 2)
+  esicPercentage   Decimal  @default(0.75) @db.Decimal(6, 2)
+  ptThreshold1     Decimal  @default(7500) @db.Decimal(12, 2)
+  ptAmount1        Decimal  @default(175) @db.Decimal(12, 2)
+  ptThreshold2     Decimal  @default(10000) @db.Decimal(12, 2)
+  ptAmount2        Decimal  @default(200) @db.Decimal(12, 2)
+  febPtAmount      Decimal  @default(300) @db.Decimal(12, 2)
+  ptThresholdWomen Decimal  @default(25000) @db.Decimal(12, 2)
+  ptAmountWomen    Decimal  @default(200) @db.Decimal(12, 2)
+  mlwfAmount       Decimal  @default(25) @db.Decimal(12, 2)
+  mlwfMonths       String   @default("06,12")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("payroll_config")
 }
@@ -1705,22 +1700,22 @@ model DailyProgressHindrance {
   @@index([dailyProgressId])
   @@map("daily_progress_hindrances")
 }
+
 model SiteEmployeeLog {
-  id           Int      @id @default(autoincrement())
-  siteId       Int    
-  employeeId   Int     
-  assignedDate DateTime
+  id             Int       @id @default(autoincrement())
+  siteId         Int
+  employeeId     Int
+  assignedDate   DateTime
   assignedById   Int
   unassignedDate DateTime?
   unassignedById Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("siteAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
-  unassignedBy User? @relation("siteUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
-
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy   User     @relation("siteAssignedByLogs", fields: [assignedById], references: [id], onDelete: Restrict)
+  unassignedBy User?    @relation("siteUnassignedByLogs", fields: [unassignedById], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([employeeId])
@@ -1729,21 +1724,20 @@ model SiteEmployeeLog {
   @@map("site_employee_logs")
 }
 
-
 model SiteEmployee {
   id           Int      @id @default(autoincrement())
-  siteId       Int    
-  employeeId   Int     
+  siteId       Int
+  employeeId   Int
   assignedDate DateTime
-  assignedById   Int
+  assignedById Int
   // unassignedDate DateTime?
   // unassignedById Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  site      Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("siteAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  site       Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  assignedBy User     @relation("siteAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
   // unassignedBy User? @relation("siteUnassignedBy", fields: [unassignedById], references: [id], onDelete: Restrict)
 
   @@index([siteId])
@@ -1755,13 +1749,13 @@ model SiteEmployee {
 
 model EmployeeDocument {
   id           Int      @id @default(autoincrement())
-  employeeId   Int     
+  employeeId   Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
   @@index([employeeId])
   @@map("employee_documents")
@@ -1769,54 +1763,53 @@ model EmployeeDocument {
 
 model ManpowerDocument {
   id           Int      @id @default(autoincrement())
-  manpowerId   Int     
+  manpowerId   Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  manpower    Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  manpower Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
 
   @@index([manpowerId])
   @@map("manpower_documents")
 }
 
 model SiteContactPerson {
-  id           Int      @id @default(autoincrement())
-  siteId       Int     
-  name String
+  id        Int      @id @default(autoincrement())
+  siteId    Int
+  name      String
   contactNo String?
-  email String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  site    Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@map("site_contact_persons")
 }
 
-
 model SiteDeliveryAddress {
-  id           Int      @id @default(autoincrement())
-  siteId       Int     
-  contactPersonName String?
-  contactPersonEmail String?
+  id                  Int      @id @default(autoincrement())
+  siteId              Int
+  contactPersonName   String?
+  contactPersonEmail  String?
   contactPersonMobile String?
-  addressLine1 String?
-  addressLine2 String?
-  stateId      Int?
-  cityId       Int?
-  pinCode      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  site    Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  state              State?      @relation(fields: [stateId], references: [id])
-  city               City?       @relation(fields: [cityId], references: [id])
+  addressLine1        String?
+  addressLine2        String?
+  stateId             Int?
+  cityId              Int?
+  pinCode             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  purchaseOrders PurchaseOrder[]
-  workOrders WorkOrder[]
+  site  Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  state State? @relation(fields: [stateId], references: [id])
+  city  City?  @relation(fields: [cityId], references: [id])
+
+  purchaseOrders          PurchaseOrder[]
+  workOrders              WorkOrder[]
   subContractorWorkOrders SubContractorWorkOrder[]
 
   @@index([siteId])
@@ -1854,17 +1847,19 @@ enum IndentPriority {
   MEDIUM
   HIGH
 }
+
 // Indent master data for material requisitions
 model Indent {
   id             Int                  @id @default(autoincrement())
   siteId         Int
-  site           Site                @relation(fields: [siteId], references: [id], onDelete:Restrict)
-  indentNo       String              @unique // auto-generated like IND-00001
+  site           Site                 @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  indentNo       String               @unique // auto-generated like IND-00001
   indentDate     DateTime
   deliveryDate   DateTime
   remarks        String?              @db.Text
   // Approval workflow
-  priority IndentPriority @default(LOW)
+  isTransfer     Boolean              @default(false)
+  priority       IndentPriority       @default(LOW)
   approvalStatus IndentApprovalStatus @default(DRAFT)
   approved1ById  Int?
   approved1By    User?                @relation("IndentApproved1By", fields: [approved1ById], references: [id])
@@ -1872,28 +1867,28 @@ model Indent {
   approved2ById  Int?
   approved2By    User?                @relation("IndentApproved2By", fields: [approved2ById], references: [id])
   approved2At    DateTime?
- 
-  completedById  Int?
-  completedBy    User?                @relation("IndentCompletedBy", fields: [completedById], references: [id])
-  completedAt    DateTime?
+
+  completedById Int?
+  completedBy   User?     @relation("IndentCompletedBy", fields: [completedById], references: [id])
+  completedAt   DateTime?
   // Suspension (orthogonal to approval)
-  suspended      Boolean              @default(false)
-  suspendedById  Int?
-  suspendedBy    User?                @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
-  suspendedAt    DateTime?
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
+  suspended     Boolean   @default(false)
+  suspendedById Int?
+  suspendedBy   User?     @relation("IndentSuspendedBy", fields: [suspendedById], references: [id])
+  suspendedAt   DateTime?
+  createdById   Int
+  createdAt     DateTime  @default(now())
+  updatedById   Int
+  updatedAt     DateTime  @updatedAt
 
   createdBy User @relation("IndentCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("IndentUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   // Relations
-  indentItems IndentItem[]
-  purchaseOrderIndent PurchaseOrderIndent[]
+  indentItems                   IndentItem[]
+  purchaseOrderIndent           PurchaseOrderIndent[]
+  outwardDeliveryChallanIndents OutwardDeliveryChallanIndent[]
 
-  
   @@index([indentNo])
   @@index([siteId])
   @@index([indentDate])
@@ -1907,180 +1902,177 @@ model Indent {
 
 // Indent line items for detailed material requirements
 model IndentItem {
-  id           Int      @id @default(autoincrement())
-  indentId     Int
-  indent       Indent   @relation(fields: [indentId], references: [id], onDelete: Restrict)
-  itemId       Int
-  item         Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  remark       String?  @db.Text
-  indentQty    Decimal?  @db.Decimal(12, 2)
-  approved1Qty    Decimal?  @db.Decimal(12, 2)
-  approved2Qty    Decimal?  @db.Decimal(12, 2)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-indentItemPOs IndentItemPO[]
+  id             Int             @id @default(autoincrement())
+  indentId       Int
+  indent         Indent          @relation(fields: [indentId], references: [id], onDelete: Restrict)
+  itemId         Int
+  item           Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  remark         String?         @db.Text
+  indentQty      Decimal?        @db.Decimal(12, 2)
+  approved1Qty   Decimal?        @db.Decimal(12, 2)
+  approved2Qty   Decimal?        @db.Decimal(12, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  indentItemPOs  IndentItemPO[]
+  indentItemODCs IndentItemODC[]
 
   @@index([indentId])
   @@index([itemId])
   @@map("indent_items")
 }
 
-
 model PurchaseOrder {
-  id                      Int       @id @default(autoincrement())
-  siteId                  Int
-  site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
-  companyId Int?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete:Restrict)
-  siteDeliveryAddressId                  Int
-  siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
-  paymentTermId           Int?
-  paymentTerm    PaymentTerm?                @relation( fields: [paymentTermId], references: [id], onDelete:Restrict)
-  billingAddressId        Int
-  billingAddress    BillingAddress                @relation( fields: [billingAddressId], references: [id], onDelete:Restrict)
-  vendorId                Int
-  vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
-  purchaseOrderNo         String   @db.VarChar(100)  @unique
-  purchaseOrderDate       DateTime    @db.Date() 
-  quotationNo             String?   @db.VarChar(100)
-  quotationDate           DateTime?   @db.Date() 
-  deliveryDate            DateTime    @db.Date() 
-  transport               String?   @db.VarChar(100)
-  note                    String?   @db.Text
-  terms                   String?   @db.Text
-  paymentTermsInDays      Int?        
-  deliverySchedule        String?   @db.Text
-  amount                  Decimal?  @db.Decimal(12, 2) 
-  pfStatus                String?   @db.VarChar(50)
-  pfCharges               String?   @db.VarChar(50)
-  totalCgstAmount              Decimal? @db.Decimal(12,2) 
-  totalSgstAmount              Decimal? @db.Decimal(12,2) 
-  totalIgstAmount              Decimal? @db.Decimal(12,2) 
-  gstReverseStatus        String?   @db.VarChar(20)
-  gstReverseAmount        String?   @db.VarChar(50)
-  exciseTaxStatus         String?   @db.VarChar(20)
-  exciseTaxAmount         String?   @db.VarChar(50)
-  octroiTaxStatus         String?   @db.VarChar(20)
-  octroiTaxAmount         String?   @db.VarChar(50)
-  transitInsuranceStatus  String?   @db.VarChar(20)
-  transitInsuranceAmount  String?   @db.VarChar(50)
-  amountInWords           String?   @db.VarChar(255)
-  purchaseOrderfilePath   String?   @db.VarChar(500)
-  isApproved2Printed      Boolean   @default(false)
-  approvalStatus POApprovalStatus @default(DRAFT)
-  poStatus            POStatus    @default(OPEN) 
-  isApproved1             Boolean  @default(false)
-  approved1ById  Int?
-  approved1By    User?                @relation("POApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
-  approved1At    DateTime?
-  isApproved2             Boolean  @default(false)
-   approved2ById  Int?
-  approved2By    User?                @relation("POApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
-  approved2At    DateTime?
-  billStatus              String?   @db.VarChar(255)
-  remarks                 String?   @db.VarChar(255)
-  isSuspended             Boolean  @default(false)
-   suspendedById  Int?
-  suspendedBy    User?                @relation("POSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
-  suspendedAt    DateTime?
-  isComplete              Boolean  @default(false)
-   completedById  Int?
-  completedBy    User?                @relation("POCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
-  completedAt    DateTime?
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  revision                Int?
-  createdBy User @relation("POCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("POUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  id                     Int                 @id @default(autoincrement())
+  siteId                 Int
+  site                   Site                @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  companyId              Int?
+  company                Company?            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  siteDeliveryAddressId  Int
+  siteDeliveryAddress    SiteDeliveryAddress @relation(fields: [siteDeliveryAddressId], references: [id], onDelete: Restrict)
+  paymentTermId          Int?
+  paymentTerm            PaymentTerm?        @relation(fields: [paymentTermId], references: [id], onDelete: Restrict)
+  billingAddressId       Int
+  billingAddress         BillingAddress      @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  vendorId               Int
+  vendor                 Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  purchaseOrderNo        String              @unique @db.VarChar(100)
+  purchaseOrderDate      DateTime            @db.Date()
+  quotationNo            String?             @db.VarChar(100)
+  quotationDate          DateTime?           @db.Date()
+  deliveryDate           DateTime            @db.Date()
+  transport              String?             @db.VarChar(100)
+  note                   String?             @db.Text
+  terms                  String?             @db.Text
+  paymentTermsInDays     Int?
+  deliverySchedule       String?             @db.Text
+  amount                 Decimal?            @db.Decimal(12, 2)
+  pfStatus               String?             @db.VarChar(50)
+  pfCharges              String?             @db.VarChar(50)
+  totalCgstAmount        Decimal?            @db.Decimal(12, 2)
+  totalSgstAmount        Decimal?            @db.Decimal(12, 2)
+  totalIgstAmount        Decimal?            @db.Decimal(12, 2)
+  gstReverseStatus       String?             @db.VarChar(20)
+  gstReverseAmount       String?             @db.VarChar(50)
+  exciseTaxStatus        String?             @db.VarChar(20)
+  exciseTaxAmount        String?             @db.VarChar(50)
+  octroiTaxStatus        String?             @db.VarChar(20)
+  octroiTaxAmount        String?             @db.VarChar(50)
+  transitInsuranceStatus String?             @db.VarChar(20)
+  transitInsuranceAmount String?             @db.VarChar(50)
+  amountInWords          String?             @db.VarChar(255)
+  purchaseOrderfilePath  String?             @db.VarChar(500)
+  isApproved2Printed     Boolean             @default(false)
+  approvalStatus         POApprovalStatus    @default(DRAFT)
+  poStatus               POStatus            @default(OPEN)
+  isApproved1            Boolean             @default(false)
+  approved1ById          Int?
+  approved1By            User?               @relation("POApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At            DateTime?
+  isApproved2            Boolean             @default(false)
+  approved2ById          Int?
+  approved2By            User?               @relation("POApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  approved2At            DateTime?
+  billStatus             String?             @db.VarChar(255)
+  remarks                String?             @db.VarChar(255)
+  isSuspended            Boolean             @default(false)
+  suspendedById          Int?
+  suspendedBy            User?               @relation("POSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
+  suspendedAt            DateTime?
+  isComplete             Boolean             @default(false)
+  completedById          Int?
+  completedBy            User?               @relation("POCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  completedAt            DateTime?
+  createdById            Int
+  createdAt              DateTime            @default(now())
+  updatedById            Int
+  updatedAt              DateTime            @updatedAt
+  revision               Int?
+  createdBy              User                @relation("POCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy              User                @relation("POUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
-  purchaseOrderDetails PurchaseOrderDetail[] 
+  purchaseOrderDetails  PurchaseOrderDetail[]
   inwardDeliveryChallan InwardDeliveryChallan[]
-  workOrders WorkOrder[]
-  poPaymentTerms POPaymentTerm[]
-  purchaseOrderIndent PurchaseOrderIndent[]
-    poAdditionalCharge  PoAdditionalCharge[]
+  workOrders            WorkOrder[]
+  poPaymentTerms        POPaymentTerm[]
+  purchaseOrderIndent   PurchaseOrderIndent[]
+  poAdditionalCharge    PoAdditionalCharge[]
 
-
-@@index([siteId])
-@@index([vendorId])
-@@index([billingAddressId])
-@@index([paymentTermId])
-@@index([createdById])
-@@index([updatedById])
-@@index([approved1ById])
-@@index([approved2ById])
-@@index([suspendedById])
-@@index([completedById])
-
+  @@index([siteId])
+  @@index([vendorId])
+  @@index([billingAddressId])
+  @@index([paymentTermId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([approved1ById])
+  @@index([approved2ById])
+  @@index([suspendedById])
+  @@index([completedById])
   @@map("purchase_orders")
 }
 
-
 model PurchaseOrderDetail {
-  id              Int       @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   serialNo        Int
   purchaseOrderId Int
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
 
   itemId          Int
-  item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  remark          String?   @db.VarChar(500)
-  qty             Decimal?  @db.Decimal(12, 2)
-  orderedQty      Decimal?  @db.Decimal(12, 2)
-  approved1Qty    Decimal?  @db.Decimal(12, 2)
-  approved2Qty    Decimal?  @db.Decimal(12, 2)
-  receivedQty     Decimal?  @default("0.00") @db.Decimal(12, 2)
-  rate            Decimal?  @db.Decimal(12, 2)
-  discountPercent        Decimal?  @default(0.00) @db.Decimal(10, 2)
-  disAmt          Decimal?  @db.Decimal(10, 2)
-  tax             Decimal?  @db.Decimal(10, 2)
-  taxAmt          Decimal?  @db.Decimal(10, 2)
-  cgstPercent            Decimal?  @db.Decimal(10, 2)
-  cgstAmt         Decimal?  @db.Decimal(10, 2)
-  sgstPercent            Decimal?  @db.Decimal(10, 2)
-  sgstAmt         Decimal?  @db.Decimal(10, 2)
-  igstPercent            Decimal?  @db.Decimal(10, 2)
-  igstAmt         Decimal?  @db.Decimal(10, 2)
-  amount          Decimal?  @db.Decimal(10, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  item            Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  remark          String?  @db.VarChar(500)
+  qty             Decimal? @db.Decimal(12, 2)
+  orderedQty      Decimal? @db.Decimal(12, 2)
+  approved1Qty    Decimal? @db.Decimal(12, 2)
+  approved2Qty    Decimal? @db.Decimal(12, 2)
+  receivedQty     Decimal? @default("0.00") @db.Decimal(12, 2)
+  rate            Decimal? @db.Decimal(12, 2)
+  discountPercent Decimal? @default(0.00) @db.Decimal(10, 2)
+  disAmt          Decimal? @db.Decimal(10, 2)
+  tax             Decimal? @db.Decimal(10, 2)
+  taxAmt          Decimal? @db.Decimal(10, 2)
+  cgstPercent     Decimal? @db.Decimal(10, 2)
+  cgstAmt         Decimal? @db.Decimal(10, 2)
+  sgstPercent     Decimal? @db.Decimal(10, 2)
+  sgstAmt         Decimal? @db.Decimal(10, 2)
+  igstPercent     Decimal? @db.Decimal(10, 2)
+  igstAmt         Decimal? @db.Decimal(10, 2)
+  amount          Decimal? @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   InwardDeliveryChallanDetail InwardDeliveryChallanDetail[]
-  indentItemPOs IndentItemPO[]
+  indentItemPOs               IndentItemPO[]
 
-@@index([purchaseOrderId])
-@@index([itemId])
-
+  @@index([purchaseOrderId])
+  @@index([itemId])
   @@map("purchase_order_details")
 }
 
 model PoAdditionalCharge {
-  id              Int       @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   purchaseOrderId Int
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  head      String  
-  gstCharge   String
-  amount     Decimal?  @db.Decimal(12, 2)
-  amountWithGst     Decimal?  @db.Decimal(12, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  head            String
+  gstCharge       String
+  amount          Decimal?      @db.Decimal(12, 2)
+  amountWithGst   Decimal?      @db.Decimal(12, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([purchaseOrderId])
   @@map("po_additional_charges")
 }
 
 model PurchaseOrderIndent {
-  id             Int @id @default(autoincrement())
+  id              Int @id @default(autoincrement())
   purchaseOrderId Int
   indentId        Int
 
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  indent          Indent        @relation(fields: [indentId], references: [id], onDelete: Restrict)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  indent        Indent        @relation(fields: [indentId], references: [id], onDelete: Restrict)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
   @@unique([purchaseOrderId, indentId])
   @@index([indentId])
   @@index([purchaseOrderId])
@@ -2088,15 +2080,16 @@ model PurchaseOrderIndent {
 }
 
 model IndentItemPO {
-  id                    Int      @id @default(autoincrement())
+  id                    Int     @id @default(autoincrement())
   indentItemId          Int
   purchaseOrderDetailId Int
-  orderedQty            Decimal  @db.Decimal(12, 2)
+  orderedQty            Decimal @db.Decimal(12, 2)
 
-  indentItem            IndentItem          @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
-  purchaseOrderDetail   PurchaseOrderDetail @relation(fields: [purchaseOrderDetailId], references: [id], onDelete: Restrict)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  indentItem          IndentItem          @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
+  purchaseOrderDetail PurchaseOrderDetail @relation(fields: [purchaseOrderDetailId], references: [id], onDelete: Restrict)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
   @@unique([indentItemId, purchaseOrderDetailId])
   @@index([indentItemId])
   @@index([purchaseOrderDetailId])
@@ -2105,13 +2098,13 @@ model IndentItemPO {
 
 model RentDocument {
   id           Int      @id @default(autoincrement())
-  rentId   Int     
+  rentId       Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  rent    Rent @relation(fields: [rentId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rent Rent @relation(fields: [rentId], references: [id], onDelete: Restrict)
 
   @@index([rentId])
   @@map("rent_documents")
@@ -2119,13 +2112,13 @@ model RentDocument {
 
 model AssetDocument {
   id           Int      @id @default(autoincrement())
-  assetId   Int     
+  assetId      Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([assetId])
   @@map("asset_documents")
@@ -2133,42 +2126,41 @@ model AssetDocument {
 
 model CompanyDocument {
   id           Int      @id @default(autoincrement())
-  companyId   Int     
+  companyId    Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  company    Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([companyId])
   @@map("company_documents")
 }
 
 model AssetTransferDocument {
-  id           Int      @id @default(autoincrement())
-  assetTransferId   Int     
-  documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  assetTransfer    AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Restrict)
+  id              Int      @id @default(autoincrement())
+  assetTransferId Int
+  documentName    String
+  documentUrl     String   @db.LongText
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assetTransfer AssetTransfer @relation(fields: [assetTransferId], references: [id], onDelete: Restrict)
 
   @@index([assetTransferId])
   @@map("asset_transfer_documents")
 }
 
-
 model NoticeDocument {
   id           Int      @id @default(autoincrement())
-  noticeId   Int     
+  noticeId     Int
   documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  notice    Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  documentUrl  String   @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
 
   @@index([noticeId])
   @@map("notice_documents")
@@ -2180,118 +2172,115 @@ enum WorkOrderType {
 }
 
 model WorkOrder {
-  id                      Int       @id @default(autoincrement())
-  type         WorkOrderType  
-  siteId                  Int
-  site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
-  siteDeliveryAddressId                  Int
-  siteDeliveryAddress    SiteDeliveryAddress                @relation( fields: [siteDeliveryAddressId], references: [id], onDelete:Restrict)
-  purchaseOrderId                Int
-  purchaseOrder    PurchaseOrder                @relation( fields: [purchaseOrderId], references: [id], onDelete:Restrict)
-  billingAddressId        Int
-  billingAddress    BillingAddress                @relation( fields: [billingAddressId], references: [id], onDelete:Restrict)
-  vendorId                Int
-  vendor    Vendor                @relation(fields: [vendorId], references: [id], onDelete:Restrict)
-  boqId                Int
-  boq    Boq                @relation(fields: [boqId], references: [id], onDelete:Restrict)
-  workOrderNo         String   @db.VarChar(30)  @unique
-  workOrderDate       DateTime 
-  quotationNo             String   @db.VarChar(100)
-  quotationDate           DateTime 
-  deliveryDate            DateTime 
-  transport               String?   @db.VarChar(100)
-  note                    String?   @db.Text
-  terms                   String?   @db.Text
-  paymentTermsInDays      Int?        
-  deliverySchedule        String?   @db.Text
-  amount                  Decimal?  @db.Decimal(12, 2) 
-  pfStatus                String?   @db.VarChar(50)
-  pfCharges               String?   @db.VarChar(50)
-  totalCgstAmount              Decimal? @db.Decimal(12,2) 
-  totalSgstAmount              Decimal? @db.Decimal(12,2) 
-  totalIgstAmount              Decimal? @db.Decimal(12,2) 
- 
-  amountInWords           String?   @db.VarChar(255)
-  approvalStatus IndentApprovalStatus @default(DRAFT)
-  woStatus                   String?  //HOLD OR NULL
-  isApproved1             Boolean  @default(false)
-  approved1ById  Int?
-  approved1By    User?                @relation("WOApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
-  approved1At    DateTime?
-  isApproved2             Boolean  @default(false)
-   approved2ById  Int?
-  approved2By    User?                @relation("WOApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
-  approved2At    DateTime?
-  billStatus              String?   @db.VarChar(255)
-  remarks                 String?   @db.VarChar(255)
-  WorkOrderfilePath   String?   @db.VarChar(500)
-  isApproved2Printed      Boolean   @default(false)
-  isSuspended             Boolean  @default(false)
-   suspendedById  Int?
-  suspendedBy    User?                @relation("WOSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
-  suspendedAt    DateTime?
-  isComplete              Boolean  @default(false)
-   completedById  Int?
-  completedBy    User?                @relation("WOCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
-  completedAt    DateTime?
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  revision                Int?
-  createdBy User @relation("WOCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("WOUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  id                    Int                 @id @default(autoincrement())
+  type                  WorkOrderType
+  siteId                Int
+  site                  Site                @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  siteDeliveryAddressId Int
+  siteDeliveryAddress   SiteDeliveryAddress @relation(fields: [siteDeliveryAddressId], references: [id], onDelete: Restrict)
+  purchaseOrderId       Int
+  purchaseOrder         PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  billingAddressId      Int
+  billingAddress        BillingAddress      @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  vendorId              Int
+  vendor                Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  boqId                 Int
+  boq                   Boq                 @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  workOrderNo           String              @unique @db.VarChar(30)
+  workOrderDate         DateTime
+  quotationNo           String              @db.VarChar(100)
+  quotationDate         DateTime
+  deliveryDate          DateTime
+  transport             String?             @db.VarChar(100)
+  note                  String?             @db.Text
+  terms                 String?             @db.Text
+  paymentTermsInDays    Int?
+  deliverySchedule      String?             @db.Text
+  amount                Decimal?            @db.Decimal(12, 2)
+  pfStatus              String?             @db.VarChar(50)
+  pfCharges             String?             @db.VarChar(50)
+  totalCgstAmount       Decimal?            @db.Decimal(12, 2)
+  totalSgstAmount       Decimal?            @db.Decimal(12, 2)
+  totalIgstAmount       Decimal?            @db.Decimal(12, 2)
 
-  workOrderDetails WorkOrderDetail[] 
-  workOrderBills WorkOrderBill[]
-  WOPaymentTerms    WOPaymentTerm[]
-@@index([siteId])
-@@index([purchaseOrderId])
-@@index([boqId])
-@@index([vendorId])
-@@index([billingAddressId])
-@@index([createdById])
-@@index([updatedById])
-@@index([approved1ById])
-@@index([approved2ById])
-@@index([suspendedById])
-@@index([completedById])
+  amountInWords      String?              @db.VarChar(255)
+  approvalStatus     IndentApprovalStatus @default(DRAFT)
+  woStatus           String? //HOLD OR NULL
+  isApproved1        Boolean              @default(false)
+  approved1ById      Int?
+  approved1By        User?                @relation("WOApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At        DateTime?
+  isApproved2        Boolean              @default(false)
+  approved2ById      Int?
+  approved2By        User?                @relation("WOApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
+  approved2At        DateTime?
+  billStatus         String?              @db.VarChar(255)
+  remarks            String?              @db.VarChar(255)
+  WorkOrderfilePath  String?              @db.VarChar(500)
+  isApproved2Printed Boolean              @default(false)
+  isSuspended        Boolean              @default(false)
+  suspendedById      Int?
+  suspendedBy        User?                @relation("WOSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
+  suspendedAt        DateTime?
+  isComplete         Boolean              @default(false)
+  completedById      Int?
+  completedBy        User?                @relation("WOCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  completedAt        DateTime?
+  createdById        Int
+  createdAt          DateTime             @default(now())
+  updatedById        Int
+  updatedAt          DateTime             @updatedAt
+  revision           Int?
+  createdBy          User                 @relation("WOCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy          User                 @relation("WOUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
+  workOrderDetails WorkOrderDetail[]
+  workOrderBills   WorkOrderBill[]
+  WOPaymentTerms   WOPaymentTerm[]
+
+  @@index([siteId])
+  @@index([purchaseOrderId])
+  @@index([boqId])
+  @@index([vendorId])
+  @@index([billingAddressId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([approved1ById])
+  @@index([approved2ById])
+  @@index([suspendedById])
+  @@index([completedById])
   @@map("work_orders")
 }
 
-
 model WorkOrderDetail {
-  id              Int       @id @default(autoincrement())
-  serialNo        Int
-  workOrderId Int
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
-  Item            String @db.Text
-  unitId           Int
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  sac_code        String?  
-  remark          String?   @db.Text
-  qty             Decimal?  @db.Decimal(12, 2)
-  orderedQty      Decimal?  @db.Decimal(12, 2)
-  approved1Qty    Decimal?  @db.Decimal(12, 2)
-  approved2Qty    Decimal?  @db.Decimal(12, 2)
-  receivedQty     Decimal?  @default("0.00") @db.Decimal(12, 2)
-  rate            Decimal?  @db.Decimal(12, 2)
-  cgstPercent            Decimal?  @db.Decimal(10, 2)
-  cgstAmt         Decimal?  @db.Decimal(10, 2)
-  sgstPercent            Decimal?  @db.Decimal(10, 2)
-  sgstAmt         Decimal?  @db.Decimal(10, 2)
-  igstPercent            Decimal?  @db.Decimal(10, 2)
-  igstAmt         Decimal?  @db.Decimal(10, 2)
-  amount          Decimal?  @db.Decimal(10, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  serialNo     Int
+  workOrderId  Int
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+  Item         String    @db.Text
+  unitId       Int
+  unit         Unit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  sac_code     String?
+  remark       String?   @db.Text
+  qty          Decimal?  @db.Decimal(12, 2)
+  orderedQty   Decimal?  @db.Decimal(12, 2)
+  approved1Qty Decimal?  @db.Decimal(12, 2)
+  approved2Qty Decimal?  @db.Decimal(12, 2)
+  receivedQty  Decimal?  @default("0.00") @db.Decimal(12, 2)
+  rate         Decimal?  @db.Decimal(12, 2)
+  cgstPercent  Decimal?  @db.Decimal(10, 2)
+  cgstAmt      Decimal?  @db.Decimal(10, 2)
+  sgstPercent  Decimal?  @db.Decimal(10, 2)
+  sgstAmt      Decimal?  @db.Decimal(10, 2)
+  igstPercent  Decimal?  @db.Decimal(10, 2)
+  igstAmt      Decimal?  @db.Decimal(10, 2)
+  amount       Decimal?  @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-@@index([workOrderId])
-
+  @@index([workOrderId])
   @@map("work_order_details")
 }
-
 
 enum WorkOrderBillStatus {
   PAID
@@ -2300,29 +2289,28 @@ enum WorkOrderBillStatus {
 }
 
 model WorkOrderBill {
-  id              Int      @id @default(autoincrement())
-  workOrderId Int
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
-  billNo          String  @db.VarChar(50) 
-  billDate        DateTime  
-  billAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
-  paidAmount      Decimal   @default(0.00) @db.Decimal(10, 2) 
-  dueDate         DateTime   
-  paymentDate     DateTime  
-  paymentMode     String   @db.VarChar(50)
-  chequeNo        String?   @db.VarChar(200) 
-  chequeDate      DateTime?  
-  utrNo           String?   @db.VarChar(200) 
-  bankName        String?   @db.VarChar(100) 
-  deductionTax    Decimal   @default(0.00) @db.Decimal(10, 2) 
-  dueAmount    Decimal   @default(0.00) @db.Decimal(10, 2) 
-  status         WorkOrderBillStatus 
+  id           Int                 @id @default(autoincrement())
+  workOrderId  Int
+  workOrder    WorkOrder           @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+  billNo       String              @db.VarChar(50)
+  billDate     DateTime
+  billAmount   Decimal             @default(0.00) @db.Decimal(10, 2)
+  paidAmount   Decimal             @default(0.00) @db.Decimal(10, 2)
+  dueDate      DateTime
+  paymentDate  DateTime
+  paymentMode  String              @db.VarChar(50)
+  chequeNo     String?             @db.VarChar(200)
+  chequeDate   DateTime?
+  utrNo        String?             @db.VarChar(200)
+  bankName     String?             @db.VarChar(100)
+  deductionTax Decimal             @default(0.00) @db.Decimal(10, 2)
+  dueAmount    Decimal             @default(0.00) @db.Decimal(10, 2)
+  status       WorkOrderBillStatus
 
- createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workOrderId])
-
   @@map("work_order_bills")
 }
 
@@ -2333,45 +2321,45 @@ enum InwardDeliveryChallanStatus {
 }
 
 model InwardDeliveryChallan {
-  id               Int       @id @default(autoincrement())
-  purchaseOrderId Int   
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  vendorId         Int
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  siteId           Int
-  site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  inwardChallanNo  String  @unique 
+  id                Int           @id @default(autoincrement())
+  purchaseOrderId   Int
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  vendorId          Int
+  vendor            Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  siteId            Int
+  site              Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  inwardChallanNo   String        @unique
   inwardChallanDate DateTime
-  challanNo        String   @db.VarChar(100)
-  challanDate      DateTime
+  challanNo         String        @db.VarChar(100)
+  challanDate       DateTime
 
-  lrNo             String?   @db.VarChar(100)
-  lRDate           DateTime?
-  invoiceNo        String?   @db.VarChar(100)
-  invoiceDate      DateTime?
-  billNo           String?   @db.VarChar(100)
-  billDate         DateTime?
-  vehicleNo        String?   @db.VarChar(50)
-  remarks          String?   @db.VarChar(255)
-  billAmount       Decimal  @default(0.00) @db.Decimal(12, 2)
-  dueDays          Int      @default(0)
-  dueDate          DateTime?
-  status           InwardDeliveryChallanStatus @default(UNPAID)
-  dueAmount    Decimal  @default(0.00) @db.Decimal(12, 2)
-  totalPaidAmount  Decimal  @default(0.00) @db.Decimal(12, 2)
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  createdBy User @relation("IDCCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("IDCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  lrNo            String?                     @db.VarChar(100)
+  lRDate          DateTime?
+  invoiceNo       String?                     @db.VarChar(100)
+  invoiceDate     DateTime?
+  billNo          String?                     @db.VarChar(100)
+  billDate        DateTime?
+  vehicleNo       String?                     @db.VarChar(50)
+  remarks         String?                     @db.VarChar(255)
+  billAmount      Decimal                     @default(0.00) @db.Decimal(12, 2)
+  dueDays         Int                         @default(0)
+  dueDate         DateTime?
+  status          InwardDeliveryChallanStatus @default(UNPAID)
+  dueAmount       Decimal                     @default(0.00) @db.Decimal(12, 2)
+  totalPaidAmount Decimal                     @default(0.00) @db.Decimal(12, 2)
+  createdById     Int
+  createdAt       DateTime                    @default(now())
+  updatedById     Int
+  updatedAt       DateTime                    @updatedAt
+  createdBy       User                        @relation("IDCCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User                        @relation("IDCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
-
-//relations
-  inwardDeliveryChallanDetails InwardDeliveryChallanDetail[]
+  //relations
+  inwardDeliveryChallanDetails   InwardDeliveryChallanDetail[]
   inwardDeliveryChallanDocuments InwardDeliveryChallanDocuments[]
-  stockLedgers StockLedger[]
-  inwardBillDetail  InwardBillDetail[]
+  stockLedgers                   StockLedger[]
+  inwardBillDetail               InwardBillDetail[]
+
   @@index([purchaseOrderId])
   @@index([vendorId])
   @@index([siteId])
@@ -2381,145 +2369,140 @@ model InwardDeliveryChallan {
 }
 
 model InwardDeliveryChallanDetail {
-  id                        Int      @id @default(autoincrement())
-  inwardDeliveryChallanId   Int   
-  poDetailsId               Int   
-  receivingQty              Decimal  @db.Decimal(12, 2) @default(0.00)
-  rate                      Decimal @db.Decimal(12, 2) @default(0.00)
-  amount                    Decimal @db.Decimal(12, 2) @default(0.00)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  idcDetailBatches   InwardDeliveryChallanDetailBatch[]
-  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
-  poDetails PurchaseOrderDetail @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)  
+  id                      Int                                @id @default(autoincrement())
+  inwardDeliveryChallanId Int
+  poDetailsId             Int
+  receivingQty            Decimal                            @default(0.00) @db.Decimal(12, 2)
+  rate                    Decimal                            @default(0.00) @db.Decimal(12, 2)
+  amount                  Decimal                            @default(0.00) @db.Decimal(12, 2)
+  createdAt               DateTime                           @default(now())
+  updatedAt               DateTime                           @updatedAt
+  idcDetailBatches        InwardDeliveryChallanDetailBatch[]
+  inwardDeliveryChallan   InwardDeliveryChallan              @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  poDetails               PurchaseOrderDetail                @relation(fields: [poDetailsId], references: [id], onDelete: Restrict)
+
   @@index([inwardDeliveryChallanId])
   @@index([poDetailsId])
   @@map("inward_delivery_challan_details")
 }
 
 model InwardDeliveryChallanDetailBatch {
-  id           Int       @id @default(autoincrement())
-  inwardDeliveryChallanDetailId   Int
-  batchNumber      String    
-  expiryDate   String 
-  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
-  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  inwardDeliveryChallanDetail  InwardDeliveryChallanDetail  @relation(fields: [inwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
-  
- @@index([inwardDeliveryChallanDetailId])
+  id                            Int     @id @default(autoincrement())
+  inwardDeliveryChallanDetailId Int
+  batchNumber                   String
+  expiryDate                    String
+  qty                           Decimal @default(0.00) @db.Decimal(12, 2)
+  unitRate                      Decimal @default(0.00) @db.Decimal(12, 2)
+  amount                        Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inwardDeliveryChallanDetail InwardDeliveryChallanDetail @relation(fields: [inwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
+
+  @@index([inwardDeliveryChallanDetailId])
   @@map("inward_delivery_challan_detail_batches")
 }
 
-
 model InwardDeliveryChallanDocuments {
-  id           Int      @id @default(autoincrement())
-  inwardDeliveryChallanId   Int     
-  documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  id                      Int      @id @default(autoincrement())
+  inwardDeliveryChallanId Int
+  documentName            String
+  documentUrl             String   @db.LongText
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  inwardDeliveryChallan InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_delivery_challan_documents")
 }
 
-
 model StockLedger {
-  id             Int       @id @default(autoincrement())
-  siteId                  Int
+  id     Int @id @default(autoincrement())
+  siteId Int
 
-  transactionDate DateTime
-  itemId          Int
-  inwardDeliveryChallanId   Int?   
-  outwardDeliveryChallanId   Int?   
-  dailyConsumptionId   Int?   
-  stockAdjustmentId      Int?
+  transactionDate          DateTime
+  itemId                   Int
+  inwardDeliveryChallanId  Int?
+  outwardDeliveryChallanId Int?
+  dailyConsumptionId       Int?
+  stockAdjustmentId        Int?
 
-  receivedQty     Decimal  @db.Decimal(12,2) @default(0.00)
-  issuedQty     Decimal  @db.Decimal(12, 2) @default(0.00)
-  unitRate     Decimal  @db.Decimal(12, 2) @default(0.00)
-  documentType   String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  receivedQty  Decimal  @default(0.00) @db.Decimal(12, 2)
+  issuedQty    Decimal  @default(0.00) @db.Decimal(12, 2)
+  unitRate     Decimal  @default(0.00) @db.Decimal(12, 2)
+  documentType String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  site    Site                @relation( fields: [siteId], references: [id], onDelete:Restrict)
-  item            Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  inwardDeliveryChallan InwardDeliveryChallan? @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  site                   Site                    @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  item                   Item                    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  inwardDeliveryChallan  InwardDeliveryChallan?  @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
   outwardDeliveryChallan OutwardDeliveryChallan? @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
-  dailyConsumption DailyConsumption? @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
-  stockAdjustment StockAdjustment? @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
+  dailyConsumption       DailyConsumption?       @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
+  stockAdjustment        StockAdjustment?        @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
 
   @@index([siteId])
   @@index([itemId])
   @@index([inwardDeliveryChallanId])
   @@index([outwardDeliveryChallanId])
-
   @@map("stock_ledgers")
 }
 
-
 model SiteItem {
-  id            Int       @id @default(autoincrement())
-  siteId                  Int
-  itemId          Int
-  openingStock  Decimal    @default(0.00)   @db.Decimal(12,2) 
-  openingRate   Decimal    @default(0.00)   @db.Decimal(12,2) 
-  openingValue  Decimal    @default(0.00)   @db.Decimal(12,2) 
-  closingStock  Decimal    @default(0.00)    @db.Decimal(12,2) 
-  closingValue  Decimal    @default(0.00)    @db.Decimal(12,2) 
-  unitRate      Decimal    @default(0.00)   @db.Decimal(12,2) 
-  reorderLevel  Decimal    @default(0.00)    @db.Decimal(12,2)
-  log           String?    @db.VarChar(50)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  siteId       Int
+  itemId       Int
+  openingStock Decimal  @default(0.00) @db.Decimal(12, 2)
+  openingRate  Decimal  @default(0.00) @db.Decimal(12, 2)
+  openingValue Decimal  @default(0.00) @db.Decimal(12, 2)
+  closingStock Decimal  @default(0.00) @db.Decimal(12, 2)
+  closingValue Decimal  @default(0.00) @db.Decimal(12, 2)
+  unitRate     Decimal  @default(0.00) @db.Decimal(12, 2)
+  reorderLevel Decimal  @default(0.00) @db.Decimal(12, 2)
+  log          String?  @db.VarChar(50)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  site        Site    @relation( fields: [siteId], references: [id], onDelete:Restrict)
-  item        Item    @relation(fields: [itemId], references: [id], onDelete:Restrict)
-  siteItemBatches  SiteItemBatch[]
-    @@index([siteId])
+  site            Site            @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  item            Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  siteItemBatches SiteItemBatch[]
+
+  @@index([siteId])
   @@index([itemId])
-
   @@map("site_items")
 }
 
 model SiteItemBatch {
-  id           Int       @id @default(autoincrement())
-  siteItemId   Int
-  siteId        Int
-  itemId        Int
+  id         Int @id @default(autoincrement())
+  siteItemId Int
+  siteId     Int
+  itemId     Int
 
-  batchNumber      String    
-  expiryDate   String  
-  batchOpeningRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  openingQty   Decimal   @default(0.00) @db.Decimal(12, 2)
-  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  openingValue Decimal   @default(0.00)   @db.Decimal(12, 2)
-  closingQty   Decimal   @default(0.00) @db.Decimal(12, 2)
-  closingValue Decimal   @default(0.00)   @db.Decimal(12, 2)
+  batchNumber      String
+  expiryDate       String
+  batchOpeningRate Decimal @default(0.00) @db.Decimal(12, 2)
+  openingQty       Decimal @default(0.00) @db.Decimal(12, 2)
+  unitRate         Decimal @default(0.00) @db.Decimal(12, 2)
+  openingValue     Decimal @default(0.00) @db.Decimal(12, 2)
+  closingQty       Decimal @default(0.00) @db.Decimal(12, 2)
+  closingValue     Decimal @default(0.00) @db.Decimal(12, 2)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // fix this
-  siteItem     SiteItem  @relation(fields: [siteItemId], references: [id], onDelete: Restrict)
-  site     Site  @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  item     Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  siteItem SiteItem @relation(fields: [siteItemId], references: [id], onDelete: Restrict)
+  site     Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@unique([siteItemId, batchNumber, expiryDate], name: "uq_siteitem_batch_expiry")
   @@map("site_item_batches")
 }
 
-
-
 model OutwardDeliveryChallan {
-  id                 Int       @id @default(autoincrement())
+  id                 Int      @id @default(autoincrement())
   outwardChallanNo   String   @unique
   outwardChallanDate DateTime
   challanNo          String   @db.VarChar(100)
@@ -2527,168 +2510,166 @@ model OutwardDeliveryChallan {
   fromSiteId         Int
   toSiteId           Int
 
-  isApproved1             Boolean  @default(false)
-  approved1ById  Int?
-  approved1By    User?                @relation("ODCApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
-  approved1At    DateTime?
-  isAccepted             Boolean  @default(false)
+  isApproved1   Boolean   @default(false)
+  approved1ById Int?
+  approved1By   User?     @relation("ODCApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
+  approved1At   DateTime?
+  isAccepted    Boolean   @default(false)
   acceptedById  Int?
-  acceptedBy    User?                @relation("ODCAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict)
+  acceptedBy    User?     @relation("ODCAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict)
 
-  acceptedAt    DateTime?
- createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  createdBy User @relation("ODCCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("ODCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  acceptedAt  DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedById Int
+  updatedAt   DateTime  @updatedAt
+  createdBy   User      @relation("ODCCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User      @relation("ODCUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   fromSite Site @relation("ODCFromSite", fields: [fromSiteId], references: [id], onDelete: Restrict)
-  toSite Site @relation("ODCToSite", fields: [toSiteId], references: [id], onDelete: Restrict)
+  toSite   Site @relation("ODCToSite", fields: [toSiteId], references: [id], onDelete: Restrict)
 
   // 
-  stockLedgers  StockLedger[]
+  stockLedgers StockLedger[]
+
+  outwardDeliveryChallanDetails   OutwardDeliveryChallanDetail[]
+  outwardDeliveryChallanDocuments OutwardDeliveryChallanDocuments[]
+  outwardDeliveryChallanIndents   OutwardDeliveryChallanIndent[]
+
   @@index([fromSiteId])
   @@index([toSiteId])
   @@index([approved1ById])
   @@index([acceptedById])
   @@index([createdById])
   @@index([updatedById])
-
-  outwardDeliveryChallanDetails OutwardDeliveryChallanDetail[]
-  outwardDeliveryChallanDocuments OutwardDeliveryChallanDocuments[]
-
   @@map("outward_delivery_challans")
 }
 
-
 enum InwardBillPaymentMode {
-  CASH 
-  UPI 
-  CHEQUE 
-  RTGS 
-  NEFT 
-  NET_BANKING 
+  CASH
+  UPI
+  CHEQUE
+  RTGS
+  NEFT
+  NET_BANKING
 }
 
 model OutwardDeliveryChallanDetail {
-  id                         Int      @id @default(autoincrement())
-  outwardDeliveryChallanId   Int
-  itemId                     Int
-  qty                        Decimal  @default(0.00)   @db.Decimal(12,2) 
-  challanQty                 Decimal @default(0.00)   @db.Decimal(12,2) 
-  approved1Qty               Decimal @default(0.00)   @db.Decimal(12,2) 
-  receivedQty                Decimal @default(0.00)   @db.Decimal(12,2) 
-  rate                      Decimal @db.Decimal(12, 2) @default(0.00)
-  amount                    Decimal @db.Decimal(12, 2) @default(0.00)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                                Int                                 @id @default(autoincrement())
+  outwardDeliveryChallanId          Int
+  itemId                            Int
+  qty                               Decimal                             @default(0.00) @db.Decimal(12, 2)
+  challanQty                        Decimal                             @default(0.00) @db.Decimal(12, 2)
+  approved1Qty                      Decimal                             @default(0.00) @db.Decimal(12, 2)
+  receivedQty                       Decimal                             @default(0.00) @db.Decimal(12, 2)
+  rate                              Decimal                             @default(0.00) @db.Decimal(12, 2)
+  amount                            Decimal                             @default(0.00) @db.Decimal(12, 2)
+  createdAt                         DateTime                            @default(now())
+  updatedAt                         DateTime                            @updatedAt
   // relation (many details belong to one challan)
-  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id],onDelete: Restrict)
-  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  outwardDeliveryChallan            OutwardDeliveryChallan              @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  item                              Item                                @relation(fields: [itemId], references: [id], onDelete: Restrict)
   outwardDeliveryChallanDetailBatch OutwardDeliveryChallanDetailBatch[]
+  indentItemODCs                    IndentItemODC[]
+
   @@index([outwardDeliveryChallanId])
   @@index([itemId])
-
   @@map("outward_delivery_challan_details")
 }
 
-
 model OutwardDeliveryChallanDocuments {
-  id           Int      @id @default(autoincrement())
-  outwardDeliveryChallanId   Int     
-  documentName String
-  documentUrl  String       @db.LongText 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  outwardDeliveryChallan    OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  id                       Int      @id @default(autoincrement())
+  outwardDeliveryChallanId Int
+  documentName             String
+  documentUrl              String   @db.LongText
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([outwardDeliveryChallanId])
   @@map("outward_delivery_challan_documents")
 }
 
 model OutwardDeliveryChallanDetailBatch {
-  id           Int       @id @default(autoincrement())
-  outwardDeliveryChallanDetailId   Int
-  batchNumber      String    
-  expiryDate   String 
-  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
-  batchApprovedQty               Decimal @default(0.00)   @db.Decimal(12,2) 
-  batchReceivedQty                Decimal @default(0.00)   @db.Decimal(12,2) 
-  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  outwardDeliveryChallanDetail  OutwardDeliveryChallanDetail  @relation(fields: [outwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
-  
+  id                             Int     @id @default(autoincrement())
+  outwardDeliveryChallanDetailId Int
+  batchNumber                    String
+  expiryDate                     String
+  qty                            Decimal @default(0.00) @db.Decimal(12, 2)
+  batchApprovedQty               Decimal @default(0.00) @db.Decimal(12, 2)
+  batchReceivedQty               Decimal @default(0.00) @db.Decimal(12, 2)
+  unitRate                       Decimal @default(0.00) @db.Decimal(12, 2)
+  amount                         Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outwardDeliveryChallanDetail OutwardDeliveryChallanDetail @relation(fields: [outwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
+
   @@index([outwardDeliveryChallanDetailId])
   @@map("outward_delivery_challan_detail_batches")
 }
 
-
-
 model InwardBillDetail {
-  id                        Int       @id @default(autoincrement())
-  inwardDeliveryChallanId   Int
-  paymentDate               DateTime
-  paymentMode               InwardBillPaymentMode
-  chequeNo                  String?   @db.VarChar(30)
-  chequeDate                DateTime?
-  utrNo                     String?   @db.VarChar(50)
-  rtgsDate                  DateTime?
-  neftDate                  DateTime?
-  transactionNo             String?   @db.VarChar(30)
-  transactionDate           DateTime?
-  bankName                  String?   @db.VarChar(50)
-  paidAmount                Decimal    @default(0.00) @db.Decimal(12, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  inwardDeliveryChallan    InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  id                      Int                   @id @default(autoincrement())
+  inwardDeliveryChallanId Int
+  paymentDate             DateTime
+  paymentMode             InwardBillPaymentMode
+  chequeNo                String?               @db.VarChar(30)
+  chequeDate              DateTime?
+  utrNo                   String?               @db.VarChar(50)
+  rtgsDate                DateTime?
+  neftDate                DateTime?
+  transactionNo           String?               @db.VarChar(30)
+  transactionDate         DateTime?
+  bankName                String?               @db.VarChar(50)
+  paidAmount              Decimal               @default(0.00) @db.Decimal(12, 2)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  inwardDeliveryChallan   InwardDeliveryChallan @relation(fields: [inwardDeliveryChallanId], references: [id], onDelete: Restrict)
 
   @@index([inwardDeliveryChallanId])
   @@map("inward_bill_details")
 }
 
 model DailyConsumption {
-  id             Int       @id @default(autoincrement())
-  dailyConsumptionNo  String @unique  
+  id                   Int      @id @default(autoincrement())
+  dailyConsumptionNo   String   @unique
   dailyConsumptionDate DateTime
-  siteId         Int  
-  totalAmount    Decimal    @default(0.00) @db.Decimal(12, 2)
+  siteId               Int
+  totalAmount          Decimal  @default(0.00) @db.Decimal(12, 2)
 
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  createdBy User @relation("ConsumptionCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("ConsumptionUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedById Int
+  updatedAt   DateTime @updatedAt
+  createdBy   User     @relation("ConsumptionCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User     @relation("ConsumptionUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
   dailyConsumptionDetails DailyConsumptionDetail[]
-  stockLedgers             StockLedger[]
+  stockLedgers            StockLedger[]
+
   @@index([siteId])
   @@index([createdById])
   @@index([updatedById])
-
   @@map("daily_consumptions")
 }
 
 model DailyConsumptionDetail {
-  id            Int      @id @default(autoincrement())
-  dailyConsumptionId Int   
-  itemId        Int   
-  qty           Decimal? @db.Decimal(12, 2)
-  rate          Decimal? @db.Decimal(12, 2)
-  amount        Decimal? @db.Decimal(12, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                          Int                           @id @default(autoincrement())
+  dailyConsumptionId          Int
+  itemId                      Int
+  qty                         Decimal?                      @db.Decimal(12, 2)
+  rate                        Decimal?                      @db.Decimal(12, 2)
+  amount                      Decimal?                      @db.Decimal(12, 2)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
   // Relations
-  dailyConsumption   DailyConsumption @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
-  item          Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  dailyConsumption            DailyConsumption              @relation(fields: [dailyConsumptionId], references: [id], onDelete: Restrict)
+  item                        Item                          @relation(fields: [itemId], references: [id], onDelete: Restrict)
   dailyConsumptionDetailBatch DailyConsumptionDetailBatch[]
 
   @@index([dailyConsumptionId])
@@ -2697,81 +2678,80 @@ model DailyConsumptionDetail {
 }
 
 model DailyConsumptionDetailBatch {
-  id           Int       @id @default(autoincrement())
-  dailyConsumptionDetailId   Int
-  batchNumber      String    
-  expiryDate   String 
-  qty          Decimal   @default(0.00)   @db.Decimal(12, 2)
-  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  dailyConsumptionDetail  DailyConsumptionDetail  @relation(fields: [dailyConsumptionDetailId], references: [id], onDelete: Restrict)
-  
+  id                       Int     @id @default(autoincrement())
+  dailyConsumptionDetailId Int
+  batchNumber              String
+  expiryDate               String
+  qty                      Decimal @default(0.00) @db.Decimal(12, 2)
+  unitRate                 Decimal @default(0.00) @db.Decimal(12, 2)
+  amount                   Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dailyConsumptionDetail DailyConsumptionDetail @relation(fields: [dailyConsumptionDetailId], references: [id], onDelete: Restrict)
+
   @@index([dailyConsumptionDetailId])
   @@map("daily_consumption_detail_batches")
 }
 
-
 model StockAdjustment {
-  id         Int      @id @default(autoincrement())
-  date       DateTime
-  siteId     Int      
-  createdById  Int
-  createdAt    DateTime @default(now())
-  updatedById  Int
-  updatedAt    DateTime @updatedAt
-  createdBy User @relation("SACreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("SAUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  id          Int      @id @default(autoincrement())
+  date        DateTime
+  siteId      Int
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedById Int
+  updatedAt   DateTime @updatedAt
+  createdBy   User     @relation("SACreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User     @relation("SAUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   site Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
- stockAdjustmentDetail   StockAdjustmentDetail[]
- stockLedgers      StockLedger[]
- @@index([siteId])
- @@index([createdById])
- @@index([updatedById])
+  stockAdjustmentDetail StockAdjustmentDetail[]
+  stockLedgers          StockLedger[]
 
+  @@index([siteId])
+  @@index([createdById])
+  @@index([updatedById])
   @@map("stock_adjustments")
 }
 
-
 model StockAdjustmentDetail {
-  id                Int       @id @default(autoincrement())
-  stockAdjustmentId Int  
-  itemId            Int  
-  issuedQty         Decimal  @default(0.0000) @db.Decimal(12, 2)
-  receivedQty       Decimal  @default(0.0000) @db.Decimal(12, 2) 
-  rate              Decimal  @default(0.00) @db.Decimal(12, 2)
-  amount            Decimal  @default(0.00) @db.Decimal(12, 2)
-  remarks           String?
-createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  stockAdjustment StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
-  item Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  stockAdjustmentDetailBatch StockAdjustmentDetailBatch[] 
-   @@index([itemId])
-   @@index([stockAdjustmentId])
+  id                         Int                          @id @default(autoincrement())
+  stockAdjustmentId          Int
+  itemId                     Int
+  issuedQty                  Decimal                      @default(0.0000) @db.Decimal(12, 2)
+  receivedQty                Decimal                      @default(0.0000) @db.Decimal(12, 2)
+  rate                       Decimal                      @default(0.00) @db.Decimal(12, 2)
+  amount                     Decimal                      @default(0.00) @db.Decimal(12, 2)
+  remarks                    String?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  stockAdjustment            StockAdjustment              @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
+  item                       Item                         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  stockAdjustmentDetailBatch StockAdjustmentDetailBatch[]
+
+  @@index([itemId])
+  @@index([stockAdjustmentId])
   @@map("stock_adjustment_details")
 }
 
 model StockAdjustmentDetailBatch {
-  id           Int       @id @default(autoincrement())
-  stockAdjustmentDetailId   Int
-  batchNumber      String    
-  expiryDate   String 
-  batchIssuedQty         Decimal  @default(0.00) @db.Decimal(12, 2)
-  batchReceivedQty       Decimal  @default(0.00) @db.Decimal(12, 2) 
-  unitRate     Decimal   @default(0.00)   @db.Decimal(12, 2)
-  amount Decimal   @default(0.00)   @db.Decimal(12, 2)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  stockAdjustmentDetail  StockAdjustmentDetail  @relation(fields: [stockAdjustmentDetailId], references: [id], onDelete: Restrict)
-  
+  id                      Int     @id @default(autoincrement())
+  stockAdjustmentDetailId Int
+  batchNumber             String
+  expiryDate              String
+  batchIssuedQty          Decimal @default(0.00) @db.Decimal(12, 2)
+  batchReceivedQty        Decimal @default(0.00) @db.Decimal(12, 2)
+  unitRate                Decimal @default(0.00) @db.Decimal(12, 2)
+  amount                  Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockAdjustmentDetail StockAdjustmentDetail @relation(fields: [stockAdjustmentDetailId], references: [id], onDelete: Restrict)
+
   @@index([stockAdjustmentDetailId])
   @@map("stock_adjustment_detail_batches")
 }
@@ -2783,238 +2763,224 @@ enum OpeningStockReason {
 }
 
 model OpeningStockLog {
-  id           Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  siteItemId   Int
+  siteItemId Int
 
   // Optional — only used when applicable
-  batchNo      String?  
-  expiryDate  String? // YYYY-MM
+  batchNo    String?
+  expiryDate String? // YYYY-MM
 
-  deltaQty     Decimal  @db.Decimal(12, 2)
-  rate         Decimal  @db.Decimal(12, 2)
-  amount       Decimal  @db.Decimal(12, 2)
-  reason       OpeningStockReason
+  deltaQty Decimal            @db.Decimal(12, 2)
+  rate     Decimal            @db.Decimal(12, 2)
+  amount   Decimal            @db.Decimal(12, 2)
+  reason   OpeningStockReason
 
-  createdById    Int
-  createdAt    DateTime @default(now())
+  createdById Int
+  createdAt   DateTime @default(now())
 
   createdBy User @relation("OpeningStockLogCreated", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([siteItemId])
   @@index([createdById])
   @@map("opening_stock_logs")
-
 }
 
-
 model BOQBill {
-  id                Int       @id @default(autoincrement())
-  boqId Int  
-  billNumber       String  @unique
-  billName         String
-  billDate        DateTime @db.Date()
-  remarks   String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdById  Int
-  updatedById  Int
-  boq       Boq      @relation(fields: [boqId], references: [id], onDelete:Restrict)
-  totalBillAmount Decimal @default(0.00) @db.Decimal(12, 2)
-  boqBillDetails BOQBillDetail[]
+  id              Int             @id @default(autoincrement())
+  boqId           Int
+  billNumber      String          @unique
+  billName        String
+  billDate        DateTime        @db.Date()
+  remarks         String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdById     Int
+  updatedById     Int
+  boq             Boq             @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  totalBillAmount Decimal         @default(0.00) @db.Decimal(12, 2)
+  boqBillDetails  BOQBillDetail[]
 
-   
   createdBy User @relation("BOQBillCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("BOQBillUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   @@index([boqId])
   @@index([createdById])
   @@index([updatedById])
-
   @@map("boq_bills")
 }
 
-
 model BOQBillDetail {
-  id                Int       @id @default(autoincrement())
-  boqBillId Int  
+  id        Int      @id @default(autoincrement())
+  boqBillId Int
   boqItemId Int
-  qty         Decimal  @default(0.0000) @db.Decimal(12, 2)
-  amount              Decimal  @default(0.00) @db.Decimal(12, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  boqBill   BOQBill @relation(fields: [boqBillId], references: [id], onDelete: Restrict)
-  boqItem BoqItem                    @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  qty       Decimal  @default(0.0000) @db.Decimal(12, 2)
+  amount    Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  boqBill   BOQBill  @relation(fields: [boqBillId], references: [id], onDelete: Restrict)
+  boqItem   BoqItem  @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
 
-   @@index([boqItemId])
-   @@index([boqBillId])
+  @@index([boqItemId])
+  @@index([boqBillId])
   @@map("boq_bill_details")
 }
 
-
 model Zone {
   id        Int      @id @default(autoincrement())
-  zoneName     String   @unique
+  zoneName  String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-sites     Site[]
+  sites Site[]
 
   @@index([id])
   @@map("zones")
 }
 
-
 // Site Budget - manages budget items for each site
 model SiteBudget {
-  id             Int      @id @default(autoincrement())
-  siteId         Int
-  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  boqId          Int
-  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
-  overallSiteBudgetId          Int
-  overallSiteBudget            OverallSiteBudget      @relation(fields: [overallSiteBudgetId], references: [id], onDelete: Restrict)
-  month          String
-  week           String
-  fromDate DateTime  @db.Date()
-  toDate   DateTime   @db.Date()
-  createdById      Int
-  updatedById      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  Int               @id @default(autoincrement())
+  siteId              Int
+  site                Site              @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boqId               Int
+  boq                 Boq               @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  overallSiteBudgetId Int
+  overallSiteBudget   OverallSiteBudget @relation(fields: [overallSiteBudgetId], references: [id], onDelete: Restrict)
+  month               String
+  week                String
+  fromDate            DateTime          @db.Date()
+  toDate              DateTime          @db.Date()
+  createdById         Int
+  updatedById         Int
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
-  siteBudgetItems  SiteBudgetItem[]
+  siteBudgetItems SiteBudgetItem[]
 
   createdBy User @relation("SiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
- @@index([createdById])
+  @@unique([siteId, boqId, month, week])
+  @@index([createdById])
   @@index([updatedById])
   @@index([siteId])
   @@index([boqId])
   @@index([fromDate])
- @@index([toDate])
- @@index([month])
- @@index([week])
-  @@unique([siteId, boqId, month, week])
-
+  @@index([toDate])
+  @@index([month])
+  @@index([week])
   @@map("site_budgets")
 }
 
-
-
 model SiteBudgetItem {
-  id             Int      @id @default(autoincrement())
-  SiteBudgetId          Int
-  siteBudget            SiteBudget      @relation(fields: [SiteBudgetId], references: [id], onDelete: Restrict)
-  itemId     Int 
-  item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  budgetQty    Decimal? @db.Decimal(12, 2)
-  budgetRate   Decimal? @db.Decimal(12, 2)
-  purchaseRate Decimal? @db.Decimal(12, 2)
-  budgetValue  Decimal? @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           Int        @id @default(autoincrement())
+  SiteBudgetId Int
+  siteBudget   SiteBudget @relation(fields: [SiteBudgetId], references: [id], onDelete: Restrict)
+  itemId       Int
+  item         Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  budgetQty    Decimal?   @db.Decimal(12, 2)
+  budgetRate   Decimal?   @db.Decimal(12, 2)
+  purchaseRate Decimal?   @db.Decimal(12, 2)
+  budgetValue  Decimal?   @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([SiteBudgetId])
   @@index([itemId])
-  
   @@map("site_budget_items")
 }
 
 //OVERALL BUDGET
 model OverallSiteBudget {
-  id             Int      @id @default(autoincrement())
-  siteId         Int
-  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  boqId          Int
-  boq            Boq      @relation(fields: [boqId], references: [id], onDelete: Restrict)
-  
-  isTechApprovalDone   Boolean  @default(false)
-  techApprovalById      Int?
-  techApprovalBy    User?                @relation("OverallSiteBudgetTechApprovalBy", fields: [techApprovalById], references: [id], onDelete: Restrict)
-  techApprovalAt DateTime?
+  id     Int  @id @default(autoincrement())
+  siteId Int
+  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boqId  Int
+  boq    Boq  @relation(fields: [boqId], references: [id], onDelete: Restrict)
 
-  isCommercialApprovalDone   Boolean  @default(false)
-  commercialApprovalById      Int?
-  commercialApprovalBy    User?                @relation("OverallSiteBudgetCommercialApprovalBy", fields: [commercialApprovalById], references: [id], onDelete: Restrict)
-  commercialApprovalAt DateTime?
+  isTechApprovalDone Boolean   @default(false)
+  techApprovalById   Int?
+  techApprovalBy     User?     @relation("OverallSiteBudgetTechApprovalBy", fields: [techApprovalById], references: [id], onDelete: Restrict)
+  techApprovalAt     DateTime?
 
-  isProjectApprovalDone   Boolean  @default(false)
-  projectApprovalById      Int?
-  projectApprovalBy    User?                @relation("OverallSiteBudgetProjectApprovalBy", fields: [projectApprovalById], references: [id], onDelete: Restrict)
-  projectApprovalAt DateTime?
-  
-  createdById      Int
-  updatedById      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isCommercialApprovalDone Boolean   @default(false)
+  commercialApprovalById   Int?
+  commercialApprovalBy     User?     @relation("OverallSiteBudgetCommercialApprovalBy", fields: [commercialApprovalById], references: [id], onDelete: Restrict)
+  commercialApprovalAt     DateTime?
 
-  overallSiteBudgetDetails  OverallSiteBudgetDetail[]
-  siteBudgets SiteBudget[]
-  createdBy User @relation("OverallSiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("OverallSiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  isProjectApprovalDone Boolean   @default(false)
+  projectApprovalById   Int?
+  projectApprovalBy     User?     @relation("OverallSiteBudgetProjectApprovalBy", fields: [projectApprovalById], references: [id], onDelete: Restrict)
+  projectApprovalAt     DateTime?
 
+  createdById Int
+  updatedById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  overallSiteBudgetDetails OverallSiteBudgetDetail[]
+  siteBudgets              SiteBudget[]
+  createdBy                User                      @relation("OverallSiteBudgetCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy                User                      @relation("OverallSiteBudgetUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([siteId, boqId])
   @@index([createdById])
   @@index([updatedById])
   @@index([siteId])
   @@index([boqId])
-  @@unique([siteId, boqId])
   @@map("overall_site_budgets")
 }
 
 model OverallSiteBudgetDetail {
-  id             Int      @id @default(autoincrement())
-  overallSiteBudgetId          Int
-  overallSiteBudget            OverallSiteBudget      @relation(fields: [overallSiteBudgetId], references: [id], onDelete: Restrict)
-  BoqItemId     Int 
-  boqItem            BoqItem      @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
+  id                  Int               @id @default(autoincrement())
+  overallSiteBudgetId Int
+  overallSiteBudget   OverallSiteBudget @relation(fields: [overallSiteBudgetId], references: [id], onDelete: Restrict)
+  BoqItemId           Int
+  boqItem             BoqItem           @relation(fields: [BoqItemId], references: [id], onDelete: Restrict)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  overallSiteBudgetItems  OverallSiteBudgetItem[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  overallSiteBudgetItems OverallSiteBudgetItem[]
 
   @@index([overallSiteBudgetId])
   @@index([BoqItemId])
-  
   @@map("overall_site_budget_details")
 }
 
 model OverallSiteBudgetItem {
-  id             Int      @id @default(autoincrement())
-  overallSiteBudgetDetailId          Int
-  overallSiteBudgetDetail            OverallSiteBudgetDetail      @relation(fields: [overallSiteBudgetDetailId], references: [id], onDelete: Restrict)
-  itemId     Int 
-  item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  budgetQty    Decimal? @db.Decimal(12, 2)
-  budgetRate   Decimal? @db.Decimal(12, 2)
-  purchaseRate Decimal? @db.Decimal(12, 2)
-  budgetValue  Decimal? @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                        Int                     @id @default(autoincrement())
+  overallSiteBudgetDetailId Int
+  overallSiteBudgetDetail   OverallSiteBudgetDetail @relation(fields: [overallSiteBudgetDetailId], references: [id], onDelete: Restrict)
+  itemId                    Int
+  item                      Item                    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  budgetQty                 Decimal?                @db.Decimal(12, 2)
+  budgetRate                Decimal?                @db.Decimal(12, 2)
+  purchaseRate              Decimal?                @db.Decimal(12, 2)
+  budgetValue               Decimal?                @db.Decimal(12, 2) // Calculated: budgetQty * budgetRate
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([overallSiteBudgetDetailId])
   @@index([itemId])
-  
   @@map("overall_site_budget_items")
 }
 
-
 //Lead Period
 model LeadPeriod {
-  id             Int      @id @default(autoincrement())
-  siteId         Int      @unique
-  site           Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  id     Int  @id @default(autoincrement())
+  siteId Int  @unique
+  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
-  createdById      Int
-  updatedById      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdById Int
+  updatedById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  createdBy User @relation("LeadPeriodCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("LeadPeriodUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdBy         User               @relation("LeadPeriodCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy         User               @relation("LeadPeriodUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
   leadPeriodDetails LeadPeriodDetail[]
 
   @@index([siteId])
@@ -3024,225 +2990,216 @@ model LeadPeriod {
 }
 
 model LeadPeriodDetail {
-  id             Int      @id @default(autoincrement())
-  leadPeriodId         Int
-  leadPeriod           LeadPeriod     @relation(fields: [leadPeriodId], references: [id], onDelete: Restrict)
-  itemId         Int
-  item        Item    @relation(fields: [itemId], references: [id], onDelete:Restrict)
-  period      Int
+  id           Int        @id @default(autoincrement())
+  leadPeriodId Int
+  leadPeriod   LeadPeriod @relation(fields: [leadPeriodId], references: [id], onDelete: Restrict)
+  itemId       Int
+  item         Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  period       Int
 
- 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([leadPeriodId, itemId])
   @@index([leadPeriodId])
   @@index([itemId])
-  @@unique([leadPeriodId, itemId])
   @@map("lead_period_details")
 }
 
-
 model SubContractor {
-  id                Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  code              String   @unique
-  name              String    
-  contactPerson     String?   
+  code          String  @unique
+  name          String
+  contactPerson String?
 
-  addressLine1      String?   
-  addressLine2      String?   
-  pinCode           String? 
+  addressLine1 String?
+  addressLine2 String?
+  pinCode      String?
 
-  stateId           Int?
-  state             State?    @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  stateId Int?
+  state   State? @relation(fields: [stateId], references: [id], onDelete: Restrict)
 
-  cityId            Int?
-  city              City?     @relation(fields: [cityId], references: [id], onDelete: Restrict)
-
-  
+  cityId Int?
+  city   City? @relation(fields: [cityId], references: [id], onDelete: Restrict)
 
   // Banking
-  bankName          String?   
-  branchName        String?   
-  branchCode        String?   
-  accountNumber     String?   
-  ifscCode          String?   
+  bankName      String?
+  branchName    String?
+  branchCode    String?
+  accountNumber String?
+  ifscCode      String?
 
   // Compliance (India-focused)
-  panNumber String? @unique   
+  panNumber String? @unique
   gstNumber String? @unique
-  cinNumber         String?   
+  cinNumber String?
 
   // Legacy tax (optional)
-  vatTinNumber      String?   @db.VarChar(30)
-  cstTinNumber      String?   @db.VarChar(30)
+  vatTinNumber String? @db.VarChar(30)
+  cstTinNumber String? @db.VarChar(30)
 
   // Audit
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdById       Int
-  updatedById       Int
+  createdById Int
+  updatedById Int
 
   createdBy User @relation("SubContractorCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SubContractorUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-   
- // Contact
-  subContractorContacts            SubContractorContact[]
-  subContractorWorkOrders          SubContractorWorkOrder[]
+
+  // Contact
+  subContractorContacts   SubContractorContact[]
+  subContractorWorkOrders SubContractorWorkOrder[]
+
   @@index([name])
   @@index([code])
   @@map("sub_contractors")
 }
 
 model SubContractorContact {
-  id            Int      @id @default(autoincrement())
-  subContractorId Int
-  subContractor SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Cascade)
-  contactPersonName         String
-  mobile         String?
-  email         String?
+  id                Int           @id @default(autoincrement())
+  subContractorId   Int
+  subContractor     SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Cascade)
+  contactPersonName String
+  mobile            String?
+  email             String?
 
   @@index([subContractorId])
   @@map("sub_contractor_contacts")
 }
 
 model SubContractorWorkOrder {
-  id                    Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  siteId                Int
-  boqId                 Int
-  subContractorId       Int
-  billingAddressId      Int
-  deliveryAddressId      Int
-  vendorId              Int
-  subContractor         SubContractor @relation(fields: [subContractorId], references: [id], onDelete: Restrict)
-  site                  Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  boq                   Boq           @relation(fields: [boqId], references: [id], onDelete: Restrict)
-  billingAddress        BillingAddress @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
-  deliveryAddress       SiteDeliveryAddress @relation(fields: [deliveryAddressId], references: [id], onDelete: Restrict)
-  vendor                Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  workOrderNo           String  
-  workOrderDate         DateTime @db.Date
+  siteId            Int
+  boqId             Int
+  subContractorId   Int
+  billingAddressId  Int
+  deliveryAddressId Int
+  vendorId          Int
+  subContractor     SubContractor       @relation(fields: [subContractorId], references: [id], onDelete: Restrict)
+  site              Site                @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boq               Boq                 @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  billingAddress    BillingAddress      @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  deliveryAddress   SiteDeliveryAddress @relation(fields: [deliveryAddressId], references: [id], onDelete: Restrict)
+  vendor            Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  workOrderNo       String
+  workOrderDate     DateTime            @db.Date
 
-  typeOfWorkOrder       String   @db.VarChar(50)
+  typeOfWorkOrder String @db.VarChar(50)
 
-  quotationNo           String?   @db.VarChar(100)
-  quotationDate         DateTime? @db.Date
+  quotationNo   String?   @db.VarChar(100)
+  quotationDate DateTime? @db.Date
 
-  paymentTermsInDays    Int?
-  deliveryDate          DateTime? @db.Date
+  paymentTermsInDays Int?
+  deliveryDate       DateTime? @db.Date
 
-  note                  String?   @db.VarChar(255)
-  terms                 String?   @db.Text
-  deliverySchedule      String?   @db.Text
+  note             String? @db.VarChar(255)
+  terms            String? @db.Text
+  deliverySchedule String? @db.Text
 
-  totalAmount                Decimal  @db.Decimal(12, 2)
-  subContractorWorkOrderfilePath   String?   @db.VarChar(500)
-  isApproved2Printed      Boolean   @default(false)
+  totalAmount                    Decimal @db.Decimal(12, 2)
+  subContractorWorkOrderfilePath String? @db.VarChar(500)
+  isApproved2Printed             Boolean @default(false)
 
-  totalCgst                  Decimal?  @db.Decimal(10, 2)
-  totalSgst                  Decimal?  @db.Decimal(10, 2)
-  totalIgst                  Decimal?  @db.Decimal(10, 2)
+  totalCgst Decimal? @db.Decimal(10, 2)
+  totalSgst Decimal? @db.Decimal(10, 2)
+  totalIgst Decimal? @db.Decimal(10, 2)
 
- 
-  amountInWords         String   @db.VarChar(255)
+  amountInWords String @db.VarChar(255)
 
-  isApproved1           Boolean  @default(false)
-  approved1ById             Int?
-  approved1At     DateTime?
+  isApproved1   Boolean   @default(false)
+  approved1ById Int?
+  approved1At   DateTime?
 
-  isApproved2           Boolean  @default(false)
-  approved2ById             Int?
-  approved2At     DateTime?
+  isApproved2   Boolean   @default(false)
+  approved2ById Int?
+  approved2At   DateTime?
 
-  status                String  
+  status String
 
+  isSuspended       Boolean   @default(false)
+  suspendedById     Int?
+  suspendedDatetime DateTime?
 
-  isSuspended           Boolean  @default(false)
-  suspendedById           Int?
-  suspendedDatetime     DateTime?
-
-  isCompleted            Boolean?  @default(false)
-  completedById           Int?
-  completedDatetime     DateTime?
+  isCompleted       Boolean?  @default(false)
+  completedById     Int?
+  completedDatetime DateTime?
 
   approved1By User? @relation("SubContractorWorkOrderApproved1By", fields: [approved1ById], references: [id], onDelete: Restrict)
   approved2By User? @relation("SubContractorWorkOrderApproved2By", fields: [approved2ById], references: [id], onDelete: Restrict)
   suspendedBy User? @relation("SubContractorWorkOrderSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
   completedBy User? @relation("SubContractorWorkOrderCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
-  createdById      Int
-  updatedById      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdBy User @relation("SubContractorWorkOrderCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy User @relation("SubContractorWorkOrderUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-  subContractorWorkOrderDetails SubContractorWorkOrderDetail[]
+  createdById Int
+  updatedById Int
+
+  createdBy                          User                                @relation("SubContractorWorkOrderCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy                          User                                @relation("SubContractorWorkOrderUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  subContractorWorkOrderDetails      SubContractorWorkOrderDetail[]
   // Relation
   subContractorWorkOrderPaymentTerms SubContractorWorkOrderPaymentTerm[]
-  subContractorWorkOrderBills SubContractorWorkOrderBill[]
-  subcontractorInvoices SubContractorInvoice[]
+  subContractorWorkOrderBills        SubContractorWorkOrderBill[]
+  subcontractorInvoices              SubContractorInvoice[]
+
   @@map("sub_contractor_work_orders")
 }
 
 model SubContractorWorkOrderPaymentTerm {
-  id          Int      @id @default(autoincrement())
-  subContractorWorkOrderId      Int
-  paymentTermId Int  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                       Int      @id @default(autoincrement())
+  subContractorWorkOrderId Int
+  paymentTermId            Int
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  subContractorWorkOrder SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete:Restrict)
-  paymentTerm PaymentTerm @relation(fields: [paymentTermId], references: [id], onDelete:Restrict)
+  subContractorWorkOrder SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
+  paymentTerm            PaymentTerm            @relation(fields: [paymentTermId], references: [id], onDelete: Restrict)
 
-
+  @@unique([subContractorWorkOrderId, paymentTermId])
   @@index([subContractorWorkOrderId])
   @@index([paymentTermId])
-  @@unique([subContractorWorkOrderId, paymentTermId])
   @@map("sub_contractor_work_order_payment_terms")
 }
 
-
-
 model SubContractorWorkOrderDetail {
-  id                Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  subContractorWorkOrderId      Int
-  subContractorWorkOrder        SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
-  boqItemId       Int?
-  BoqItem         BoqItem? @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
-  isBoqItem         Boolean @default(false)
-  item             String?  @db.Text
-  sacCode           String? 
+  subContractorWorkOrderId Int
+  subContractorWorkOrder   SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
+  boqItemId                Int?
+  BoqItem                  BoqItem?               @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  isBoqItem                Boolean                @default(false)
+  item                     String?                @db.Text
+  sacCode                  String?
 
-  unitId            Int
-  unit              Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  unitId Int
+  unit   Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
 
-  qty               Decimal  @db.Decimal(10, 2)
-  executedQty       Decimal  @db.Decimal(10, 2)
-  executedAmount    Decimal @db.Decimal(12, 2)
-  
+  qty            Decimal @db.Decimal(10, 2)
+  executedQty    Decimal @db.Decimal(10, 2)
+  executedAmount Decimal @db.Decimal(12, 2)
 
-  rate              Decimal @db.Decimal(10, 2)
+  rate Decimal @db.Decimal(10, 2)
 
-  cgst              Decimal?  @db.Decimal(10, 2)
-  cgstAmt           Decimal?  @db.Decimal(10, 2)
+  cgst    Decimal? @db.Decimal(10, 2)
+  cgstAmt Decimal? @db.Decimal(10, 2)
 
-  sgst              Decimal?  @db.Decimal(10, 2)
-  sgstAmt           Decimal?  @db.Decimal(10, 2)
+  sgst    Decimal? @db.Decimal(10, 2)
+  sgstAmt Decimal? @db.Decimal(10, 2)
 
-  igst              Decimal?  @db.Decimal(10, 2)
-  igstAmt           Decimal?  @db.Decimal(10, 2)
-  amount            Decimal?  @db.Decimal(12, 2)
+  igst    Decimal? @db.Decimal(10, 2)
+  igstAmt Decimal? @db.Decimal(10, 2)
+  amount  Decimal? @db.Decimal(12, 2)
 
-  subContractorInvoiceDetail  SubContractorInvoiceDetail[]
+  subContractorInvoiceDetail SubContractorInvoiceDetail[]
 
   @@map("sub_contractor_work_order_details")
 }
-
 
 enum SubContractorWorkOrderBillStatus {
   PAID
@@ -3251,122 +3208,121 @@ enum SubContractorWorkOrderBillStatus {
 }
 
 enum SubContractorWorkOrderBillPaymentMode {
-  CASH 
-  UPI 
-  CHEQUE 
-  RTGS 
-  NEFT 
-  NET_BANKING 
+  CASH
+  UPI
+  CHEQUE
+  RTGS
+  NEFT
+  NET_BANKING
 }
 
 model SubContractorWorkOrderBill {
-  id              Int      @id @default(autoincrement())
+  id                       Int                                   @id @default(autoincrement())
   subContractorWorkOrderId Int
-  subContractorWorkOrder SubContractorWorkOrder @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
-  billNo          String  
-  billDate        DateTime  @db.Date
-  billAmount      Decimal    @db.Decimal(12, 2)
-  paidAmount      Decimal?    @db.Decimal(12, 2) 
-  dueDate         DateTime   @db.Date
-  paymentDate     DateTime?   @db.Date
-  paymentMode     SubContractorWorkOrderBillPaymentMode  
-  chequeNo        String?   @db.VarChar(200)  
-  chequeDate      DateTime?    @db.Date
-  utrNo           String?   @db.VarChar(200) 
-   rtgsDate                  DateTime?  @db.Date
-  neftDate                  DateTime?  @db.Date
-  bankName        String?   @db.VarChar(100) 
-   transactionNo             String?   @db.VarChar(200)
-  transactionDate           DateTime?  @db.Date
-  deductionTax    Decimal?    @db.Decimal(10, 2) 
-  dueAmount    Decimal    @db.Decimal(10, 2) 
-  status         SubContractorWorkOrderBillStatus
+  subContractorWorkOrder   SubContractorWorkOrder                @relation(fields: [subContractorWorkOrderId], references: [id], onDelete: Restrict)
+  billNo                   String
+  billDate                 DateTime                              @db.Date
+  billAmount               Decimal                               @db.Decimal(12, 2)
+  paidAmount               Decimal?                              @db.Decimal(12, 2)
+  dueDate                  DateTime                              @db.Date
+  paymentDate              DateTime?                             @db.Date
+  paymentMode              SubContractorWorkOrderBillPaymentMode
+  chequeNo                 String?                               @db.VarChar(200)
+  chequeDate               DateTime?                             @db.Date
+  utrNo                    String?                               @db.VarChar(200)
+  rtgsDate                 DateTime?                             @db.Date
+  neftDate                 DateTime?                             @db.Date
+  bankName                 String?                               @db.VarChar(100)
+  transactionNo            String?                               @db.VarChar(200)
+  transactionDate          DateTime?                             @db.Date
+  deductionTax             Decimal?                              @db.Decimal(10, 2)
+  dueAmount                Decimal                               @db.Decimal(10, 2)
+  status                   SubContractorWorkOrderBillStatus
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdById      Int
-  updatedById      Int
+  createdById Int
+  updatedById Int
 
   createdBy User @relation("SWOBillCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SWOBillUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   @@index([subContractorWorkOrderId])
-  
   @@map("sub_contractor_work_order_bills")
 }
 
 model SalesInvoice {
-  id                 Int       @id @default(autoincrement()) 
-  siteId             Int     
-  site               Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  boqId              Int     
-  boq                Boq @relation(fields: [boqId], references: [id], onDelete: Restrict)
-  invoiceNumber      String   @unique
-  revision           String @default("00")  
-  invoiceDate        DateTime?  @db.Date
-  fromDate           DateTime?  @db.Date
-  toDate             DateTime?  @db.Date
-  billingAddressId   Int     
-  billingAddress     BillingAddress @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
-  grossAmount        Decimal?  @default(0.00) @db.Decimal(12, 2)
-  tds                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  wct                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  lwf                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  other              Decimal?  @default(0.00) @db.Decimal(12, 2)
-  totalAmount             Decimal?  @default(0.00) @db.Decimal(12, 2)
-  amountInWords           String   @db.VarChar(255)
-  salesInvoicefilePath   String?   @db.VarChar(500)
-  isAuthorizedPrinted      Boolean   @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   Int            @id @default(autoincrement())
+  siteId               Int
+  site                 Site           @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  boqId                Int
+  boq                  Boq            @relation(fields: [boqId], references: [id], onDelete: Restrict)
+  invoiceNumber        String         @unique
+  revision             String         @default("00")
+  invoiceDate          DateTime?      @db.Date
+  fromDate             DateTime?      @db.Date
+  toDate               DateTime?      @db.Date
+  billingAddressId     Int
+  billingAddress       BillingAddress @relation(fields: [billingAddressId], references: [id], onDelete: Restrict)
+  grossAmount          Decimal?       @default(0.00) @db.Decimal(12, 2)
+  tds                  Decimal?       @default(0.00) @db.Decimal(12, 2)
+  wct                  Decimal?       @default(0.00) @db.Decimal(12, 2)
+  lwf                  Decimal?       @default(0.00) @db.Decimal(12, 2)
+  other                Decimal?       @default(0.00) @db.Decimal(12, 2)
+  totalAmount          Decimal?       @default(0.00) @db.Decimal(12, 2)
+  amountInWords        String         @db.VarChar(255)
+  salesInvoicefilePath String?        @db.VarChar(500)
+  isAuthorizedPrinted  Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   authorizedById Int?
-  authorizedBy User? @relation("SalesInvoiceAuthorized", fields: [authorizedById], references: [id], onDelete: Restrict)
+  authorizedBy   User? @relation("SalesInvoiceAuthorized", fields: [authorizedById], references: [id], onDelete: Restrict)
 
-  createdById      Int
-  updatedById      Int
+  createdById Int
+  updatedById Int
 
   createdBy User @relation("SalesInvoiceCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SalesInvoiceUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
 
   salesInvoiceDetails SalesInvoiceDetail[]
+
   @@index([siteId])
   @@index([boqId])
   @@map("sales_invoices")
 }
 
-
 model SalesInvoiceDetail {
-  id              Int      @id @default(autoincrement()) @db.UnsignedInt
-  salesInvoiceId  Int    
-  salesInvoice    SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
-  boqItemId     Int      
-  boqItem       BoqItem @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
-  particulars     String   @db.Text
-  
-  // Quantities and Rates
-  totalBoqQty          Decimal @db.Decimal(12, 2)
-  invoiceQty         Decimal @db.Decimal(12, 2)
-  rate            Decimal @db.Decimal(12, 2)
-  
-  // Discounts
-  discount        Decimal? @db.Decimal(12, 2)
-  discountAmount  Decimal? @db.Decimal(12, 2)
-  
-  // GST Breakdown
-  cgst            Decimal? @db.Decimal(10, 2)
-  cgstAmt         Decimal? @db.Decimal(10, 2)
-  sgst            Decimal? @db.Decimal(10, 2)
-  sgstAmt         Decimal? @db.Decimal(10, 2)
-  igst            Decimal? @db.Decimal(10, 2)
-  igstAmt         Decimal? @db.Decimal(10, 2)
-  
-  // Final Row Total
-  amount          Decimal @db.Decimal(12, 2)
+  id             Int          @id @default(autoincrement()) @db.UnsignedInt
+  salesInvoiceId Int
+  salesInvoice   SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+  boqItemId      Int
+  boqItem        BoqItem      @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  particulars    String       @db.Text
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  // Quantities and Rates
+  totalBoqQty Decimal @db.Decimal(12, 2)
+  invoiceQty  Decimal @db.Decimal(12, 2)
+  rate        Decimal @db.Decimal(12, 2)
+
+  // Discounts
+  discount       Decimal? @db.Decimal(12, 2)
+  discountAmount Decimal? @db.Decimal(12, 2)
+
+  // GST Breakdown
+  cgst    Decimal? @db.Decimal(10, 2)
+  cgstAmt Decimal? @db.Decimal(10, 2)
+  sgst    Decimal? @db.Decimal(10, 2)
+  sgstAmt Decimal? @db.Decimal(10, 2)
+  igst    Decimal? @db.Decimal(10, 2)
+  igstAmt Decimal? @db.Decimal(10, 2)
+
+  // Final Row Total
+  amount Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("sales_invoice_details")
 }
@@ -3379,68 +3335,66 @@ enum SalesInvoiceLogType {
 }
 
 model SalesInvoiceLog {
-  id                 Int       @id @default(autoincrement())
-  salesInvoiceId     Int    
-  siteId             Int     
-  logType            SalesInvoiceLogType   
-  boqId              Int     
-  invoiceNumber      String   
-  revision           String @default("00")  
-  invoiceDate        DateTime?  @db.Date
-  fromDate           DateTime?  @db.Date
-  toDate             DateTime?  @db.Date
-  billingAddressId   Int     
-  amountInWords           String   @db.VarChar(255)
-  salesInvoicefilePath   String?   @db.VarChar(500)
-  isAuthorizedPrinted      Boolean   @default(false)
-  grossAmount        Decimal?  @default(0.00) @db.Decimal(12, 2)
-  tds                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  wct                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  lwf                Decimal?  @default(0.00) @db.Decimal(12, 2)
-  other              Decimal?  @default(0.00) @db.Decimal(12, 2)
-  totalAmount             Decimal?  @default(0.00) @db.Decimal(12, 2)
-  
-  createdAt         DateTime @default(now())
+  id                   Int                 @id @default(autoincrement())
+  salesInvoiceId       Int
+  siteId               Int
+  logType              SalesInvoiceLogType
+  boqId                Int
+  invoiceNumber        String
+  revision             String              @default("00")
+  invoiceDate          DateTime?           @db.Date
+  fromDate             DateTime?           @db.Date
+  toDate               DateTime?           @db.Date
+  billingAddressId     Int
+  amountInWords        String              @db.VarChar(255)
+  salesInvoicefilePath String?             @db.VarChar(500)
+  isAuthorizedPrinted  Boolean             @default(false)
+  grossAmount          Decimal?            @default(0.00) @db.Decimal(12, 2)
+  tds                  Decimal?            @default(0.00) @db.Decimal(12, 2)
+  wct                  Decimal?            @default(0.00) @db.Decimal(12, 2)
+  lwf                  Decimal?            @default(0.00) @db.Decimal(12, 2)
+  other                Decimal?            @default(0.00) @db.Decimal(12, 2)
+  totalAmount          Decimal?            @default(0.00) @db.Decimal(12, 2)
 
-  
-  createdById      Int
-  createdByName   String
+  createdAt DateTime @default(now())
+
+  createdById   Int
+  createdByName String
 
   salesInvoiceDetailLogs SalesInvoiceDetailLog[]
-  
+
   @@map("sales_invoice_logs")
 }
 
-
 model SalesInvoiceDetailLog {
-  id              Int      @id @default(autoincrement()) @db.UnsignedInt
-  salesInvoiceDetailId Int    
-  salesInvoiceLogId Int
-  salesInvoiceLog    SalesInvoiceLog @relation(fields: [salesInvoiceLogId], references: [id], onDelete: Restrict)
-  boqItemId     Int      
-  particulars     String   @db.Text
-  
-  // Quantities and Rates
-  totalBoqQty          Decimal @db.Decimal(12, 2)
-  invoiceQty         Decimal @db.Decimal(12, 2)
-  rate            Decimal @db.Decimal(12, 2)
-  
-  // Discounts
-  discount        Decimal? @db.Decimal(12, 2)
-  discountAmount  Decimal? @db.Decimal(12, 2)
-  
-  // GST Breakdown
-  cgst            Decimal? @db.Decimal(10, 2)
-  cgstAmt         Decimal? @db.Decimal(10, 2)
-  sgst            Decimal? @db.Decimal(10, 2)
-  sgstAmt         Decimal? @db.Decimal(10, 2)
-  igst            Decimal? @db.Decimal(10, 2)
-  igstAmt         Decimal? @db.Decimal(10, 2)
-  
-  // Final Row Total
-  amount          Decimal @db.Decimal(12, 2)
+  id                   Int             @id @default(autoincrement()) @db.UnsignedInt
+  salesInvoiceDetailId Int
+  salesInvoiceLogId    Int
+  salesInvoiceLog      SalesInvoiceLog @relation(fields: [salesInvoiceLogId], references: [id], onDelete: Restrict)
+  boqItemId            Int
+  particulars          String          @db.Text
 
-  createdAt         DateTime @default(now())
+  // Quantities and Rates
+  totalBoqQty Decimal @db.Decimal(12, 2)
+  invoiceQty  Decimal @db.Decimal(12, 2)
+  rate        Decimal @db.Decimal(12, 2)
+
+  // Discounts
+  discount       Decimal? @db.Decimal(12, 2)
+  discountAmount Decimal? @db.Decimal(12, 2)
+
+  // GST Breakdown
+  cgst    Decimal? @db.Decimal(10, 2)
+  cgstAmt Decimal? @db.Decimal(10, 2)
+  sgst    Decimal? @db.Decimal(10, 2)
+  sgstAmt Decimal? @db.Decimal(10, 2)
+  igst    Decimal? @db.Decimal(10, 2)
+  igstAmt Decimal? @db.Decimal(10, 2)
+
+  // Final Row Total
+  amount Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
 
   @@map("sales_invoice_detail_logs")
 }
@@ -3451,83 +3405,83 @@ enum SubcontractorInvoiceStatus {
 }
 
 model SubContractorInvoice {
-  id                 Int       @id @default(autoincrement())
-  siteId             Int
-  site               Site      @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  
+  id     Int  @id @default(autoincrement())
+  siteId Int
+  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
   // Link to the specific Work Order you issued to the sub
   subcontractorWorkOrderId Int
   subcontractorWorkOrder   SubContractorWorkOrder @relation(fields: [subcontractorWorkOrderId], references: [id], onDelete: Restrict)
-  
-  invoiceNumber      String   @unique // The invoice number provided by the subcontractor
-  invoiceDate        DateTime @db.Date
-  
+
+  invoiceNumber String   @unique // The invoice number provided by the subcontractor
+  invoiceDate   DateTime @db.Date
+
   // Period for which they are billing (e.g., Month of Oct)
-  fromDate           DateTime? @db.Date
-  toDate             DateTime? @db.Date
-  amountInWords           String?   @db.VarChar(255)
-  subContractorInvoicefilePath   String?   @db.VarChar(500)
-  isAuthorizedPrinted      Boolean   @default(false)
-  grossAmount        Decimal?   @db.Decimal(12, 2)
-  
+  fromDate                     DateTime? @db.Date
+  toDate                       DateTime? @db.Date
+  amountInWords                String?   @db.VarChar(255)
+  subContractorInvoicefilePath String?   @db.VarChar(500)
+  isAuthorizedPrinted          Boolean   @default(false)
+  grossAmount                  Decimal?  @db.Decimal(12, 2)
+
   // Deductions specific to Subcontracting
-  retentionAmount    Decimal?   @db.Decimal(12, 2) // Money held for quality/warranty
-  tds                Decimal?   @db.Decimal(12, 2)
-  lwf                Decimal?   @db.Decimal(12, 2)
-  otherDeductions    Decimal?   @db.Decimal(12, 2)
-  
+  retentionAmount Decimal? @db.Decimal(12, 2) // Money held for quality/warranty
+  tds             Decimal? @db.Decimal(12, 2)
+  lwf             Decimal? @db.Decimal(12, 2)
+  otherDeductions Decimal? @db.Decimal(12, 2)
+
   // Net amount you actually have to pay them
-  netPayable         Decimal?  @default(0.00) @db.Decimal(12, 2)
-  
-  status             SubcontractorInvoiceStatus // PENDING, APPROVED, PAID
-  isAuthorized       Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  revision          String  @default("00")
-  
-  createdById      Int
-  updatedById      Int
+  netPayable Decimal? @default(0.00) @db.Decimal(12, 2)
+
+  status       SubcontractorInvoiceStatus // PENDING, APPROVED, PAID
+  isAuthorized Boolean                    @default(false)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  revision     String                     @default("00")
+
+  createdById Int
+  updatedById Int
 
   createdBy User @relation("SubContractorInvoiceCreated", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User @relation("SubContractorInvoiceUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-  
-  authorizedById Int?
-  authorizedBy User? @relation("SubContractorInvoiceAuthorized", fields: [authorizedById], references: [id], onDelete: Restrict)
-  authorizedAt  DateTime? 
+
+  authorizedById              Int?
+  authorizedBy                User?                        @relation("SubContractorInvoiceAuthorized", fields: [authorizedById], references: [id], onDelete: Restrict)
+  authorizedAt                DateTime?
   subContractorInvoiceDetails SubContractorInvoiceDetail[]
+
   @@index([siteId])
   @@index([subcontractorWorkOrderId])
   @@map("sub_contractor_invoices")
 }
 
-
 model SubContractorInvoiceDetail {
-  id                       Int      @id @default(autoincrement())
-  subContractorInvoiceId   Int
-  subContractorInvoice     SubContractorInvoice @relation(fields: [subContractorInvoiceId], references: [id], onDelete: Restrict)
-  
-  // Link to the specific line item in the Work Order
-  subContractorWorkOrderDetailId                Int
-  subContractorWorkOrderDetail  SubContractorWorkOrderDetail @relation(fields: [subContractorWorkOrderDetailId], references: [id], onDelete: Restrict)
+  id                     Int                  @id @default(autoincrement())
+  subContractorInvoiceId Int
+  subContractorInvoice   SubContractorInvoice @relation(fields: [subContractorInvoiceId], references: [id], onDelete: Restrict)
 
-  particulars              String   @db.Text
-  
+  // Link to the specific line item in the Work Order
+  subContractorWorkOrderDetailId Int
+  subContractorWorkOrderDetail   SubContractorWorkOrderDetail @relation(fields: [subContractorWorkOrderDetailId], references: [id], onDelete: Restrict)
+
+  particulars String @db.Text
+
   // Work Progress Tracking
-  workOrderQty             Decimal  @db.Decimal(12, 2) // Total qty allowed in WO
-  currentBillQty           Decimal  @db.Decimal(12, 2) // Qty being billed now
-  rate                     Decimal  @db.Decimal(12, 2)
-  
-  discountPercent          Decimal? @db.Decimal(10, 2)
-  discountAmount         Decimal? @db.Decimal(10, 2)
+  workOrderQty   Decimal @db.Decimal(12, 2) // Total qty allowed in WO
+  currentBillQty Decimal @db.Decimal(12, 2) // Qty being billed now
+  rate           Decimal @db.Decimal(12, 2)
+
+  discountPercent Decimal? @db.Decimal(10, 2)
+  discountAmount  Decimal? @db.Decimal(10, 2)
   // Tax Breakdown (Similar to your Sales Invoice)
-  cgstPercent              Decimal? @db.Decimal(10, 2)
-  sgstpercent              Decimal? @db.Decimal(10, 2)
-  igstPercent              Decimal? @db.Decimal(10, 2)
-  cgstAmt                  Decimal? @db.Decimal(10, 2)
-  sgstAmt                  Decimal? @db.Decimal(10, 2)
-  igstAmt                  Decimal? @db.Decimal(10, 2)
-  
-  totalLineAmount          Decimal  @db.Decimal(12, 2)
+  cgstPercent     Decimal? @db.Decimal(10, 2)
+  sgstpercent     Decimal? @db.Decimal(10, 2)
+  igstPercent     Decimal? @db.Decimal(10, 2)
+  cgstAmt         Decimal? @db.Decimal(10, 2)
+  sgstAmt         Decimal? @db.Decimal(10, 2)
+  igstAmt         Decimal? @db.Decimal(10, 2)
+
+  totalLineAmount Decimal @db.Decimal(12, 2)
 
   @@map("subcontractor_invoice_details")
 }
@@ -3539,77 +3493,72 @@ enum SubContractorLogTypes {
   AUTHORIZE
 }
 
-
 model SubContractorInvoiceLog {
-  id                 Int       @id @default(autoincrement())
-  subContractorInvoiceId  Int
-  siteId             Int
-  
+  id                     Int @id @default(autoincrement())
+  subContractorInvoiceId Int
+  siteId                 Int
+
   // Link to the specific Work Order you issued to the sub
   subcontractorWorkOrderId Int
-  
-  invoiceNumber      String    // The invoice number provided by the subcontractor
-  invoiceDate        DateTime @db.Date
-  
+
+  invoiceNumber String // The invoice number provided by the subcontractor
+  invoiceDate   DateTime @db.Date
+
   // Period for which they are billing (e.g., Month of Oct)
-  fromDate           DateTime? @db.Date
-  toDate             DateTime? @db.Date
-  logType            SubContractorLogTypes
-  grossAmount        Decimal?   @db.Decimal(12, 2)
-   amountInWords           String?   @db.VarChar(255)
-  subContractorInvoicefilePath   String?   @db.VarChar(500)
-  isAuthorizedPrinted      Boolean   @default(false)
+  fromDate                     DateTime?             @db.Date
+  toDate                       DateTime?             @db.Date
+  logType                      SubContractorLogTypes
+  grossAmount                  Decimal?              @db.Decimal(12, 2)
+  amountInWords                String?               @db.VarChar(255)
+  subContractorInvoicefilePath String?               @db.VarChar(500)
+  isAuthorizedPrinted          Boolean               @default(false)
   // Deductions specific to Subcontracting
-  retentionAmount    Decimal?   @db.Decimal(12, 2) // Money held for quality/warranty
-  tds                Decimal?   @db.Decimal(12, 2)
-  lwf                Decimal?   @db.Decimal(12, 2)
-  otherDeductions    Decimal?   @db.Decimal(12, 2)
-  
+  retentionAmount              Decimal?              @db.Decimal(12, 2) // Money held for quality/warranty
+  tds                          Decimal?              @db.Decimal(12, 2)
+  lwf                          Decimal?              @db.Decimal(12, 2)
+  otherDeductions              Decimal?              @db.Decimal(12, 2)
+
   // Net amount you actually have to pay them
-  netPayable         Decimal?  @default(0.00) @db.Decimal(12, 2)
-  
-  status             SubcontractorInvoiceStatus // PENDING, APPROVED, PAID
-  isAuthorized       Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  revision          String  @default("00")
-  
-  createdById      Int
-  createdByName   String
-    
- 
+  netPayable Decimal? @default(0.00) @db.Decimal(12, 2)
+
+  status       SubcontractorInvoiceStatus // PENDING, APPROVED, PAID
+  isAuthorized Boolean                    @default(false)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  revision     String                     @default("00")
+
+  createdById   Int
+  createdByName String
+
   @@map("sub_contractor_invoice_logs")
 }
 
-
 model SubContractorInvoiceDetailLog {
-  id                       Int      @id @default(autoincrement())
-  subContractorInvoiceLogId   Int
-  subContractorWorkOrderDetailId         Int
-  subContractorInvoiceDetailId           Int
-  particulars              String   @db.Text
-  
+  id                             Int    @id @default(autoincrement())
+  subContractorInvoiceLogId      Int
+  subContractorWorkOrderDetailId Int
+  subContractorInvoiceDetailId   Int
+  particulars                    String @db.Text
+
   // Work Progress Tracking
-  workOrderQty             Decimal  @db.Decimal(12, 2) // Total qty allowed in WO
-  currentBillQty           Decimal  @db.Decimal(12, 2) // Qty being billed now
-  rate                     Decimal  @db.Decimal(12, 2)
-  
-  discountPercent          Decimal? @db.Decimal(10, 2)
-  discountAmount         Decimal? @db.Decimal(10, 2)
+  workOrderQty   Decimal @db.Decimal(12, 2) // Total qty allowed in WO
+  currentBillQty Decimal @db.Decimal(12, 2) // Qty being billed now
+  rate           Decimal @db.Decimal(12, 2)
+
+  discountPercent Decimal? @db.Decimal(10, 2)
+  discountAmount  Decimal? @db.Decimal(10, 2)
   // Tax Breakdown (Similar to your Sales Invoice)
-  cgstPercent              Decimal? @db.Decimal(10, 2)
-  sgstpercent              Decimal? @db.Decimal(10, 2)
-  igstPercent              Decimal? @db.Decimal(10, 2)
-  cgstAmt                  Decimal? @db.Decimal(10, 2)
-  sgstAmt                  Decimal? @db.Decimal(10, 2)
-  igstAmt                  Decimal? @db.Decimal(10, 2)
-  
-  totalLineAmount          Decimal  @db.Decimal(12, 2)
+  cgstPercent     Decimal? @db.Decimal(10, 2)
+  sgstpercent     Decimal? @db.Decimal(10, 2)
+  igstPercent     Decimal? @db.Decimal(10, 2)
+  cgstAmt         Decimal? @db.Decimal(10, 2)
+  sgstAmt         Decimal? @db.Decimal(10, 2)
+  igstAmt         Decimal? @db.Decimal(10, 2)
+
+  totalLineAmount Decimal @db.Decimal(12, 2)
 
   @@map("subcontractor_invoice_detail_logs")
 }
-
-
 
 enum moduleName {
   PurchaseOrder
@@ -3646,30 +3595,66 @@ model AuditLog {
 }
 
 model ManpowerFoodCharges {
-  id          Int     @id @default(autoincrement())
-  monthYear   String  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById Int
-  updatedById Int
-  createdBy   User    @relation("ManpowerFoodChargesCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy   User    @relation("ManpowerFoodChargesUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
-  CreatedByName String
-  UpdatedByName String
+  id                         Int                         @id @default(autoincrement())
+  monthYear                  String                      @unique
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  createdById                Int
+  updatedById                Int
+  createdBy                  User                        @relation("ManpowerFoodChargesCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy                  User                        @relation("ManpowerFoodChargesUpdated", fields: [updatedById], references: [id], onDelete: Restrict)
+  CreatedByName              String
+  UpdatedByName              String
   manpowerFoodChargesDetails ManpowerFoodChargesDetail[]
+
   @@map("manpower_food_charges")
 }
 
 model ManpowerFoodChargesDetail {
-  id      Int     @id @default(autoincrement())
-  manpowerFoodChargesId   Int
-  manpowerFoodCharges     ManpowerFoodCharges @relation(fields: [manpowerFoodChargesId], references: [id], onDelete: Restrict)
-  manpowerId Int
-  manpower Manpower @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
-  foodCharges1 Decimal? @db.Decimal(12, 2)
-  foodCharges2 Decimal? @db.Decimal(12, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    Int                 @id @default(autoincrement())
+  manpowerFoodChargesId Int
+  manpowerFoodCharges   ManpowerFoodCharges @relation(fields: [manpowerFoodChargesId], references: [id], onDelete: Restrict)
+  manpowerId            Int
+  manpower              Manpower            @relation(fields: [manpowerId], references: [id], onDelete: Restrict)
+  foodCharges1          Decimal?            @db.Decimal(12, 2)
+  foodCharges2          Decimal?            @db.Decimal(12, 2)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   @@map("manpower_food_charges_detail")
+}
+
+model OutwardDeliveryChallanIndent {
+  id                       Int @id @default(autoincrement())
+  indentId                 Int
+  outwardDeliveryChallanId Int
+
+  outwardDeliveryChallan OutwardDeliveryChallan @relation(fields: [outwardDeliveryChallanId], references: [id], onDelete: Restrict)
+  indent                 Indent                 @relation(fields: [indentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([outwardDeliveryChallanId, indentId])
+  @@index([indentId])
+  @@index([outwardDeliveryChallanId])
+  @@map("outward_delivery_challan_indents")
+}
+
+model IndentItemODC {
+  id                             Int     @id @default(autoincrement())
+  indentItemId                   Int
+  outwardDeliveryChallanDetailId Int
+  transferQty                    Decimal @db.Decimal(12, 2)
+
+  indentItem                   IndentItem                   @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
+  outwardDeliveryChallanDetail OutwardDeliveryChallanDetail @relation(fields: [outwardDeliveryChallanDetailId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([indentItemId, outwardDeliveryChallanDetailId])
+  @@index([indentItemId])
+  @@index([outwardDeliveryChallanDetailId])
+  @@map("indent_item_odcs")
 }

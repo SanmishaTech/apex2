@@ -62,6 +62,7 @@ const createSchema = z.object({
   }),
   fromSiteId: z.number().int().positive("From Site is required"),
   toSiteId: z.number().int().positive("To Site is required"),
+  indentId: z.number().int().positive().optional(),
   outwardDeliveryChallanDetails: z
     .array(
       z.object({
@@ -266,6 +267,9 @@ export async function POST(req: NextRequest) {
         toSiteId: form.get("toSiteId")
           ? Number(form.get("toSiteId"))
           : undefined,
+        indentId: form.get("indentId")
+          ? Number(form.get("indentId"))
+          : undefined,
         createdById: form.get("createdById")
           ? Number(form.get("createdById"))
           : undefined,
@@ -363,6 +367,7 @@ export async function POST(req: NextRequest) {
         challanDate,
         fromSiteId,
         toSiteId,
+        indentId,
       } = rest as any;
 
       const finalOutwardNo =
@@ -451,6 +456,19 @@ export async function POST(req: NextRequest) {
           unitRateByItemId.set(Number(si.itemId), Number((si as any).unitRate || 0))
         );
 
+        let indentItemsByItemId = new Map<number, any>();
+        if (indentId) {
+          const iItems = await tx.indentItem.findMany({ where: { indentId: Number(indentId) } });
+          indentItemsByItemId = new Map(iItems.map((it) => [Number(it.itemId), it]));
+          
+          await tx.outwardDeliveryChallanIndent.create({
+            data: {
+              outwardDeliveryChallanId: createdMain.id,
+              indentId: Number(indentId),
+            },
+          });
+        }
+
         for (const d of outwardDeliveryChallanDetails as any[]) {
           const itemId = Number(d.itemId);
           const isExpiry = isExpiryByItemId.get(itemId) ?? false;
@@ -503,6 +521,19 @@ export async function POST(req: NextRequest) {
             },
             select: { id: true },
           });
+
+          if (indentId) {
+            const indentItem = indentItemsByItemId.get(itemId);
+            if (indentItem) {
+              await tx.indentItemODC.create({
+                data: {
+                  indentItemId: indentItem.id,
+                  outwardDeliveryChallanDetailId: createdDetail.id,
+                  transferQty: totalQty as any,
+                },
+              });
+            }
+          }
 
           if (cleanedBatches.length > 0) {
             // Load from-site batch unit rates / closing qty to validate expiry and compute amount

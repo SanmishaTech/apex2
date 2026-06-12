@@ -79,6 +79,20 @@ export async function GET(
               },
               orderBy: { id: "asc" },
             },
+            indentItemODCs: {
+              select: {
+                indentItem: {
+                  select: {
+                    approved2Qty: true,
+                    indentItemPOs: {
+                      where: { purchaseOrderDetail: { purchaseOrder: { isSuspended: false, approvalStatus: { not: "SUSPENDED" } } } },
+                      select: { orderedQty: true },
+                    },
+                    indentItemODCs: { select: { transferQty: true, outwardDeliveryChallanDetailId: true } }
+                  }
+                }
+              }
+            }
           },
           orderBy: { id: "asc" },
         },
@@ -380,6 +394,11 @@ export async function PATCH(
             where: { id: row.id },
             data: { approved1Qty: val, qty: val, rate: nextRate as any, amount: nextAmount as any },
           });
+
+          await tx.indentItemODC.updateMany({
+            where: { outwardDeliveryChallanDetailId: row.id },
+            data: { transferQty: val as any },
+          });
         }
         // Update SiteItem logs at fromSite for existing records
         const approveItemIds = (
@@ -637,6 +656,11 @@ export async function PATCH(
           await tx.outwardDeliveryChallanDetail.update({
             where: { id: row.id },
             data: { receivedQty: val, qty: val, rate: nextRate as any, amount: nextAmount as any },
+          });
+
+          await tx.indentItemODC.updateMany({
+            where: { outwardDeliveryChallanDetailId: row.id },
+            data: { transferQty: val as any },
           });
         }
 

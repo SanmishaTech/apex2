@@ -14,7 +14,7 @@ import { AppSelect } from "@/components/common/app-select";
 import useSWR from "swr";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Upload, FileText, Trash2, Plus } from "lucide-react";
 
 export interface OutwardDeliveryChallanFormProps {
@@ -196,7 +196,8 @@ function BatchRows({
 
 function toSubmitPayload(
   data: RawFormValues,
-  docs: Array<{ documentName: string; documentUrl: string | File | null }>
+  docs: Array<{ documentName: string; documentUrl: string | File | null }>,
+  indentId?: number
 ) {
   const sumBatches = (
     batches:
@@ -252,6 +253,7 @@ function toSubmitPayload(
     challanDate: data.challanDate || null,
     fromSiteId: data.fromSiteId ? parseInt(data.fromSiteId) : undefined,
     toSiteId: data.toSiteId ? parseInt(data.toSiteId) : undefined,
+    indentId: indentId,
     outwardDeliveryChallanDetails: details,
     outwardDeliveryChallanDocuments: docs.map((doc, index) => ({
       documentName: doc.documentName || "",
@@ -268,6 +270,29 @@ export default function OutwardDeliveryChallanForm({
   redirectOnSuccess = "/outward-delivery-challans",
 }: OutwardDeliveryChallanFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const indentIdParam = searchParams.get("indentId");
+  const indentIdNum = indentIdParam ? parseInt(indentIdParam, 10) : undefined;
+  
+  const { data: indentResp } = useSWR<any>(
+    indentIdNum ? `/api/indents/${indentIdNum}` : null,
+    apiGet
+  );
+
+  const indentItemsMap = useMemo(() => {
+    const map = new Map<number, number>();
+    if (indentResp?.indentItems) {
+      indentResp.indentItems.forEach((it: any) => {
+        const orderedQty = it.indentItemPOs?.reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0) || 0;
+        const transferQty = it.indentItemODCs?.reduce((acc: number, odc: any) => acc + Number(odc.transferQty || 0), 0) || 0;
+        const approvedQty = Number(it.approved2Qty || 0);
+        const remaining = Math.max(0, approvedQty - orderedQty - transferQty);
+        map.set(Number(it.itemId), remaining);
+      });
+    }
+    return map;
+  }, [indentResp]);
+
   const [submitting, setSubmitting] = useState(false);
   const [documents, setDocuments] = useState<
     Array<{
@@ -291,6 +316,13 @@ export default function OutwardDeliveryChallanForm({
       items: [],
     },
   });
+
+  // Pre-fill toSiteId from indent if available
+  useEffect(() => {
+    if (indentResp?.siteId) {
+      form.setValue("toSiteId", String(indentResp.siteId));
+    }
+  }, [indentResp?.siteId, form]);
 
   const { control, handleSubmit } = form;
   const {
@@ -392,7 +424,7 @@ export default function OutwardDeliveryChallanForm({
       .filter((v: any) => Number.isFinite(v) && v > 0)
       .sort((a: number, b: number) => a - b);
     return ids.join(",");
-  }, [siteItemRows]);
+  }, [siteItemRows, indentItemsMap, indentIdNum]);
 
   // When fromSite is selected, auto-build rows from siteItems
   useEffect(() => {
@@ -413,6 +445,7 @@ export default function OutwardDeliveryChallanForm({
     if (currentKey === siteItemIdsKey) return;
 
     const next = siteItemRows
+      .filter((si: any) => !indentIdNum || indentItemsMap.has(Number(si.itemId)))
       .map((si: any) => ({
         itemId: String(si.itemId),
         challanQty: "",
@@ -420,7 +453,7 @@ export default function OutwardDeliveryChallanForm({
       }))
       .sort((a: any, b: any) => Number(a.itemId) - Number(b.itemId));
     replace(next as any);
-  }, [fromSiteIdNum, replace, siteItemRows, siteItemIdsKey, form]);
+  }, [fromSiteIdNum, replace, siteItemRows, siteItemIdsKey, form, indentIdNum, indentItemsMap]);
 
   async function onSubmit(data: RawFormValues) {
     setSubmitting(true);
@@ -458,6 +491,15 @@ export default function OutwardDeliveryChallanForm({
           form.setError(`items.${index}.challanQty` as any, {
             type: "manual",
             message: `Cannot exceed closing (${closing})`,
+          });
+        }
+        
+        const indentQty = indentIdNum ? (indentItemsMap.get(itemId) ?? Infinity) : Infinity;
+        if (indentIdNum && qty > indentQty) {
+          errs.push(`Row ${index + 1}: Qty cannot exceed remaining indent qty (${indentQty})`);
+          form.setError(`items.${index}.challanQty` as any, {
+            type: "manual",
+            message: `Cannot exceed indent qty (${indentQty})`,
           });
         }
         if (isExpiry) {
@@ -523,7 +565,7 @@ export default function OutwardDeliveryChallanForm({
       const hasDocFiles = documents.some((d) => d.documentUrl instanceof File);
       if (hasDocFiles) {
         const formDataPayload = new FormData();
-        const payload = toSubmitPayload(data, documents);
+        const payload = toSubmitPayload(data, documents, indentIdNum);
 
         Object.entries(payload).forEach(([key, val]) => {
           if (
@@ -573,7 +615,7 @@ export default function OutwardDeliveryChallanForm({
         }
         await response.json();
       } else {
-        const payload = toSubmitPayload(data, documents);
+        const payload = toSubmitPayload(data, documents, indentIdNum);
 
         await apiPost("/api/outward-delivery-challans", payload);
       }
@@ -642,6 +684,7 @@ export default function OutwardDeliveryChallanForm({
                   label="To Site *"
                   options={allSiteOptions}
                   placeholder="Select site"
+                  disabled={!!indentIdNum}
                   required
                 />
               </FormRow>
@@ -657,9 +700,10 @@ export default function OutwardDeliveryChallanForm({
               <div className="flex flex-col gap-2 rounded-xl border bg-background p-4 shadow-sm">
                 <div className="grid grid-cols-12 gap-3 text-sm font-medium text-muted-foreground">
                   <div className="col-span-1">Sr No</div>
-                  <div className="col-span-5">Item</div>
-                  <div className="col-span-2">Unit</div>
+                  <div className="col-span-4">Item</div>
+                  <div className="col-span-1">Unit</div>
                   <div className="col-span-2">Closing Qty</div>
+                  {!!indentIdNum && <div className="col-span-1">Indent Qty</div>}
                   <div className="col-span-2">Challan Qty</div>
                   <div className="col-span-0"></div>
                 </div>
@@ -676,6 +720,9 @@ export default function OutwardDeliveryChallanForm({
                   const closing = Number.isFinite(itemIdNum)
                     ? closingByItem.get(itemIdNum) ?? 0
                     : 0;
+                  const indentQty = Number.isFinite(itemIdNum) && indentItemsMap.has(itemIdNum)
+                    ? indentItemsMap.get(itemIdNum)
+                    : 0;
                   const isExpiry = Boolean(siteRow?.item?.isExpiryDate);
                   return (
                     <div
@@ -684,9 +731,10 @@ export default function OutwardDeliveryChallanForm({
                     >
                       <div className="grid grid-cols-12 gap-3 items-center">
                         <div className="col-span-1">{index + 1}</div>
-                        <div className="col-span-5 text-sm">{itemLabel}</div>
-                        <div className="col-span-2 text-sm">{unitName || "—"}</div>
+                        <div className="col-span-4 text-sm">{itemLabel}</div>
+                        <div className="col-span-1 text-sm">{unitName || "—"}</div>
                         <div className="col-span-2 text-sm">{closing}</div>
+                        {!!indentIdNum && <div className="col-span-1 text-sm">{indentQty}</div>}
                         <div className="col-span-2">
                           {isExpiry ? (
                             <ExpiryChallanQtyDisplay control={control} index={index} />
