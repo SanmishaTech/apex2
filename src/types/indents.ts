@@ -19,6 +19,13 @@ export interface IndentItem {
     id: number;
     orderedQty: number;
     purchaseOrderDetailId: number;
+    purchaseOrderDetail?: {
+      qty: number;
+    };
+  }>;
+  indentItemODCs?: Array<{
+    id: number;
+    transferQty: number;
   }>;
 }
 
@@ -50,6 +57,7 @@ export interface Indent {
     | "COMPLETED"
     | "SUSPENDED";
   suspended?: boolean;
+  isTransfer?: boolean;
   remarks?: string;
   createdAt: string;
   updatedAt: string;

@@ -99,6 +99,39 @@ export default function AcceptOutwardDeliveryChallanPage() {
     return map;
   }, [siteItemsResp?.data]);
 
+  // Remaining Indent Qty by detail ID
+  const indentStatsByDetailId = useMemo(() => {
+    const map = new Map<number, { limit: number; remaining: number }>();
+    (challan?.outwardDeliveryChallanDetails || []).forEach((d: any) => {
+      if (Array.isArray(d.indentItemODCs) && d.indentItemODCs.length > 0) {
+        let maxRemains = Infinity;
+        let trueRemaining = Infinity;
+        for (const link of d.indentItemODCs) {
+          const ii = link.indentItem;
+          if (ii) {
+            const cap = Number(ii.approved2Qty || 0);
+            const ordered = Array.isArray(ii.indentItemPOs) ? ii.indentItemPOs.reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0) : 0;
+            const transferredLimit = Array.isArray(ii.indentItemODCs) ? ii.indentItemODCs.reduce((acc: number, odc: any) => {
+              if (odc.outwardDeliveryChallanDetailId === d.id) return acc;
+              return acc + Number(odc.transferQty || 0);
+            }, 0) : 0;
+            const transferredAll = Array.isArray(ii.indentItemODCs) ? ii.indentItemODCs.reduce((acc: number, odc: any) => {
+              return acc + Number(odc.transferQty || 0);
+            }, 0) : 0;
+            const limit = Math.max(0, cap - ordered - transferredLimit);
+            const rem = Math.max(0, cap - ordered - transferredAll);
+            maxRemains = Math.min(maxRemains, limit);
+            trueRemaining = Math.min(trueRemaining, rem);
+          }
+        }
+        if (maxRemains !== Infinity) {
+          map.set(d.id, { limit: maxRemains, remaining: trueRemaining });
+        }
+      }
+    });
+    return map;
+  }, [challan?.outwardDeliveryChallanDetails]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -193,9 +226,25 @@ export default function AcceptOutwardDeliveryChallanPage() {
           hadErr = true;
           form.setError(`details.${idx}.receivedQty` as any, { type: "manual", message: `Cannot exceed closing (${closing})` });
         }
+        
+        const approvedMax = Number(detail?.approved1Qty ?? detail?.challanQty ?? 0);
+        if (receivedQty > approvedMax) {
+          hadErr = true;
+          form.setError(`details.${idx}.receivedQty` as any, { type: "manual", message: `Cannot exceed approved (${approvedMax})` });
+        }
+
+        const stats = indentStatsByDetailId.get(d.id);
+        const indentLimit = stats?.limit;
+        if (indentLimit !== undefined && receivedQty > indentLimit) {
+          hadErr = true;
+          form.setError(`details.${idx}.receivedQty` as any, {
+            type: "manual",
+            message: `Cannot exceed indent limit (${indentLimit})`,
+          });
+        }
       });
       if (hadErr) {
-        toast.error("Received qty cannot exceed closing stock");
+        toast.error("Received qty cannot exceed closing stock, approved qty, or indent qty");
         setSubmitting(false);
         return;
       }
@@ -295,7 +344,8 @@ export default function AcceptOutwardDeliveryChallanPage() {
                   <div className="rounded-md border">
                     <div className="grid grid-cols-12 gap-3 p-3 text-xs font-medium bg-muted/50">
                       <div className="col-span-3">Item</div>
-                      <div className="col-span-2">Unit</div>
+                      <div className="col-span-1">Unit</div>
+                      <div className="col-span-1">Indent Rem. Qty</div>
                       <div className="col-span-2">Challan Qty</div>
                       <div className="col-span-2">Approved Qty</div>
                       <div className="col-span-1">Closing Qty</div>
@@ -317,10 +367,12 @@ export default function AcceptOutwardDeliveryChallanPage() {
                           )
                           .toFixed(2)
                       );
+                      const stats = indentStatsByDetailId.get(d.id);
                       return (
                         <div key={d.id} className="grid grid-cols-12 gap-3 p-3 border-t text-sm items-center">
                           <div className="col-span-3">{d.item?.itemCode ? `${d.item.itemCode} - ${d.item.item}` : d.item?.item ?? "—"}</div>
-                          <div className="col-span-2">{d.item?.unit?.unitName || "—"}</div>
+                          <div className="col-span-1">{d.item?.unit?.unitName || "—"}</div>
+                          <div className="col-span-1">{stats !== undefined ? stats.remaining : "—"}</div>
                           <div className="col-span-2">{d.challanQty ?? "—"}</div>
                           <div className="col-span-2">{d.approved1Qty ?? "—"}</div>
                           <div className="col-span-1">{closing}</div>

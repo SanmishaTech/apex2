@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
               },
             },
             indentItemPOs: {
+              where: {
+                purchaseOrderDetail: { purchaseOrder: { isSuspended: false, approvalStatus: { not: "SUSPENDED" } } },
+              },
               select: {
                 id: true,
                 orderedQty: true,

@@ -634,10 +634,13 @@ export function PurchaseOrderForm({
       const remainingByIndentItemId = new Map<number, number>();
       for (const it of fifoIndentItems) {
         const cap = toNum(it?.approved2Qty);
-        const already = Array.isArray(it?.indentItemPOs)
+        const alreadyOrdered = Array.isArray(it?.indentItemPOs)
           ? it.indentItemPOs.reduce((s: number, x: any) => s + toNum(x?.orderedQty), 0)
           : 0;
-        const remaining = Math.max(0, cap - already);
+        const alreadyTransferred = Array.isArray(it?.indentItemODCs)
+          ? it.indentItemODCs.reduce((s: number, x: any) => s + toNum(x?.transferQty), 0)
+          : 0;
+        const remaining = Math.max(0, cap - alreadyOrdered - alreadyTransferred);
         remainingByIndentItemId.set(Number(it.id), remaining);
       }
 

@@ -41,6 +41,23 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateForInput } from "@/lib/locales";
 
+function isItemCompleted(item: any) {
+  const orderedQty = item?.indentItemPOs
+    ? item.indentItemPOs.reduce(
+        (s: number, x: any) => s + Number(x?.orderedQty || 0),
+        0
+      )
+    : 0;
+  const transferQty = item?.indentItemODCs
+    ? item.indentItemODCs.reduce(
+        (s: number, x: any) => s + Number(x?.transferQty || 0),
+        0
+      )
+    : 0;
+  const cap = Number(item?.approved2Qty || 0);
+  return cap > 0 && (orderedQty + transferQty) >= cap;
+}
+
 export default function IndentsPage() {
   const searchParams = useSearchParams();
   const { pushWithScrollSave } = useScrollRestoration("indents-list");
@@ -87,6 +104,10 @@ export default function IndentsPage() {
                     <th className="px-3 py-2 text-right">Indent Qty</th>
                     <th className="px-3 py-2 text-right">Approved 1</th>
                     <th className="px-3 py-2 text-right">Approved 2</th>
+                    <th className="px-3 py-2 text-right">PO Qty</th>
+                    <th className="px-3 py-2 text-right">Extra PO Qty</th>
+                    <th className="px-3 py-2 text-right">Transfer Qty</th>
+                    <th className="px-3 py-2 text-right">Remaining Qty</th>
                     <th className="px-3 py-2 text-left">Remark</th>
                   </tr>
                 </thead>
@@ -119,7 +140,38 @@ export default function IndentsPage() {
                           {Number(it.approved1Qty || 0).toFixed(4)}
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
-                          {Number(it.approved2Qty || 0).toFixed(4)}
+                          {it.approved2Qty != null ? Number(it.approved2Qty).toFixed(4) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {(() => {
+                            const poQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0);
+                            return poQty > 0 ? poQty.toFixed(4) : "—";
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-rose-600 dark:text-rose-400">
+                          {(() => {
+                            const extraQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => {
+                              const poTotal = Number(po.purchaseOrderDetail?.qty || 0);
+                              const allocated = Number(po.orderedQty || 0);
+                              return acc + Math.max(0, poTotal - allocated);
+                            }, 0);
+                            return extraQty > 0 ? extraQty.toFixed(4) : "—";
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {(() => {
+                            const transferQty = (it.indentItemODCs || []).reduce((acc: number, odc: any) => acc + Number(odc.transferQty || 0), 0);
+                            return transferQty > 0 ? transferQty.toFixed(4) : "—";
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {(() => {
+                            const cap = Number(it.approved2Qty || 0);
+                            const poQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0);
+                            const transferQty = (it.indentItemODCs || []).reduce((acc: number, odc: any) => acc + Number(odc.transferQty || 0), 0);
+                            const rem = Math.max(0, cap - poQty - transferQty);
+                            return it.approved2Qty != null ? rem.toFixed(4) : "—";
+                          })()}
                         </td>
                         <td className="px-3 py-2">{it.remark || "—"}</td>
                       </tr>
@@ -438,16 +490,7 @@ export default function IndentsPage() {
     return visibleRows
       .filter((indent) => {
         const items = indent.indentItems ?? [];
-        const completedCount = items.filter((item) => {
-          const orderedQty = (item as any)?.indentItemPOs
-            ? (item as any).indentItemPOs.reduce(
-                (s: number, x: any) => s + Number(x?.orderedQty || 0),
-                0
-              )
-            : 0;
-          const cap = Number((item as any)?.approved2Qty || 0);
-          return cap > 0 && orderedQty >= cap;
-        }).length;
+        const completedCount = items.filter(isItemCompleted).length;
         const allItemsCompleted =
           items.length > 0 && completedCount === items.length;
         return (
@@ -608,16 +651,7 @@ export default function IndentsPage() {
       accessor: (r) => {
         const items = r.indentItems ?? [];
         const total = items.length;
-        const completed = items.reduce((count, item) => {
-          const orderedQty = (item as any)?.indentItemPOs
-            ? (item as any).indentItemPOs.reduce(
-                (s: number, x: any) => s + Number(x?.orderedQty || 0),
-                0
-              )
-            : 0;
-          const cap = Number((item as any)?.approved2Qty || 0);
-          return cap > 0 && orderedQty >= cap ? count + 1 : count;
-        }, 0);
+        const completed = items.filter(isItemCompleted).length;
         return `${completed}/${total}`;
       },
     },
@@ -686,6 +720,7 @@ export default function IndentsPage() {
   const [confirmCompleteId, setConfirmCompleteId] = useState<number | null>(
     null
   );
+  const [isTransferDraft, setIsTransferDraft] = useState(false);
 
   // Load target indent when dialog opens
   const { data: approvalIndent, isLoading: approvalLoading } = useSWR<Indent>(
@@ -758,6 +793,9 @@ export default function IndentsPage() {
     setApprovalIndentId(id);
     setApprovalAction(action);
     setApprovalOpen(true);
+    if (action === "approve2") {
+      setIsTransferDraft(false); // Reset to false by default, or could use approvalIndent?.isTransfer if already set
+    }
   }
 
   const handleSuspendConfirm = useCallback(async () => {
@@ -896,6 +934,7 @@ export default function IndentsPage() {
             }) || []
           : undefined,
         statusAction: approvalAction,
+        ...(approvalAction === "approve2" ? { isTransfer: isTransferDraft } : {}),
       };
 
       await apiPatch(`/api/indents/${approvalIndentId}`, payload);
@@ -1111,21 +1150,7 @@ export default function IndentsPage() {
                             ) : null}
                             {(() => {
                               const items = indent.indentItems ?? [];
-                              const completedCount = items.filter(
-                                (item) => {
-                                  const orderedQty = (item as any)?.indentItemPOs
-                                    ? (item as any).indentItemPOs.reduce(
-                                        (s: number, x: any) =>
-                                          s + Number(x?.orderedQty || 0),
-                                        0
-                                      )
-                                    : 0;
-                                  const cap = Number(
-                                    (item as any)?.approved2Qty || 0
-                                  );
-                                  return cap > 0 && orderedQty >= cap;
-                                }
-                              ).length;
+                              const completedCount = items.filter(isItemCompleted).length;
                               const allItemsCompleted =
                                 items.length > 0 &&
                                 completedCount === items.length;
@@ -1154,6 +1179,30 @@ export default function IndentsPage() {
                             })()}
 
                             {(() => {
+                              const items = indent.indentItems ?? [];
+                              const completedCount = items.filter(isItemCompleted).length;
+                              const allItemsCompleted =
+                                items.length > 0 &&
+                                completedCount === items.length;
+
+                              const showTransfer =
+                                can(PERMISSIONS.TRANSFER_INDENTS) &&
+                                indent.approvalStatus === "APPROVED_LEVEL_2" &&
+                                indent.isTransfer &&
+                                !indent.suspended &&
+                                !allItemsCompleted;
+                              return showTransfer ? (
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    pushWithScrollSave(`/outward-delivery-challans/new?indentId=${indent.id}`)
+                                  }
+                                >
+                                  Transfer
+                                </DropdownMenuItem>
+                              ) : null;
+                            })()}
+
+                            {(() => {
                               const actions = getAvailableActions(
                                 indent.approvalStatus,
                                 indent.suspended,
@@ -1161,17 +1210,7 @@ export default function IndentsPage() {
                                 (indent as any).approved1ById === user?.id
                               );
                               const items = indent.indentItems ?? [];
-                              const completedCount = items.filter((item) => {
-                                const orderedQty = (item as any)?.indentItemPOs
-                                  ? (item as any).indentItemPOs.reduce(
-                                      (s: number, x: any) =>
-                                        s + Number(x?.orderedQty || 0),
-                                      0
-                                    )
-                                  : 0;
-                                const cap = Number((item as any)?.approved2Qty || 0);
-                                return cap > 0 && orderedQty >= cap;
-                              }).length;
+                              const completedCount = items.filter(isItemCompleted).length;
                               const allItemsCompleted =
                                 items.length > 0 &&
                                 completedCount === items.length;
@@ -1335,17 +1374,33 @@ export default function IndentsPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <AppButton
-              variant="secondary"
-              onClick={() => setApprovalOpen(false)}
-            >
-              Cancel
-            </AppButton>
-            <AppButton
-              onClick={handleApproveConfirm}
-              disabled={approvalLoading || !approvalIndent}
-            >
+          <DialogFooter className="sm:justify-between items-center w-full">
+            {approvalAction === "approve2" && can(PERMISSIONS.TRANSFER_INDENTS) ? (
+              <div className="flex items-center space-x-2 mr-auto">
+                <Checkbox
+                  id="isTransfer"
+                  checked={isTransferDraft}
+                  onCheckedChange={(checked) => setIsTransferDraft(!!checked)}
+                />
+                <label
+                  htmlFor="isTransfer"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Mark for Transfer
+                </label>
+              </div>
+            ) : <div />}
+            <div className="flex items-center space-x-2 ml-auto">
+              <AppButton
+                variant="secondary"
+                onClick={() => setApprovalOpen(false)}
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                onClick={handleApproveConfirm}
+                disabled={approvalLoading || !approvalIndent}
+              >
               {approvalAction === "approve1"
                 ? "Approve 1"
                 : approvalAction === "approve2"
@@ -1354,6 +1409,7 @@ export default function IndentsPage() {
                 ? "Complete"
                 : "Suspend"}
             </AppButton>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

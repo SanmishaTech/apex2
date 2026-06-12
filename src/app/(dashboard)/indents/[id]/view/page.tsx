@@ -207,6 +207,18 @@ export default function IndentViewPage() {
                     <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
                       Approved 2
                     </th>
+                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      PO Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Extra PO Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Transfer Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-medium border-r dark:border-gray-700 dark:text-gray-200">
+                      Remaining Qty
+                    </th>
                     <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-200">
                       Remark
                     </th>
@@ -230,19 +242,50 @@ export default function IndentViewPage() {
                         {it.item?.unit?.unitName || "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                        {typeof it.indentQty === "number"
-                          ? it.indentQty.toFixed(4)
-                          : it.indentQty ?? "—"}
+                        {it.indentQty != null
+                          ? Number(it.indentQty).toFixed(4)
+                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                        {typeof it.approved1Qty === "number"
-                          ? it.approved1Qty.toFixed(4)
-                          : it.approved1Qty ?? "—"}
+                        {it.approved1Qty != null
+                          ? Number(it.approved1Qty).toFixed(4)
+                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
-                        {typeof it.approved2Qty === "number"
-                          ? it.approved2Qty.toFixed(4)
-                          : it.approved2Qty ?? "—"}
+                        {it.approved2Qty != null
+                          ? Number(it.approved2Qty).toFixed(4)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
+                        {(() => {
+                          const poQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0);
+                          return poQty > 0 ? poQty.toFixed(4) : "—";
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200 text-rose-600 dark:text-rose-400">
+                        {(() => {
+                          const extraQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => {
+                            const poTotal = Number(po.purchaseOrderDetail?.qty || 0);
+                            const allocated = Number(po.orderedQty || 0);
+                            return acc + Math.max(0, poTotal - allocated);
+                          }, 0);
+                          return extraQty > 0 ? extraQty.toFixed(4) : "—";
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
+                        {(() => {
+                          const transferQty = (it.indentItemODCs || []).reduce((acc: number, odc: any) => acc + Number(odc.transferQty || 0), 0);
+                          return transferQty > 0 ? transferQty.toFixed(4) : "—";
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono border-r dark:border-gray-700 dark:text-gray-200">
+                        {(() => {
+                          const cap = Number(it.approved2Qty || 0);
+                          const poQty = (it.indentItemPOs || []).reduce((acc: number, po: any) => acc + Number(po.orderedQty || 0), 0);
+                          const transferQty = (it.indentItemODCs || []).reduce((acc: number, odc: any) => acc + Number(odc.transferQty || 0), 0);
+                          const rem = Math.max(0, cap - poQty - transferQty);
+                          return it.approved2Qty != null ? rem.toFixed(4) : "—";
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {it.remark?.trim() ? it.remark : "—"}

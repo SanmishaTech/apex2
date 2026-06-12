@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
         deliveryDate: true,
         siteId: true,
         priority: true,
+        isTransfer: true,
         createdById: true,
         approved1ById: true,
         approved2ById: true,
@@ -176,10 +177,29 @@ export async function GET(req: NextRequest) {
             approved2Qty: true,
             remark: true,
             indentItemPOs: {
+              where: {
+                purchaseOrderDetail: {
+                  purchaseOrder: {
+                    isSuspended: false,
+                    approvalStatus: { not: "SUSPENDED" },
+                  },
+                },
+              },
               select: {
                 id: true,
                 orderedQty: true,
                 purchaseOrderDetailId: true,
+                purchaseOrderDetail: {
+                  select: {
+                    qty: true,
+                  },
+                },
+              },
+            },
+            indentItemODCs: {
+              select: {
+                id: true,
+                transferQty: true,
               },
             },
           },
@@ -235,6 +255,7 @@ export async function POST(req: NextRequest) {
           deliveryDate: true,
           siteId: true,
           priority: true,
+          isTransfer: true,
           approvalStatus: true,
           remarks: true,
           createdAt: true,
@@ -274,6 +295,7 @@ export async function POST(req: NextRequest) {
           deliveryDate: true,
           siteId: true,
           priority: true,
+          isTransfer: true,
           approvalStatus: true,
           remarks: true,
           createdAt: true,
