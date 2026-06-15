@@ -34,7 +34,7 @@ interface AppComboboxProps {
   disabled?: boolean
 }
 
-export function AppCombobox({
+export const AppCombobox = React.memo(function AppCombobox({
   value,
   onValueChange,
   options,
@@ -114,4 +114,4 @@ export function AppCombobox({
       </PopoverContent>
     </Popover>
   )
-}
+})
