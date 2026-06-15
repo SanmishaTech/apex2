@@ -14,8 +14,8 @@ export function useQueryParamsState<T extends QueryShape>(defaults: T) {
 
   const setState = useCallback((patch: Partial<T>, options?: { replace?: boolean }) => {
     const url = buildQuery<T>(pathname, patch, state, defaults, { skipDefaults: true });
-    if (options?.replace) router.replace(url, { scroll: false });
-    else router.push(url, { scroll: false });
+    if (options?.replace) window.history.replaceState(null, '', url);
+    else window.history.pushState(null, '', url);
   }, [pathname, router, state, defaults]);
 
   return [state as T, setState] as const;

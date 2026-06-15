@@ -15,6 +15,7 @@ import { apiGet } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PERMISSIONS } from "@/config/roles";
+import { cn } from "@/lib/utils";
 
 // Helper to fetch image and convert to base64
 async function getImageAsBase64(imageUrl: string | null): Promise<string | null> {
@@ -278,7 +279,11 @@ export default function EmployeeAttendanceReportPage() {
     return `/api/reports/employee-attendance?${params.toString()}`;
   }, [appliedFilters, page, perPage]);
 
-  const { data: reportData, error, isLoading } = useSWR<ReportResponse>(queryUrl, apiGet);
+  const { data: reportData, error, isLoading, isValidating } = useSWR<ReportResponse>(
+    queryUrl,
+    apiGet,
+    { keepPreviousData: true }
+  );
 
   useEffect(() => {
     if (error) {
@@ -681,7 +686,7 @@ export default function EmployeeAttendanceReportPage() {
           )}
 
           {!isLoading && reportData && reportData.data.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-border">
+            <div className={cn("overflow-x-auto rounded-xl border border-border transition-opacity", isValidating ? "opacity-50" : "opacity-100")}>
               <table className="min-w-full border-collapse">
                 <thead className="bg-muted/60 sticky top-0">
                   <tr>
@@ -762,7 +767,7 @@ export default function EmployeeAttendanceReportPage() {
       {reportData && reportData.meta && (
         <AppCard.Footer className="justify-end border-t border-border pt-4 mt-4">
           <Pagination
-            page={reportData.meta.page || page}
+            page={page}
             totalPages={reportData.meta.totalPages || 1}
             total={reportData.meta.total}
             perPage={perPage}
@@ -770,7 +775,7 @@ export default function EmployeeAttendanceReportPage() {
             onPageChange={(p) => setQp({ page: p })}
             showPageNumbers
             maxButtons={5}
-            disabled={isLoading}
+            disabled={isLoading || isValidating}
           />
         </AppCard.Footer>
       )}
